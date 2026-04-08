@@ -10,9 +10,13 @@ import {
   resetIdentityStore,
   updatePrivacySettings,
 } from "@/packages/identity-domain/src";
-import { resetVerificationStore } from "@/packages/verification-domain/src";
+import {
+  resetVerificationStore,
+  transitionVerificationRecord,
+} from "@/packages/verification-domain/src";
 import {
   generateRecruiterTrustProfile,
+  getRecruiterTrustProfileByToken,
   generateShareProfileQr,
   resetRecruiterReadModelStore,
 } from "@/packages/recruiter-read-model/src";
@@ -124,5 +128,72 @@ describe("recruiter read model service", () => {
         correlationId: "corr-2",
       }),
     ).toThrowError(/public share links are disabled/i);
+  });
+
+  it("refreshes recruiter projections when verification state changes", () => {
+    const aggregate = createTalentIdentity({
+      input: {
+        email: "refresh@example.com",
+        firstName: "Refresh",
+        lastName: "View",
+        countryCode: "US",
+      },
+      actorType: "talent_user",
+      actorId: "seed-user",
+      correlationId: "corr-1",
+    });
+
+    updatePrivacySettings({
+      talentIdentityId: aggregate.talentIdentity.id,
+      input: {
+        showEmploymentRecords: true,
+        allowPublicShareLink: true,
+      },
+      actorType: "talent_user",
+      actorId: aggregate.talentIdentity.id,
+      correlationId: "corr-2",
+    });
+
+    const created = createEmploymentClaim({
+      input: {
+        soulRecordId: aggregate.soulRecord.id,
+        employerName: "Orbit Works",
+        roleTitle: "Delivery Lead",
+        startDate: "2022-09-01",
+        currentlyEmployed: false,
+      },
+      actorType: "talent_user",
+      actorId: aggregate.talentIdentity.id,
+      correlationId: "corr-3",
+    });
+
+    const profile = generateRecruiterTrustProfile({
+      input: {
+        talentIdentityId: aggregate.talentIdentity.id,
+      },
+      actorType: "talent_user",
+      actorId: aggregate.talentIdentity.id,
+      correlationId: "corr-4",
+    });
+
+    transitionVerificationRecord({
+      verificationRecordId: created.verificationRecord.id,
+      targetStatus: "REVIEWED",
+      reason: "Updated after review",
+      reviewerActorId: "admin_9",
+      actorType: "reviewer_admin",
+      actorId: "admin_9",
+      correlationId: "corr-5",
+    });
+
+    const refreshed = getRecruiterTrustProfileByToken({
+      token: profile.publicShareToken,
+      actorType: "system_service",
+      actorId: "public_request",
+      correlationId: "corr-6",
+    });
+
+    expect(refreshed.trustSummary.totalReviewedClaims).toBe(1);
+    expect(refreshed.visibleEmploymentRecords[0]?.verificationStatusOptional).toBe("REVIEWED");
   });
 });

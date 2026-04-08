@@ -64,6 +64,7 @@ function toEmploymentView(args: {
 function buildTrustSummary(args: {
   soulRecordId: string;
   claimDetails: ReturnType<typeof listClaimDetails>;
+  trustSummaryIdOptional?: string;
 }): TrustSummary {
   const generatedAt = new Date().toISOString();
   const verificationRecords = args.claimDetails.map((details) => details.verification);
@@ -72,7 +73,7 @@ function buildTrustSummary(args: {
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))[0];
 
   return {
-    id: `trust_${crypto.randomUUID()}`,
+    id: args.trustSummaryIdOptional ?? `trust_${crypto.randomUUID()}`,
     soul_record_id: args.soulRecordId,
     total_claims: args.claimDetails.length,
     total_verified_claims: verificationRecords.filter((record) =>
@@ -92,6 +93,52 @@ function buildTrustSummary(args: {
     endorsement_count: 0,
     last_verified_at_optional: lastVerifiedRecord?.updated_at ?? null,
     generated_at: generatedAt,
+  };
+}
+
+function refreshRecruiterTrustProfileProjection(args: {
+  profile: RecruiterTrustProfile;
+  correlationId: string;
+}) {
+  const aggregate = getTalentIdentity({
+    talentIdentityId: args.profile.talent_identity_id,
+    correlationId: args.correlationId,
+  });
+  const claimDetails = listClaimDetails({
+    correlationId: args.correlationId,
+    soulRecordIdOptional: aggregate.soulRecord.id,
+  });
+  const refreshedProfile: RecruiterTrustProfile = {
+    ...args.profile,
+    trust_summary_json: buildTrustSummary({
+      soulRecordId: aggregate.soulRecord.id,
+      claimDetails,
+      trustSummaryIdOptional: args.profile.trust_summary_json.id,
+    }),
+    visible_employment_records_json: aggregate.privacySettings.show_employment_records
+      ? claimDetails.map((details) =>
+          toEmploymentView({
+            details,
+            showStatusLabels: aggregate.privacySettings.show_status_labels,
+          }),
+        )
+      : [],
+    visible_education_records_json: [],
+    visible_certification_records_json: [],
+    visible_endorsements_json: [],
+    generated_at: new Date().toISOString(),
+  };
+  const store = getRecruiterReadModelStore();
+
+  store.trustSummariesById.set(
+    refreshedProfile.trust_summary_json.id,
+    refreshedProfile.trust_summary_json,
+  );
+  store.profilesById.set(refreshedProfile.id, refreshedProfile);
+
+  return {
+    aggregate,
+    profile: refreshedProfile,
   };
 }
 
@@ -284,8 +331,8 @@ export function getRecruiterTrustProfileByToken(args: {
     });
   }
 
-  const aggregate = getTalentIdentity({
-    talentIdentityId: profile.talent_identity_id,
+  const refreshed = refreshRecruiterTrustProfileProjection({
+    profile,
     correlationId: args.correlationId,
   });
 
@@ -294,17 +341,17 @@ export function getRecruiterTrustProfileByToken(args: {
     actorType: args.actorType,
     actorId: args.actorId,
     targetType: "share_profile",
-    targetId: profile.id,
+    targetId: refreshed.profile.id,
     correlationId: args.correlationId,
     metadataJson: {
-      talent_identity_id: aggregate.talentIdentity.id,
-      public_share_token: profile.public_share_token,
+      talent_identity_id: refreshed.aggregate.talentIdentity.id,
+      public_share_token: refreshed.profile.public_share_token,
     },
   });
 
   return toRecruiterTrustProfileDto({
-    profile,
-    talentIdentity: aggregate.talentIdentity,
+    profile: refreshed.profile,
+    talentIdentity: refreshed.aggregate.talentIdentity,
     baseUrlOptional: args.baseUrlOptional,
   });
 }
