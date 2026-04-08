@@ -62,9 +62,6 @@ export function HeaderAuthControls({
           productionOrigin={productionOrigin}
           productionRedirectUri={productionRedirectUri}
         />
-        <Link className={styles.primaryAction} href="/#footer">
-          Contact sales
-        </Link>
       </div>
     );
   }
