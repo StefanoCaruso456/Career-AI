@@ -145,6 +145,41 @@ export function getClaimDetails(args: {
   };
 }
 
+export function getClaim(args: {
+  claimId: string;
+  correlationId: string;
+}): Claim {
+  const claim = getCredentialStore().claimsById.get(args.claimId);
+
+  if (!claim) {
+    throw new ApiError({
+      errorCode: "NOT_FOUND",
+      status: 404,
+      message: "Claim was not found.",
+      details: { claimId: args.claimId },
+      correlationId: args.correlationId,
+    });
+  }
+
+  return claim;
+}
+
+export function listClaimDetails(args: {
+  correlationId: string;
+  soulRecordIdOptional?: string;
+}): ClaimDetailsDto[] {
+  const claims = [...getCredentialStore().claimsById.values()].filter((claim) =>
+    args.soulRecordIdOptional ? claim.soul_record_id === args.soulRecordIdOptional : true,
+  );
+
+  return claims.map((claim) =>
+    getClaimDetails({
+      claimId: claim.id,
+      correlationId: args.correlationId,
+    }),
+  );
+}
+
 export function attachArtifactToEmploymentClaim(args: {
   claimId: string;
   actorType: ActorType;
