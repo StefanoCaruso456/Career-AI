@@ -49,6 +49,13 @@ Required environment variables:
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 
+The auth flow also accepts Railway-style aliases if you already created them that way:
+
+- `CLIENT_ID` as an alias for `GOOGLE_CLIENT_ID`
+- `CLIENT_SECRET` as an alias for `GOOGLE_CLIENT_SECRET`
+
+If Railway injects `RAILWAY_PUBLIC_DOMAIN`, the app can derive `NEXTAUTH_URL` automatically when it is missing.
+
 Google Cloud OAuth client values for Railway production:
 
 - Authorized JavaScript origin: `https://taidai-production.up.railway.app`

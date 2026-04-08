@@ -5,7 +5,13 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import styles from "./google-sign-in-button.module.css";
 
-export function GoogleSignInButton({ callbackUrl }: { callbackUrl: string }) {
+export function GoogleSignInButton({
+  callbackUrl,
+  label = "Continue with Google",
+}: {
+  callbackUrl: string;
+  label?: string;
+}) {
   const [isPending, setIsPending] = useState(false);
 
   return (
@@ -21,7 +27,7 @@ export function GoogleSignInButton({ callbackUrl }: { callbackUrl: string }) {
       <span className={styles.mark} aria-hidden="true">
         G
       </span>
-      <span>{isPending ? "Opening Google" : "Continue with Google"}</span>
+      <span>{isPending ? "Opening Google" : label}</span>
       {isPending ? (
         <LoaderCircle className={styles.spinner} size={18} strokeWidth={2} />
       ) : (

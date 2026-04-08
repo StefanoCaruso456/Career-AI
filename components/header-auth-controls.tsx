@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { LayoutDashboard, LoaderCircle, LogOut } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import { AuthModalTrigger } from "./auth-modal";
 import styles from "./floating-site-header.module.css";
 
 function getDisplayName(name: string | null | undefined, email: string | null | undefined) {
@@ -28,7 +29,15 @@ function getInitials(name: string | null | undefined, email: string | null | und
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-export function HeaderAuthControls() {
+export function HeaderAuthControls({
+  googleOAuthEnabled,
+  productionOrigin,
+  productionRedirectUri,
+}: {
+  googleOAuthEnabled: boolean;
+  productionOrigin: string;
+  productionRedirectUri: string;
+}) {
   const { data: session, status } = useSession();
 
   if (status === "loading") {
@@ -45,9 +54,14 @@ export function HeaderAuthControls() {
   if (!session?.user) {
     return (
       <div className={styles.actions}>
-        <Link className={styles.ghostAction} href="/sign-in">
-          Sign in
-        </Link>
+        <AuthModalTrigger
+          className={styles.ghostAction}
+          defaultMode="signin"
+          googleOAuthEnabled={googleOAuthEnabled}
+          label="Sign in"
+          productionOrigin={productionOrigin}
+          productionRedirectUri={productionRedirectUri}
+        />
         <Link className={styles.primaryAction} href="/#footer">
           Contact sales
         </Link>
