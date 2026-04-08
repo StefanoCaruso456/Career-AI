@@ -31,12 +31,38 @@ The product creates a persistent, portable candidate identity that stores truste
 ```bash
 npm install
 cp .env.example .env.local
-# add your OPENAI_API_KEY to .env.local
+# add your OPENAI_API_KEY, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, and GOOGLE_CLIENT_SECRET to .env.local
 npm run dev
 ```
 
 The app runs locally at [http://localhost:3000](http://localhost:3000).
 The homepage assistant calls the official OpenAI Node SDK from the server-side `/api/chat` route and reads `OPENAI_API_KEY` and `OPENAI_MODEL` from the environment.
+
+## Google Auth
+
+This app now includes Google sign-in using Auth.js and NextAuth route handlers.
+
+Required environment variables:
+
+- `NEXTAUTH_URL`
+- `NEXTAUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+
+Google Cloud OAuth client values for Railway production:
+
+- Authorized JavaScript origin: `https://taidai-production.up.railway.app`
+- Authorized redirect URI: `https://taidai-production.up.railway.app/api/auth/callback/google`
+
+Local development values:
+
+- Authorized JavaScript origin: `http://localhost:3000`
+- Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
+
+After configuration:
+
+- `/sign-in` starts the Google flow
+- `/account` is a protected page that requires a valid session
 
 ## Deployment
 

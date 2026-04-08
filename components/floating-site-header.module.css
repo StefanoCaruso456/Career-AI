@@ -1,0 +1,321 @@
+.header {
+  position: fixed;
+  top: var(--site-header-top-offset);
+  left: 50%;
+  z-index: 120;
+  width: min(1180px, calc(100% - 2rem));
+  transform: translateX(-50%);
+}
+
+.shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.78rem 0.9rem;
+  border-radius: 1.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(32, 32, 32, 0.72);
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+  backdrop-filter: blur(26px) saturate(180%);
+  isolation: isolate;
+  overflow: hidden;
+  animation: headerFloatIn 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.shell::before,
+.shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.shell::before {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.2), transparent 22%),
+    linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.16),
+      transparent 26%,
+      transparent 70%,
+      rgba(255, 255, 255, 0.06)
+    );
+  opacity: 0.85;
+}
+
+.shell::after {
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.brand {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.95rem;
+  min-width: 0;
+  color: #f7f7f7;
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), transparent 34%),
+    linear-gradient(145deg, rgba(114, 129, 186, 0.5), rgba(34, 38, 49, 0.78));
+  color: #eef3ff;
+  font-family: var(--font-display), sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 14px 24px rgba(0, 0, 0, 0.18);
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.brandText strong {
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brandText small {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+}
+
+.actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ghostAction,
+.primaryAction,
+.ghostButton,
+.accountAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.ghostAction {
+  padding: 0.8rem 1.15rem;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.09)),
+    rgba(255, 255, 255, 0.02);
+  color: #f7f7f7;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 14px 26px rgba(0, 0, 0, 0.16);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+.ghostButton {
+  padding: 0.8rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.09)),
+    rgba(255, 255, 255, 0.02);
+  color: #f7f7f7;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 14px 26px rgba(0, 0, 0, 0.16);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  cursor: pointer;
+}
+
+.primaryAction {
+  padding: 0.84rem 1.24rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(135deg, #6b62ff 0%, #7c71ff 52%, #8c85ff 100%);
+  color: #ffffff;
+  box-shadow:
+    0 22px 36px rgba(99, 91, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.accountAction {
+  padding: 0.62rem 0.78rem 0.62rem 0.72rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(16, 19, 29, 0.66);
+  color: #f7f7f7;
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.accountAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6b62ff 0%, #8c85ff 100%);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.accountCopy {
+  display: grid;
+  gap: 0.05rem;
+  text-align: left;
+}
+
+.accountCopy strong {
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.accountCopy small {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+}
+
+.loadingAction {
+  cursor: progress;
+}
+
+.inlineSpinner {
+  animation: headerSpinnerTurn 900ms linear infinite;
+}
+
+.ghostAction:hover,
+.primaryAction:hover,
+.ghostButton:hover,
+.accountAction:hover {
+  transform: translateY(-2px);
+}
+
+.ghostAction:focus-visible,
+.primaryAction:focus-visible,
+.ghostButton:focus-visible,
+.accountAction:focus-visible,
+.brand:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.82);
+  outline-offset: 3px;
+}
+
+@keyframes headerSpinnerTurn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes headerFloatIn {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 920px) {
+  .header {
+    width: min(100%, calc(100% - 1.5rem));
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    padding: 0.72rem 0.78rem;
+    border-radius: 1.6rem;
+  }
+
+  .brandMark {
+    width: 44px;
+    height: 44px;
+  }
+
+  .brandText strong {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell {
+    flex-wrap: wrap;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .ghostAction,
+  .primaryAction,
+  .ghostButton {
+    width: calc(50% - 0.375rem);
+    padding-inline: 1rem;
+  }
+
+  .accountAction {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    animation: none;
+  }
+
+  .ghostAction:hover,
+  .primaryAction:hover {
+    transform: none;
+  }
+}

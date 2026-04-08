@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Manrope, Sora } from "next/font/google";
 import type { ReactNode } from "react";
+import { AppProviders } from "@/components/app-providers";
+import { FloatingSiteHeader } from "@/components/floating-site-header";
 import "./globals.css";
 
 const bodyFont = Manrope({
@@ -22,7 +24,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${bodyFont.variable} ${displayFont.variable}`}>{children}</body>
+      <body className={`${bodyFont.variable} ${displayFont.variable}`}>
+        <AppProviders>
+          <FloatingSiteHeader />
+          {children}
+        </AppProviders>
+      </body>
     </html>
   );
 }

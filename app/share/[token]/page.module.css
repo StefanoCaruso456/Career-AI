@@ -1,6 +1,9 @@
 .page {
   min-height: 100vh;
-  padding: clamp(1.5rem, 2vw, 2.5rem);
+  padding:
+    calc(var(--site-header-clearance) + 0.75rem)
+    clamp(1.5rem, 2vw, 2.5rem)
+    clamp(1.5rem, 2vw, 2.5rem);
 }
 
 .shell {
