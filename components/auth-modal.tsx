@@ -1,7 +1,8 @@
 "use client";
 
 import { ShieldCheck, Sparkles, X } from "lucide-react";
-import { type KeyboardEvent, useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import styles from "./auth-modal.module.css";
 
@@ -46,19 +47,38 @@ export function AuthModalTrigger({
   productionOrigin,
   productionRedirectUri,
 }: AuthModalTriggerProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>(defaultMode);
   const titleId = useId();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
     const originalOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => {
+      modalRef.current?.focus();
+    });
+
     document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleEscape);
 
     return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = originalOverflow;
     };
   }, [isOpen]);
@@ -72,112 +92,110 @@ export function AuthModalTrigger({
     setIsOpen(false);
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      closeModal();
-    }
-  }
-
   const modeCopy = getModeCopy(mode);
+  const modal =
+    isMounted && isOpen
+      ? createPortal(
+          <div className={styles.overlay} onClick={closeModal} role="presentation">
+            <div
+              aria-labelledby={titleId}
+              aria-modal="true"
+              className={styles.modal}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              ref={modalRef}
+              role="dialog"
+              tabIndex={-1}
+            >
+              <div className={styles.header}>
+                <div className={styles.headerCopy}>
+                  <span className={styles.eyebrow}>{modeCopy.eyebrow}</span>
+                  <h2 className={styles.title} id={titleId}>
+                    {modeCopy.title}
+                  </h2>
+                </div>
+
+                <button
+                  aria-label="Close authentication modal"
+                  className={styles.closeButton}
+                  onClick={closeModal}
+                  type="button"
+                >
+                  <X size={18} strokeWidth={2.2} />
+                </button>
+              </div>
+
+              <div className={styles.modeSwitch}>
+                <button
+                  className={mode === "signup" ? styles.modeButtonActive : styles.modeButton}
+                  onClick={() => setMode("signup")}
+                  type="button"
+                >
+                  Sign up
+                </button>
+                <button
+                  className={mode === "signin" ? styles.modeButtonActive : styles.modeButton}
+                  onClick={() => setMode("signin")}
+                  type="button"
+                >
+                  Sign in
+                </button>
+              </div>
+
+              <p className={styles.copy}>{modeCopy.copy}</p>
+
+              {googleOAuthEnabled ? (
+                <div className={styles.actionBlock}>
+                  <GoogleSignInButton callbackUrl={callbackUrl} label={modeCopy.buttonLabel} />
+                  <div className={styles.trustRow}>
+                    <div className={styles.trustPill}>
+                      <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+                      Verified Google email only
+                    </div>
+                    <div className={styles.trustPill}>
+                      <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
+                      Lands directly in `/account`
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.warning}>
+                  <strong>Backend setup still needs its auth variables.</strong>
+                  <p>
+                    The app accepts either <code>GOOGLE_CLIENT_ID</code> /
+                    <code> GOOGLE_CLIENT_SECRET</code> or the Railway names you already made:
+                    <code> CLIENT_ID</code> / <code>CLIENT_SECRET</code>.
+                  </p>
+                  <p>
+                    You also need <code>NEXTAUTH_SECRET</code>. If Railway exposes a public
+                    domain, the app can derive <code>NEXTAUTH_URL</code> automatically.
+                  </p>
+                </div>
+              )}
+
+              <div className={styles.configBlock}>
+                <div className={styles.valueRow}>
+                  <span>Authorized JavaScript origin</span>
+                  <code>{productionOrigin}</code>
+                </div>
+                <div className={styles.valueRow}>
+                  <span>Authorized redirect URI</span>
+                  <code>{productionRedirectUri}</code>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <>
       <button className={[styles.trigger, className].filter(Boolean).join(" ")} onClick={openModal} type="button">
         {label}
       </button>
-
-      {isOpen ? (
-        <div className={styles.overlay} onClick={closeModal} role="presentation">
-          <div
-            aria-labelledby={titleId}
-            aria-modal="true"
-            className={styles.modal}
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            onKeyDown={handleKeyDown}
-            role="dialog"
-            tabIndex={-1}
-          >
-            <div className={styles.header}>
-              <div className={styles.headerCopy}>
-                <span className={styles.eyebrow}>{modeCopy.eyebrow}</span>
-                <h2 className={styles.title} id={titleId}>
-                  {modeCopy.title}
-                </h2>
-              </div>
-
-              <button
-                aria-label="Close authentication modal"
-                className={styles.closeButton}
-                onClick={closeModal}
-                type="button"
-              >
-                <X size={18} strokeWidth={2.2} />
-              </button>
-            </div>
-
-            <div className={styles.modeSwitch}>
-              <button
-                className={mode === "signup" ? styles.modeButtonActive : styles.modeButton}
-                onClick={() => setMode("signup")}
-                type="button"
-              >
-                Sign up
-              </button>
-              <button
-                className={mode === "signin" ? styles.modeButtonActive : styles.modeButton}
-                onClick={() => setMode("signin")}
-                type="button"
-              >
-                Sign in
-              </button>
-            </div>
-
-            <p className={styles.copy}>{modeCopy.copy}</p>
-
-            {googleOAuthEnabled ? (
-              <div className={styles.actionBlock}>
-                <GoogleSignInButton callbackUrl={callbackUrl} label={modeCopy.buttonLabel} />
-                <div className={styles.trustRow}>
-                  <div className={styles.trustPill}>
-                    <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                    Verified Google email only
-                  </div>
-                  <div className={styles.trustPill}>
-                    <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
-                    Lands directly in `/account`
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className={styles.warning}>
-                <strong>Backend setup still needs its auth variables.</strong>
-                <p>
-                  The app accepts either <code>GOOGLE_CLIENT_ID</code> /
-                  <code> GOOGLE_CLIENT_SECRET</code> or the Railway names you already made:
-                  <code> CLIENT_ID</code> / <code>CLIENT_SECRET</code>.
-                </p>
-                <p>
-                  You also need <code>NEXTAUTH_SECRET</code>. If Railway exposes a public
-                  domain, the app can derive <code>NEXTAUTH_URL</code> automatically.
-                </p>
-              </div>
-            )}
-
-            <div className={styles.configBlock}>
-              <div className={styles.valueRow}>
-                <span>Authorized JavaScript origin</span>
-                <code>{productionOrigin}</code>
-              </div>
-              <div className={styles.valueRow}>
-                <span>Authorized redirect URI</span>
-                <code>{productionRedirectUri}</code>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {modal}
     </>
   );
 }
