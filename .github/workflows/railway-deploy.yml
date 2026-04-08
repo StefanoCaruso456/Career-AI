@@ -61,6 +61,18 @@ jobs:
           test -n "$RAILWAY_TOKEN" || (echo "Missing RAILWAY_TOKEN secret" && exit 1)
           test -n "$RAILWAY_PROJECT_ID" || (echo "Missing RAILWAY_PROJECT_ID secret" && exit 1)
 
+      - name: Debug Railway services
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          environment="${RAILWAY_ENVIRONMENT:-production}"
+
+          echo "Using Railway environment: $environment"
+          echo "Configured Railway service selector: ${RAILWAY_SERVICE:-<unset>}"
+
+          railway link --project "$RAILWAY_PROJECT_ID" --environment "$environment"
+          railway status --json || true
+          railway service status --all --environment "$environment" --json || true
+
       - name: Deploy to Railway
         run: |
           environment="${RAILWAY_ENVIRONMENT:-production}"
