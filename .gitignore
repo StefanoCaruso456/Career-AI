@@ -2,6 +2,9 @@ node_modules
 .next
 out
 dist
+.env
+.env.*
+!.env.example
 .artifacts
 .DS_Store
 npm-debug.log*

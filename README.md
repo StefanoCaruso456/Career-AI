@@ -30,10 +30,13 @@ The product creates a persistent, portable candidate identity that stores truste
 
 ```bash
 npm install
+cp .env.example .env.local
+# add your OPENAI_API_KEY to .env.local
 npm run dev
 ```
 
 The app runs locally at [http://localhost:3000](http://localhost:3000).
+The homepage assistant calls the official OpenAI Node SDK from the server-side `/api/chat` route and reads `OPENAI_API_KEY` and `OPENAI_MODEL` from the environment.
 
 ## Deployment
 
