@@ -11,8 +11,6 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { googleOAuthEnabled, googleRedirectUri, publicOrigin } from "@/auth";
-import { AuthModalTrigger } from "./auth-modal";
 import { HeroComposer } from "./hero-composer";
 import styles from "./chat-home-shell.module.css";
 
@@ -413,10 +411,6 @@ function SolutionCard({
 }
 
 export function ChatHomeShell() {
-  const productionOrigin = publicOrigin || "https://taidai-production.up.railway.app";
-  const productionRedirectUri =
-    googleRedirectUri || "https://taidai-production.up.railway.app/api/auth/callback/google";
-
   return (
     <div className={styles.page}>
       <section className={styles.heroSection}>
@@ -434,25 +428,6 @@ export function ChatHomeShell() {
             Start with a conversation. Move into verified identity, evidence-backed claims,
             recruiter-safe sharing, and audit-ready review operations.
           </p>
-
-          <div className={styles.authActionRow}>
-            <AuthModalTrigger
-              className={styles.authPrimaryAction}
-              defaultMode="signup"
-              googleOAuthEnabled={googleOAuthEnabled}
-              label="Create account"
-              productionOrigin={productionOrigin}
-              productionRedirectUri={productionRedirectUri}
-            />
-            <AuthModalTrigger
-              className={styles.authSecondaryAction}
-              defaultMode="signin"
-              googleOAuthEnabled={googleOAuthEnabled}
-              label="Sign in"
-              productionOrigin={productionOrigin}
-              productionRedirectUri={productionRedirectUri}
-            />
-          </div>
         </div>
       </section>
 
