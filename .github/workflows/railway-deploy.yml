@@ -42,7 +42,7 @@ jobs:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
       RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT }}
-      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'taid_ai' }}
 
     steps:
       - name: Check out repository
@@ -69,57 +69,17 @@ jobs:
           echo "Using Railway environment: $environment"
           echo "Configured Railway service selector: ${RAILWAY_SERVICE:-<unset>}"
 
-          railway link --project "$RAILWAY_PROJECT_ID" --environment "$environment"
+          railway link --project "$RAILWAY_PROJECT_ID" --environment "$environment" || true
           railway status --json || true
           railway service status --all --environment "$environment" --json || true
 
       - name: Deploy to Railway
         run: |
           environment="${RAILWAY_ENVIRONMENT:-production}"
-          base_args=(up --ci --project "$RAILWAY_PROJECT_ID" --environment "$environment")
-          candidates=()
+          args=(up --ci --project "$RAILWAY_PROJECT_ID" --environment "$environment")
 
           if [ -n "$RAILWAY_SERVICE" ]; then
-            candidates+=("$RAILWAY_SERVICE")
+            args+=(--service "$RAILWAY_SERVICE")
           fi
 
-          candidates+=(
-            "server"
-            "shipyard/server"
-            "@shipyard/server"
-            "shipyardserver"
-            "shipyard-server"
-            "shipyard_server"
-          )
-
-          deduped_candidates=()
-          for candidate in "${candidates[@]}"; do
-            already_seen=false
-            for seen in "${deduped_candidates[@]}"; do
-              if [ "$seen" = "$candidate" ]; then
-                already_seen=true
-                break
-              fi
-            done
-
-            if [ "$already_seen" = false ]; then
-              deduped_candidates+=("$candidate")
-            fi
-          done
-
-          if [ ${#deduped_candidates[@]} -eq 0 ]; then
-            railway "${base_args[@]}"
-            exit 0
-          fi
-
-          for candidate in "${deduped_candidates[@]}"; do
-            echo "Attempting Railway deploy with service selector: $candidate"
-
-            if railway "${base_args[@]}" --service "$candidate"; then
-              echo "Railway deploy succeeded with service selector: $candidate"
-              exit 0
-            fi
-          done
-
-          echo "Railway deploy failed for all candidate service selectors."
-          exit 1
+          railway "${args[@]}"
