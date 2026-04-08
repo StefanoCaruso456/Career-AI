@@ -16,9 +16,9 @@ const displayFont = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "Talent Agent ID",
+  title: "Career AI",
   description:
-    "AI-native identity and verification infrastructure for hiring, with recruiter-safe trust views and evidence-backed candidate records.",
+    "Career AI delivers AI-native identity and verification infrastructure for hiring, with recruiter-safe trust views and evidence-backed candidate records.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

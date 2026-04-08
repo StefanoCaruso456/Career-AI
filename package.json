@@ -1,7 +1,7 @@
 {
   "name": "taid-ai",
   "version": "1.0.0",
-  "description": "Talent Agent ID frontend and documentation foundation for the Agent Identity Platform.",
+  "description": "Career AI frontend and documentation foundation for the Agent Identity Platform.",
   "private": true,
   "scripts": {
     "dev": "next dev",

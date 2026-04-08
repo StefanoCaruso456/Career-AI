@@ -26,7 +26,7 @@ function getModeCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
       eyebrow: "Create your account",
-      title: "Create your Talent Agent ID",
+      title: "Create your Career AI account",
       copy:
         "Create a verified identity, open your workspace, and start sharing trusted proof faster.",
       buttonLabel: "Continue with Google",
@@ -38,7 +38,7 @@ function getModeCopy(mode: AuthMode) {
 
   return {
     eyebrow: "Welcome back",
-    title: "Sign in to Talent Agent ID",
+    title: "Sign in to Career AI",
     copy:
       "Return to your workspace and pick up your verified profile where you left it.",
     buttonLabel: "Sign in with Google",
@@ -282,9 +282,6 @@ export function AuthModalTrigger({
                   disabled={!googleOAuthEnabled}
                   label={modeCopy.buttonLabel}
                 />
-                {!googleOAuthEnabled ? (
-                  <p className={styles.providerHint}>Google sign-in will appear here once it is connected.</p>
-                ) : null}
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />

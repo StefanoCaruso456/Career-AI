@@ -44,7 +44,7 @@ export default async function ShareProfilePage({ params }: PageProps) {
                 </p>
               </div>
               <div className={styles.agentPill}>
-                <span className={styles.agentLabel}>Talent Agent ID</span>
+                <span className={styles.agentLabel}>Career AI</span>
                 <span className={styles.agentValue}>{profile.candidate.talentAgentId}</span>
               </div>
             </div>

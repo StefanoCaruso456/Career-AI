@@ -14,10 +14,10 @@ export default async function SignInPage() {
     <main className={styles.page}>
       <section className={styles.panel}>
         <div className={styles.eyebrow}>Verified access</div>
-        <h1 className={styles.title}>Sign in to your Talent Agent ID workspace</h1>
+        <h1 className={styles.title}>Sign in to your Career AI workspace</h1>
         <p className={styles.copy}>
           Use Google to verify your email, restore your session, and step straight into
-          your protected account workspace.
+          your protected Career AI workspace.
         </p>
 
         <GoogleSignInButton callbackUrl="/account" disabled={!googleOAuthEnabled} label="Sign in with Google" />

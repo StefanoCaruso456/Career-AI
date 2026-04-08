@@ -1,12 +1,12 @@
-# Carrer-AI
+# Career AI
 
-Talent Agent ID is a ChatGPT-inspired frontend and documentation foundation for the Agent Identity Platform.
+Career AI is a ChatGPT-inspired frontend and documentation foundation for the Agent Identity Platform.
 
 ## Overview
 
 The product creates a persistent, portable candidate identity that stores trusted evidence across employment, education, certifications, and endorsements. The current repository includes:
 
-- a homepage frontend for the Talent Agent ID experience
+- a homepage frontend for the Career AI experience
 - product, planning, and implementation documents
 - the foundation for future candidate, recruiter, and admin workflows
 
@@ -22,7 +22,7 @@ The product creates a persistent, portable candidate identity that stores truste
 
 ## Core Concepts
 
-- **Talent Agent ID**: the candidate-facing verified professional identity
+- **Career AI identity**: the candidate-facing verified professional identity
 - **Soul Record**: the internal structured record that stores evidence, statuses, and audit history
 - **Agent QR**: the shareable recruiter-safe profile entry point
 
@@ -106,11 +106,11 @@ If you connect a public domain in Railway, this Next.js app is ready to serve it
 
 ## Product Goal
 
-Hiring data is fragmented, self-reported, and increasingly noisy. Talent Agent ID exists to create a reusable trust layer so candidates can prove credibility faster and recruiters can evaluate claims with clearer signals.
+Hiring data is fragmented, self-reported, and increasingly noisy. Career AI exists to create a reusable trust layer so candidates can prove credibility faster and recruiters can evaluate claims with clearer signals.
 
 ## Current Frontend
 
-The current homepage is a minimal, modern, ChatGPT-inspired shell for the Talent Agent ID experience. It includes:
+The current homepage is a minimal, modern, ChatGPT-inspired shell for the Career AI experience. It includes:
 
 - a left navigation rail with project and chat controls
 - a centered conversational composer layout
