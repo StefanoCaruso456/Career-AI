@@ -413,6 +413,58 @@
   }
 }
 
+@keyframes introRibbonFloat {
+  from {
+    opacity: 0.9;
+    transform: translate3d(3%, -1%, 0) rotate(-6deg) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(-3%, 3%, 0) rotate(4deg) scale(1.04);
+  }
+}
+
+@keyframes introRibbonPulse {
+  from {
+    opacity: 0.68;
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+
+  to {
+    opacity: 0.96;
+    transform: translate3d(-2%, 4%, 0) scale(1.08);
+  }
+}
+
+@keyframes introFlashSweep {
+  from {
+    opacity: 0.42;
+    transform: translate3d(6%, -2%, 0) rotate(-4deg);
+  }
+
+  to {
+    opacity: 0.82;
+    transform: translate3d(-8%, 8%, 0) rotate(5deg);
+  }
+}
+
+@keyframes introTitleSweep {
+  from {
+    opacity: 0.72;
+    background-position: 108% 50%;
+    -webkit-mask-position: 108% 50%;
+    mask-position: 108% 50%;
+  }
+
+  to {
+    opacity: 1;
+    background-position: -8% 50%;
+    -webkit-mask-position: -8% 50%;
+    mask-position: -8% 50%;
+  }
+}
+
 .introSection,
 .storySection,
 .solutionsSection,
@@ -425,17 +477,103 @@
   overflow: hidden;
 }
 
+.introShell {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.introMotionField {
+  position: absolute;
+  inset: -7rem -12rem -4rem 34%;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.98;
+}
+
 .introRibbon {
   position: absolute;
-  top: -12rem;
-  right: -14rem;
-  width: min(68vw, 920px);
-  aspect-ratio: 1 / 1;
+  inset: -2% -3% 2% 16%;
   background:
-    linear-gradient(140deg, rgba(107, 145, 255, 0.18), rgba(255, 155, 95, 0.58), rgba(218, 109, 255, 0.34));
-  clip-path: polygon(58% 0%, 100% 0%, 100% 100%, 35% 70%);
-  filter: saturate(120%) blur(1px);
+    linear-gradient(
+      132deg,
+      rgba(255, 255, 255, 0) 18%,
+      rgba(148, 177, 255, 0.88) 36%,
+      rgba(174, 149, 255, 0.92) 48%,
+      rgba(255, 196, 104, 0.97) 60%,
+      rgba(255, 151, 112, 0.93) 71%,
+      rgba(224, 129, 255, 0.72) 84%,
+      rgba(255, 255, 255, 0) 96%
+    );
+  clip-path: polygon(40% 0%, 100% 0%, 100% 100%, 60% 100%, 20% 80%, 33% 52%, 28% 18%);
+  mix-blend-mode: multiply;
+  filter: saturate(135%);
+  transform-origin: 85% 10%;
+  will-change: transform, opacity, filter;
+  animation: introRibbonFloat 17s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate;
+}
+
+.introRibbonGlow,
+.introRibbonThreads,
+.introRibbonFlash {
+  position: absolute;
   pointer-events: none;
+  will-change: transform, opacity, filter, background-position;
+}
+
+.introRibbonGlow {
+  inset: -8% -12% 6% 18%;
+  background:
+    radial-gradient(circle at 72% 14%, rgba(255, 212, 123, 0.84), transparent 21%),
+    radial-gradient(circle at 62% 34%, rgba(201, 146, 255, 0.44), transparent 26%),
+    radial-gradient(circle at 48% 46%, rgba(135, 176, 255, 0.28), transparent 24%);
+  filter: blur(18px) saturate(125%);
+  opacity: 0.9;
+  transform-origin: 80% 18%;
+  animation: introRibbonPulse 13s ease-in-out infinite alternate;
+}
+
+.introRibbonThreads {
+  inset: 4% -2% 10% 20%;
+  background:
+    repeating-linear-gradient(
+      125deg,
+      rgba(255, 255, 255, 0.22) 0 2px,
+      rgba(255, 255, 255, 0.06) 2px 7px,
+      rgba(255, 255, 255, 0) 7px 13px
+    ),
+    linear-gradient(
+      129deg,
+      rgba(255, 255, 255, 0) 20%,
+      rgba(187, 204, 255, 0.52) 39%,
+      rgba(255, 193, 95, 0.66) 56%,
+      rgba(255, 141, 124, 0.58) 69%,
+      rgba(222, 136, 255, 0.34) 81%,
+      rgba(255, 255, 255, 0) 93%
+    );
+  clip-path: polygon(43% 0%, 100% 0%, 100% 100%, 63% 100%, 25% 84%, 36% 55%, 30% 17%);
+  mix-blend-mode: screen;
+  filter: blur(0.4px) saturate(150%);
+  opacity: 0.94;
+  transform-origin: 86% 16%;
+  animation: introRibbonFloat 14s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate-reverse;
+}
+
+.introRibbonFlash {
+  inset: 10% 10% 18% 38%;
+  background:
+    linear-gradient(
+      126deg,
+      rgba(255, 255, 255, 0) 34%,
+      rgba(255, 255, 255, 0.85) 48%,
+      rgba(255, 236, 180, 0.92) 54%,
+      rgba(255, 255, 255, 0) 65%
+    );
+  clip-path: polygon(56% 0%, 100% 0%, 100% 100%, 79% 100%, 48% 57%);
+  mix-blend-mode: screen;
+  filter: blur(8px);
+  opacity: 0.72;
+  transform-origin: 88% 10%;
+  animation: introFlashSweep 11s ease-in-out infinite alternate;
 }
 
 .introGrid,
@@ -447,9 +585,20 @@
   align-items: start;
 }
 
+.introGrid {
+  position: relative;
+  z-index: 2;
+}
+
+.introCopyBlock,
+.proofBand {
+  position: relative;
+  z-index: 4;
+}
+
 .introLead {
   position: relative;
-  z-index: 1;
+  z-index: 4;
 }
 
 .sectionEyebrow,
@@ -474,6 +623,79 @@
   font-size: clamp(2.1rem, 4.6vw, 4rem);
   line-height: 0.98;
   letter-spacing: -0.055em;
+}
+
+.sectionTitleStack {
+  position: relative;
+  z-index: 4;
+  width: fit-content;
+  max-width: 14ch;
+  margin-top: 0.4rem;
+}
+
+.sectionTitleStack .sectionTitle {
+  max-width: none;
+  margin-top: 0;
+}
+
+.sectionTitleLine {
+  display: block;
+}
+
+.sectionTitleOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  color: transparent;
+  background:
+    linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0) 20%,
+      rgba(121, 150, 255, 0.92) 35%,
+      rgba(160, 139, 255, 0.9) 45%,
+      rgba(255, 190, 101, 0.98) 57%,
+      rgba(255, 146, 122, 0.94) 68%,
+      rgba(220, 132, 255, 0.82) 79%,
+      rgba(255, 255, 255, 0) 92%
+    );
+  background-position: 108% 50%;
+  background-size: 230% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-mask-image: linear-gradient(
+    118deg,
+    transparent 28%,
+    rgba(0, 0, 0, 0.18) 38%,
+    rgba(0, 0, 0, 0.96) 46%,
+    rgba(0, 0, 0, 0.96) 58%,
+    rgba(0, 0, 0, 0.22) 66%,
+    transparent 76%
+  );
+  mask-image: linear-gradient(
+    118deg,
+    transparent 28%,
+    rgba(0, 0, 0, 0.18) 38%,
+    rgba(0, 0, 0, 0.96) 46%,
+    rgba(0, 0, 0, 0.96) 58%,
+    rgba(0, 0, 0, 0.22) 66%,
+    transparent 76%
+  );
+  -webkit-mask-size: 240% 100%;
+  mask-size: 240% 100%;
+  -webkit-mask-position: 108% 50%;
+  mask-position: 108% 50%;
+  mix-blend-mode: hard-light;
+  filter: saturate(150%);
+  opacity: 0.88;
+  will-change:
+    background-position,
+    opacity,
+    filter,
+    -webkit-mask-position,
+    mask-position;
+  animation: introTitleSweep 15s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate;
 }
 
 .ctaRow {
@@ -1430,6 +1652,14 @@
     width: min(100%, calc(100% - 1.5rem));
   }
 
+  .introMotionField {
+    inset: -5rem -14rem -2rem 44%;
+  }
+
+  .introRibbonFlash {
+    inset: 8% 6% 22% 44%;
+  }
+
   .introGrid,
   .storyHeader,
   .footerHeader,
@@ -1467,6 +1697,21 @@
 
   .heroTitle {
     font-size: clamp(2.4rem, 10vw, 3.5rem);
+  }
+
+  .introMotionField {
+    inset: -7rem -16rem auto 28%;
+    min-height: 29rem;
+    opacity: 0.82;
+  }
+
+  .introRibbon,
+  .introRibbonThreads {
+    clip-path: polygon(46% 0%, 100% 0%, 100% 100%, 70% 100%, 30% 82%, 42% 56%, 34% 16%);
+  }
+
+  .sectionTitleStack {
+    max-width: 11ch;
   }
 
   .navShell {
@@ -1554,6 +1799,16 @@
     flex-wrap: wrap;
   }
 
+  .introMotionField {
+    inset: -6rem -18rem auto 16%;
+    min-height: 24rem;
+    opacity: 0.72;
+  }
+
+  .sectionTitleOverlay {
+    opacity: 0.76;
+  }
+
   .navActions {
     width: 100%;
     justify-content: flex-end;
@@ -1577,6 +1832,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .navShell {
+    animation: none;
+  }
+
+  .introRibbon,
+  .introRibbonGlow,
+  .introRibbonThreads,
+  .introRibbonFlash,
+  .sectionTitleOverlay {
     animation: none;
   }
 

@@ -33,6 +33,8 @@ const proofSurfaces = [
   "Audit trail",
 ];
 
+const introTitleLines = ["Identity infrastructure", "to grow hiring trust."];
+
 const storyCards: Array<{
   company: string;
   title: string;
@@ -217,6 +219,31 @@ function StoryVisual({ theme }: { theme: StoryTheme }) {
         .join(" ")}
     >
       <div className={styles.storyMark} />
+    </div>
+  );
+}
+
+function IntroSectionTitle() {
+  return (
+    <div className={styles.sectionTitleStack}>
+      <h2 className={styles.sectionTitle}>
+        {introTitleLines.map((line) => (
+          <span className={styles.sectionTitleLine} key={line}>
+            {line}
+          </span>
+        ))}
+      </h2>
+
+      <h2
+        aria-hidden="true"
+        className={[styles.sectionTitle, styles.sectionTitleOverlay].join(" ")}
+      >
+        {introTitleLines.map((line) => (
+          <span className={styles.sectionTitleLine} key={line}>
+            {line}
+          </span>
+        ))}
+      </h2>
     </div>
   );
 }
@@ -432,15 +459,18 @@ export function ChatHomeShell() {
       </section>
 
       <section className={styles.introSection} id="platform">
-        <div className={styles.sectionShell}>
-          <div className={styles.introRibbon} />
+        <div className={[styles.sectionShell, styles.introShell].join(" ")}>
+          <div aria-hidden="true" className={styles.introMotionField}>
+            <div className={styles.introRibbonGlow} />
+            <div className={styles.introRibbon} />
+            <div className={styles.introRibbonThreads} />
+            <div className={styles.introRibbonFlash} />
+          </div>
 
           <div className={styles.introGrid}>
             <div className={styles.introLead}>
               <span className={styles.sectionEyebrow}>Trust infrastructure for hiring</span>
-              <h2 className={styles.sectionTitle}>
-                Identity infrastructure to grow hiring trust.
-              </h2>
+              <IntroSectionTitle />
               <div className={styles.ctaRow}>
                 <Link className={styles.primaryCta} href="#solutions">
                   Explore the platform
