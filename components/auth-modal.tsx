@@ -8,6 +8,7 @@ import styles from "./auth-modal.module.css";
 
 type AuthMode = "signup" | "signin";
 type AuthFormValues = {
+  confirmPassword: string;
   email: string;
   name: string;
   password: string;
@@ -48,6 +49,7 @@ function getModeCopy(mode: AuthMode) {
 }
 
 const emptyFormValues: AuthFormValues = {
+  confirmPassword: "",
   email: "",
   name: "",
   password: "",
@@ -66,6 +68,10 @@ export function AuthModalTrigger({
   const [mode, setMode] = useState<AuthMode>(defaultMode);
   const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
   const [formStatus, setFormStatus] = useState<string | null>(null);
+  const passwordsMatch =
+    mode !== "signup" ||
+    formValues.confirmPassword.length === 0 ||
+    formValues.password === formValues.confirmPassword;
   const titleId = useId();
 
   useEffect(() => {
@@ -129,6 +135,12 @@ export function AuthModalTrigger({
 
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (mode === "signup" && formValues.password !== formValues.confirmPassword) {
+      setFormStatus("Passwords must match before you create your account.");
+      return;
+    }
+
     setFormStatus(modeCopy.formStatus);
   }
 
@@ -230,6 +242,23 @@ export function AuthModalTrigger({
                       value={formValues.password}
                     />
                   </label>
+
+                  {mode === "signup" ? (
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Confirm password</span>
+                      <input
+                        autoComplete="new-password"
+                        aria-invalid={!passwordsMatch}
+                        className={!passwordsMatch ? `${styles.input} ${styles.inputError}` : styles.input}
+                        name="confirmPassword"
+                        onChange={handleFieldChange("confirmPassword")}
+                        placeholder="Re-enter your password"
+                        required
+                        type="password"
+                        value={formValues.confirmPassword}
+                      />
+                    </label>
+                  ) : null}
                 </div>
 
                 <button className={styles.emailAction} type="submit">
