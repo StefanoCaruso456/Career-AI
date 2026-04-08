@@ -28,13 +28,6 @@ type SolutionVariant =
   | "platformEmbed";
 type SolutionSize = "wide" | "tall" | "small" | "wideBottom";
 
-const navLinks = [
-  { label: "Platform", href: "#platform" },
-  { label: "Solutions", href: "#solutions" },
-  { label: "Stories", href: "#stories" },
-  { label: "Metrics", href: "#metrics" },
-];
-
 const proofSurfaces = [
   "Employment",
   "Education",
@@ -433,14 +426,6 @@ export function ChatHomeShell() {
               <small>Agent Identity Platform</small>
             </span>
           </Link>
-
-          <nav className={styles.navLinks} aria-label="Primary">
-            {navLinks.map((link) => (
-              <Link className={styles.navLink} href={link.href} key={link.label}>
-                {link.label}
-              </Link>
-            ))}
-          </nav>
 
           <div className={styles.navActions}>
             <Link className={styles.navGhost} href="#stories">

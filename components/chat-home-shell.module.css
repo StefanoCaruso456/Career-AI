@@ -96,18 +96,6 @@
   letter-spacing: 0.03em;
 }
 
-.navLinks {
-  display: flex;
-  align-items: center;
-  gap: 1.35rem;
-}
-
-.navLink {
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 0.92rem;
-  font-weight: 600;
-}
-
 .navActions {
   display: flex;
   align-items: center;
