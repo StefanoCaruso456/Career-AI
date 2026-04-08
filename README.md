@@ -16,6 +16,8 @@ The product creates a persistent, portable candidate identity that stores truste
 - React
 - TypeScript
 - CSS Modules
+- Zod
+- Vitest
 - Lucide icons
 
 ## Core Concepts
@@ -33,6 +35,39 @@ npm run dev
 
 The app runs locally at [http://localhost:3000](http://localhost:3000).
 
+## Deployment
+
+The repository now includes a GitHub Actions pipeline and Railway config for production deploys.
+
+### GitHub Actions
+
+Pushes to `main` will:
+
+- install dependencies
+- run `npm run test`
+- run `npm run build`
+- deploy to Railway if CI passes
+
+The workflow expects these GitHub repository secrets:
+
+- `RAILWAY_TOKEN`
+- `RAILWAY_PROJECT_ID`
+
+Optional GitHub repository variables:
+
+- `RAILWAY_ENVIRONMENT` defaults to `production`
+- `RAILWAY_SERVICE` if your Railway project contains more than one service
+
+### Railway
+
+The Railway deployment is configured in `railway.toml` with:
+
+- `npm run build` as the build command
+- `npm run start` as the start command
+- `/api/v1/health` as the healthcheck path
+
+If you connect a public domain in Railway, this Next.js app is ready to serve it without additional code changes.
+
 ## Product Goal
 
 Hiring data is fragmented, self-reported, and increasingly noisy. Talent Agent ID exists to create a reusable trust layer so candidates can prove credibility faster and recruiters can evaluate claims with clearer signals.
@@ -45,6 +80,22 @@ The current homepage is a minimal, modern, ChatGPT-inspired shell for the Talent
 - a centered conversational composer layout
 - a neumorphic dark theme aligned to the product brand
 - responsive behavior for desktop and mobile
+
+## Current API Foundation
+
+Increment 1 from the development spec is now underway. The repository includes a first backend slice for:
+
+- shared contracts under `packages/contracts`
+- identity domain logic under `packages/identity-domain`
+- audit and access helpers under `packages/audit-security`
+- health and identity APIs under `/api/v1`
+
+Current endpoints:
+
+- `GET /api/v1/health`
+- `POST /api/v1/talent-identities`
+- `GET /api/v1/talent-identities/{id}`
+- `PATCH /api/v1/talent-identities/{id}/privacy-settings`
 
 ## Product Principles
 
@@ -61,6 +112,7 @@ The current homepage is a minimal, modern, ChatGPT-inspired shell for the Talent
 ├── README.md
 ├── app
 ├── components
+├── packages
 └── docs
     ├── README.md
     ├── architecture
