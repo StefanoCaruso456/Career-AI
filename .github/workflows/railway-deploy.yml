@@ -64,10 +64,50 @@ jobs:
       - name: Deploy to Railway
         run: |
           environment="${RAILWAY_ENVIRONMENT:-production}"
-          args=(up --ci --project "$RAILWAY_PROJECT_ID" --environment "$environment")
+          base_args=(up --ci --project "$RAILWAY_PROJECT_ID" --environment "$environment")
+          candidates=()
 
           if [ -n "$RAILWAY_SERVICE" ]; then
-            args+=(--service "$RAILWAY_SERVICE")
+            candidates+=("$RAILWAY_SERVICE")
           fi
 
-          railway "${args[@]}"
+          candidates+=(
+            "server"
+            "shipyard/server"
+            "@shipyard/server"
+            "shipyardserver"
+            "shipyard-server"
+            "shipyard_server"
+          )
+
+          deduped_candidates=()
+          for candidate in "${candidates[@]}"; do
+            already_seen=false
+            for seen in "${deduped_candidates[@]}"; do
+              if [ "$seen" = "$candidate" ]; then
+                already_seen=true
+                break
+              fi
+            done
+
+            if [ "$already_seen" = false ]; then
+              deduped_candidates+=("$candidate")
+            fi
+          done
+
+          if [ ${#deduped_candidates[@]} -eq 0 ]; then
+            railway "${base_args[@]}"
+            exit 0
+          fi
+
+          for candidate in "${deduped_candidates[@]}"; do
+            echo "Attempting Railway deploy with service selector: $candidate"
+
+            if railway "${base_args[@]}" --service "$candidate"; then
+              echo "Railway deploy succeeded with service selector: $candidate"
+              exit 0
+            fi
+          done
+
+          echo "Railway deploy failed for all candidate service selectors."
+          exit 1
