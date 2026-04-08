@@ -418,7 +418,7 @@ export function ChatHomeShell() {
   return (
     <div className={styles.page}>
       <section className={styles.heroSection}>
-        <div className={styles.navShell}>
+        <header className={styles.navShell}>
           <Link className={styles.brand} href="#">
             <span className={styles.brandMark}>TA</span>
             <span className={styles.brandText}>
@@ -436,7 +436,7 @@ export function ChatHomeShell() {
               <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
             </Link>
           </div>
-        </div>
+        </header>
 
         <div className={styles.heroInner}>
           <div className={styles.heroBadge}>
