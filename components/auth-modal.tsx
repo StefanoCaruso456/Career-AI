@@ -27,13 +27,11 @@ function getModeCopy(mode: AuthMode) {
       eyebrow: "Create your account",
       title: "Create your Talent Agent ID",
       copy:
-        "Open your verified workspace, keep hiring proof portable, and get into the platform with the fastest route that is live today.",
+        "Create a verified identity, open your workspace, and start sharing trusted proof faster.",
       buttonLabel: "Continue with Google",
       emailActionLabel: "Create account",
-      emailHint:
-        "Email + password access is being finalized. Google is the fastest verified route today.",
       formStatus:
-        "Email + password account creation is almost ready. Use Google to open your workspace today.",
+        "Use Google to open your workspace today.",
     };
   }
 
@@ -41,13 +39,11 @@ function getModeCopy(mode: AuthMode) {
     eyebrow: "Welcome back",
     title: "Sign in to Talent Agent ID",
     copy:
-      "Get back into your verified workspace, restore your session, and pick up exactly where your identity profile left off.",
+      "Return to your workspace and pick up your verified profile where you left it.",
     buttonLabel: "Sign in with Google",
     emailActionLabel: "Sign in",
-    emailHint:
-      "Google is the live sign-in path right now while password access is being polished.",
     formStatus:
-      "Password sign-in is almost ready. Use Google to continue right now.",
+      "Use Google to continue right now.",
   };
 }
 
@@ -240,12 +236,11 @@ export function AuthModalTrigger({
                   {modeCopy.emailActionLabel}
                 </button>
 
-                <p
-                  aria-live="polite"
-                  className={formStatus ? styles.formStatusActive : styles.formStatus}
-                >
-                  {formStatus ?? modeCopy.emailHint}
-                </p>
+                {formStatus ? (
+                  <p aria-live="polite" className={styles.formStatus}>
+                    {formStatus}
+                  </p>
+                ) : null}
               </form>
 
               <div className={styles.divider}>
@@ -258,11 +253,9 @@ export function AuthModalTrigger({
                   disabled={!googleOAuthEnabled}
                   label={modeCopy.buttonLabel}
                 />
-                <p className={styles.providerHint}>
-                  {googleOAuthEnabled
-                    ? "Google is the live verified entry point and lands directly in your account workspace."
-                    : "Google sign-in is being connected right now. Check back in a moment."}
-                </p>
+                {!googleOAuthEnabled ? (
+                  <p className={styles.providerHint}>Google sign-in will appear here once it is connected.</p>
+                ) : null}
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
