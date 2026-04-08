@@ -31,12 +31,8 @@ function getInitials(name: string | null | undefined, email: string | null | und
 
 export function HeaderAuthControls({
   googleOAuthEnabled,
-  productionOrigin,
-  productionRedirectUri,
 }: {
   googleOAuthEnabled: boolean;
-  productionOrigin: string;
-  productionRedirectUri: string;
 }) {
   const { data: session, status } = useSession();
 
@@ -59,8 +55,6 @@ export function HeaderAuthControls({
           defaultMode="signup"
           googleOAuthEnabled={googleOAuthEnabled}
           label="Getting Started"
-          productionOrigin={productionOrigin}
-          productionRedirectUri={productionRedirectUri}
         />
       </div>
     );

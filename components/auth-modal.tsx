@@ -1,12 +1,17 @@
 "use client";
 
 import { ShieldCheck, Sparkles, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import styles from "./auth-modal.module.css";
 
 type AuthMode = "signup" | "signin";
+type AuthFormValues = {
+  email: string;
+  name: string;
+  password: string;
+};
 
 type AuthModalTriggerProps = {
   callbackUrl?: string;
@@ -14,29 +19,43 @@ type AuthModalTriggerProps = {
   defaultMode?: AuthMode;
   googleOAuthEnabled: boolean;
   label: string;
-  productionOrigin: string;
-  productionRedirectUri: string;
 };
 
 function getModeCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
       eyebrow: "Create your account",
-      title: "Start your Talent Agent ID with Google",
+      title: "Create your Talent Agent ID",
       copy:
-        "Create your verified account, unlock your protected workspace, and start turning proof into a portable identity layer.",
-      buttonLabel: "Sign up with Google",
+        "Open your verified workspace, keep hiring proof portable, and get into the platform with the fastest route that is live today.",
+      buttonLabel: "Continue with Google",
+      emailActionLabel: "Create account",
+      emailHint:
+        "Email + password access is being finalized. Google is the fastest verified route today.",
+      formStatus:
+        "Email + password account creation is almost ready. Use Google to open your workspace today.",
     };
   }
 
   return {
     eyebrow: "Welcome back",
-    title: "Sign in to your Talent Agent ID workspace",
+    title: "Sign in to Talent Agent ID",
     copy:
-      "Reconnect your Google account, restore your session, and jump back into the verified account experience without leaving the landing page.",
+      "Get back into your verified workspace, restore your session, and pick up exactly where your identity profile left off.",
     buttonLabel: "Sign in with Google",
+    emailActionLabel: "Sign in",
+    emailHint:
+      "Google is the live sign-in path right now while password access is being polished.",
+    formStatus:
+      "Password sign-in is almost ready. Use Google to continue right now.",
   };
 }
+
+const emptyFormValues: AuthFormValues = {
+  email: "",
+  name: "",
+  password: "",
+};
 
 export function AuthModalTrigger({
   callbackUrl = "/account",
@@ -44,13 +63,13 @@ export function AuthModalTrigger({
   defaultMode = "signin",
   googleOAuthEnabled,
   label,
-  productionOrigin,
-  productionRedirectUri,
 }: AuthModalTriggerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>(defaultMode);
+  const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
+  const [formStatus, setFormStatus] = useState<string | null>(null);
   const titleId = useId();
 
   useEffect(() => {
@@ -85,11 +104,36 @@ export function AuthModalTrigger({
 
   function openModal() {
     setMode(defaultMode);
+    setFormValues(emptyFormValues);
+    setFormStatus(null);
     setIsOpen(true);
   }
 
   function closeModal() {
     setIsOpen(false);
+  }
+
+  function handleModeChange(nextMode: AuthMode) {
+    setMode(nextMode);
+    setFormStatus(null);
+  }
+
+  function handleFieldChange(field: keyof AuthFormValues) {
+    return (event: ChangeEvent<HTMLInputElement>) => {
+      setFormValues((currentValues) => ({
+        ...currentValues,
+        [field]: event.target.value,
+      }));
+
+      if (formStatus) {
+        setFormStatus(null);
+      }
+    };
+  }
+
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormStatus(modeCopy.formStatus);
   }
 
   const modeCopy = getModeCopy(mode);
@@ -129,14 +173,14 @@ export function AuthModalTrigger({
               <div className={styles.modeSwitch}>
                 <button
                   className={mode === "signup" ? styles.modeButtonActive : styles.modeButton}
-                  onClick={() => setMode("signup")}
+                  onClick={() => handleModeChange("signup")}
                   type="button"
                 >
                   Sign up
                 </button>
                 <button
                   className={mode === "signin" ? styles.modeButtonActive : styles.modeButton}
-                  onClick={() => setMode("signin")}
+                  onClick={() => handleModeChange("signin")}
                   type="button"
                 >
                   Sign in
@@ -145,43 +189,89 @@ export function AuthModalTrigger({
 
               <p className={styles.copy}>{modeCopy.copy}</p>
 
-              {googleOAuthEnabled ? (
-                <div className={styles.actionBlock}>
-                  <GoogleSignInButton callbackUrl={callbackUrl} label={modeCopy.buttonLabel} />
-                  <div className={styles.trustRow}>
-                    <div className={styles.trustPill}>
-                      <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                      Verified Google email only
-                    </div>
-                    <div className={styles.trustPill}>
-                      <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
-                      Lands directly in `/account`
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className={styles.warning}>
-                  <strong>Backend setup still needs its auth variables.</strong>
-                  <p>
-                    The app accepts either <code>GOOGLE_CLIENT_ID</code> /
-                    <code> GOOGLE_CLIENT_SECRET</code> or the Railway names you already made:
-                    <code> CLIENT_ID</code> / <code>CLIENT_SECRET</code>.
-                  </p>
-                  <p>
-                    You also need <code>NEXTAUTH_SECRET</code>. If Railway exposes a public
-                    domain, the app can derive <code>NEXTAUTH_URL</code> automatically.
-                  </p>
-                </div>
-              )}
+              <form className={styles.formCard} onSubmit={handleFormSubmit}>
+                <div className={styles.fieldGrid}>
+                  {mode === "signup" ? (
+                    <label className={styles.field}>
+                      <span className={styles.fieldLabel}>Full name</span>
+                      <input
+                        autoComplete="name"
+                        className={styles.input}
+                        name="name"
+                        onChange={handleFieldChange("name")}
+                        placeholder="Taylor Morgan"
+                        required
+                        type="text"
+                        value={formValues.name}
+                      />
+                    </label>
+                  ) : null}
 
-              <div className={styles.configBlock}>
-                <div className={styles.valueRow}>
-                  <span>Authorized JavaScript origin</span>
-                  <code>{productionOrigin}</code>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Email</span>
+                    <input
+                      autoComplete="email"
+                      className={styles.input}
+                      name="email"
+                      onChange={handleFieldChange("email")}
+                      placeholder="you@company.com"
+                      required
+                      type="email"
+                      value={formValues.email}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Password</span>
+                    <input
+                      autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                      className={styles.input}
+                      name="password"
+                      onChange={handleFieldChange("password")}
+                      placeholder={mode === "signup" ? "Create a secure password" : "Enter your password"}
+                      required
+                      type="password"
+                      value={formValues.password}
+                    />
+                  </label>
                 </div>
-                <div className={styles.valueRow}>
-                  <span>Authorized redirect URI</span>
-                  <code>{productionRedirectUri}</code>
+
+                <button className={styles.emailAction} type="submit">
+                  {modeCopy.emailActionLabel}
+                </button>
+
+                <p
+                  aria-live="polite"
+                  className={formStatus ? styles.formStatusActive : styles.formStatus}
+                >
+                  {formStatus ?? modeCopy.emailHint}
+                </p>
+              </form>
+
+              <div className={styles.divider}>
+                <span>Or continue instantly</span>
+              </div>
+
+              <div className={styles.actionBlock}>
+                <GoogleSignInButton
+                  callbackUrl={callbackUrl}
+                  disabled={!googleOAuthEnabled}
+                  label={modeCopy.buttonLabel}
+                />
+                <p className={styles.providerHint}>
+                  {googleOAuthEnabled
+                    ? "Google is the live verified entry point and lands directly in your account workspace."
+                    : "Google sign-in is being connected right now. Check back in a moment."}
+                </p>
+                <div className={styles.trustRow}>
+                  <div className={styles.trustPill}>
+                    <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+                    Verified Google email only
+                  </div>
+                  <div className={styles.trustPill}>
+                    <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
+                    Protected workspace entry
+                  </div>
                 </div>
               </div>
             </div>
