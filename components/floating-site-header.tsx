@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { googleOAuthEnabled, googleRedirectUri, publicOrigin } from "@/auth";
 import { HeaderAuthControls } from "./header-auth-controls";
 import styles from "./floating-site-header.module.css";
 
@@ -14,7 +15,13 @@ export function FloatingSiteHeader() {
           </span>
         </Link>
 
-        <HeaderAuthControls />
+        <HeaderAuthControls
+          googleOAuthEnabled={googleOAuthEnabled}
+          productionOrigin={publicOrigin || "https://taidai-production.up.railway.app"}
+          productionRedirectUri={
+            googleRedirectUri || "https://taidai-production.up.railway.app/api/auth/callback/google"
+          }
+        />
       </div>
     </header>
   );

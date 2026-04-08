@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
-import { googleOAuthEnabled, auth } from "@/auth";
+import { googleOAuthEnabled, googleRedirectUri, publicOrigin, auth } from "@/auth";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import styles from "./page.module.css";
 
 export default async function SignInPage() {
   const session = await auth();
+  const productionOrigin = publicOrigin || "https://taidai-production.up.railway.app";
+  const productionRedirectUri =
+    googleRedirectUri || "https://taidai-production.up.railway.app/api/auth/callback/google";
 
   if (session?.user) {
     redirect("/account");
@@ -33,9 +36,14 @@ export default async function SignInPage() {
           <div className={styles.warning}>
             <strong>Google OAuth is not configured yet.</strong>
             <p>
-              Add <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>,
-              <code> NEXTAUTH_URL</code>, and <code>NEXTAUTH_SECRET</code> in Railway
-              and in your local <code>.env.local</code>.
+              Add <code>GOOGLE_CLIENT_ID</code> / <code>GOOGLE_CLIENT_SECRET</code> or
+              the Railway variable names you already created: <code>CLIENT_ID</code> /
+              <code>CLIENT_SECRET</code>.
+            </p>
+            <p>
+              You also need <code>NEXTAUTH_SECRET</code>. If Railway exposes
+              <code> RAILWAY_PUBLIC_DOMAIN</code>, the app can derive
+              <code> NEXTAUTH_URL</code> from it automatically.
             </p>
           </div>
         )}
@@ -44,11 +52,11 @@ export default async function SignInPage() {
           <h2>Google Cloud values</h2>
           <div className={styles.valueRow}>
             <span>Authorized JavaScript origin</span>
-            <code>https://taidai-production.up.railway.app</code>
+            <code>{productionOrigin}</code>
           </div>
           <div className={styles.valueRow}>
             <span>Authorized redirect URI</span>
-            <code>https://taidai-production.up.railway.app/api/auth/callback/google</code>
+            <code>{productionRedirectUri}</code>
           </div>
           <div className={styles.valueRow}>
             <span>Local redirect URI</span>
