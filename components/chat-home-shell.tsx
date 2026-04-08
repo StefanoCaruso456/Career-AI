@@ -414,26 +414,6 @@ export function ChatHomeShell() {
   return (
     <div className={styles.page}>
       <section className={styles.heroSection}>
-        <header className={styles.navShell}>
-          <Link className={styles.brand} href="#">
-            <span className={styles.brandMark}>TA</span>
-            <span className={styles.brandText}>
-              <strong>Talent Agent ID</strong>
-              <small>Agent Identity Platform</small>
-            </span>
-          </Link>
-
-          <div className={styles.navActions}>
-            <Link className={styles.navGhost} href="#stories">
-              Sign in
-            </Link>
-            <Link className={styles.navPrimary} href="#footer">
-              Contact sales
-              <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
-            </Link>
-          </div>
-        </header>
-
         <div className={styles.heroInner}>
           <div className={styles.heroBadge}>
             <Sparkles aria-hidden="true" size={16} strokeWidth={1.9} />

@@ -1,0 +1,97 @@
+.page {
+  min-height: 100vh;
+  padding:
+    calc(var(--site-header-clearance) + 1rem)
+    clamp(1.5rem, 3vw, 2.5rem)
+    clamp(2rem, 4vw, 3rem);
+  display: grid;
+  place-items: center;
+}
+
+.panel {
+  width: min(720px, 100%);
+  padding: clamp(1.4rem, 3vw, 2.2rem);
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(146, 182, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(27, 34, 48, 0.96), rgba(17, 22, 33, 0.98));
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.32),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0.8rem 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2.2rem, 6vw, 3.7rem);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+
+.copy {
+  margin: 1rem 0 1.6rem;
+  max-width: 42rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+}
+
+.small {
+  margin: 0.9rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.92rem;
+}
+
+.warning {
+  padding: 1rem 1.05rem;
+  border-radius: 1.3rem;
+  border: 1px solid rgba(255, 193, 119, 0.2);
+  background: rgba(255, 193, 119, 0.08);
+}
+
+.warning p {
+  margin: 0.55rem 0 0;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.configBlock {
+  margin-top: 1.6rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.configBlock h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.valueRow {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.valueRow span {
+  color: var(--text-secondary);
+  font-size: 0.83rem;
+}
+
+.valueRow code,
+.small code,
+.warning code {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "SFMono-Regular", "SF Mono", Consolas, monospace;
+}

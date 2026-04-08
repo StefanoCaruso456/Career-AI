@@ -1,5 +1,7 @@
 :root {
   color-scheme: dark;
+  --site-header-top-offset: 1rem;
+  --site-header-clearance: 8rem;
   --bg-canvas: #0d1016;
   --bg-layer: #121722;
   --panel: #171d29;
@@ -26,6 +28,7 @@
 
 html {
   font-size: 16px;
+  scroll-padding-top: calc(var(--site-header-clearance) + 1rem);
 }
 
 body {
@@ -56,4 +59,17 @@ textarea {
 
 ::selection {
   background: rgba(146, 182, 255, 0.25);
+}
+
+@media (max-width: 760px) {
+  :root {
+    --site-header-top-offset: 0.85rem;
+    --site-header-clearance: 7.4rem;
+  }
+}
+
+@media (max-width: 560px) {
+  :root {
+    --site-header-clearance: 9.25rem;
+  }
 }
