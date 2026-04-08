@@ -1,4 +1,4 @@
-# taid_ai
+# Carrer-AI
 
 Talent Agent ID is a ChatGPT-inspired frontend and documentation foundation for the Agent Identity Platform.
 
