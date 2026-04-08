@@ -2,6 +2,7 @@ import {
   ApiError,
   createTalentIdentityInputSchema,
   updatePrivacySettingsInputSchema,
+  type ActorType,
   type CreateTalentIdentityInput,
   type PrivacySettings,
   type SoulRecord,
@@ -230,6 +231,55 @@ export function updatePrivacySettings(args: {
     talentIdentity: updatedIdentity,
     soulRecord: aggregate.soulRecord,
     privacySettings: updatedPrivacySettings,
+  };
+}
+
+export function updateSoulRecordReferences(args: {
+  talentIdentityId: string;
+  trustSummaryIdOptional?: string | null;
+  defaultShareProfileIdOptional?: string | null;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}) {
+  const aggregate = requireAggregate(args.talentIdentityId, args.correlationId);
+  const store = getIdentityStore();
+  const updatedAt = new Date().toISOString();
+
+  const updatedSoulRecord: SoulRecord = {
+    ...aggregate.soulRecord,
+    trust_summary_id:
+      args.trustSummaryIdOptional === undefined
+        ? aggregate.soulRecord.trust_summary_id
+        : args.trustSummaryIdOptional,
+    default_share_profile_id:
+      args.defaultShareProfileIdOptional === undefined
+        ? aggregate.soulRecord.default_share_profile_id
+        : args.defaultShareProfileIdOptional,
+    updated_at: updatedAt,
+    version: aggregate.soulRecord.version + 1,
+  };
+
+  store.soulRecordsByIdentityId.set(args.talentIdentityId, updatedSoulRecord);
+
+  logAuditEvent({
+    eventType: "soul_record.updated",
+    actorType: args.actorType,
+    actorId: args.actorId,
+    targetType: "soul_record",
+    targetId: updatedSoulRecord.id,
+    correlationId: args.correlationId,
+    metadataJson: {
+      trust_summary_id: updatedSoulRecord.trust_summary_id,
+      default_share_profile_id: updatedSoulRecord.default_share_profile_id,
+      version: updatedSoulRecord.version,
+    },
+  });
+
+  return {
+    talentIdentity: aggregate.talentIdentity,
+    soulRecord: updatedSoulRecord,
+    privacySettings: aggregate.privacySettings,
   };
 }
 
