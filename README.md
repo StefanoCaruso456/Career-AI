@@ -1,48 +1,56 @@
 # taid_ai
 
-Agent Identity Platform documentation and planning repository.
+Talent Agent ID is a ChatGPT-inspired frontend and documentation foundation for the Agent Identity Platform.
 
 ## Overview
 
-The Agent Identity Platform is a trust and verification layer for hiring. It creates a persistent, portable candidate identity called an **Agent ID** that stores verified evidence across employment, education, certifications, and endorsements.
+The product creates a persistent, portable candidate identity that stores trusted evidence across employment, education, certifications, and endorsements. The current repository includes:
 
-The platform is designed to help:
+- a homepage frontend for the Talent Agent ID experience
+- product, planning, and implementation documents
+- the foundation for future candidate, recruiter, and admin workflows
 
-- candidates prove credibility without repeating the same verification work
-- recruiters evaluate claims with clearer trust signals
-- hiring teams reduce manual screening and fraud risk
+## Tech Stack
+
+- Next.js App Router
+- React
+- TypeScript
+- CSS Modules
+- Lucide icons
 
 ## Core Concepts
 
-- **Agent ID**: the candidate-facing verified professional identity
+- **Talent Agent ID**: the candidate-facing verified professional identity
 - **Soul Record**: the internal structured record that stores evidence, statuses, and audit history
 - **Agent QR**: the shareable recruiter-safe profile entry point
 
-## Problem
+## Getting Started
 
-Hiring data is fragmented, self-reported, and increasingly noisy. Resumes, profiles, and application materials are easy to exaggerate, while verification is still slow, manual, and inconsistent across employers, schools, and credential issuers.
+```bash
+npm install
+npm run dev
+```
 
-This platform exists to create a reusable trust layer for candidate identity.
+The app runs locally at [http://localhost:3000](http://localhost:3000).
 
-## MVP Scope
+## Product Goal
 
-The initial product focuses on the trust foundation:
+Hiring data is fragmented, self-reported, and increasingly noisy. Talent Agent ID exists to create a reusable trust layer so candidates can prove credibility faster and recruiters can evaluate claims with clearer signals.
 
-- candidate onboarding and Agent ID creation
-- Soul Record creation and storage
-- secure document upload and evidence storage
-- structured verification records for employment, education, and certifications
-- verification status tracking
-- recruiter trust view
-- admin review workflow
-- audit logging
-- Agent QR sharing
+## Current Frontend
+
+The current homepage is a minimal, modern, ChatGPT-inspired shell for the Talent Agent ID experience. It includes:
+
+- a left navigation rail with project and chat controls
+- a centered conversational composer layout
+- a neumorphic dark theme aligned to the product brand
+- responsive behavior for desktop and mobile
 
 ## Product Principles
 
-- verified and self-reported claims must be clearly distinct
+- verified and self-reported claims must be visually distinct
 - provenance must be auditable
-- candidate sharing must be permissioned
+- candidate sharing must remain permissioned
 - trust levels must be explicit and explainable
 - manual workflows must be useful before agentic automation exists
 
@@ -51,8 +59,12 @@ The initial product focuses on the trust foundation:
 ```text
 .
 ├── README.md
+├── app
+├── components
 └── docs
     ├── README.md
+    ├── architecture
+    │   └── talent-agent-id-development-spec.md
     ├── planning
     │   └── agent-delivery-roadmap.md
     └── product
@@ -63,16 +75,9 @@ The initial product focuses on the trust foundation:
 
 - [Product Requirements Document](./docs/product/agent-identity-platform-prd.md)
 - [Delivery Roadmap and Parallel Agent Plan](./docs/planning/agent-delivery-roadmap.md)
+- [Development Spec for Isolated Dev Agents](./docs/architecture/talent-agent-id-development-spec.md)
 - [Documentation Index](./docs/README.md)
 
 ## Current Status
 
-This repository currently contains product and delivery documentation only. Application code, architecture specs, and implementation artifacts have not been added yet.
-
-## Next Recommended Docs
-
-- system architecture overview
-- Soul Record schema and domain model
-- API and event contract specification
-- verification operations playbook
-- recruiter and candidate experience specs
+This repository now contains the initial frontend surface plus the documentation needed to move into architecture, contracts, and domain implementation.

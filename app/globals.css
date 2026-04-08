@@ -1,0 +1,59 @@
+:root {
+  color-scheme: dark;
+  --bg-canvas: #0d1016;
+  --bg-layer: #121722;
+  --panel: #171d29;
+  --panel-strong: #1d2533;
+  --panel-alt: #20293a;
+  --panel-border: rgba(255, 255, 255, 0.06);
+  --text-primary: #f4f7fc;
+  --text-secondary: #9aa6bc;
+  --text-tertiary: #7f8aa2;
+  --accent: #92b6ff;
+  --accent-strong: #d7e3ff;
+  --shadow-light: rgba(255, 255, 255, 0.04);
+  --shadow-dark: rgba(2, 6, 14, 0.58);
+  --shadow-raised: 18px 18px 34px var(--shadow-dark), -16px -16px 30px var(--shadow-light);
+  --shadow-inset:
+    inset 10px 10px 24px rgba(8, 11, 18, 0.6),
+    inset -9px -9px 22px rgba(255, 255, 255, 0.025);
+  --shadow-soft: 0 22px 70px rgba(0, 0, 0, 0.32);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(125, 152, 207, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(193, 168, 118, 0.12), transparent 30%),
+    linear-gradient(180deg, #10141d 0%, #0d1016 100%);
+  color: var(--text-primary);
+  font-family: var(--font-body), sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  resize: none;
+}
+
+::selection {
+  background: rgba(146, 182, 255, 0.25);
+}
