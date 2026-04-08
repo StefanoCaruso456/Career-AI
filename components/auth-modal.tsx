@@ -28,7 +28,7 @@ function getModeCopy(mode: AuthMode) {
       eyebrow: "Create your account",
       title: "Create your Career AI account",
       copy:
-        "Create a verified identity, open your workspace, and start sharing trusted proof faster.",
+        "Build a verified career identity to increase credibility, attract employers, and get hired faster.",
       buttonLabel: "Continue with Google",
       emailActionLabel: "Create account",
       formStatus:
