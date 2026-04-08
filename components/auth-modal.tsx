@@ -282,9 +282,6 @@ export function AuthModalTrigger({
                   disabled={!googleOAuthEnabled}
                   label={modeCopy.buttonLabel}
                 />
-                {!googleOAuthEnabled ? (
-                  <p className={styles.providerHint}>Google sign-in will appear here once it is connected.</p>
-                ) : null}
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
