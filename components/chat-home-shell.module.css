@@ -254,12 +254,6 @@
   gap: 0.55rem;
 }
 
-.composerLabel {
-  color: rgba(255, 255, 255, 0.52);
-  font-size: 0.95rem;
-  text-align: left;
-}
-
 .composerInput {
   width: 100%;
   min-height: 4.6rem;
@@ -346,12 +340,77 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
 }
 
+.voiceButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.composerInput:disabled {
+  cursor: progress;
+}
+
+.spinner {
+  animation: spinnerTurn 900ms linear infinite;
+}
+
+.heroResponse {
+  width: min(100%, 780px);
+  margin-top: 0.55rem;
+  padding: 1rem 1.05rem 1.1rem;
+  border-radius: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(54, 54, 54, 0.9), rgba(37, 37, 37, 0.94)),
+    rgba(30, 30, 30, 0.92);
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.24),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.04);
+  text-align: left;
+}
+
+.heroResponseError {
+  border-color: rgba(255, 163, 163, 0.26);
+}
+
+.heroResponseHeader {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.heroResponseHeader span {
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.heroResponseHeader small {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.76rem;
+}
+
+.heroResponseBody {
+  margin: 0.8rem 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 1rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
 .heroSubcopy {
   max-width: 44rem;
   margin: 0;
   color: rgba(255, 255, 255, 0.58);
   font-size: 1rem;
   line-height: 1.7;
+}
+
+@keyframes spinnerTurn {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .introSection,

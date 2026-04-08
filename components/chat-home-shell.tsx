@@ -2,13 +2,8 @@ import Link from "next/link";
 import {
   ArrowRight,
   ArrowUpRight,
-  AudioLines,
-  ChevronDown,
-  Clock3,
   FileCheck2,
   Globe2,
-  Mic,
-  Plus,
   QrCode,
   ShieldCheck,
   Sparkles,
@@ -16,6 +11,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
+import { HeroComposer } from "./hero-composer";
 import styles from "./chat-home-shell.module.css";
 
 type StoryTheme = "aura" | "stream" | "grid" | "orb";
@@ -446,40 +442,7 @@ export function ChatHomeShell() {
 
           <h1 className={styles.heroTitle}>What can I help with?</h1>
 
-          <div className={styles.composer}>
-            <div className={styles.composerTop}>
-              <span className={styles.composerLabel}>Ask anything</span>
-              <textarea
-                aria-label="Ask anything"
-                className={styles.composerInput}
-                placeholder="Ask about verification workflows, recruiter trust views, or candidate proof."
-                rows={2}
-              />
-            </div>
-
-            <div className={styles.composerFooter}>
-              <div className={styles.composerStart}>
-                <button aria-label="Add attachment" className={styles.iconCircle} type="button">
-                  <Plus size={18} strokeWidth={2.1} />
-                </button>
-
-                <button className={styles.modePill} type="button">
-                  <Clock3 aria-hidden="true" size={16} strokeWidth={1.9} />
-                  <span>Thinking</span>
-                  <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
-                </button>
-              </div>
-
-              <div className={styles.composerEnd}>
-                <button aria-label="Voice input" className={styles.iconGhost} type="button">
-                  <Mic size={16} strokeWidth={1.9} />
-                </button>
-                <button aria-label="Open voice agent" className={styles.voiceButton} type="button">
-                  <AudioLines size={18} strokeWidth={2.1} />
-                </button>
-              </div>
-            </div>
-          </div>
+          <HeroComposer />
 
           <p className={styles.heroSubcopy}>
             Start with a conversation. Move into verified identity, evidence-backed claims,
