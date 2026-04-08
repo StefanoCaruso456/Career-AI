@@ -1,0 +1,73 @@
+name: Railway Deploy
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build application
+        run: npm run build
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' || (github.event_name != 'pull_request' && github.ref == 'refs/heads/main')
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+      RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT }}
+      RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Validate Railway secrets
+        run: |
+          test -n "$RAILWAY_TOKEN" || (echo "Missing RAILWAY_TOKEN secret" && exit 1)
+          test -n "$RAILWAY_PROJECT_ID" || (echo "Missing RAILWAY_PROJECT_ID secret" && exit 1)
+
+      - name: Deploy to Railway
+        run: |
+          environment="${RAILWAY_ENVIRONMENT:-production}"
+          args=(up --ci --project "$RAILWAY_PROJECT_ID" --environment "$environment")
+
+          if [ -n "$RAILWAY_SERVICE" ]; then
+            args+=(--service "$RAILWAY_SERVICE")
+          fi
+
+          railway "${args[@]}"

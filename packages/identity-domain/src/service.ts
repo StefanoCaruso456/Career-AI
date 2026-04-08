@@ -157,6 +157,27 @@ export function getTalentIdentity(args: {
   return requireAggregate(args.talentIdentityId, args.correlationId);
 }
 
+export function getTalentIdentityBySoulRecordId(args: {
+  soulRecordId: string;
+  correlationId: string;
+}): TalentIdentityAggregate {
+  const store = getIdentityStore();
+
+  for (const soulRecord of store.soulRecordsByIdentityId.values()) {
+    if (soulRecord.id === args.soulRecordId) {
+      return requireAggregate(soulRecord.talent_identity_id, args.correlationId);
+    }
+  }
+
+  throw new ApiError({
+    errorCode: "NOT_FOUND",
+    status: 404,
+    message: "Soul record was not found.",
+    details: { soulRecordId: args.soulRecordId },
+    correlationId: args.correlationId,
+  });
+}
+
 export function updatePrivacySettings(args: {
   talentIdentityId: string;
   input: UpdatePrivacySettingsInput;

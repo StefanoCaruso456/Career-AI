@@ -77,3 +77,34 @@ export function assertTalentIdentityAccess(
     correlationId,
   });
 }
+
+export function assertAllowedActorTypes(
+  actor: AuthenticatedActor,
+  allowedActorTypes: ActorType[],
+  correlationId: string,
+  action: string,
+) {
+  if (allowedActorTypes.includes(actor.actorType)) {
+    return;
+  }
+
+  throw new ApiError({
+    errorCode: "FORBIDDEN",
+    status: 403,
+    message: `Actor cannot ${action}.`,
+    details: {
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      allowedActorTypes,
+    },
+    correlationId,
+  });
+}
+
+export function assertReviewerAccess(
+  actor: AuthenticatedActor,
+  correlationId: string,
+  action = "perform reviewer action",
+) {
+  assertAllowedActorTypes(actor, ["reviewer_admin", "system_service"], correlationId, action);
+}
