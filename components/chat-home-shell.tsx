@@ -448,9 +448,8 @@ export function ChatHomeShell() {
 
           <div className={styles.composer}>
             <div className={styles.composerTop}>
-              <span className={styles.composerLabel}>Ask anything</span>
               <textarea
-                aria-label="Ask anything"
+                aria-label="Message composer"
                 className={styles.composerInput}
                 placeholder="Ask about verification workflows, recruiter trust views, or candidate proof."
                 rows={2}
