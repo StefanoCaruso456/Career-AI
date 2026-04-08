@@ -468,10 +468,6 @@ export function ChatHomeShell() {
 
           <HeroComposer />
 
-          <p className={styles.heroSubcopy}>
-            Start with a conversation. Move into verified identity, evidence-backed claims,
-            recruiter-safe sharing, and audit-ready review operations.
-          </p>
         </div>
       </section>
 
