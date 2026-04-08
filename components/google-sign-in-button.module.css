@@ -1,58 +1,68 @@
 .button {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1.4rem 1fr 1.4rem;
   align-items: center;
-  justify-content: center;
   gap: 0.8rem;
   width: 100%;
-  padding: 1rem 1.1rem;
-  border: 0;
-  border-radius: 1.25rem;
-  background: linear-gradient(135deg, #f5f7ff 0%, #e8eeff 100%);
+  min-height: 3.75rem;
+  padding: 0.95rem 1.15rem;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 1.2rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
   color: #111827;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
   box-shadow:
-    0 20px 34px rgba(5, 10, 20, 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    0 18px 34px rgba(5, 10, 20, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
   cursor: pointer;
   transition:
     transform 180ms ease,
     box-shadow 180ms ease,
+    border-color 180ms ease,
     opacity 180ms ease;
 }
 
 .button:hover {
   transform: translateY(-2px);
+  border-color: rgba(66, 133, 244, 0.34);
   box-shadow:
-    0 24px 40px rgba(5, 10, 20, 0.3),
+    0 22px 40px rgba(5, 10, 20, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .button:disabled {
-  cursor: progress;
-  opacity: 0.82;
+  cursor: not-allowed;
+  opacity: 0.72;
   transform: none;
 }
 
 .button:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline: 2px solid rgba(66, 133, 244, 0.7);
   outline-offset: 3px;
 }
 
-.mark {
+.iconShell,
+.trailingSlot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #0f172a 0%, #273449 100%);
-  color: #f8fafc;
-  font-size: 0.95rem;
-  font-weight: 800;
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.iconShell svg {
+  width: 100%;
+  height: 100%;
+}
+
+.label {
+  text-align: center;
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
 }
 
 .spinner {
+  color: #1f2937;
   animation: googleButtonSpin 900ms linear infinite;
 }
 
