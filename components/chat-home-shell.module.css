@@ -416,52 +416,48 @@
 @keyframes introRibbonFloat {
   from {
     opacity: 0.9;
-    transform: translate3d(3%, -1%, 0) rotate(-6deg) scale(0.98);
+    transform: translate3d(4%, -3%, 0) rotate(-31deg) scale(0.98);
   }
 
   to {
     opacity: 1;
-    transform: translate3d(-3%, 3%, 0) rotate(4deg) scale(1.04);
+    transform: translate3d(-2%, 2%, 0) rotate(-27deg) scale(1.04);
   }
 }
 
-@keyframes introRibbonPulse {
+@keyframes introRibbonDrift {
   from {
-    opacity: 0.68;
-    transform: translate3d(0, 0, 0) scale(0.96);
+    opacity: 0.72;
+    transform: translate3d(2%, -4%, 0) rotate(-43deg) scale(0.97);
   }
 
   to {
     opacity: 0.96;
-    transform: translate3d(-2%, 4%, 0) scale(1.08);
+    transform: translate3d(-4%, 4%, 0) rotate(-48deg) scale(1.06);
   }
 }
 
-@keyframes introFlashSweep {
+@keyframes introMeshShift {
   from {
-    opacity: 0.42;
-    transform: translate3d(6%, -2%, 0) rotate(-4deg);
+    opacity: 0.44;
+    background-position: 0% 0%, 0% 0%;
   }
 
   to {
-    opacity: 0.82;
-    transform: translate3d(-8%, 8%, 0) rotate(5deg);
+    opacity: 0.78;
+    background-position: 100% 0%, 28% 100%;
   }
 }
 
 @keyframes introTitleSweep {
   from {
-    opacity: 0.72;
-    background-position: 108% 50%;
-    -webkit-mask-position: 108% 50%;
-    mask-position: 108% 50%;
+    background-position: 100% 50%;
+    filter: saturate(122%);
   }
 
   to {
-    opacity: 1;
-    background-position: -8% 50%;
-    -webkit-mask-position: -8% 50%;
-    mask-position: -8% 50%;
+    background-position: 0% 50%;
+    filter: saturate(156%);
   }
 }
 
@@ -480,117 +476,157 @@
 .introShell {
   overflow: hidden;
   isolation: isolate;
+  padding: clamp(3.2rem, 6vw, 5rem) clamp(1.2rem, 2.8vw, 2.2rem) 1.25rem;
+  border-top: 1px solid rgba(20, 31, 53, 0.08);
+  border-left: 1px solid rgba(20, 31, 53, 0.06);
+  border-right: 1px solid rgba(20, 31, 53, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 249, 253, 0.98)),
+    var(--surface-strong);
+  box-shadow:
+    0 30px 80px rgba(18, 31, 53, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
 .introMotionField {
   position: absolute;
-  inset: -7rem -12rem -4rem 34%;
-  z-index: 3;
+  inset: -11rem -20rem -7rem 32%;
+  z-index: 1;
   pointer-events: none;
   opacity: 0.98;
 }
 
-.introRibbon {
+.introOrbitalGlow,
+.introRibbonPrimary,
+.introRibbonSecondary,
+.introRibbonMesh,
+.introRibbonSpine {
   position: absolute;
-  inset: -2% -3% 2% 16%;
+  pointer-events: none;
+  will-change: transform, opacity, background-position;
+}
+
+.introOrbitalGlow {
+  inset: -14% -10% 12% 12%;
   background:
-    linear-gradient(
-      132deg,
-      rgba(255, 255, 255, 0) 18%,
-      rgba(148, 177, 255, 0.88) 36%,
-      rgba(174, 149, 255, 0.92) 48%,
-      rgba(255, 196, 104, 0.97) 60%,
-      rgba(255, 151, 112, 0.93) 71%,
-      rgba(224, 129, 255, 0.72) 84%,
-      rgba(255, 255, 255, 0) 96%
-    );
-  clip-path: polygon(40% 0%, 100% 0%, 100% 100%, 60% 100%, 20% 80%, 33% 52%, 28% 18%);
+    radial-gradient(circle at 22% 28%, rgba(126, 154, 255, 0.18), transparent 20%),
+    radial-gradient(circle at 62% 24%, rgba(255, 201, 110, 0.34), transparent 20%),
+    radial-gradient(circle at 76% 52%, rgba(231, 137, 255, 0.2), transparent 22%),
+    radial-gradient(circle at 60% 74%, rgba(255, 157, 132, 0.16), transparent 24%);
+  filter: blur(22px);
+  opacity: 0.96;
+}
+
+.introRibbonPrimary {
+  top: -1rem;
+  right: -22rem;
+  width: 72rem;
+  height: 21rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    92deg,
+    rgba(255, 255, 255, 0) 4%,
+    rgba(168, 194, 255, 0.42) 14%,
+    rgba(133, 157, 255, 0.96) 28%,
+    rgba(173, 133, 255, 0.96) 44%,
+    rgba(255, 201, 105, 0.98) 63%,
+    rgba(255, 154, 118, 0.96) 79%,
+    rgba(219, 123, 255, 0.72) 93%,
+    rgba(255, 255, 255, 0) 100%
+  );
   mix-blend-mode: multiply;
-  filter: saturate(135%);
-  transform-origin: 85% 10%;
-  will-change: transform, opacity, filter;
+  filter: saturate(132%);
+  transform-origin: 84% 14%;
   animation: introRibbonFloat 17s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate;
 }
 
-.introRibbonGlow,
-.introRibbonThreads,
-.introRibbonFlash {
-  position: absolute;
-  pointer-events: none;
-  will-change: transform, opacity, filter, background-position;
-}
-
-.introRibbonGlow {
-  inset: -8% -12% 6% 18%;
+.introRibbonSecondary {
+  top: 6rem;
+  right: -16rem;
+  width: 67rem;
+  height: 17rem;
+  border-radius: 999px;
   background:
-    radial-gradient(circle at 72% 14%, rgba(255, 212, 123, 0.84), transparent 21%),
-    radial-gradient(circle at 62% 34%, rgba(201, 146, 255, 0.44), transparent 26%),
-    radial-gradient(circle at 48% 46%, rgba(135, 176, 255, 0.28), transparent 24%);
-  filter: blur(18px) saturate(125%);
-  opacity: 0.9;
-  transform-origin: 80% 18%;
-  animation: introRibbonPulse 13s ease-in-out infinite alternate;
+    linear-gradient(
+      98deg,
+      rgba(255, 255, 255, 0) 2%,
+      rgba(181, 197, 255, 0.24) 14%,
+      rgba(175, 130, 255, 0.8) 32%,
+      rgba(255, 188, 99, 0.92) 63%,
+      rgba(255, 151, 131, 0.86) 82%,
+      rgba(255, 255, 255, 0) 100%
+    );
+  mix-blend-mode: screen;
+  filter: blur(0.25px) saturate(150%);
+  opacity: 0.88;
+  transform-origin: 80% 30%;
+  animation: introRibbonDrift 15s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate;
 }
 
-.introRibbonThreads {
-  inset: 4% -2% 10% 20%;
+.introRibbonMesh {
+  top: 0.5rem;
+  right: -16rem;
+  width: 68rem;
+  height: 18rem;
+  border-radius: 999px;
   background:
     repeating-linear-gradient(
-      125deg,
-      rgba(255, 255, 255, 0.22) 0 2px,
-      rgba(255, 255, 255, 0.06) 2px 7px,
-      rgba(255, 255, 255, 0) 7px 13px
+      103deg,
+      rgba(255, 255, 255, 0.3) 0 2px,
+      rgba(255, 255, 255, 0.06) 2px 10px,
+      rgba(255, 255, 255, 0) 10px 14px
     ),
     linear-gradient(
-      129deg,
-      rgba(255, 255, 255, 0) 20%,
-      rgba(187, 204, 255, 0.52) 39%,
-      rgba(255, 193, 95, 0.66) 56%,
-      rgba(255, 141, 124, 0.58) 69%,
-      rgba(222, 136, 255, 0.34) 81%,
-      rgba(255, 255, 255, 0) 93%
+      98deg,
+      rgba(255, 255, 255, 0) 8%,
+      rgba(255, 255, 255, 0.28) 26%,
+      rgba(255, 255, 255, 0.1) 42%,
+      rgba(255, 255, 255, 0) 68%
     );
-  clip-path: polygon(43% 0%, 100% 0%, 100% 100%, 63% 100%, 25% 84%, 36% 55%, 30% 17%);
   mix-blend-mode: screen;
-  filter: blur(0.4px) saturate(150%);
-  opacity: 0.94;
-  transform-origin: 86% 16%;
-  animation: introRibbonFloat 14s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate-reverse;
+  filter: saturate(110%);
+  opacity: 0.56;
+  transform: rotate(-31deg);
+  animation: introMeshShift 14s ease-in-out infinite alternate;
 }
 
-.introRibbonFlash {
-  inset: 10% 10% 18% 38%;
+.introRibbonSpine {
+  top: -10rem;
+  right: 6rem;
+  width: 15rem;
+  height: 52rem;
+  border-radius: 999px;
   background:
     linear-gradient(
-      126deg,
-      rgba(255, 255, 255, 0) 34%,
-      rgba(255, 255, 255, 0.85) 48%,
-      rgba(255, 236, 180, 0.92) 54%,
-      rgba(255, 255, 255, 0) 65%
+      180deg,
+      rgba(255, 255, 255, 0.38),
+      rgba(255, 223, 151, 0.98) 24%,
+      rgba(255, 164, 126, 0.96) 54%,
+      rgba(173, 130, 255, 0.9) 78%,
+      rgba(120, 147, 255, 0.75) 100%
     );
-  clip-path: polygon(56% 0%, 100% 0%, 100% 100%, 79% 100%, 48% 57%);
   mix-blend-mode: screen;
-  filter: blur(8px);
-  opacity: 0.72;
-  transform-origin: 88% 10%;
-  animation: introFlashSweep 11s ease-in-out infinite alternate;
+  filter: blur(7px) saturate(112%);
+  opacity: 0.84;
+  transform: rotate(16deg);
 }
 
 .introGrid,
 .storyHeader,
 .footerHeader {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.72fr);
-  gap: 2rem;
+  grid-template-columns: minmax(0, 0.92fr) minmax(280px, 0.56fr);
+  gap: clamp(2rem, 4vw, 4.2rem);
   align-items: start;
 }
 
 .introGrid {
   position: relative;
   z-index: 2;
+  min-height: clamp(24rem, 42vw, 33rem);
 }
 
-.introCopyBlock,
+.introRail,
 .proofBand {
   position: relative;
   z-index: 4;
@@ -618,18 +654,27 @@
 .storyTitle,
 .footerTitle {
   margin: 0.4rem 0 0;
-  max-width: 14ch;
   font-family: var(--font-display), sans-serif;
   font-size: clamp(2.1rem, 4.6vw, 4rem);
-  line-height: 0.98;
+  line-height: 0.92;
   letter-spacing: -0.055em;
+}
+
+.sectionTitle {
+  font-size: clamp(3rem, 7vw, 5.45rem);
+  line-height: 0.87;
+  letter-spacing: -0.075em;
+}
+
+.storyTitle,
+.footerTitle {
+  max-width: 14ch;
 }
 
 .sectionTitleStack {
   position: relative;
   z-index: 4;
   width: fit-content;
-  max-width: 14ch;
   margin-top: 0.4rem;
 }
 
@@ -642,59 +687,21 @@
   display: block;
 }
 
-.sectionTitleOverlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  color: transparent;
+.sectionTitleLineHighlight {
   background:
     linear-gradient(
-      118deg,
-      rgba(255, 255, 255, 0) 20%,
-      rgba(121, 150, 255, 0.92) 35%,
-      rgba(160, 139, 255, 0.9) 45%,
-      rgba(255, 190, 101, 0.98) 57%,
-      rgba(255, 146, 122, 0.94) 68%,
-      rgba(220, 132, 255, 0.82) 79%,
-      rgba(255, 255, 255, 0) 92%
+      90deg,
+      #5b67ff 0%,
+      #6f63ff 22%,
+      #9e61ff 46%,
+      #ff9360 78%,
+      #ffc15c 100%
     );
-  background-position: 108% 50%;
-  background-size: 230% 100%;
+  background-size: 160% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  -webkit-mask-image: linear-gradient(
-    118deg,
-    transparent 28%,
-    rgba(0, 0, 0, 0.18) 38%,
-    rgba(0, 0, 0, 0.96) 46%,
-    rgba(0, 0, 0, 0.96) 58%,
-    rgba(0, 0, 0, 0.22) 66%,
-    transparent 76%
-  );
-  mask-image: linear-gradient(
-    118deg,
-    transparent 28%,
-    rgba(0, 0, 0, 0.18) 38%,
-    rgba(0, 0, 0, 0.96) 46%,
-    rgba(0, 0, 0, 0.96) 58%,
-    rgba(0, 0, 0, 0.22) 66%,
-    transparent 76%
-  );
-  -webkit-mask-size: 240% 100%;
-  mask-size: 240% 100%;
-  -webkit-mask-position: 108% 50%;
-  mask-position: 108% 50%;
-  mix-blend-mode: hard-light;
-  filter: saturate(150%);
-  opacity: 0.88;
-  will-change:
-    background-position,
-    opacity,
-    filter,
-    -webkit-mask-position,
-    mask-position;
+  will-change: background-position, filter;
   animation: introTitleSweep 15s cubic-bezier(0.37, 0, 0.2, 1) infinite alternate;
 }
 
@@ -702,43 +709,87 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
-  margin-top: 1.6rem;
+  margin-top: 1.8rem;
 }
 
 .secondaryCta {
   padding: 0.84rem 1.2rem;
   border-radius: 0.9rem;
   border: 1px solid rgba(24, 35, 58, 0.12);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.84);
   color: var(--text-primary);
-  box-shadow: 0 18px 40px rgba(17, 28, 48, 0.06);
+  box-shadow: 0 18px 40px rgba(17, 28, 48, 0.08);
 }
 
-.introCopyBlock {
-  padding-top: 0.6rem;
+.introLead {
+  max-width: 29rem;
+}
+
+.introRail {
+  justify-self: end;
+  width: min(100%, 22rem);
+  padding-top: 1.35rem;
+  padding-left: 1.65rem;
+  border-left: 1px solid rgba(24, 35, 58, 0.1);
   color: var(--text-secondary);
-  font-size: 1.05rem;
+}
+
+.introRailEyebrow {
+  display: inline-flex;
+  color: rgba(24, 35, 58, 0.52);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.introRailLead {
+  margin: 0.8rem 0 0;
+  font-size: 1.08rem;
   line-height: 1.8;
 }
 
-.introCopyBlock p {
-  margin: 0;
-}
-
-.introList {
-  margin: 1.15rem 0 0;
-  padding-left: 1rem;
+.introRailList {
+  margin: 1.35rem 0 0;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 0.7rem;
+  gap: 1rem;
 }
 
-.introList li::marker {
-  color: var(--accent);
+.introRailItem {
+  position: relative;
+  display: grid;
+  gap: 0.3rem;
+  padding-left: 1rem;
+}
+
+.introRailItem::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.72rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #635bff, #a867ff 55%, #ffae5e);
+}
+
+.introRailItem strong {
+  color: rgba(24, 35, 58, 0.92);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.introRailItem span {
+  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .proofBand {
-  margin-top: 3.2rem;
-  padding: 1.6rem 0 0.4rem;
+  margin-top: 3.6rem;
+  padding: 1.35rem 0 0.15rem;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 1rem;
@@ -746,10 +797,10 @@
 }
 
 .proofWordmark {
-  color: rgba(24, 35, 58, 0.9);
-  font-size: clamp(1rem, 1.9vw, 1.4rem);
+  color: rgba(24, 35, 58, 0.86);
+  font-size: clamp(0.94rem, 1.5vw, 1.22rem);
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
   text-align: center;
 }
 
@@ -1653,11 +1704,7 @@
   }
 
   .introMotionField {
-    inset: -5rem -14rem -2rem 44%;
-  }
-
-  .introRibbonFlash {
-    inset: 8% 6% 22% 44%;
+    inset: -10rem -26rem -10rem 28%;
   }
 
   .introGrid,
@@ -1665,6 +1712,23 @@
   .footerHeader,
   .footerGrid {
     grid-template-columns: 1fr;
+  }
+
+  .introGrid {
+    min-height: auto;
+  }
+
+  .introLead,
+  .introRail {
+    max-width: none;
+    width: 100%;
+  }
+
+  .introRail {
+    justify-self: stretch;
+    padding-top: 11rem;
+    padding-left: 0;
+    border-left: 0;
   }
 
   .storyCopy {
@@ -1700,18 +1764,13 @@
   }
 
   .introMotionField {
-    inset: -7rem -16rem auto 28%;
-    min-height: 29rem;
-    opacity: 0.82;
-  }
-
-  .introRibbon,
-  .introRibbonThreads {
-    clip-path: polygon(46% 0%, 100% 0%, 100% 100%, 70% 100%, 30% 82%, 42% 56%, 34% 16%);
+    inset: -11rem -28rem auto 16%;
+    min-height: 32rem;
+    opacity: 0.9;
   }
 
   .sectionTitleStack {
-    max-width: 11ch;
+    max-width: none;
   }
 
   .navShell {
@@ -1800,13 +1859,9 @@
   }
 
   .introMotionField {
-    inset: -6rem -18rem auto 16%;
-    min-height: 24rem;
-    opacity: 0.72;
-  }
-
-  .sectionTitleOverlay {
-    opacity: 0.76;
+    inset: -9rem -29rem auto -6%;
+    min-height: 28rem;
+    opacity: 0.82;
   }
 
   .navActions {
@@ -1824,6 +1879,10 @@
     grid-template-columns: 1fr;
   }
 
+  .introRail {
+    padding-top: 10rem;
+  }
+
   .ctaRow {
     flex-direction: column;
     align-items: stretch;
@@ -1835,11 +1894,12 @@
     animation: none;
   }
 
-  .introRibbon,
-  .introRibbonGlow,
-  .introRibbonThreads,
-  .introRibbonFlash,
-  .sectionTitleOverlay {
+  .introOrbitalGlow,
+  .introRibbonPrimary,
+  .introRibbonSecondary,
+  .introRibbonMesh,
+  .introRibbonSpine,
+  .sectionTitleLineHighlight {
     animation: none;
   }
 

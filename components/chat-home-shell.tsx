@@ -33,7 +33,29 @@ const proofSurfaces = [
   "Audit trail",
 ];
 
-const introTitleLines = ["Identity infrastructure", "to grow hiring trust."];
+const introTitleLines: Array<{ highlight?: boolean; text: string }> = [
+  { text: "Identity" },
+  { text: "infrastructure" },
+  { text: "to" },
+  { highlight: true, text: "grow" },
+  { highlight: true, text: "hiring" },
+  { highlight: true, text: "trust." },
+];
+
+const introRailItems = [
+  {
+    copy: "One durable trust object follows the candidate across applications and review loops.",
+    label: "Persistent Agent IDs",
+  },
+  {
+    copy: "Employment, education, and certification claims stay attached to evidence and provenance.",
+    label: "Structured proof capture",
+  },
+  {
+    copy: "Recruiter-facing views show only what is verified and explicitly shared.",
+    label: "Shareable trust surfaces",
+  },
+];
 
 const storyCards: Array<{
   company: string;
@@ -228,19 +250,14 @@ function IntroSectionTitle() {
     <div className={styles.sectionTitleStack}>
       <h2 className={styles.sectionTitle}>
         {introTitleLines.map((line) => (
-          <span className={styles.sectionTitleLine} key={line}>
-            {line}
-          </span>
-        ))}
-      </h2>
-
-      <h2
-        aria-hidden="true"
-        className={[styles.sectionTitle, styles.sectionTitleOverlay].join(" ")}
-      >
-        {introTitleLines.map((line) => (
-          <span className={styles.sectionTitleLine} key={line}>
-            {line}
+          <span
+            className={[
+              styles.sectionTitleLine,
+              line.highlight ? styles.sectionTitleLineHighlight : "",
+            ].join(" ")}
+            key={line.text}
+          >
+            {line.text}
           </span>
         ))}
       </h2>
@@ -461,10 +478,11 @@ export function ChatHomeShell() {
       <section className={styles.introSection} id="platform">
         <div className={[styles.sectionShell, styles.introShell].join(" ")}>
           <div aria-hidden="true" className={styles.introMotionField}>
-            <div className={styles.introRibbonGlow} />
-            <div className={styles.introRibbon} />
-            <div className={styles.introRibbonThreads} />
-            <div className={styles.introRibbonFlash} />
+            <div className={styles.introOrbitalGlow} />
+            <div className={styles.introRibbonPrimary} />
+            <div className={styles.introRibbonSecondary} />
+            <div className={styles.introRibbonMesh} />
+            <div className={styles.introRibbonSpine} />
           </div>
 
           <div className={styles.introGrid}>
@@ -482,17 +500,19 @@ export function ChatHomeShell() {
               </div>
             </div>
 
-            <div className={styles.introCopyBlock}>
-              <p>
+            <div className={styles.introRail}>
+              <span className={styles.introRailEyebrow}>How Talent Agent ID works</span>
+              <p className={styles.introRailLead}>
                 Talent Agent ID helps candidates prove credibility faster and helps
                 recruiters review what is actually verified, not just what is claimed.
-                One platform links claims, evidence, provenance, privacy controls, and
-                recruiter-safe read models.
               </p>
-              <ul className={styles.introList}>
-                <li>Persistent Agent IDs and Soul Records for every candidate</li>
-                <li>Structured claim capture across employment, education, and certifications</li>
-                <li>Shareable trust views with explicit verification labels</li>
+              <ul className={styles.introRailList}>
+                {introRailItems.map((item) => (
+                  <li className={styles.introRailItem} key={item.label}>
+                    <strong>{item.label}</strong>
+                    <span>{item.copy}</span>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>
