@@ -135,7 +135,7 @@ const solutions: Array<{
   },
   {
     eyebrow: "Identity",
-    title: "Issue portable Talent Agent IDs with a trust layer built in",
+    title: "Issue portable Career AI identities with a trust layer built in",
     copy:
       "One candidate, one persistent identity object, one reusable trust surface across applications.",
     cta: "View the Agent ID model",
@@ -188,7 +188,7 @@ const footerColumns = [
   {
     title: "Platform",
     links: [
-      "Talent Agent ID",
+      "Career AI",
       "Soul Record",
       "Verification engine",
       "Recruiter read model",
@@ -370,8 +370,8 @@ function SolutionVisual({ variant }: { variant: SolutionVariant }) {
         <div className={styles.agentCard}>
           <div className={styles.agentChip} />
           <div className={styles.agentMeta}>
-            <span>Talent Agent ID</span>
-            <strong>TAID-000123</strong>
+            <span>Career AI</span>
+            <strong>CAI-000123</strong>
           </div>
           <div className={styles.agentBrand}>SOUL RECORD</div>
         </div>
@@ -497,9 +497,9 @@ export function ChatHomeShell() {
             </div>
 
             <div className={styles.introRail}>
-              <span className={styles.introRailEyebrow}>How Talent Agent ID works</span>
+              <span className={styles.introRailEyebrow}>How Career AI works</span>
               <p className={styles.introRailLead}>
-                Talent Agent ID helps candidates prove credibility faster and helps
+                Career AI helps candidates prove credibility faster and helps
                 recruiters review what is actually verified, not just what is claimed.
               </p>
               <ul className={styles.introRailList}>
@@ -631,7 +631,7 @@ export function ChatHomeShell() {
           </div>
 
           <div className={styles.footerBottom}>
-            <span>Talent Agent ID</span>
+            <span>Career AI</span>
             <span>Portable identity. Explicit trust. Audit-ready hiring.</span>
           </div>
         </div>

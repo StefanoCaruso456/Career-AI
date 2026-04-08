@@ -93,7 +93,7 @@ export default async function AccountPage() {
             <ul className={styles.list}>
               <li>Store your Google client credentials in Railway production variables.</li>
               <li>Restrict access to future talent or recruiter flows using this session.</li>
-              <li>Connect the authenticated user to a persistent Talent Agent ID record.</li>
+              <li>Connect the authenticated user to a persistent Career AI identity record.</li>
             </ul>
             <Link className={styles.inlineLink} href="/">
               Return to homepage

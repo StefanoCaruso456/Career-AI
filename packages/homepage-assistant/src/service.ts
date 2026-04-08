@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 
 const homepageInstructions =
-  "You are the homepage assistant for Talent Agent ID. Reply with concise, high-signal answers focused on hiring verification, candidate identity, recruiter trust, and product workflows. Keep answers clear and direct.";
+  "You are the homepage assistant for Career AI. Reply with concise, high-signal answers focused on hiring verification, candidate identity, recruiter trust, and product workflows. Keep answers clear and direct.";
 
 export class OpenAIConfigError extends Error {
   constructor(message: string) {

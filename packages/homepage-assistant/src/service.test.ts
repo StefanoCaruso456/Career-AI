@@ -59,7 +59,7 @@ describe("homepage assistant service", () => {
     });
     expect(createResponseMock).toHaveBeenCalledWith({
       model: "gpt-5",
-      instructions: expect.stringContaining("Talent Agent ID"),
+      instructions: expect.stringContaining("Career AI"),
       input: "Summarize the product",
       store: false,
     });
