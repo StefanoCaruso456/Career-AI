@@ -55,10 +55,10 @@ export function HeaderAuthControls({
     return (
       <div className={styles.actions}>
         <AuthModalTrigger
-          className={styles.ghostAction}
-          defaultMode="signin"
+          className={styles.primaryAction}
+          defaultMode="signup"
           googleOAuthEnabled={googleOAuthEnabled}
-          label="Sign in"
+          label="Getting Started"
           productionOrigin={productionOrigin}
           productionRedirectUri={productionRedirectUri}
         />
