@@ -181,6 +181,11 @@
   background: rgba(10, 14, 24, 0.92);
 }
 
+.inputError {
+  border-color: rgba(255, 120, 120, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 120, 120, 0.12);
+}
+
 .emailAction {
   width: 100%;
   padding: 0.82rem 0.92rem;
