@@ -11,7 +11,7 @@
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
   padding: 0.78rem 0.9rem;
   border-radius: 1.9rem;
@@ -55,57 +55,6 @@
   inset: 1px;
   border-radius: inherit;
   border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.brand {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.95rem;
-  min-width: 0;
-  color: #f7f7f7;
-}
-
-.brandMark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), transparent 34%),
-    linear-gradient(145deg, rgba(114, 129, 186, 0.5), rgba(34, 38, 49, 0.78));
-  color: #eef3ff;
-  font-family: var(--font-display), sans-serif;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 14px 24px rgba(0, 0, 0, 0.18);
-}
-
-.brandText {
-  display: flex;
-  flex-direction: column;
-  gap: 0.16rem;
-  min-width: 0;
-}
-
-.brandText strong {
-  font-size: 0.96rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.brandText small {
-  color: rgba(255, 255, 255, 0.64);
-  font-size: 0.74rem;
-  letter-spacing: 0.03em;
 }
 
 .actions {
@@ -239,8 +188,7 @@
 .ghostAction:focus-visible,
 .primaryAction:focus-visible,
 .ghostButton:focus-visible,
-.accountAction:focus-visible,
-.brand:focus-visible {
+.accountAction:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.82);
   outline-offset: 3px;
 }
@@ -273,15 +221,6 @@
   .shell {
     padding: 0.72rem 0.78rem;
     border-radius: 1.6rem;
-  }
-
-  .brandMark {
-    width: 44px;
-    height: 44px;
-  }
-
-  .brandText strong {
-    font-size: 0.92rem;
   }
 }
 
