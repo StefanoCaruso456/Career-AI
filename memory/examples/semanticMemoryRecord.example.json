@@ -1,0 +1,24 @@
+{
+  "id": "mem_user_pref_001",
+  "memory_type": "user_preference",
+  "scope": "global",
+  "title": "User prefers concise, best-practice technical documentation",
+  "content": "The user consistently prefers concise, professional, best-practice documentation and implementation guidance.",
+  "tags": ["style", "documentation", "preference"],
+  "source": {
+    "kind": "conversation",
+    "reference": "thread_abc123",
+    "assertion_mode": "user_stated"
+  },
+  "confidence": 0.93,
+  "created_at": "2026-04-09T18:00:00.000Z",
+  "updated_at": "2026-04-09T18:00:00.000Z",
+  "last_accessed_at": "2026-04-09T18:00:00.000Z",
+  "expires_at": null,
+  "owner": "system",
+  "visibility": "private",
+  "write_reason": "Repeated stable user preference across sessions",
+  "retrieval_hints": ["concise", "best practice", "professional"],
+  "version": 1,
+  "status": "active"
+}
