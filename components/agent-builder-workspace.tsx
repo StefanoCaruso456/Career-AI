@@ -1,12 +1,9 @@
 "use client";
 
 import {
+  Check,
   CheckCircle2,
-  FileCheck2,
-  ShieldCheck,
   Upload,
-  UserRoundCheck,
-  Workflow,
 } from "lucide-react";
 import {
   type ChangeEvent,
@@ -105,6 +102,14 @@ const tierMeta: Record<
     toneClass: "tierInstitution",
   },
 };
+
+const tierSequence = [
+  "self",
+  "relationship",
+  "document",
+  "signature",
+  "institution",
+] as const satisfies readonly TierKey[];
 
 const evidenceTemplates: EvidenceTemplate[] = [
   {
@@ -475,6 +480,52 @@ function BuilderSection({
   );
 }
 
+function getPipelinePhaseSummary(
+  tier: TierKey,
+  {
+    completed,
+    started,
+    total,
+  }: {
+    completed: number;
+    started: number;
+    total: number;
+  },
+  isComplete: boolean,
+  isCurrent: boolean,
+) {
+  if (tier === "self") {
+    return isComplete
+      ? "Self-reported foundation complete. Your Career Agent ID can now level up with trusted proof."
+      : `${completed}/${total} self-reported fields are ready.`;
+  }
+
+  if (isComplete) {
+    return `${tierMeta[tier].label} trust is now live inside your Career Agent ID.`;
+  }
+
+  if (isCurrent) {
+    if (started > 0) {
+      return `${started}/${total} ${tierMeta[tier].previewLabel} signals are in progress.`;
+    }
+
+    switch (tier) {
+      case "relationship":
+        return "Add a referral, endorsement, or colleague note to unlock this phase.";
+      case "document":
+        return "Attach an official offer, promotion, or role document to unlock this phase.";
+      case "signature":
+        return "Add signed proof from HR, legal, or a hiring manager to unlock this phase.";
+      case "institution":
+        return "Add third-party verified proof to reach the highest trust layer.";
+      default:
+        return "This phase is ready for its first signal.";
+    }
+  }
+
+  return "Waiting on the earlier trust layers to complete first.";
+}
+
 export function AgentBuilderWorkspace() {
   const [profile, setProfile] = useState<ProfileDraft>({
     careerHeadline: "",
@@ -516,11 +567,77 @@ export function AgentBuilderWorkspace() {
   const overallProgress = Math.round(
     ((completedProfileFields + completedEvidenceCount) / totalTasks) * 100,
   );
+  const completedProfileReady = completedProfileFields === profileFields.length;
   const strongestTier = evidenceTemplates.reduce<TierKey>((currentStrongest, template) => {
     const tier = getCurrentTier(template, evidence[template.id]);
 
     return tierMeta[tier].rank > tierMeta[currentStrongest].rank ? tier : currentStrongest;
   }, "self");
+  const strongestTierRank = completedProfileReady ? tierMeta[strongestTier].rank : 0;
+  const activeTierRank = completedProfileReady
+    ? Math.min(strongestTierRank + 1, tierSequence.length)
+    : tierMeta.self.rank;
+  const tierStats = Object.fromEntries(
+    tierSequence.map((tier) => {
+      if (tier === "self") {
+        return [
+          tier,
+          {
+            completed: completedProfileFields,
+            started: completedProfileFields,
+            total: profileFields.length,
+          },
+        ];
+      }
+
+      const templates = evidenceTemplates.filter((template) => template.tier === tier);
+
+      return [
+        tier,
+        {
+          completed: templates.filter((template) =>
+            isEvidenceComplete(template, evidence[template.id]),
+          ).length,
+          started: templates.filter((template) => isEvidenceStarted(evidence[template.id])).length,
+          total: templates.length,
+        },
+      ];
+    }),
+  ) as Record<
+    TierKey,
+    {
+      completed: number;
+      started: number;
+      total: number;
+    }
+  >;
+  const pipelinePhases = tierSequence.map((tier) => {
+    const rank = tierMeta[tier].rank;
+    const isComplete =
+      tier === "self"
+        ? completedProfileReady
+        : completedProfileReady && strongestTierRank >= rank;
+    const isCurrent = !isComplete && rank === activeTierRank;
+    const stateClass = isComplete
+      ? styles.pipelineStepComplete
+      : isCurrent
+        ? styles.pipelineStepCurrent
+        : styles.pipelineStepPending;
+
+    return {
+      connectorComplete: isComplete,
+      isComplete,
+      key: tier,
+      label: tierMeta[tier].label,
+      stateClass,
+      summary: getPipelinePhaseSummary(
+        tier,
+        tierStats[tier],
+        isComplete,
+        isCurrent,
+      ),
+    };
+  });
   const queuedTemplates = evidenceTemplates.filter(
     (template) => !isEvidenceComplete(template, evidence[template.id]),
   );
@@ -862,46 +979,42 @@ export function AgentBuilderWorkspace() {
 
           <aside className={styles.progressRail}>
             <div className={styles.progressRailHeader}>
-              <span className={styles.sectionEyebrow}>Progress map</span>
+              <span className={styles.sectionEyebrow}>Agent ID pipeline</span>
+              <h2>Credible agent ID creation status</h2>
+              <p className={styles.progressRailCopy}>
+                Each trust phase lights up as the profile moves from self-reported context
+                into stronger verification.
+              </p>
             </div>
 
-            <div className={styles.progressSteps}>
-              <article className={styles.progressStep}>
-                <div className={styles.progressIcon}>
-                  <Workflow aria-hidden="true" size={16} strokeWidth={2} />
-                </div>
-                <div>
-                  <strong>Foundation</strong>
-                  <span>{completedProfileFields}/5 self-reported fields ready</span>
-                </div>
-              </article>
-              <article className={styles.progressStep}>
-                <div className={styles.progressIcon}>
-                  <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                </div>
-                <div>
-                  <strong>Identity proof</strong>
-                  <span>{completedIdentitySignals}/3 identity anchors uploaded</span>
-                </div>
-              </article>
-              <article className={styles.progressStep}>
-                <div className={styles.progressIcon}>
-                  <FileCheck2 aria-hidden="true" size={16} strokeWidth={2} />
-                </div>
-                <div>
-                  <strong>Employment proof</strong>
-                  <span>{completedEmploymentSignals}/5 official job signals attached</span>
-                </div>
-              </article>
-              <article className={styles.progressStep}>
-                <div className={styles.progressIcon}>
-                  <UserRoundCheck aria-hidden="true" size={16} strokeWidth={2} />
-                </div>
-                <div>
-                  <strong>Network trust</strong>
-                  <span>{completedNetworkSignals}/4 referrals or endorsements attached</span>
-                </div>
-              </article>
+            <div className={styles.pipelineSteps}>
+              {pipelinePhases.map((phase, index) => (
+                <article className={[styles.pipelineStep, phase.stateClass].join(" ")} key={phase.key}>
+                  <div className={styles.pipelineTrack}>
+                    <span className={styles.pipelineMarker}>
+                      {phase.isComplete ? (
+                        <Check aria-hidden="true" size={16} strokeWidth={2.6} />
+                      ) : (
+                        <span aria-hidden="true" className={styles.pipelineMarkerCore} />
+                      )}
+                    </span>
+                    {index < pipelinePhases.length - 1 ? (
+                      <span
+                        aria-hidden="true"
+                        className={[
+                          styles.pipelineConnector,
+                          phase.connectorComplete ? styles.pipelineConnectorComplete : "",
+                        ].join(" ")}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className={styles.pipelineContent}>
+                    <span className={styles.pipelinePill}>{phase.label}</span>
+                    <p className={styles.pipelineSummary}>{phase.summary}</p>
+                  </div>
+                </article>
+              ))}
             </div>
 
             <div className={styles.nextActionPanel}>
