@@ -71,7 +71,6 @@ const tierMeta: Record<
     label: string;
     previewLabel: string;
     rank: number;
-    summary: string;
     toneClass: string;
   }
 > = {
@@ -79,35 +78,30 @@ const tierMeta: Record<
     label: "Tier 1 - Self-reported",
     previewLabel: "self-reported",
     rank: 1,
-    summary: "User-entered context without supporting evidence yet.",
     toneClass: "tierSelf",
   },
   relationship: {
     label: "Tier 2 - Relationship-backed",
     previewLabel: "relationship-backed",
     rank: 2,
-    summary: "Named references and referrals that add human credibility.",
     toneClass: "tierRelationship",
   },
   document: {
     label: "Tier 3 - Document-backed",
     previewLabel: "document-backed",
     rank: 3,
-    summary: "Career documents tied to a company, role, or milestone.",
     toneClass: "tierDocument",
   },
   signature: {
     label: "Tier 4 - Signature-backed",
     previewLabel: "signature-backed",
     rank: 4,
-    summary: "Official letters or signed proof from authoritative people or teams.",
     toneClass: "tierSignature",
   },
   institution: {
     label: "Tier 5 - Institution-verified",
     previewLabel: "institution-verified",
     rank: 5,
-    summary: "Identity or employment proof verified by a trusted institution or system.",
     toneClass: "tierInstitution",
   },
 };
@@ -1058,14 +1052,6 @@ export function AgentBuilderWorkspace() {
           </div>
 
           <aside className={styles.previewPanel}>
-            <div className={styles.previewHeader}>
-              <div>
-                <span className={styles.sectionEyebrow}>soul.md preview</span>
-                <h2>Structured output for the living profile</h2>
-              </div>
-              <span className={styles.previewStatus}>Live draft</span>
-            </div>
-
             <div className={styles.legendGrid}>
               {(["self", "relationship", "document", "signature", "institution"] as TierKey[]).map(
                 (tier) => (
@@ -1073,7 +1059,6 @@ export function AgentBuilderWorkspace() {
                     <span className={[styles.tierBadge, styles[tierMeta[tier].toneClass]].join(" ")}>
                       {tierMeta[tier].label}
                     </span>
-                    <p>{tierMeta[tier].summary}</p>
                   </article>
                 ),
               )}
