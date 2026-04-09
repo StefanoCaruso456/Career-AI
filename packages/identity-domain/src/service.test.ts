@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
 import {
   createTalentIdentity,
+  findTalentIdentityByEmail,
   getTalentIdentity,
   getTalentIdentityByEmail,
   updatePrivacySettings,
@@ -76,6 +77,34 @@ describe("identity service", () => {
         correlationId: "corr-2",
       }),
     ).rejects.toThrowError(/already exists/i);
+  });
+
+  it("finds a talent identity by normalized email", async () => {
+    const created = await createTalentIdentity({
+      input: {
+        email: "jane@example.com",
+        firstName: "Jane",
+        lastName: "Doe",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-1",
+    });
+
+    const found = await findTalentIdentityByEmail({
+      email: "JANE@example.com",
+      correlationId: "corr-2",
+    });
+
+    expect(found?.talentIdentity.email).toBe("jane@example.com");
+    expect(found?.talentIdentity.id).toBe(created.talentIdentity.id);
+    await expect(
+      findTalentIdentityByEmail({
+        email: "missing@example.com",
+        correlationId: "corr-3",
+      }),
+    ).resolves.toBeNull();
   });
 
   it("updates privacy settings and writes an audit event", async () => {

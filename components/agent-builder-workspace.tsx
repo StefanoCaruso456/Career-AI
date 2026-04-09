@@ -1,287 +1,126 @@
 "use client";
 
 import {
+  AlertCircle,
   Check,
   CheckCircle2,
+  LoaderCircle,
   Upload,
+  X,
 } from "lucide-react";
 import {
   type ChangeEvent,
-  type ReactNode,
+  startTransition,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
+import {
+  builderEvidenceTemplates,
+  builderPhaseTemplateIds,
+  defaultUploadAccept,
+  driversLicenseImageSlots,
+  phaseMeta,
+  phaseSequence,
+  type BuilderEvidenceTemplate,
+} from "@/packages/career-builder-domain/src/config";
+import type {
+  CareerArtifactReference,
+  CareerBuilderSnapshotDto,
+  CareerEvidenceRecord,
+  CareerEvidenceTemplateId,
+  CareerPhase,
+  CareerProfileInput,
+  EvidenceFileSlot,
+} from "@/packages/contracts/src";
 import styles from "./agent-builder-workspace.module.css";
 
-type TierKey =
-  | "self"
-  | "relationship"
-  | "document"
-  | "signature"
-  | "institution";
-
-type EvidenceSectionId = "identity" | "employment" | "network";
-type EvidenceFileSlot = "front" | "back";
-
-type FileSummary = {
-  name: string;
-  sizeLabel: string;
-  slot?: EvidenceFileSlot;
+type AgentBuilderWorkspaceProps = {
+  initialSnapshot: CareerBuilderSnapshotDto;
 };
 
-type EvidenceDraft = {
-  context: string;
-  files: FileSummary[];
-  note: string;
-  source: string;
-  verifiedOn: string;
+type DraftFile = CareerArtifactReference & {
+  file?: File;
+  isNew: boolean;
+  key: string;
 };
 
-type ProfileDraft = {
-  careerHeadline: string;
-  coreNarrative: string;
-  legalName: string;
-  location: string;
-  targetRole: string;
+type EvidenceDraftState = {
+  files: DraftFile[];
+  issuedOn: string;
+  sourceOrIssuer: string;
+  templateId: CareerEvidenceTemplateId;
+  validationContext: string;
+  whyItMatters: string;
 };
 
-type EvidenceTemplate = {
-  acceptedFormats: string;
-  contextHint: string;
-  guidance: string;
-  id: string;
-  section: EvidenceSectionId;
-  sourceHint: string;
-  tier: TierKey;
-  title: string;
-  uploadKind?: "default" | "drivers-license-images";
+type ModalDraftState = {
+  evidence: Record<string, EvidenceDraftState>;
+  profile: CareerProfileInput;
 };
 
-const driversLicenseImageSlots = [
-  { key: "front", label: "Front of driver's license" },
-  { key: "back", label: "Back of driver's license" },
-] as const;
+type FieldErrors = Record<string, Record<string, string>>;
 
-const tierMeta: Record<
-  TierKey,
+const profileFieldConfig = [
   {
-    label: string;
-    previewLabel: string;
-    rank: number;
-    toneClass: string;
-  }
-> = {
-  self: {
-    label: "Self-reported",
-    previewLabel: "self-reported",
-    rank: 1,
-    toneClass: "tierSelf",
+    field: "legalName",
+    label: "Legal name",
+    placeholder: "Taylor Morgan",
   },
-  relationship: {
-    label: "Relationship-backed",
-    previewLabel: "relationship-backed",
-    rank: 2,
-    toneClass: "tierRelationship",
+  {
+    field: "careerHeadline",
+    label: "Career headline",
+    placeholder: "Operator who turns ambiguous hiring ops into repeatable systems",
   },
-  document: {
-    label: "Document-backed",
-    previewLabel: "document-backed",
-    rank: 3,
-    toneClass: "tierDocument",
+  {
+    field: "targetRole",
+    label: "Target role",
+    placeholder: "Founding recruiter, People Ops lead, or GTM operator",
   },
-  signature: {
-    label: "Signature-backed",
-    previewLabel: "signature-backed",
-    rank: 4,
-    toneClass: "tierSignature",
+  {
+    field: "location",
+    label: "Location",
+    placeholder: "Chicago, IL",
   },
-  institution: {
-    label: "Institution-verified",
-    previewLabel: "institution-verified",
-    rank: 5,
-    toneClass: "tierInstitution",
+  {
+    field: "coreNarrative",
+    label: "Core narrative",
+    placeholder:
+      "Summarize the kind of trust, outcomes, and career evidence this profile should prove over time.",
+    rows: 5,
   },
-};
+] as const satisfies ReadonlyArray<{
+  field: keyof CareerProfileInput;
+  label: string;
+  placeholder: string;
+  rows?: number;
+}>;
 
-const tierSequence = [
-  "self",
-  "relationship",
-  "document",
-  "signature",
-  "institution",
-] as const satisfies readonly TierKey[];
-
-const evidenceTemplates: EvidenceTemplate[] = [
-  {
-    acceptedFormats: "Verification export, PDF, or screenshot",
-    contextHint: "What part of identity or employment does this verification anchor?",
-    guidance: "Use trusted identity verification to anchor the profile to a real person.",
-    id: "idme-verification",
-    section: "identity",
-    sourceHint: "ID.me or linked verification provider",
-    tier: "institution",
-    title: "ID.me verification",
-  },
-  {
-    acceptedFormats: "Images only",
-    contextHint: "What should this ID unlock inside the credibility profile?",
-    guidance: "Government-issued ID helps bind soul.md to an identity layer before broader sharing begins.",
-    id: "drivers-license",
-    section: "identity",
-    sourceHint: "Issuing authority or state",
-    tier: "institution",
-    title: "Driver's license",
-    uploadKind: "drivers-license-images",
-  },
-  {
-    acceptedFormats: "Signed PDF, notarized file, or official agreement",
-    contextHint: "What career claim or milestone does this signed proof validate?",
-    guidance: "Signature-backed proof carries more weight when it comes from a named signer.",
-    id: "signature-backed-documents",
-    section: "identity",
-    sourceHint: "Signer, legal representative, or certifying party",
-    tier: "signature",
-    title: "Signature-backed documents",
-  },
-  {
-    acceptedFormats: "Offer packet, signed offer, or PDF",
-    contextHint: "Which role, employer, and date does this offer validate?",
-    guidance: "Offer letters establish role, title, employer, and timing inside the employment record.",
-    id: "offer-letters",
-    section: "employment",
-    sourceHint: "Employer or recruiting team",
-    tier: "document",
-    title: "Offer letters",
-  },
-  {
-    acceptedFormats: "Official PDF, HR portal export, or verified report",
-    contextHint: "What part of the work history should this report confirm?",
-    guidance: "Employment reports can validate tenure, employer relationships, and career chronology.",
-    id: "employment-history-reports",
-    section: "employment",
-    sourceHint: "Verifier, background provider, or employer system",
-    tier: "institution",
-    title: "Employment history reports",
-  },
-  {
-    acceptedFormats: "Promotion memo, signed letter, or HR record",
-    contextHint: "What growth milestone or title shift does this document capture?",
-    guidance: "Promotion letters help turn career growth into a verified advancement trail.",
-    id: "promotion-letters",
-    section: "employment",
-    sourceHint: "Manager, HR, or promotion committee",
-    tier: "document",
-    title: "Promotion letters",
-  },
-  {
-    acceptedFormats: "Official PDF, signed statement, or branded letterhead",
-    contextHint: "Which role or employment fact does the company letter certify?",
-    guidance: "Company letters add employer-backed proof for claims that matter in hiring review.",
-    id: "company-letters",
-    section: "employment",
-    sourceHint: "Company representative or official department",
-    tier: "signature",
-    title: "Company letters",
-  },
-  {
-    acceptedFormats: "Signed HR letter, employment confirmation, or PDF",
-    contextHint: "What employment status, title, or date range does this HR letter verify?",
-    guidance: "HR-issued proof carries stronger trust when it explicitly confirms status or chronology.",
-    id: "hr-official-letters",
-    section: "employment",
-    sourceHint: "HR team, people ops, or employer official",
-    tier: "signature",
-    title: "HR official letters",
-  },
-  {
-    acceptedFormats: "Written referral, note, or signed PDF",
-    contextHint: "What hiring signal or opportunity context does this referral provide?",
-    guidance: "Referrals add social signal when they come from named professionals with relationship context.",
-    id: "referrals",
-    section: "network",
-    sourceHint: "Referrer name and company",
-    tier: "relationship",
-    title: "Referrals",
-  },
-  {
-    acceptedFormats: "Endorsement letter, note, or signed statement",
-    contextHint: "What capability or outcome does this endorsement reinforce?",
-    guidance: "Endorsements work best when they point to concrete work, scope, and outcomes.",
-    id: "endorsements",
-    section: "network",
-    sourceHint: "Endorser name and role",
-    tier: "relationship",
-    title: "Endorsements",
-  },
-  {
-    acceptedFormats: "Reference letter, signed note, or PDF",
-    contextHint: "How did this colleague experience your work directly?",
-    guidance: "Past colleague letters strengthen credibility when they describe overlap, trust, and execution.",
-    id: "past-colleague-letters",
-    section: "network",
-    sourceHint: "Colleague, team, and overlap context",
-    tier: "relationship",
-    title: "Past colleague letters",
-  },
-  {
-    acceptedFormats: "Manager note, recommendation letter, or signed PDF",
-    contextHint: "What leadership signal, impact, or ownership does this letter verify?",
-    guidance: "Hiring manager letters can carry real weight when they speak to decisions, trust, and performance.",
-    id: "hiring-manager-letters",
-    section: "network",
-    sourceHint: "Hiring manager name and organization",
-    tier: "signature",
-    title: "Hiring manager letters",
-  },
-];
+const sectionOrder = ["identity", "employment", "network"] as const;
 
 const sectionMeta: Record<
-  EvidenceSectionId,
+  (typeof sectionOrder)[number],
   {
     copy: string;
     title: string;
   }
 > = {
   identity: {
-    copy: "Anchor the profile to identity and signature-level trust before broader sharing begins.",
+    copy: "Identity anchors and signer-backed proof that bind the profile to a real person or certifying party.",
     title: "Identity anchors",
   },
   employment: {
-    copy: "Stack role evidence, promotion history, and official employer proof into one timeline.",
+    copy: "Role, chronology, and employer-backed evidence that strengthens the career timeline.",
     title: "Employment evidence",
   },
   network: {
-    copy: "Capture referrals and endorsements that show how trusted people describe your work.",
+    copy: "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
     title: "Referrals and endorsements",
   },
 };
-
-const growthCards = [
-  {
-    body: "New promotions, official letters, and verified exports should append to soul.md over time instead of replacing older proof.",
-    title: "Append evidence continuously",
-  },
-  {
-    body: "Relationship-backed proof is valuable early, but the strongest trust comes from document-backed and institution-verified uploads.",
-    title: "Compound trust over time",
-  },
-  {
-    body: "The same structured profile can later feed recruiter-safe views, agent workflows, and permissioned sharing without rewriting everything.",
-    title: "Prepare for future flows",
-  },
-];
-
-const emptyEvidence = Object.fromEntries(
-  evidenceTemplates.map((template) => [
-    template.id,
-    {
-      context: "",
-      files: [],
-      note: "",
-      source: "",
-      verifiedOn: "",
-    },
-  ]),
-) as Record<string, EvidenceDraft>;
 
 function formatBytes(bytes: number) {
   if (bytes >= 1024 * 1024) {
@@ -291,59 +130,201 @@ function formatBytes(bytes: number) {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-function isEvidenceStarted(draft: EvidenceDraft) {
-  return Boolean(
-    draft.files.length ||
-      draft.source.trim() ||
-      draft.context.trim() ||
-      draft.note.trim() ||
-      draft.verifiedOn.trim(),
-  );
-}
-
-function isDriversLicenseImageTemplate(template: EvidenceTemplate) {
+function isDriverLicenseTemplate(template: BuilderEvidenceTemplate) {
   return template.uploadKind === "drivers-license-images";
 }
 
-function getSlottedFile(draft: EvidenceDraft, slot: EvidenceFileSlot) {
-  return draft.files.find((file) => file.slot === slot);
+function toProfileInput(snapshot: CareerBuilderSnapshotDto["profile"]): CareerProfileInput {
+  return {
+    legalName: snapshot.legalName,
+    careerHeadline: snapshot.careerHeadline,
+    targetRole: snapshot.targetRole,
+    location: snapshot.location,
+    coreNarrative: snapshot.coreNarrative,
+  };
 }
 
-function getCompletedUploadCount(template: EvidenceTemplate, draft: EvidenceDraft) {
-  if (!isDriversLicenseImageTemplate(template)) {
+function toDraftFile(file: CareerArtifactReference): DraftFile {
+  return {
+    ...file,
+    isNew: false,
+    key: file.artifactId,
+  };
+}
+
+function createEvidenceDraft(record: CareerEvidenceRecord): EvidenceDraftState {
+  return {
+    templateId: record.templateId,
+    sourceOrIssuer: record.sourceOrIssuer,
+    issuedOn: record.issuedOn,
+    validationContext: record.validationContext,
+    whyItMatters: record.whyItMatters,
+    files: record.files.map(toDraftFile),
+  };
+}
+
+function buildPhaseDraft(
+  snapshot: CareerBuilderSnapshotDto,
+  phase: CareerPhase,
+): ModalDraftState {
+  const relevantTemplateIds = new Set(builderPhaseTemplateIds[phase]);
+
+  return {
+    profile: toProfileInput(snapshot.profile),
+    evidence: Object.fromEntries(
+      snapshot.evidence
+        .filter((record) => relevantTemplateIds.has(record.templateId))
+        .map((record) => [record.templateId, createEvidenceDraft(record)]),
+    ),
+  };
+}
+
+function getCompletedUploadCount(
+  template: BuilderEvidenceTemplate,
+  draft: EvidenceDraftState,
+) {
+  if (!isDriverLicenseTemplate(template)) {
     return draft.files.length;
   }
 
-  return driversLicenseImageSlots.filter(({ key }) => getSlottedFile(draft, key) !== undefined)
-    .length;
+  return driversLicenseImageSlots.filter(({ key }) =>
+    draft.files.some((file) => file.slot === key),
+  ).length;
 }
 
-function isEvidenceComplete(template: EvidenceTemplate, draft: EvidenceDraft) {
-  if (isDriversLicenseImageTemplate(template)) {
-    return getCompletedUploadCount(template, draft) === driversLicenseImageSlots.length;
+function getEvidenceStateLabel(
+  template: BuilderEvidenceTemplate,
+  draft: EvidenceDraftState,
+) {
+  const uploadCount = getCompletedUploadCount(template, draft);
+
+  if (isDriverLicenseTemplate(template)) {
+    if (uploadCount === driversLicenseImageSlots.length) {
+      return "Front and back attached";
+    }
+
+    if (uploadCount > 0) {
+      return `${uploadCount} of ${driversLicenseImageSlots.length} images attached`;
+    }
+
+    return "Not started";
   }
 
-  return draft.files.length > 0;
-}
-
-function getCurrentTier(template: EvidenceTemplate, draft: EvidenceDraft): TierKey {
-  if (isEvidenceComplete(template, draft)) {
-    return template.tier;
+  if (draft.files.length > 0) {
+    return `${draft.files.length} upload${draft.files.length === 1 ? "" : "s"} attached`;
   }
 
-  return "self";
+  if (
+    draft.sourceOrIssuer.trim() ||
+    draft.issuedOn.trim() ||
+    draft.validationContext.trim() ||
+    draft.whyItMatters.trim()
+  ) {
+    return "Draft started";
+  }
+
+  return "Not started";
 }
 
-function SectionCount({
-  complete,
+function serializePhaseDraft(phase: CareerPhase, draft: ModalDraftState) {
+  return JSON.stringify({
+    phase,
+    profile: draft.profile,
+    evidence: Object.fromEntries(
+      Object.entries(draft.evidence).map(([templateId, value]) => [
+        templateId,
+        {
+          ...value,
+          files: value.files.map((file) => ({
+            artifactId: file.artifactId,
+            key: file.key,
+            name: file.name,
+            slot: file.slot,
+          })),
+        },
+      ]),
+    ),
+  });
+}
+
+function isValidDate(value: string) {
+  return value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function validatePhaseDraft(phase: CareerPhase, draft: ModalDraftState): FieldErrors {
+  const errors: FieldErrors = {};
+
+  if (phase === "self") {
+    const hasAnyProfileValue = Object.values(draft.profile).some((value) => value.trim().length > 0);
+
+    if (hasAnyProfileValue && draft.profile.legalName.trim().length === 0) {
+      errors.profile = {
+        legalName: "Legal name is required once you start the self-reported foundation.",
+      };
+    }
+
+    return errors;
+  }
+
+  for (const templateId of builderPhaseTemplateIds[phase]) {
+    const draftValue = draft.evidence[templateId];
+    const template = builderEvidenceTemplates.find((candidate) => candidate.id === templateId);
+
+    if (!draftValue || !template) {
+      continue;
+    }
+
+    const nextErrors: Record<string, string> = {};
+    const hasFiles = draftValue.files.length > 0;
+
+    if (hasFiles && !isDriverLicenseTemplate(template) && draftValue.sourceOrIssuer.trim().length === 0) {
+      nextErrors.sourceOrIssuer = "Source / issuer is required once proof is attached.";
+    }
+
+    if (hasFiles && !isDriverLicenseTemplate(template) && draftValue.issuedOn.trim().length === 0) {
+      nextErrors.issuedOn = "Verified or issued date is required once proof is attached.";
+    }
+
+    if (!isValidDate(draftValue.issuedOn)) {
+      nextErrors.issuedOn = "Enter a valid date.";
+    }
+
+    if (isDriverLicenseTemplate(template)) {
+      const invalidImage = draftValue.files.find(
+        (file) => file.file && !file.file.type.startsWith("image/"),
+      );
+
+      if (invalidImage) {
+        nextErrors.files = "Driver's license uploads must be image files.";
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      errors[templateId] = nextErrors;
+    }
+  }
+
+  return errors;
+}
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((element) => !element.hasAttribute("disabled"));
+}
+
+function PhaseCount({
+  completed,
   total,
 }: {
-  complete: number;
+  completed: number;
   total: number;
 }) {
   return (
-    <span className={styles.sectionCount}>
-      {complete}/{total} ready
+    <span className={styles.phaseCount}>
+      {completed}/{total} ready
     </span>
   );
 }
@@ -363,703 +344,912 @@ function StatCard({
   );
 }
 
-function BuilderSection({
-  children,
-  count,
-  copy,
-  title,
+function EvidenceCard({
+  draft,
+  errors,
+  onChange,
+  onDefaultFiles,
+  onDriverLicenseFile,
+  onRemoveFile,
+  template,
 }: {
-  children: ReactNode;
-  copy: string;
-  count: ReactNode;
-  title: string;
+  draft: EvidenceDraftState;
+  errors?: Record<string, string>;
+  onChange: (
+    templateId: CareerEvidenceTemplateId,
+    field: keyof Omit<EvidenceDraftState, "files" | "templateId">,
+    value: string,
+  ) => void;
+  onDefaultFiles: (templateId: CareerEvidenceTemplateId, files: FileList | null) => void;
+  onDriverLicenseFile: (
+    templateId: CareerEvidenceTemplateId,
+    slot: EvidenceFileSlot,
+    files: FileList | null,
+  ) => void;
+  onRemoveFile: (
+    templateId: CareerEvidenceTemplateId,
+    key: string,
+    slot?: EvidenceFileSlot,
+  ) => void;
+  template: BuilderEvidenceTemplate;
 }) {
+  const stateLabel = getEvidenceStateLabel(template, draft);
+
   return (
-    <section className={styles.sectionPanel}>
-      <div className={styles.sectionHeader}>
+    <article className={styles.evidenceCard}>
+      <div className={styles.evidenceCardHeader}>
         <div>
-          <span className={styles.sectionEyebrow}>Structured intake</span>
-          <h2 className={styles.sectionTitle}>{title}</h2>
-          <p className={styles.sectionCopy}>{copy}</p>
+          <h3 className={styles.evidenceTitle}>{template.title}</h3>
+          <p className={styles.evidenceGuidance}>{template.guidance}</p>
         </div>
-        {count}
+
+        <span className={styles.phaseTag}>{phaseMeta[template.completionTier].label}</span>
       </div>
-      {children}
-    </section>
-  );
-}
 
-function getPipelinePhaseSummary(
-  tier: TierKey,
-  {
-    completed,
-    started,
-    total,
-  }: {
-    completed: number;
-    started: number;
-    total: number;
-  },
-  isComplete: boolean,
-  isCurrent: boolean,
-) {
-  if (tier === "self") {
-    return isComplete
-      ? "Self-reported foundation complete. Your Career Agent ID can now level up with trusted proof."
-      : `${completed}/${total} self-reported fields are ready.`;
-  }
+      <div className={styles.evidenceMetaRow}>
+        <span className={styles.statusBadge}>{stateLabel}</span>
+        <span className={styles.formatHint}>{template.acceptedFormats}</span>
+      </div>
 
-  if (isComplete) {
-    return `${tierMeta[tier].label} trust is now live inside your Career Agent ID.`;
-  }
+      {isDriverLicenseTemplate(template) ? (
+        <div className={styles.uploadSlotGrid}>
+          {driversLicenseImageSlots.map(({ key, label }) => {
+            const existing = draft.files.find((file) => file.slot === key);
 
-  if (isCurrent) {
-    if (started > 0) {
-      return `${started}/${total} ${tierMeta[tier].previewLabel} signals are in progress.`;
-    }
-
-    switch (tier) {
-      case "relationship":
-        return "Add a referral, endorsement, or colleague note to unlock this phase.";
-      case "document":
-        return "Attach an official offer, promotion, or role document to unlock this phase.";
-      case "signature":
-        return "Add signed proof from HR, legal, or a hiring manager to unlock this phase.";
-      case "institution":
-        return "Add third-party verified proof to reach the highest trust layer.";
-      default:
-        return "This phase is ready for its first signal.";
-    }
-  }
-
-  return "Waiting on the earlier trust layers to complete first.";
-}
-
-export function AgentBuilderWorkspace() {
-  const [profile, setProfile] = useState<ProfileDraft>({
-    careerHeadline: "",
-    coreNarrative: "",
-    legalName: "",
-    location: "",
-    targetRole: "",
-  });
-  const [evidence, setEvidence] = useState<Record<string, EvidenceDraft>>(emptyEvidence);
-
-  const profileFields = [
-    profile.legalName,
-    profile.careerHeadline,
-    profile.targetRole,
-    profile.location,
-    profile.coreNarrative,
-  ];
-  const completedProfileFields = profileFields.filter((field) => field.trim().length > 0).length;
-  const identityTemplates = evidenceTemplates.filter((template) => template.section === "identity");
-  const employmentTemplates = evidenceTemplates.filter(
-    (template) => template.section === "employment",
-  );
-  const networkTemplates = evidenceTemplates.filter((template) => template.section === "network");
-  const completedIdentitySignals = identityTemplates.filter(
-    (template) => isEvidenceComplete(template, evidence[template.id]),
-  ).length;
-  const completedEmploymentSignals = employmentTemplates.filter(
-    (template) => isEvidenceComplete(template, evidence[template.id]),
-  ).length;
-  const completedNetworkSignals = networkTemplates.filter(
-    (template) => isEvidenceComplete(template, evidence[template.id]),
-  ).length;
-  const completedEvidenceCount =
-    completedIdentitySignals + completedEmploymentSignals + completedNetworkSignals;
-  const totalTasks = profileFields.length + evidenceTemplates.length;
-  const overallProgress = Math.round(
-    ((completedProfileFields + completedEvidenceCount) / totalTasks) * 100,
-  );
-  const completedProfileReady = completedProfileFields === profileFields.length;
-  const strongestTier = evidenceTemplates.reduce<TierKey>((currentStrongest, template) => {
-    const tier = getCurrentTier(template, evidence[template.id]);
-
-    return tierMeta[tier].rank > tierMeta[currentStrongest].rank ? tier : currentStrongest;
-  }, "self");
-  const strongestTierRank = completedProfileReady ? tierMeta[strongestTier].rank : 0;
-  const activeTierRank = completedProfileReady
-    ? Math.min(strongestTierRank + 1, tierSequence.length)
-    : tierMeta.self.rank;
-  const tierStats = Object.fromEntries(
-    tierSequence.map((tier) => {
-      if (tier === "self") {
-        return [
-          tier,
-          {
-            completed: completedProfileFields,
-            started: completedProfileFields,
-            total: profileFields.length,
-          },
-        ];
-      }
-
-      const templates = evidenceTemplates.filter((template) => template.tier === tier);
-
-      return [
-        tier,
-        {
-          completed: templates.filter((template) =>
-            isEvidenceComplete(template, evidence[template.id]),
-          ).length,
-          started: templates.filter((template) => isEvidenceStarted(evidence[template.id])).length,
-          total: templates.length,
-        },
-      ];
-    }),
-  ) as Record<
-    TierKey,
-    {
-      completed: number;
-      started: number;
-      total: number;
-    }
-  >;
-  const pipelinePhases = tierSequence.map((tier) => {
-    const rank = tierMeta[tier].rank;
-    const isComplete =
-      tier === "self"
-        ? completedProfileReady
-        : completedProfileReady && strongestTierRank >= rank;
-    const isCurrent = !isComplete && rank === activeTierRank;
-    const stateClass = isComplete
-      ? styles.pipelineStepComplete
-      : isCurrent
-        ? styles.pipelineStepCurrent
-        : styles.pipelineStepPending;
-
-    return {
-      connectorComplete: isComplete,
-      isComplete,
-      key: tier,
-      label: tierMeta[tier].label,
-      stateClass,
-      summary: getPipelinePhaseSummary(
-        tier,
-        tierStats[tier],
-        isComplete,
-        isCurrent,
-      ),
-    };
-  });
-  const queuedTemplates = evidenceTemplates.filter(
-    (template) => !isEvidenceComplete(template, evidence[template.id]),
-  );
-
-  function handleProfileChange(field: keyof ProfileDraft) {
-    return (
-      event: ChangeEvent<HTMLInputElement> | ChangeEvent<HTMLTextAreaElement>,
-    ) => {
-      const { value } = event.target;
-
-      setProfile((currentProfile) => ({
-        ...currentProfile,
-        [field]: value,
-      }));
-    };
-  }
-
-  function handleEvidenceChange(
-    evidenceId: string,
-    field: keyof Omit<EvidenceDraft, "files">,
-  ) {
-    return (
-      event: ChangeEvent<HTMLInputElement> | ChangeEvent<HTMLTextAreaElement>,
-    ) => {
-      const { value } = event.target;
-
-      setEvidence((currentEvidence) => ({
-        ...currentEvidence,
-        [evidenceId]: {
-          ...currentEvidence[evidenceId],
-          [field]: value,
-        },
-      }));
-    };
-  }
-
-  function handleFileChange(evidenceId: string) {
-    return (event: ChangeEvent<HTMLInputElement>) => {
-      const nextFiles = Array.from(event.target.files ?? []).map((file) => ({
-        name: file.name,
-        sizeLabel: formatBytes(file.size),
-      }));
-
-      if (nextFiles.length === 0) {
-        return;
-      }
-
-      setEvidence((currentEvidence) => {
-        const existingFiles = currentEvidence[evidenceId].files;
-        const mergedFiles = [...existingFiles];
-
-        nextFiles.forEach((file) => {
-          const alreadyAdded = mergedFiles.some(
-            (existingFile) =>
-              existingFile.name === file.name &&
-              existingFile.sizeLabel === file.sizeLabel,
-          );
-
-          if (!alreadyAdded) {
-            mergedFiles.push(file);
-          }
-        });
-
-        return {
-          ...currentEvidence,
-          [evidenceId]: {
-            ...currentEvidence[evidenceId],
-            files: mergedFiles,
-          },
-        };
-      });
-
-      event.target.value = "";
-    };
-  }
-
-  function handleSlottedFileChange(evidenceId: string, slot: EvidenceFileSlot) {
-    return (event: ChangeEvent<HTMLInputElement>) => {
-      const nextFile = Array.from(event.target.files ?? []).find((file) =>
-        file.type.startsWith("image/"),
-      );
-
-      if (!nextFile) {
-        event.target.value = "";
-        return;
-      }
-
-      setEvidence((currentEvidence) => {
-        const remainingFiles = currentEvidence[evidenceId].files.filter(
-          (file) => file.slot !== slot,
-        );
-        const updatedFiles = [
-          ...remainingFiles,
-          {
-            name: nextFile.name,
-            sizeLabel: formatBytes(nextFile.size),
-            slot,
-          },
-        ];
-        const orderedFiles = driversLicenseImageSlots.flatMap(({ key }) => {
-          const file = updatedFiles.find((candidate) => candidate.slot === key);
-          return file ? [file] : [];
-        });
-
-        return {
-          ...currentEvidence,
-          [evidenceId]: {
-            ...currentEvidence[evidenceId],
-            files: orderedFiles,
-          },
-        };
-      });
-
-      event.target.value = "";
-    };
-  }
-
-  function removeFile(evidenceId: string, fileName: string) {
-    setEvidence((currentEvidence) => ({
-      ...currentEvidence,
-      [evidenceId]: {
-        ...currentEvidence[evidenceId],
-        files: currentEvidence[evidenceId].files.filter((file) => file.name !== fileName),
-      },
-    }));
-  }
-
-  function removeSlottedFile(evidenceId: string, slot: EvidenceFileSlot) {
-    setEvidence((currentEvidence) => ({
-      ...currentEvidence,
-      [evidenceId]: {
-        ...currentEvidence[evidenceId],
-        files: currentEvidence[evidenceId].files.filter((file) => file.slot !== slot),
-      },
-    }));
-  }
-
-  function renderEvidenceCards(sectionId: EvidenceSectionId) {
-    return evidenceTemplates
-      .filter((template) => template.section === sectionId)
-      .map((template) => {
-        const draft = evidence[template.id];
-        const currentTier = tierMeta[getCurrentTier(template, draft)];
-        const uploadCount = getCompletedUploadCount(template, draft);
-        const stateLabel = isDriversLicenseImageTemplate(template)
-          ? uploadCount === driversLicenseImageSlots.length
-            ? "Front and back attached"
-            : uploadCount > 0
-              ? `${uploadCount} of ${driversLicenseImageSlots.length} images attached`
-              : ""
-          : draft.files.length > 0
-            ? `${draft.files.length} upload${draft.files.length === 1 ? "" : "s"} attached`
-            : isEvidenceStarted(draft)
-              ? "Draft started"
-              : "Not started";
-
-        return (
-          <article className={styles.evidenceCard} key={template.id}>
-            <div className={styles.evidenceCardHeader}>
-              <div>
-                <h3 className={styles.evidenceTitle}>{template.title}</h3>
-                <p className={styles.evidenceGuidance}>{template.guidance}</p>
-              </div>
-              <div className={styles.tierGroup}>
-                <span className={[styles.tierBadge, styles[currentTier.toneClass]].join(" ")}>
-                  {currentTier.label}
-                </span>
-              </div>
-            </div>
-
-            <div className={styles.evidenceMetaRow}>
-              {stateLabel ? <span className={styles.statusBadge}>{stateLabel}</span> : null}
-              {template.acceptedFormats ? (
-                <span className={styles.formatHint}>{template.acceptedFormats}</span>
-              ) : null}
-            </div>
-
-            {isDriversLicenseImageTemplate(template) ? (
-              <div className={styles.uploadSlotGrid}>
-                {driversLicenseImageSlots.map(({ key, label }) => {
-                  const file = getSlottedFile(draft, key);
-
-                  return (
-                    <div className={styles.uploadSlot} key={`${template.id}-${key}`}>
-                      <span className={styles.fieldLabel}>{label}</span>
-                      <label className={styles.uploadZone} htmlFor={`upload-${template.id}-${key}`}>
-                        <input
-                          accept="image/*"
-                          className={styles.fileInput}
-                          id={`upload-${template.id}-${key}`}
-                          onChange={handleSlottedFileChange(template.id, key)}
-                          type="file"
-                        />
-                        <Upload aria-hidden="true" size={18} strokeWidth={2} />
-                        <div>
-                          <strong>{file ? "Replace image" : `Upload ${label.toLowerCase()}`}</strong>
-                          <span>Image only</span>
-                        </div>
-                      </label>
-
-                      {file ? (
-                        <div className={styles.fileChipRow}>
-                          <div className={styles.fileChip}>
-                            <div>
-                              <strong>{file.name}</strong>
-                              <small>{file.sizeLabel}</small>
-                            </div>
-                            <button
-                              className={styles.fileChipRemove}
-                              onClick={() => removeSlottedFile(template.id, key)}
-                              type="button"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className={styles.uploadSlotHint}>Required image slot.</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <>
-                <div className={styles.fieldGrid}>
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Source / issuer</span>
-                    <input
-                      className={styles.input}
-                      onChange={handleEvidenceChange(template.id, "source")}
-                      placeholder={template.sourceHint}
-                      type="text"
-                      value={draft.source}
-                    />
-                  </label>
-
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Verified or issued on</span>
-                    <input
-                      className={styles.input}
-                      onChange={handleEvidenceChange(template.id, "verifiedOn")}
-                      type="date"
-                      value={draft.verifiedOn}
-                    />
-                  </label>
-
-                  <label className={[styles.field, styles.fieldFull].join(" ")}>
-                    <span className={styles.fieldLabel}>Validation context</span>
-                    <textarea
-                      className={styles.textarea}
-                      onChange={handleEvidenceChange(template.id, "context")}
-                      placeholder={template.contextHint}
-                      rows={3}
-                      value={draft.context}
-                    />
-                  </label>
-
-                  <label className={[styles.field, styles.fieldFull].join(" ")}>
-                    <span className={styles.fieldLabel}>Why this should matter in soul.md</span>
-                    <textarea
-                      className={styles.textarea}
-                      onChange={handleEvidenceChange(template.id, "note")}
-                      placeholder="Add the signal, overlap, or milestone this evidence should reinforce."
-                      rows={2}
-                      value={draft.note}
-                    />
-                  </label>
-                </div>
-
-                <label className={styles.uploadZone} htmlFor={`upload-${template.id}`}>
+            return (
+              <div className={styles.uploadSlot} key={`${template.id}-${key}`}>
+                <span className={styles.fieldLabel}>{label}</span>
+                <label className={styles.uploadZone} htmlFor={`upload-${template.id}-${key}`}>
                   <input
+                    accept="image/*"
                     className={styles.fileInput}
-                    id={`upload-${template.id}`}
-                    multiple
-                    onChange={handleFileChange(template.id)}
+                    id={`upload-${template.id}-${key}`}
+                    onChange={(event) =>
+                      onDriverLicenseFile(template.id, key, event.target.files)
+                    }
                     type="file"
                   />
                   <Upload aria-hidden="true" size={18} strokeWidth={2} />
                   <div>
-                    <strong>Upload supporting evidence</strong>
-                    <span>{template.acceptedFormats}</span>
+                    <strong>{existing ? "Replace image" : `Upload ${label.toLowerCase()}`}</strong>
+                    <span>Image only</span>
                   </div>
                 </label>
 
-                {draft.files.length > 0 ? (
+                {existing ? (
                   <div className={styles.fileChipRow}>
-                    {draft.files.map((file) => (
-                      <div className={styles.fileChip} key={`${template.id}-${file.name}`}>
-                        <div>
-                          <strong>{file.name}</strong>
-                          <small>{file.sizeLabel}</small>
-                        </div>
-                        <button
-                          className={styles.fileChipRemove}
-                          onClick={() => removeFile(template.id, file.name)}
-                          type="button"
-                        >
-                          Remove
-                        </button>
+                    <div className={styles.fileChip}>
+                      <div>
+                        <strong>{existing.name}</strong>
+                        <small>{existing.sizeLabel}</small>
                       </div>
-                    ))}
+
+                      <button
+                        className={styles.fileChipRemove}
+                        onClick={() => onRemoveFile(template.id, existing.key, key)}
+                        type="button"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                ) : null}
-              </>
-            )}
-          </article>
-        );
-      });
-  }
+                ) : (
+                  <p className={styles.uploadSlotHint}>Required image slot.</p>
+                )}
+              </div>
+            );
+          })}
 
-  return (
-    <main className={styles.page}>
-      <div className={styles.shell}>
-        <section className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <h1 className={styles.heroTitle}>Build and grow your Career ID</h1>
-            <p className={styles.heroBody}>
-              Create the living credibility profile behind your verified career identity.
-              Start with self-reported context, attach trusted evidence, and keep appending
-              new signals over time as your career grows.
-            </p>
-
-            <div className={styles.statGrid}>
-              <StatCard label="overall builder progress" value={`${overallProgress}%`} />
-              <StatCard
-                label="uploaded evidence signals"
-                value={String(completedEvidenceCount).padStart(2, "0")}
+          {errors?.files ? <p className={styles.fieldError}>{errors.files}</p> : null}
+        </div>
+      ) : (
+        <>
+          <div className={styles.fieldGrid}>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Source / issuer</span>
+              <input
+                aria-invalid={Boolean(errors?.sourceOrIssuer)}
+                className={styles.input}
+                onChange={(event) =>
+                  onChange(template.id, "sourceOrIssuer", event.target.value)
+                }
+                placeholder={template.sourceHint}
+                type="text"
+                value={draft.sourceOrIssuer}
               />
-              <StatCard label="strongest trust tier" value={tierMeta[strongestTier].label} />
-            </div>
+              {errors?.sourceOrIssuer ? (
+                <span className={styles.fieldError}>{errors.sourceOrIssuer}</span>
+              ) : null}
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Verified or issued on</span>
+              <input
+                aria-invalid={Boolean(errors?.issuedOn)}
+                className={styles.input}
+                onChange={(event) => onChange(template.id, "issuedOn", event.target.value)}
+                type="date"
+                value={draft.issuedOn}
+              />
+              {errors?.issuedOn ? (
+                <span className={styles.fieldError}>{errors.issuedOn}</span>
+              ) : null}
+            </label>
+
+            <label className={`${styles.field} ${styles.fieldFull}`}>
+              <span className={styles.fieldLabel}>Validation context</span>
+              <textarea
+                className={styles.textarea}
+                onChange={(event) =>
+                  onChange(template.id, "validationContext", event.target.value)
+                }
+                placeholder={template.contextHint}
+                rows={3}
+                value={draft.validationContext}
+              />
+            </label>
+
+            <label className={`${styles.field} ${styles.fieldFull}`}>
+              <span className={styles.fieldLabel}>Why this should matter in soul.md</span>
+              <textarea
+                className={styles.textarea}
+                onChange={(event) =>
+                  onChange(template.id, "whyItMatters", event.target.value)
+                }
+                placeholder="Add the signal, overlap, or milestone this evidence should reinforce."
+                rows={2}
+                value={draft.whyItMatters}
+              />
+            </label>
           </div>
 
-          <aside className={styles.progressRail}>
-            <div className={styles.progressRailHeader}>
-              <span className={styles.sectionEyebrow}>Agent ID pipeline</span>
-              <h2>Credible agent ID creation status</h2>
-              <p className={styles.progressRailCopy}>
-                Each trust phase lights up as the profile moves from self-reported context
-                into stronger verification.
-              </p>
+          <label className={styles.uploadZone} htmlFor={`upload-${template.id}`}>
+            <input
+              accept={defaultUploadAccept}
+              className={styles.fileInput}
+              id={`upload-${template.id}`}
+              multiple
+              onChange={(event) => onDefaultFiles(template.id, event.target.files)}
+              type="file"
+            />
+            <Upload aria-hidden="true" size={18} strokeWidth={2} />
+            <div>
+              <strong>Upload supporting evidence</strong>
+              <span>{template.acceptedFormats}</span>
             </div>
+          </label>
 
-            <div className={styles.pipelineSteps}>
-              {pipelinePhases.map((phase, index) => (
-                <article className={[styles.pipelineStep, phase.stateClass].join(" ")} key={phase.key}>
-                  <div className={styles.pipelineTrack}>
-                    <span className={styles.pipelineMarker}>
-                      {phase.isComplete ? (
-                        <Check aria-hidden="true" size={16} strokeWidth={2.6} />
-                      ) : (
-                        <span aria-hidden="true" className={styles.pipelineMarkerCore} />
-                      )}
-                    </span>
-                    {index < pipelinePhases.length - 1 ? (
-                      <span
-                        aria-hidden="true"
-                        className={[
-                          styles.pipelineConnector,
-                          phase.connectorComplete ? styles.pipelineConnectorComplete : "",
-                        ].join(" ")}
-                      />
-                    ) : null}
+          {errors?.files ? <p className={styles.fieldError}>{errors.files}</p> : null}
+
+          {draft.files.length > 0 ? (
+            <div className={styles.fileChipRow}>
+              {draft.files.map((file) => (
+                <div className={styles.fileChip} key={file.key}>
+                  <div>
+                    <strong>{file.name}</strong>
+                    <small>{file.sizeLabel}</small>
                   </div>
 
-                  <div className={styles.pipelineContent}>
-                    <span className={styles.pipelinePill}>{phase.label}</span>
-                    <p className={styles.pipelineSummary}>{phase.summary}</p>
-                  </div>
-                </article>
+                  <button
+                    className={styles.fileChipRemove}
+                    onClick={() => onRemoveFile(template.id, file.key, file.slot)}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </div>
               ))}
             </div>
+          ) : null}
+        </>
+      )}
+    </article>
+  );
+}
 
-            <div className={styles.nextActionPanel}>
-              <span className={styles.sectionEyebrow}>Next best uploads</span>
-              <ul>
-                {queuedTemplates.slice(0, 3).map((template) => (
-                  <li key={template.id}>{template.title}</li>
-                ))}
-              </ul>
-            </div>
-          </aside>
-        </section>
+export function AgentBuilderWorkspace({
+  initialSnapshot,
+}: AgentBuilderWorkspaceProps) {
+  const [isMounted, setIsMounted] = useState(false);
+  const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [activePhase, setActivePhase] = useState<CareerPhase | null>(null);
+  const [draft, setDraft] = useState<ModalDraftState>({
+    profile: toProfileInput(initialSnapshot.profile),
+    evidence: {},
+  });
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const initialDraftSignatureRef = useRef("");
+  const titleId = useId();
 
-        <section className={styles.workspace}>
-          <div className={styles.mainColumn}>
-            <BuilderSection
-              copy="Separate the user-entered profile foundation from the documents and letters that will raise trust over time."
-              count={<SectionCount complete={completedProfileFields} total={profileFields.length} />}
-              title="Self-reported foundation"
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setSnapshot(initialSnapshot);
+  }, [initialSnapshot]);
+
+  useEffect(() => {
+    if (!activePhase) {
+      return;
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isSaving) {
+        event.preventDefault();
+        void requestClose();
+      }
+
+      if (event.key !== "Tab" || !modalRef.current) {
+        return;
+      }
+
+      const focusable = getFocusableElements(modalRef.current);
+
+      if (focusable.length === 0) {
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleKeydown);
+    const focusFrame = window.requestAnimationFrame(() => {
+      const focusable = modalRef.current ? getFocusableElements(modalRef.current) : [];
+      (focusable[0] ?? modalRef.current)?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", handleKeydown);
+    };
+  }, [activePhase, isSaving]);
+
+  const activePhaseData = useMemo(
+    () => snapshot.phaseProgress.find((phase) => phase.phase === activePhase) ?? null,
+    [activePhase, snapshot.phaseProgress],
+  );
+
+  const activeTemplates = useMemo(
+    () =>
+      activePhase
+        ? builderEvidenceTemplates.filter((template) =>
+            builderPhaseTemplateIds[activePhase].includes(template.id),
+          )
+        : [],
+    [activePhase],
+  );
+
+  const activeTemplateGroups = useMemo(
+    () =>
+      sectionOrder.map((section) => ({
+        section,
+        templates: activeTemplates.filter((template) => template.section === section),
+      })),
+    [activeTemplates],
+  );
+
+  const isDirty =
+    activePhase !== null &&
+    serializePhaseDraft(activePhase, draft) !== initialDraftSignatureRef.current;
+
+  function openPhase(phase: CareerPhase) {
+    const nextDraft = buildPhaseDraft(snapshot, phase);
+    setActivePhase(phase);
+    setDraft(nextDraft);
+    setFieldErrors({});
+    setGlobalError(null);
+    setSaveMessage(null);
+    initialDraftSignatureRef.current = serializePhaseDraft(phase, nextDraft);
+  }
+
+  async function requestClose() {
+    if (isSaving) {
+      return;
+    }
+
+    if (isDirty && typeof window !== "undefined") {
+      const shouldDiscard = window.confirm(
+        "Discard unsaved changes for this trust phase?",
+      );
+
+      if (!shouldDiscard) {
+        return;
+      }
+    }
+
+    const closingPhase = activePhase;
+    setActivePhase(null);
+    setFieldErrors({});
+    setGlobalError(null);
+    setSaveMessage(null);
+    initialDraftSignatureRef.current = "";
+
+    if (closingPhase) {
+      window.requestAnimationFrame(() => {
+        triggerRefs.current[closingPhase]?.focus();
+      });
+    }
+  }
+
+  function updateProfileField(field: keyof CareerProfileInput, value: string) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      profile: {
+        ...currentDraft.profile,
+        [field]: value,
+      },
+    }));
+
+    if (fieldErrors.profile?.[field]) {
+      setFieldErrors((currentErrors) => ({
+        ...currentErrors,
+        profile: {
+          ...currentErrors.profile,
+          [field]: "",
+        },
+      }));
+    }
+  }
+
+  function updateEvidenceField(
+    templateId: CareerEvidenceTemplateId,
+    field: keyof Omit<EvidenceDraftState, "files" | "templateId">,
+    value: string,
+  ) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      evidence: {
+        ...currentDraft.evidence,
+        [templateId]: {
+          ...currentDraft.evidence[templateId],
+          [field]: value,
+        },
+      },
+    }));
+
+    if (fieldErrors[templateId]?.[field]) {
+      setFieldErrors((currentErrors) => ({
+        ...currentErrors,
+        [templateId]: {
+          ...currentErrors[templateId],
+          [field]: "",
+        },
+      }));
+    }
+  }
+
+  function addFiles(templateId: CareerEvidenceTemplateId, files: FileList | null) {
+    const nextFiles = Array.from(files ?? []).map((file) => ({
+      artifactId: `new-${crypto.randomUUID()}`,
+      file,
+      isNew: true,
+      key: `new-${crypto.randomUUID()}`,
+      mimeType: file.type || "application/octet-stream",
+      name: file.name,
+      sizeLabel: formatBytes(file.size),
+      uploadedAt: new Date().toISOString(),
+    }));
+
+    if (nextFiles.length === 0) {
+      return;
+    }
+
+    setDraft((currentDraft) => {
+      const existing = currentDraft.evidence[templateId];
+
+      return {
+        ...currentDraft,
+        evidence: {
+          ...currentDraft.evidence,
+          [templateId]: {
+            ...existing,
+            files: [...existing.files, ...nextFiles],
+          },
+        },
+      };
+    });
+  }
+
+  function addDriverLicenseFile(
+    templateId: CareerEvidenceTemplateId,
+    slot: EvidenceFileSlot,
+    files: FileList | null,
+  ) {
+    const nextFile = Array.from(files ?? []).at(0);
+
+    if (!nextFile) {
+      return;
+    }
+
+    setDraft((currentDraft) => {
+      const existing = currentDraft.evidence[templateId];
+      const remaining = existing.files.filter((file) => file.slot !== slot);
+
+      return {
+        ...currentDraft,
+        evidence: {
+          ...currentDraft.evidence,
+          [templateId]: {
+            ...existing,
+            files: [
+              ...remaining,
+              {
+                artifactId: `new-${crypto.randomUUID()}`,
+                file: nextFile,
+                isNew: true,
+                key: `new-${crypto.randomUUID()}`,
+                mimeType: nextFile.type || "application/octet-stream",
+                name: nextFile.name,
+                sizeLabel: formatBytes(nextFile.size),
+                slot,
+                uploadedAt: new Date().toISOString(),
+              },
+            ],
+          },
+        },
+      };
+    });
+  }
+
+  function removeDraftFile(
+    templateId: CareerEvidenceTemplateId,
+    key: string,
+  ) {
+    setDraft((currentDraft) => ({
+      ...currentDraft,
+      evidence: {
+        ...currentDraft.evidence,
+        [templateId]: {
+          ...currentDraft.evidence[templateId],
+          files: currentDraft.evidence[templateId].files.filter((file) => file.key !== key),
+        },
+      },
+    }));
+  }
+
+  async function handleSave() {
+    if (!activePhase) {
+      return;
+    }
+
+    const nextErrors = validatePhaseDraft(activePhase, draft);
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      setGlobalError("Fix the highlighted fields before saving this phase.");
+      return;
+    }
+
+    setIsSaving(true);
+    setGlobalError(null);
+    setSaveMessage(null);
+
+    try {
+      const payload: {
+        evidence: Array<{
+          issuedOn: string;
+          retainedArtifactIds: string[];
+          sourceOrIssuer: string;
+          templateId: CareerEvidenceTemplateId;
+          validationContext: string;
+          whyItMatters: string;
+        }>;
+        profile?: CareerProfileInput;
+      } = {
+        evidence: activePhase === "self"
+          ? []
+          : builderPhaseTemplateIds[activePhase].map((templateId) => {
+              const evidenceDraft = draft.evidence[templateId];
+
+              return {
+                templateId,
+                sourceOrIssuer: evidenceDraft.sourceOrIssuer,
+                issuedOn: evidenceDraft.issuedOn,
+                validationContext: evidenceDraft.validationContext,
+                whyItMatters: evidenceDraft.whyItMatters,
+                retainedArtifactIds: evidenceDraft.files
+                  .filter((file) => !file.isNew)
+                  .map((file) => file.artifactId),
+              };
+            }),
+      };
+
+      if (activePhase === "self") {
+        payload.profile = draft.profile;
+      }
+
+      const formData = new FormData();
+      formData.append("payload", JSON.stringify(payload));
+
+      if (activePhase !== "self") {
+        for (const templateId of builderPhaseTemplateIds[activePhase]) {
+          for (const file of draft.evidence[templateId].files.filter((item) => item.isNew && item.file)) {
+            const fieldKey = file.slot
+              ? `upload:${templateId}:${file.slot}`
+              : `upload:${templateId}`;
+            formData.append(fieldKey, file.file!);
+          }
+        }
+      }
+
+      const response = await fetch(`/api/v1/career-builder/phases/${activePhase}`, {
+        method: "POST",
+        body: formData,
+      });
+      const body = await response.json();
+
+      if (!response.ok) {
+        const apiErrors = body?.details?.errors;
+
+        if (apiErrors && typeof apiErrors === "object") {
+          setFieldErrors(apiErrors as FieldErrors);
+        }
+
+        setGlobalError(body?.message ?? "Saving this phase failed.");
+        return;
+      }
+
+      const nextSnapshot = body as CareerBuilderSnapshotDto;
+
+      startTransition(() => {
+        setSnapshot(nextSnapshot);
+      });
+
+      const nextDraft = buildPhaseDraft(nextSnapshot, activePhase);
+      setDraft(nextDraft);
+      setFieldErrors({});
+      setGlobalError(null);
+      setSaveMessage("Saved to your Career ID.");
+      initialDraftSignatureRef.current = serializePhaseDraft(activePhase, nextDraft);
+    } catch (error) {
+      setGlobalError(
+        error instanceof Error ? error.message : "An unexpected error occurred while saving.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const modal =
+    isMounted && activePhase
+      ? createPortal(
+          <div
+            className={styles.overlay}
+            onClick={() => {
+              void requestClose();
+            }}
+            role="presentation"
+          >
+            <div
+              aria-labelledby={titleId}
+              aria-modal="true"
+              className={styles.modal}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              ref={modalRef}
+              role="dialog"
+              tabIndex={-1}
             >
-              <div className={styles.foundationPanel}>
-                <div className={styles.foundationHeader}>
-                  <span className={styles.sectionHint}>
-                    This section establishes the profile narrative before evidence is attached.
-                  </span>
+              <div className={styles.modalHeader}>
+                <div className={styles.modalHeaderCopy}>
+                  <span className={styles.sectionEyebrow}>Career ID trust phase</span>
+                  <h2 className={styles.modalTitle} id={titleId}>
+                    {phaseMeta[activePhase].modalTitle}
+                  </h2>
+                  <p className={styles.modalCopy}>{phaseMeta[activePhase].modalSubtitle}</p>
                 </div>
 
-                <div className={styles.fieldGrid}>
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Legal name</span>
-                    <input
-                      className={styles.input}
-                      onChange={handleProfileChange("legalName")}
-                      placeholder="Taylor Morgan"
-                      type="text"
-                      value={profile.legalName}
+                <div className={styles.modalHeaderMeta}>
+                  {activePhaseData ? (
+                    <PhaseCount
+                      completed={activePhaseData.completed}
+                      total={activePhaseData.total}
                     />
-                  </label>
+                  ) : null}
 
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Career headline</span>
-                    <input
-                      className={styles.input}
-                      onChange={handleProfileChange("careerHeadline")}
-                      placeholder="Operator who turns ambiguous hiring ops into repeatable systems"
-                      type="text"
-                      value={profile.careerHeadline}
-                    />
-                  </label>
-
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Target role</span>
-                    <input
-                      className={styles.input}
-                      onChange={handleProfileChange("targetRole")}
-                      placeholder="Founding recruiter, People Ops lead, or GTM operator"
-                      type="text"
-                      value={profile.targetRole}
-                    />
-                  </label>
-
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Location</span>
-                    <input
-                      className={styles.input}
-                      onChange={handleProfileChange("location")}
-                      placeholder="Chicago, IL"
-                      type="text"
-                      value={profile.location}
-                    />
-                  </label>
-
-                  <label className={[styles.field, styles.fieldFull].join(" ")}>
-                    <span className={styles.fieldLabel}>Core narrative</span>
-                    <textarea
-                      className={styles.textarea}
-                      onChange={handleProfileChange("coreNarrative")}
-                      placeholder="Summarize the kind of trust, outcomes, and career evidence this profile should prove over time."
-                      rows={4}
-                      value={profile.coreNarrative}
-                    />
-                  </label>
+                  <button
+                    aria-label={`Close ${phaseMeta[activePhase].label} modal`}
+                    className={styles.closeButton}
+                    onClick={() => {
+                      void requestClose();
+                    }}
+                    type="button"
+                  >
+                    <X size={18} strokeWidth={2.2} />
+                  </button>
                 </div>
               </div>
-            </BuilderSection>
 
-            <BuilderSection
-              copy={sectionMeta.identity.copy}
-              count={
-                <SectionCount
-                  complete={completedIdentitySignals}
-                  total={identityTemplates.length}
-                />
-              }
-              title={sectionMeta.identity.title}
-            >
-              <div className={styles.evidenceGrid}>{renderEvidenceCards("identity")}</div>
-            </BuilderSection>
+              <div className={styles.modalScroll}>
+                {activePhase === "self" ? (
+                  <section className={styles.sectionPanel}>
+                    <div className={styles.sectionHeader}>
+                      <div>
+                        <span className={styles.sectionEyebrow}>Structured intake</span>
+                        <h3 className={styles.sectionTitle}>Self-reported foundation</h3>
+                        <p className={styles.sectionCopy}>{phaseMeta.self.description}</p>
+                      </div>
 
-            <BuilderSection
-              copy={sectionMeta.employment.copy}
-              count={
-                <SectionCount
-                  complete={completedEmploymentSignals}
-                  total={employmentTemplates.length}
-                />
-              }
-              title={sectionMeta.employment.title}
-            >
-              <div className={styles.evidenceGrid}>{renderEvidenceCards("employment")}</div>
-            </BuilderSection>
-
-            <BuilderSection
-              copy={sectionMeta.network.copy}
-              count={
-                <SectionCount
-                  complete={completedNetworkSignals}
-                  total={networkTemplates.length}
-                />
-              }
-              title={sectionMeta.network.title}
-            >
-              <div className={styles.evidenceGrid}>{renderEvidenceCards("network")}</div>
-            </BuilderSection>
-
-            <BuilderSection
-              copy="This workspace should keep improving as new proof arrives, so the profile can grow from onboarding into long-term credibility maintenance."
-              count={<span className={styles.sectionCount}>living profile</span>}
-              title="Growth cadence"
-            >
-              <div className={styles.growthGrid}>
-                {growthCards.map((card) => (
-                  <article className={styles.growthCard} key={card.title}>
-                    <div className={styles.growthIcon}>
-                      <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                      {activePhaseData ? (
+                        <PhaseCount
+                          completed={activePhaseData.completed}
+                          total={activePhaseData.total}
+                        />
+                      ) : null}
                     </div>
-                    <strong>{card.title}</strong>
-                    <p>{card.body}</p>
-                  </article>
+
+                    <div className={styles.fieldGrid}>
+                      {profileFieldConfig.map((fieldConfig) => (
+                        <label
+                          className={
+                            "rows" in fieldConfig
+                              ? `${styles.field} ${styles.fieldFull}`
+                              : styles.field
+                          }
+                          key={fieldConfig.field}
+                        >
+                          <span className={styles.fieldLabel}>{fieldConfig.label}</span>
+                          {"rows" in fieldConfig ? (
+                            <textarea
+                              className={styles.textarea}
+                              onChange={(event) =>
+                                updateProfileField(fieldConfig.field, event.target.value)
+                              }
+                              placeholder={fieldConfig.placeholder}
+                              rows={fieldConfig.rows}
+                              value={draft.profile[fieldConfig.field]}
+                            />
+                          ) : (
+                            <input
+                              className={styles.input}
+                              onChange={(event) =>
+                                updateProfileField(fieldConfig.field, event.target.value)
+                              }
+                              placeholder={fieldConfig.placeholder}
+                              type="text"
+                              value={draft.profile[fieldConfig.field]}
+                            />
+                          )}
+
+                          {fieldErrors.profile?.[fieldConfig.field] ? (
+                            <span className={styles.fieldError}>
+                              {fieldErrors.profile[fieldConfig.field]}
+                            </span>
+                          ) : null}
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                ) : (
+                  <>
+                    {activePhase === "signature" ? (
+                      <div className={styles.infoBanner}>
+                        <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                        <p>
+                          Signature-backed views reuse canonical evidence records. Editing a shared
+                          item here updates the same saved record anywhere else it appears.
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {activeTemplateGroups.map(({ section, templates }) =>
+                      templates.length > 0 ? (
+                        <section className={styles.sectionPanel} key={section}>
+                          <div className={styles.sectionHeader}>
+                            <div>
+                              <span className={styles.sectionEyebrow}>Structured intake</span>
+                              <h3 className={styles.sectionTitle}>{sectionMeta[section].title}</h3>
+                              <p className={styles.sectionCopy}>{sectionMeta[section].copy}</p>
+                            </div>
+                          </div>
+
+                          <div className={styles.evidenceGrid}>
+                            {templates.map((template) => (
+                              <EvidenceCard
+                                draft={draft.evidence[template.id]}
+                                errors={fieldErrors[template.id]}
+                                key={template.id}
+                                onChange={updateEvidenceField}
+                                onDefaultFiles={addFiles}
+                                onDriverLicenseFile={addDriverLicenseFile}
+                                onRemoveFile={removeDraftFile}
+                                template={template}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      ) : null,
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className={styles.modalFooter}>
+                <div className={styles.modalStatusArea}>
+                  {globalError ? (
+                    <p className={styles.errorBanner}>
+                      <AlertCircle aria-hidden="true" size={16} strokeWidth={2} />
+                      <span>{globalError}</span>
+                    </p>
+                  ) : null}
+
+                  {saveMessage ? <p className={styles.successBanner}>{saveMessage}</p> : null}
+                </div>
+
+                <div className={styles.modalActions}>
+                  <button
+                    className={styles.secondaryAction}
+                    onClick={() => {
+                      void requestClose();
+                    }}
+                    type="button"
+                  >
+                    Close
+                  </button>
+
+                  <button
+                    className={styles.primaryAction}
+                    disabled={isSaving}
+                    onClick={() => {
+                      void handleSave();
+                    }}
+                    type="button"
+                  >
+                    {isSaving ? (
+                      <>
+                        <LoaderCircle aria-hidden="true" className={styles.spinningIcon} size={16} />
+                        Saving
+                      </>
+                    ) : (
+                      phaseMeta[activePhase].actionLabel
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <>
+      <main className={styles.page}>
+        <div className={styles.shell}>
+          <section className={styles.hero}>
+            <div className={styles.heroCopy}>
+              <h1 className={styles.heroTitle}>Build and grow your Career ID</h1>
+              <p className={styles.heroBody}>
+                Create the living credibility profile behind your verified career identity.
+                Keep the progress rail in view, open the phase you want to strengthen, and
+                save each trust signal directly into your Career ID.
+              </p>
+
+              <div className={styles.statGrid}>
+                <StatCard
+                  label="overall builder progress"
+                  value={`${snapshot.progress.overallProgress}%`}
+                />
+                <StatCard
+                  label="uploaded evidence signals"
+                  value={String(snapshot.progress.completedEvidenceCount).padStart(2, "0")}
+                />
+                <StatCard
+                  label="strongest trust tier"
+                  value={phaseMeta[snapshot.progress.strongestTier].label}
+                />
+              </div>
+
+              <div className={styles.supportPanel}>
+                <div className={styles.supportCard}>
+                  <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                  <div>
+                    <strong>Phase-based intake</strong>
+                    <p>Open a trust phase to edit the relevant intake without overloading the main page.</p>
+                  </div>
+                </div>
+
+                <div className={styles.supportCard}>
+                  <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                  <div>
+                    <strong>Saved to your Career ID</strong>
+                    <p>Each modal save persists profile details, evidence files, and readiness counts together.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <aside className={styles.progressRail}>
+              <div className={styles.progressRailHeader}>
+                <span className={styles.sectionEyebrow}>Agent ID pipeline</span>
+                <h2>Credible agent ID creation status</h2>
+                <p className={styles.progressRailCopy}>
+                  Each trust phase lights up as the profile moves from self-reported context
+                  into stronger verification. Click any phase to edit its intake workflow.
+                </p>
+              </div>
+
+              <div className={styles.pipelineSteps}>
+                {snapshot.phaseProgress.map((phase, index) => (
+                  <button
+                    aria-controls={activePhase === phase.phase ? titleId : undefined}
+                    aria-haspopup="dialog"
+                    className={`${styles.pipelineStepButton} ${
+                      phase.isComplete
+                        ? styles.pipelineStepComplete
+                        : phase.isCurrent
+                          ? styles.pipelineStepCurrent
+                          : styles.pipelineStepPending
+                    }`}
+                    key={phase.phase}
+                    onClick={() => openPhase(phase.phase)}
+                    ref={(node) => {
+                      triggerRefs.current[phase.phase] = node;
+                    }}
+                    type="button"
+                  >
+                    <div className={styles.pipelineTrack}>
+                      <span className={styles.pipelineMarker}>
+                        {phase.isComplete ? (
+                          <Check aria-hidden="true" size={16} strokeWidth={2.6} />
+                        ) : (
+                          <span aria-hidden="true" className={styles.pipelineMarkerCore} />
+                        )}
+                      </span>
+                      {index < snapshot.phaseProgress.length - 1 ? (
+                        <span
+                          aria-hidden="true"
+                          className={`${styles.pipelineConnector} ${
+                            phase.isComplete ? styles.pipelineConnectorComplete : ""
+                          }`}
+                        />
+                      ) : null}
+                    </div>
+
+                    <div className={styles.pipelineContent}>
+                      <div className={styles.pipelineHeadingRow}>
+                        <span className={styles.pipelinePill}>{phase.label}</span>
+                        <PhaseCount completed={phase.completed} total={phase.total} />
+                      </div>
+                      <p className={styles.pipelineSummary}>{phase.summary}</p>
+                    </div>
+                  </button>
                 ))}
               </div>
-            </BuilderSection>
-          </div>
-        </section>
-      </div>
-    </main>
+
+              <div className={styles.nextActionPanel}>
+                <span className={styles.sectionEyebrow}>Next best uploads</span>
+                <ul>
+                  {snapshot.progress.nextUploads.map((template) => (
+                    <li key={template.templateId}>{template.title}</li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
+          </section>
+        </div>
+      </main>
+
+      {modal}
+    </>
   );
 }
