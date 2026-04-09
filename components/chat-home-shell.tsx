@@ -6,7 +6,6 @@ import {
   Globe2,
   QrCode,
   ShieldCheck,
-  Sparkles,
   UserRoundCheck,
   Workflow,
   type LucideIcon,
@@ -459,11 +458,6 @@ export function ChatHomeShell() {
     <div className={styles.page}>
       <section className={styles.heroSection}>
         <div className={styles.heroInner}>
-          <div className={styles.heroBadge}>
-            <Sparkles aria-hidden="true" size={16} strokeWidth={1.9} />
-            <span>AI-native identity and verification for hiring</span>
-          </div>
-
           <h1 className={styles.heroTitle}>
             Career AI is a verified career identity platform for job seekers that helps
             them build trust, stand out to employers, and get hired faster.
