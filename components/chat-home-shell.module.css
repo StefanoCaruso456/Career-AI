@@ -210,10 +210,14 @@
   justify-content: flex-start;
   gap: 1.1rem;
   text-align: center;
+  transition:
+    gap 220ms ease,
+    padding-top 220ms ease;
 }
 
 .heroTitle {
   margin: clamp(1.7rem, 4.2vw, 2.9rem) 0 clamp(2.9rem, 6.6vw, 4.8rem);
+  max-height: 14rem;
   color: var(--hero-text);
   font-family: var(--font-display), sans-serif;
   max-width: 32ch;
@@ -221,6 +225,13 @@
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.045em;
+  overflow: hidden;
+  transform-origin: top center;
+  transition:
+    margin 220ms ease,
+    max-height 220ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
 }
 
 .heroTitleLine {
@@ -280,6 +291,23 @@
 
 .chatStageConversation .composerDock {
   bottom: 0.45rem;
+}
+
+.heroInnerConversation {
+  gap: 0.4rem;
+  padding-top: max(calc(var(--site-header-clearance) + 1rem), clamp(4.8rem, 9vh, 6.2rem));
+}
+
+.heroTitleConversation {
+  margin: 0;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.8rem) scale(0.97);
+}
+
+.heroInnerConversation .chatStage {
+  margin-top: 0;
 }
 
 .chatSidebarReveal {
@@ -2961,7 +2989,12 @@
     max-width: 22ch;
     font-size: clamp(1.5rem, 6.2vw, 2.05rem);
     line-height: 1.1;
+    max-height: 12rem;
     margin: 1.25rem 0 2.35rem;
+  }
+
+  .heroInnerConversation {
+    padding-top: max(calc(var(--site-header-clearance) + 0.75rem), 5.15rem);
   }
 
   .chatStage {
