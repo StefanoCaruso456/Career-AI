@@ -472,12 +472,62 @@
   position: relative;
 }
 
+.chatSidebarProjectGroup {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.chatSidebarProjectCollection {
+  display: grid;
+  gap: 0.3rem;
+  margin-left: 1.15rem;
+  padding-left: 1.2rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chatSidebarProjectCollectionLabel {
+  padding: 0.22rem 0.32rem 0.12rem;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.74rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
 .chatSidebarItemRow {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.38rem;
+}
+
+.chatSidebarItemContent {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 0;
+}
+
+.chatSidebarItemLeading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.chatSidebarItemLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chatSidebarItemAdornment {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.42);
+  flex-shrink: 0;
 }
 
 .chatSidebarItem {
@@ -508,6 +558,49 @@
 
 .chatSidebarItemButton {
   min-width: 0;
+}
+
+.chatSidebarProjectItem {
+  padding: 0.72rem 0.82rem 0.72rem 0.74rem;
+}
+
+.chatSidebarProjectChatShell {
+  margin-left: -0.2rem;
+}
+
+.chatSidebarProjectChatItem {
+  padding: 0.68rem 0.85rem 0.68rem 0.92rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.chatSidebarProjectChatLabel {
+  font-size: 0.91rem;
+}
+
+.chatSidebarFolderGlyph,
+.chatSidebarFolderBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.62rem;
+  flex-shrink: 0;
+}
+
+.chatSidebarFolderGlyph {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.chatSidebarFolderBadge {
+  border: 1px solid rgba(138, 182, 255, 0.58);
+  background:
+    linear-gradient(180deg, rgba(118, 163, 255, 0.16), rgba(255, 255, 255, 0.05)),
+    rgba(255, 255, 255, 0.04);
+  color: #eef4ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(138, 182, 255, 0.16);
 }
 
 .chatSidebarItemActive {
@@ -695,6 +788,14 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.83rem;
   line-height: 1.5;
+}
+
+.chatSidebarProjectEmpty {
+  margin: 0;
+  padding: 0.15rem 0.32rem 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .chatSidebarNotice {
@@ -2701,6 +2802,11 @@
 
   .chatSidebarItem {
     font-size: 0.88rem;
+  }
+
+  .chatSidebarProjectCollection {
+    margin-left: 1rem;
+    padding-left: 1rem;
   }
 
   .chatSidebarItemMenu {

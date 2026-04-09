@@ -5,10 +5,11 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
-  ChevronRight,
   Clock3,
   Ellipsis,
+  Folder,
   FolderOpen,
+  FolderPlus,
   LoaderCircle,
   MessageSquareText,
   Mic,
@@ -24,6 +25,7 @@ import {
 import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   startTransition,
   useEffect,
   useId,
@@ -286,9 +288,7 @@ export function HeroComposer() {
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [projectsOpen, setProjectsOpen] = useState(true);
-  const [chatsOpen, setChatsOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
@@ -309,9 +309,6 @@ export function HeroComposer() {
   const isTranscribing = voiceInputState === "transcribing";
   const canSubmit = message.trim().length > 0 && !isSubmitting && !isRecording && !isTranscribing;
   const workspaceVisible = true;
-  const recentChats = threads
-    .filter((thread) => thread.projectId === activeProjectId)
-    .slice(0, 4);
 
   useEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -744,7 +741,6 @@ export function HeroComposer() {
     setCurrentThreadId(thread.id);
     setTranscript(thread.transcript);
     setMessage("");
-    setChatsOpen(true);
     setSidebarOpen(true);
   }
 
@@ -755,7 +751,6 @@ export function HeroComposer() {
     setCurrentThreadId(null);
     setTranscript([]);
     setMessage("");
-    setChatsOpen(true);
     setSidebarOpen(true);
   }
 
@@ -766,8 +761,6 @@ export function HeroComposer() {
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
     setActiveProjectId(projectId);
-    setProjectsOpen(true);
-    setChatsOpen(true);
     setSidebarOpen(true);
     setMessage("");
 
@@ -792,8 +785,6 @@ export function HeroComposer() {
     setSidebarRenameDraft(null);
     setProjects((currentProjects) => [nextProject, ...currentProjects]);
     setActiveProjectId(nextProject.id);
-    setProjectsOpen(true);
-    setChatsOpen(true);
     setSidebarOpen(true);
     setCurrentThreadId(null);
     setTranscript([]);
@@ -1111,19 +1102,33 @@ export function HeroComposer() {
     });
   }
 
+  function getProjectThreads(projectId: string) {
+    return threads.filter((thread) => thread.projectId === projectId);
+  }
+
   function renderSidebarItemRow({
+    itemClassName,
+    labelClassName,
+    leadingVisual,
+    trailingVisual,
     id,
     isActive,
     label,
     onDelete,
     onSelect,
+    shellClassName,
     type,
   }: {
+    itemClassName?: string;
+    labelClassName?: string;
+    leadingVisual?: ReactNode;
+    trailingVisual?: ReactNode;
     id: string;
     isActive: boolean;
     label: string;
     onDelete: () => void;
     onSelect: () => void;
+    shellClassName?: string;
     type: SidebarEntityType;
   }) {
     const isMenuOpen = sidebarActionMenu?.id === id && sidebarActionMenu.type === type;
@@ -1133,11 +1138,10 @@ export function HeroComposer() {
 
     return (
       <div
-        className={styles.chatSidebarItemShell}
+        className={[styles.chatSidebarItemShell, shellClassName ?? ""].filter(Boolean).join(" ")}
         data-entity-id={id}
         data-entity-type={type}
         data-sidebar-item-shell="true"
-        key={id}
       >
         {isRenaming ? (
           <form
@@ -1195,6 +1199,7 @@ export function HeroComposer() {
               className={[
                 styles.chatSidebarItem,
                 styles.chatSidebarItemButton,
+                itemClassName ?? "",
                 isActive ? styles.chatSidebarItemActive : "",
               ]
                 .filter(Boolean)
@@ -1202,7 +1207,21 @@ export function HeroComposer() {
               onClick={onSelect}
               type="button"
             >
-              {label}
+              <span className={styles.chatSidebarItemContent}>
+                {leadingVisual ? (
+                  <span className={styles.chatSidebarItemLeading}>{leadingVisual}</span>
+                ) : null}
+                <span
+                  className={[styles.chatSidebarItemLabel, labelClassName ?? ""]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  {label}
+                </span>
+                {trailingVisual ? (
+                  <span className={styles.chatSidebarItemAdornment}>{trailingVisual}</span>
+                ) : null}
+              </span>
             </button>
             <button
               aria-controls={menuId}
@@ -1269,6 +1288,62 @@ export function HeroComposer() {
     );
   }
 
+  function renderProjectRow(project: ProjectEntry) {
+    const projectChats = getProjectThreads(project.id);
+    const isActiveProject = project.id === activeProjectId;
+
+    return (
+      <li className={styles.chatSidebarProjectGroup} key={project.id}>
+        {renderSidebarItemRow({
+          id: project.id,
+          isActive: isActiveProject,
+          itemClassName: styles.chatSidebarProjectItem,
+          label: project.label,
+          leadingVisual: isActiveProject ? (
+            <span className={styles.chatSidebarFolderBadge}>
+              <FolderOpen aria-hidden="true" size={18} strokeWidth={1.9} />
+            </span>
+          ) : (
+            <span className={styles.chatSidebarFolderGlyph}>
+              <Folder aria-hidden="true" size={18} strokeWidth={1.9} />
+            </span>
+          ),
+          onDelete: () => handleProjectDelete(project.id),
+          onSelect: () => handleProjectSelect(project.id),
+          trailingVisual: isActiveProject ? (
+            <ChevronDown aria-hidden="true" size={15} strokeWidth={2} />
+          ) : null,
+          type: "project",
+        })}
+
+        {isActiveProject ? (
+          <div className={styles.chatSidebarProjectCollection}>
+            <span className={styles.chatSidebarProjectCollectionLabel}>Recent</span>
+            {projectChats.length > 0 ? (
+              projectChats.map((chat) => (
+                <div className={styles.chatSidebarListRow} key={chat.id}>
+                  {renderSidebarItemRow({
+                    id: chat.id,
+                    isActive: chat.id === currentThreadId,
+                    itemClassName: styles.chatSidebarProjectChatItem,
+                    label: chat.label,
+                    labelClassName: styles.chatSidebarProjectChatLabel,
+                    onDelete: () => handleChatDelete(chat.id),
+                    onSelect: () => openThread(chat),
+                    shellClassName: styles.chatSidebarProjectChatShell,
+                    type: "chat",
+                  })}
+                </div>
+              ))
+            ) : (
+              <p className={styles.chatSidebarProjectEmpty}>Start a new chat in this project.</p>
+            )}
+          </div>
+        ) : null}
+      </li>
+    );
+  }
+
   return (
     <section
       className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
@@ -1312,52 +1387,13 @@ export function HeroComposer() {
           <div className={styles.chatSidebarSection}>
             <button className={styles.chatSidebarAction} onClick={handleNewProject} type="button">
               <span className={styles.chatSidebarActionLabel}>
-                <FolderOpen aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>Project +</span>
+                <FolderPlus aria-hidden="true" size={16} strokeWidth={1.9} />
+                <span>New project</span>
               </span>
             </button>
 
-            <button
-              aria-controls="chat-project-collection"
-              aria-expanded={projectsOpen}
-              className={styles.chatSidebarToggle}
-              onClick={() => setProjectsOpen((currentState) => !currentState)}
-              type="button"
-            >
-              <span className={styles.chatSidebarToggleLabel}>
-                <FolderOpen aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>Projects</span>
-              </span>
-              <ChevronRight
-                aria-hidden="true"
-                className={[
-                  styles.chatSidebarChevron,
-                  projectsOpen ? styles.chatSidebarChevronOpen : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                size={16}
-                strokeWidth={2.1}
-              />
-            </button>
-
-            <ul
-              className={styles.chatSidebarList}
-              hidden={!projectsOpen}
-              id="chat-project-collection"
-            >
-              {projects.map((project) => (
-                <li className={styles.chatSidebarListRow} key={project.id}>
-                  {renderSidebarItemRow({
-                    id: project.id,
-                    isActive: project.id === activeProjectId,
-                    label: project.label,
-                    onDelete: () => handleProjectDelete(project.id),
-                    onSelect: () => handleProjectSelect(project.id),
-                    type: "project",
-                  })}
-                </li>
-              ))}
+            <ul className={styles.chatSidebarList} id="chat-project-collection">
+              {projects.map((project) => renderProjectRow(project))}
             </ul>
           </div>
 
@@ -1365,57 +1401,9 @@ export function HeroComposer() {
             <button className={styles.chatSidebarAction} onClick={handleNewChat} type="button">
               <span className={styles.chatSidebarActionLabel}>
                 <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>Chat +</span>
+                <span>New chat</span>
               </span>
             </button>
-
-            <button
-              aria-controls="chat-recent-collection"
-              aria-expanded={chatsOpen}
-              className={styles.chatSidebarToggle}
-              onClick={() => setChatsOpen((currentState) => !currentState)}
-              type="button"
-            >
-              <span className={styles.chatSidebarToggleLabel}>
-                <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>Chats</span>
-              </span>
-              <ChevronRight
-                aria-hidden="true"
-                className={[
-                  styles.chatSidebarChevron,
-                  chatsOpen ? styles.chatSidebarChevronOpen : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                size={16}
-                strokeWidth={2.1}
-              />
-            </button>
-
-            <div
-              className={styles.chatSidebarList}
-              hidden={!chatsOpen}
-              id="chat-recent-collection"
-            >
-              <span className={styles.chatSidebarListLabel}>Collection</span>
-              {recentChats.length > 0 ? (
-                recentChats.map((chat) => (
-                  <div className={styles.chatSidebarListRow} key={chat.id}>
-                    {renderSidebarItemRow({
-                      id: chat.id,
-                      isActive: chat.id === currentThreadId,
-                      label: chat.label,
-                      onDelete: () => handleChatDelete(chat.id),
-                      onSelect: () => openThread(chat),
-                      type: "chat",
-                    })}
-                  </div>
-                ))
-              ) : (
-                <p className={styles.chatSidebarEmpty}>Start a new chat to collect threads here.</p>
-              )}
-            </div>
           </div>
 
           {sidebarNotice ? (
