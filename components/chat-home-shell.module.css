@@ -1007,7 +1007,7 @@
 .chatEmptyStateLanding {
   min-height: clamp(12rem, 28vh, 18rem);
   padding-top: 1rem;
-  padding-bottom: clamp(9.75rem, 18vh, 11.5rem);
+  padding-bottom: clamp(11.5rem, 22vh, 13.5rem);
 }
 
 .projectHome {
@@ -1326,7 +1326,7 @@
 }
 
 .composerDock.composerDockLanding {
-  bottom: clamp(7rem, 14vh, 8.85rem);
+  bottom: clamp(12rem, 24vh, 14rem);
 }
 
 .composerTop {
@@ -2819,6 +2819,25 @@
   outline-offset: 3px;
 }
 
+@media (max-height: 860px) and (min-width: 761px) {
+  .chatStage {
+    min-height: 31rem;
+    padding-bottom: 9.8rem;
+  }
+
+  .chatTranscript {
+    max-height: calc(31rem - 9.6rem);
+  }
+
+  .chatEmptyStateLanding {
+    padding-bottom: 15rem;
+  }
+
+  .composerDock.composerDockLanding {
+    bottom: 15.5rem;
+  }
+}
+
 @media (max-width: 1100px) {
   .storyGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3017,7 +3036,7 @@
   }
 
   .composerDockLanding {
-    bottom: 7.1rem;
+    bottom: 8.35rem;
   }
 
   .starterQuestionStack {
