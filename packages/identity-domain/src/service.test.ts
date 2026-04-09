@@ -3,7 +3,6 @@ import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src"
 import {
   createTalentIdentity,
   getTalentIdentity,
-  findTalentIdentityByEmail,
   resetIdentityStore,
   updatePrivacySettings,
 } from "@/packages/identity-domain/src";
@@ -73,7 +72,9 @@ describe("identity service", () => {
     ).toThrowError(/already exists/i);
   });
 
-  it("finds a talent identity by normalized email", () => {
+  it("finds a talent identity by normalized email", async () => {
+    const { findTalentIdentityByEmail } = await import("@/packages/identity-domain/src");
+
     createTalentIdentity({
       input: {
         email: "jane@example.com",
