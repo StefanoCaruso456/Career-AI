@@ -263,7 +263,7 @@
 }
 
 .chatStageConversation {
-  --chat-stage-shell-height: clamp(40rem, 82vh, 55rem);
+  --chat-stage-shell-height: clamp(41.5rem, 84vh, 56.5rem);
   display: flex;
   flex-direction: column;
   min-height: var(--chat-stage-shell-height);
@@ -2852,7 +2852,7 @@
   }
 
   .chatStageConversation {
-    --chat-stage-shell-height: 33.5rem;
+    --chat-stage-shell-height: 34.5rem;
     min-height: var(--chat-stage-shell-height);
     padding-bottom: 0.9rem;
   }
@@ -2972,7 +2972,7 @@
   }
 
   .chatStageConversation {
-    --chat-stage-shell-height: 33rem;
+    --chat-stage-shell-height: 34rem;
     min-height: var(--chat-stage-shell-height);
     padding-bottom: 0.85rem;
   }
@@ -3167,7 +3167,7 @@
   }
 
   .chatStageConversation {
-    --chat-stage-shell-height: 31rem;
+    --chat-stage-shell-height: 32rem;
     min-height: var(--chat-stage-shell-height);
     padding-bottom: 0.8rem;
   }
