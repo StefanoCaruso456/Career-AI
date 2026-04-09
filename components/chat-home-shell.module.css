@@ -966,7 +966,6 @@
 }
 
 .chatTranscriptConversation {
-  justify-content: flex-end;
   padding-bottom: var(--chat-composer-clearance);
   scroll-padding-bottom: var(--chat-composer-clearance);
 }
@@ -1238,6 +1237,10 @@
   display: flex;
   width: min(100%, var(--chat-conversation-width));
   margin-inline: auto;
+}
+
+.transcriptRowConversationStart {
+  margin-top: auto;
 }
 
 .transcriptRowUser {
