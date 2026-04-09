@@ -358,6 +358,37 @@
   gap: 0.65rem;
 }
 
+.chatSidebarAction {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.7rem;
+  padding: 0.18rem 0.4rem 0.1rem;
+  border: 0;
+  background: transparent;
+  color: rgba(244, 247, 255, 0.84);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    color 180ms ease;
+}
+
+.chatSidebarAction:hover {
+  transform: translateX(1px);
+  color: #f6f8ff;
+}
+
+.chatSidebarActionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62rem;
+  font-size: 0.96rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
 .chatSidebarToggle {
   width: 100%;
   display: flex;
@@ -430,6 +461,8 @@
 }
 
 .chatSidebarItem {
+  width: 100%;
+  display: block;
   padding: 0.76rem 0.85rem;
   border: 1px solid transparent;
   border-radius: 0.98rem;
@@ -438,6 +471,19 @@
   font-size: 0.92rem;
   font-weight: 500;
   line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.chatSidebarItem:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.18);
+  color: #eef4ff;
 }
 
 .chatSidebarItemActive {
@@ -2036,6 +2082,7 @@
 .secondaryCta:focus-visible,
 .inlineLink:focus-visible,
 .starterQuestionPill:focus-visible,
+.chatSidebarAction:focus-visible,
 .chatSidebarToggle:focus-visible,
 .chatSidebarCollapse:focus-visible,
 .chatSidebarReveal:focus-visible,
@@ -2313,6 +2360,7 @@
     padding: 0.82rem 0.88rem;
   }
 
+  .chatSidebarActionLabel,
   .chatSidebarToggleLabel {
     font-size: 0.94rem;
   }

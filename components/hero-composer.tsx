@@ -31,6 +31,19 @@ type TranscriptEntry = {
   role: "assistant" | "user";
 };
 
+type ProjectEntry = {
+  id: string;
+  label: string;
+};
+
+type ChatThread = {
+  id: string;
+  label: string;
+  projectId: string;
+  transcript: TranscriptEntry[];
+  updatedAt: number;
+};
+
 const starterActions = [
   { kind: "prompt", label: "What does the agent actually do?" },
   { kind: "prompt", label: "How is this different from a resume builder?" },
@@ -38,10 +51,10 @@ const starterActions = [
   { kind: "link", href: "/agent-build", label: "Start Building My Agent ID" },
 ] as const;
 
-const projectCollections = [
-  "Verified profile",
-  "Career story",
-  "Hiring signals",
+const initialProjectCollections: ProjectEntry[] = [
+  { id: "project-verified-profile", label: "Verified profile" },
+  { id: "project-career-story", label: "Career story" },
+  { id: "project-hiring-signals", label: "Hiring signals" },
 ];
 
 function formatThreadLabel(content: string) {
@@ -54,8 +67,40 @@ function formatThreadLabel(content: string) {
   return `${normalized.slice(0, 35)}...`;
 }
 
+function createEntityId(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildThreadLabel(transcript: TranscriptEntry[]) {
+  const firstUserEntry = transcript.find((entry) => entry.role === "user");
+
+  if (!firstUserEntry) {
+    return "New chat";
+  }
+
+  return formatThreadLabel(firstUserEntry.content);
+}
+
+function buildProjectLabel(projects: ProjectEntry[]) {
+  let projectIndex = 1;
+
+  while (true) {
+    const candidateLabel = projectIndex === 1 ? "New project" : `New project ${projectIndex}`;
+
+    if (!projects.some((project) => project.label === candidateLabel)) {
+      return candidateLabel;
+    }
+
+    projectIndex += 1;
+  }
+}
+
 export function HeroComposer() {
   const [message, setMessage] = useState("");
+  const [projects, setProjects] = useState(initialProjectCollections);
+  const [activeProjectId, setActiveProjectId] = useState(initialProjectCollections[0].id);
+  const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -64,15 +109,14 @@ export function HeroComposer() {
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const canSubmit = message.trim().length > 0 && !isSubmitting;
-  const conversationStarted = transcript.length > 0 || isSubmitting;
-  const recentChats = transcript
-    .filter((entry) => entry.role === "user")
-    .slice(-4)
-    .reverse()
-    .map((entry) => ({
-      id: entry.id,
-      label: formatThreadLabel(entry.content),
-    }));
+  const workspaceVisible =
+    transcript.length > 0 ||
+    isSubmitting ||
+    threads.length > 0 ||
+    projects.length > initialProjectCollections.length;
+  const recentChats = threads
+    .filter((thread) => thread.projectId === activeProjectId)
+    .slice(0, 4);
 
   useEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -87,6 +131,77 @@ export function HeroComposer() {
     });
   }, [transcript]);
 
+  function upsertThread(threadId: string, projectId: string, nextTranscript: TranscriptEntry[]) {
+    if (nextTranscript.length === 0) {
+      return;
+    }
+
+    const nextThread: ChatThread = {
+      id: threadId,
+      label: buildThreadLabel(nextTranscript),
+      projectId,
+      transcript: nextTranscript,
+      updatedAt: Date.now(),
+    };
+
+    setThreads((currentThreads) => [
+      nextThread,
+      ...currentThreads.filter((thread) => thread.id !== threadId),
+    ]);
+  }
+
+  function openThread(thread: ChatThread) {
+    setActiveProjectId(thread.projectId);
+    setCurrentThreadId(thread.id);
+    setTranscript(thread.transcript);
+    setMessage("");
+    setChatsOpen(true);
+    setSidebarOpen(true);
+  }
+
+  function handleNewChat() {
+    setCurrentThreadId(null);
+    setTranscript([]);
+    setMessage("");
+    setChatsOpen(true);
+    setSidebarOpen(true);
+  }
+
+  function handleProjectSelect(projectId: string) {
+    const nextThread = threads.find((thread) => thread.projectId === projectId);
+
+    setActiveProjectId(projectId);
+    setProjectsOpen(true);
+    setChatsOpen(true);
+    setSidebarOpen(true);
+    setMessage("");
+
+    if (nextThread) {
+      setCurrentThreadId(nextThread.id);
+      setTranscript(nextThread.transcript);
+      return;
+    }
+
+    setCurrentThreadId(null);
+    setTranscript([]);
+  }
+
+  function handleNewProject() {
+    const nextProject: ProjectEntry = {
+      id: createEntityId("project"),
+      label: buildProjectLabel(projects),
+    };
+
+    setProjects((currentProjects) => [nextProject, ...currentProjects]);
+    setActiveProjectId(nextProject.id);
+    setProjectsOpen(true);
+    setChatsOpen(true);
+    setSidebarOpen(true);
+    setCurrentThreadId(null);
+    setTranscript([]);
+    setMessage("");
+  }
+
   async function submitMessage(nextMessage?: string) {
     const prompt = (nextMessage ?? message).trim();
 
@@ -95,13 +210,18 @@ export function HeroComposer() {
     }
 
     const requestId = `msg-${Date.now()}`;
+    const threadId = currentThreadId ?? createEntityId("thread");
+    const projectId = activeProjectId;
+    const nextUserTranscript = [
+      ...transcript,
+      { content: prompt, id: `${requestId}-user`, role: "user" as const },
+    ];
 
     setIsSubmitting(true);
     setMessage("");
-    setTranscript((currentTranscript) => [
-      ...currentTranscript,
-      { content: prompt, id: `${requestId}-user`, role: "user" },
-    ]);
+    setCurrentThreadId(threadId);
+    setTranscript(nextUserTranscript);
+    upsertThread(threadId, projectId, nextUserTranscript);
 
     try {
       const reply = await fetch("/api/chat", {
@@ -119,19 +239,22 @@ export function HeroComposer() {
       }
 
       startTransition(() => {
-        setTranscript((currentTranscript) => [
-          ...currentTranscript,
+        const nextAssistantTranscript = [
+          ...nextUserTranscript,
           {
             content: payload.output || "",
             id: `${requestId}-assistant`,
-            role: "assistant",
+            role: "assistant" as const,
           },
-        ]);
+        ];
+
+        setTranscript(nextAssistantTranscript);
+        upsertThread(threadId, projectId, nextAssistantTranscript);
       });
     } catch (requestError) {
       startTransition(() => {
-        setTranscript((currentTranscript) => [
-          ...currentTranscript,
+        const nextAssistantTranscript = [
+          ...nextUserTranscript,
           {
             content:
               requestError instanceof Error
@@ -139,9 +262,12 @@ export function HeroComposer() {
                 : "The assistant could not respond.",
             error: true,
             id: `${requestId}-assistant-error`,
-            role: "assistant",
+            role: "assistant" as const,
           },
-        ]);
+        ];
+
+        setTranscript(nextAssistantTranscript);
+        upsertThread(threadId, projectId, nextAssistantTranscript);
       });
     } finally {
       setIsSubmitting(false);
@@ -166,11 +292,11 @@ export function HeroComposer() {
 
   return (
     <section
-      className={[styles.chatStage, conversationStarted ? styles.chatStageActive : ""]
+      className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
         .filter(Boolean)
         .join(" ")}
     >
-      {conversationStarted && !sidebarOpen ? (
+      {workspaceVisible && !sidebarOpen ? (
         <button
           aria-expanded={sidebarOpen}
           aria-label="Expand conversation sidebar"
@@ -183,7 +309,7 @@ export function HeroComposer() {
         </button>
       ) : null}
 
-      {conversationStarted && sidebarOpen ? (
+      {workspaceVisible && sidebarOpen ? (
         <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
           <div className={styles.chatSidebarHeader}>
             <span className={styles.chatSidebarCaption}>Workspace</span>
@@ -199,6 +325,13 @@ export function HeroComposer() {
           </div>
 
           <div className={styles.chatSidebarSection}>
+            <button className={styles.chatSidebarAction} onClick={handleNewProject} type="button">
+              <span className={styles.chatSidebarActionLabel}>
+                <FolderOpen aria-hidden="true" size={16} strokeWidth={1.9} />
+                <span>Project +</span>
+              </span>
+            </button>
+
             <button
               aria-controls="chat-project-collection"
               aria-expanded={projectsOpen}
@@ -228,24 +361,33 @@ export function HeroComposer() {
               hidden={!projectsOpen}
               id="chat-project-collection"
             >
-              {projectCollections.map((projectLabel, index) => (
-                <li key={projectLabel}>
-                  <div
+              {projects.map((project) => (
+                <li key={project.id}>
+                  <button
                     className={[
                       styles.chatSidebarItem,
-                      index === 0 ? styles.chatSidebarItemActive : "",
+                      project.id === activeProjectId ? styles.chatSidebarItemActive : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
+                    onClick={() => handleProjectSelect(project.id)}
+                    type="button"
                   >
-                    {projectLabel}
-                  </div>
+                    {project.label}
+                  </button>
                 </li>
               ))}
             </ul>
           </div>
 
           <div className={styles.chatSidebarSection}>
+            <button className={styles.chatSidebarAction} onClick={handleNewChat} type="button">
+              <span className={styles.chatSidebarActionLabel}>
+                <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
+                <span>Chat +</span>
+              </span>
+            </button>
+
             <button
               aria-controls="chat-recent-collection"
               aria-expanded={chatsOpen}
@@ -277,21 +419,23 @@ export function HeroComposer() {
             >
               <span className={styles.chatSidebarListLabel}>Collection</span>
               {recentChats.length > 0 ? (
-                recentChats.map((chat, index) => (
-                  <div
+                recentChats.map((chat) => (
+                  <button
                     className={[
                       styles.chatSidebarItem,
-                      index === 0 ? styles.chatSidebarItemActive : "",
+                      chat.id === currentThreadId ? styles.chatSidebarItemActive : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
                     key={chat.id}
+                    onClick={() => openThread(chat)}
+                    type="button"
                   >
                     {chat.label}
-                  </div>
+                  </button>
                 ))
               ) : (
-                <p className={styles.chatSidebarEmpty}>Start a thread to collect chats here.</p>
+                <p className={styles.chatSidebarEmpty}>Start a new chat to collect threads here.</p>
               )}
             </div>
           </div>
@@ -301,8 +445,8 @@ export function HeroComposer() {
       <div
         className={[
           styles.chatStageMain,
-          conversationStarted && sidebarOpen ? styles.chatStageMainShifted : "",
-          conversationStarted && !sidebarOpen ? styles.chatStageMainExpanded : "",
+          workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+          workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
         ]
           .filter(Boolean)
           .join(" ")}
