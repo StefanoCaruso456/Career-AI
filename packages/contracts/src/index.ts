@@ -5,4 +5,5 @@ export * from "./claim";
 export * from "./enums";
 export * from "./errors";
 export * from "./identity";
+export * from "./jobs";
 export * from "./recruiter";
