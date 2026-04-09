@@ -268,11 +268,7 @@ export function HeroComposer() {
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
   const canSubmit = message.trim().length > 0 && !isSubmitting && !isRecording && !isTranscribing;
-  const workspaceVisible =
-    transcript.length > 0 ||
-    isSubmitting ||
-    threads.length > 0 ||
-    projects.length > initialProjectCollections.length;
+  const workspaceVisible = true;
   const recentChats = threads
     .filter((thread) => thread.projectId === activeProjectId)
     .slice(0, 4);
