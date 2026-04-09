@@ -1007,7 +1007,7 @@
 .chatEmptyStateLanding {
   min-height: clamp(12rem, 28vh, 18rem);
   padding-top: 1rem;
-  padding-bottom: clamp(7.75rem, 14vh, 9.5rem);
+  padding-bottom: clamp(9.75rem, 18vh, 11.5rem);
 }
 
 .projectHome {
@@ -1326,7 +1326,7 @@
 }
 
 .composerDock.composerDockLanding {
-  bottom: clamp(4.8rem, 10vh, 6.75rem);
+  bottom: clamp(7rem, 14vh, 8.85rem);
 }
 
 .composerTop {
@@ -2959,7 +2959,7 @@
 
   .chatEmptyStateLanding {
     min-height: 9rem;
-    padding-bottom: 7rem;
+    padding-bottom: 8.75rem;
   }
 
   .projectHome {
@@ -3017,7 +3017,7 @@
   }
 
   .composerDockLanding {
-    bottom: 5.75rem;
+    bottom: 7.1rem;
   }
 
   .starterQuestionStack {
