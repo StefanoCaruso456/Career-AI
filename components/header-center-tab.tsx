@@ -6,14 +6,15 @@ import styles from "./floating-site-header.module.css";
 
 export function HeaderCenterTab() {
   const pathname = usePathname();
-  const isHome = pathname === "/";
+  const isAgentBuild =
+    pathname === "/agent-build" || pathname.startsWith("/agent-build/");
 
   return (
     <div className={styles.centerNav}>
       <Link
-        aria-current={isHome ? "page" : undefined}
-        className={isHome ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
-        href="/"
+        aria-current={isAgentBuild ? "page" : undefined}
+        className={isAgentBuild ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
+        href="/agent-build"
       >
         Agent Build
       </Link>
