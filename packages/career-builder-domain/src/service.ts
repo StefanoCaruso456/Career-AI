@@ -1,0 +1,679 @@
+import {
+  ApiError,
+  careerBuilderPhaseSaveInputSchema,
+  type CareerArtifactReference,
+  type CareerBuilderPhaseSaveInput,
+  type CareerBuilderSnapshotDto,
+  type CareerEvidenceInput,
+  type CareerEvidenceRecord,
+  type CareerEvidenceStatus,
+  type CareerPhase,
+  type CareerProfileInput,
+  type CareerProfileRecord,
+  type EvidenceFileSlot,
+} from "@/packages/contracts/src";
+import { logAuditEvent } from "@/packages/audit-security/src";
+import { uploadArtifact } from "@/packages/artifact-domain/src";
+import {
+  builderEvidenceTemplates,
+  builderPhaseTemplateIds,
+  builderProfileFields,
+  defaultUploadAccept,
+  driversLicenseImageSlots,
+  nextUploadPriority,
+  phaseMeta,
+  phaseSequence,
+  type BuilderEvidenceTemplate,
+} from "./config";
+import { getCareerBuilderStore } from "./store";
+import { createTalentIdentity, findTalentIdentityByEmail } from "@/packages/identity-domain/src";
+
+type BuilderViewer = {
+  email: string;
+  name?: string | null;
+};
+
+type SubmittedFile = {
+  file: File;
+  slot?: EvidenceFileSlot;
+};
+
+function splitDisplayName(name: string | null | undefined, email: string) {
+  const trimmed = name?.trim();
+
+  if (!trimmed) {
+    const fallback = email.split("@")[0] ?? "Career";
+    return {
+      firstName: fallback,
+      lastName: "User",
+      displayName: fallback,
+    };
+  }
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  const [firstName = "Career", ...rest] = parts;
+  const lastName = rest.join(" ") || "User";
+
+  return {
+    firstName,
+    lastName,
+    displayName: trimmed,
+  };
+}
+
+function formatBytes(bytes: number) {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function isDriverLicenseTemplate(template: BuilderEvidenceTemplate) {
+  return template.uploadKind === "drivers-license-images";
+}
+
+function createEmptyProfile(args: {
+  talentIdentityId: string;
+  soulRecordId: string;
+  displayName: string;
+}): CareerProfileRecord {
+  const now = new Date().toISOString();
+
+  return {
+    talentIdentityId: args.talentIdentityId,
+    soulRecordId: args.soulRecordId,
+    legalName: args.displayName,
+    careerHeadline: "",
+    targetRole: "",
+    location: "",
+    coreNarrative: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function createEmptyEvidenceRecord(args: {
+  talentIdentityId: string;
+  soulRecordId: string;
+  template: BuilderEvidenceTemplate;
+}): CareerEvidenceRecord {
+  const now = new Date().toISOString();
+
+  return {
+    id: `career_evidence_${crypto.randomUUID()}`,
+    talentIdentityId: args.talentIdentityId,
+    soulRecordId: args.soulRecordId,
+    templateId: args.template.id,
+    completionTier: args.template.completionTier,
+    sourceOrIssuer: "",
+    issuedOn: "",
+    validationContext: "",
+    whyItMatters: "",
+    files: [],
+    status: "NOT_STARTED",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function hasProfileFieldValue(record: CareerProfileRecord, field: (typeof builderProfileFields)[number]) {
+  return record[field].trim().length > 0;
+}
+
+function isEvidenceStarted(record: CareerEvidenceRecord) {
+  return Boolean(
+    record.files.length ||
+      record.sourceOrIssuer.trim() ||
+      record.issuedOn.trim() ||
+      record.validationContext.trim() ||
+      record.whyItMatters.trim(),
+  );
+}
+
+function getSlottedArtifact(
+  record: CareerEvidenceRecord,
+  slot: EvidenceFileSlot,
+) {
+  return record.files.find((file) => file.slot === slot);
+}
+
+function getCompletedUploadCount(
+  template: BuilderEvidenceTemplate,
+  record: CareerEvidenceRecord,
+) {
+  if (!isDriverLicenseTemplate(template)) {
+    return record.files.length;
+  }
+
+  return driversLicenseImageSlots.filter(({ key }) => getSlottedArtifact(record, key)).length;
+}
+
+function isEvidenceComplete(
+  template: BuilderEvidenceTemplate,
+  record: CareerEvidenceRecord,
+) {
+  if (isDriverLicenseTemplate(template)) {
+    return getCompletedUploadCount(template, record) === driversLicenseImageSlots.length;
+  }
+
+  return record.files.length > 0;
+}
+
+function deriveEvidenceStatus(
+  template: BuilderEvidenceTemplate,
+  record: CareerEvidenceRecord,
+): CareerEvidenceStatus {
+  if (isEvidenceComplete(template, record)) {
+    return "COMPLETE";
+  }
+
+  if (isEvidenceStarted(record)) {
+    return "IN_PROGRESS";
+  }
+
+  return "NOT_STARTED";
+}
+
+function getOrCreateViewerAggregate(viewer: BuilderViewer, correlationId: string) {
+  const existing = findTalentIdentityByEmail({
+    email: viewer.email,
+    correlationId,
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  const identityName = splitDisplayName(viewer.name, viewer.email);
+
+  return createTalentIdentity({
+    input: {
+      email: viewer.email,
+      firstName: identityName.firstName,
+      lastName: identityName.lastName,
+      countryCode: "US",
+    },
+    actorType: "talent_user",
+    actorId: viewer.email,
+    correlationId,
+  });
+}
+
+function getOrCreateProfile(viewer: BuilderViewer, correlationId: string) {
+  const aggregate = getOrCreateViewerAggregate(viewer, correlationId);
+  const store = getCareerBuilderStore();
+  const existingProfile = store.profileByTalentIdentityId.get(aggregate.talentIdentity.id);
+
+  if (existingProfile) {
+    return {
+      aggregate,
+      profile: existingProfile,
+    };
+  }
+
+  const profile = createEmptyProfile({
+    talentIdentityId: aggregate.talentIdentity.id,
+    soulRecordId: aggregate.soulRecord.id,
+    displayName: aggregate.talentIdentity.display_name,
+  });
+
+  store.profileByTalentIdentityId.set(aggregate.talentIdentity.id, profile);
+
+  return {
+    aggregate,
+    profile,
+  };
+}
+
+function getEvidenceMap(talentIdentityId: string) {
+  const store = getCareerBuilderStore();
+  const existing = store.evidenceByTalentIdentityId.get(talentIdentityId);
+
+  if (existing) {
+    return existing;
+  }
+
+  const next = new Map<string, CareerEvidenceRecord>();
+  store.evidenceByTalentIdentityId.set(talentIdentityId, next);
+  return next;
+}
+
+function getOrCreateEvidenceRecord(args: {
+  talentIdentityId: string;
+  soulRecordId: string;
+  template: BuilderEvidenceTemplate;
+}) {
+  const evidenceMap = getEvidenceMap(args.talentIdentityId);
+  const existing = evidenceMap.get(args.template.id);
+
+  if (existing) {
+    return existing;
+  }
+
+  const next = createEmptyEvidenceRecord(args);
+  evidenceMap.set(args.template.id, next);
+  return next;
+}
+
+function getPhaseSummary(
+  phase: CareerPhase,
+  stats: {
+    completed: number;
+    started: number;
+    total: number;
+  },
+  isComplete: boolean,
+  isCurrent: boolean,
+) {
+  if (phase === "self") {
+    return isComplete
+      ? "Self-reported foundation complete. Your Career ID can now level up with stronger proof."
+      : `${stats.completed}/${stats.total} self-reported fields are ready.`;
+  }
+
+  if (isComplete) {
+    return `${phaseMeta[phase].label} trust is now live inside your Career ID.`;
+  }
+
+  if (isCurrent) {
+    if (stats.started > 0) {
+      return `${stats.started}/${stats.total} ${phaseMeta[phase].previewLabel} signals are in progress.`;
+    }
+
+    switch (phase) {
+      case "relationship":
+        return "Add a referral, endorsement, or trusted letter to unlock this phase.";
+      case "document":
+        return "Attach formal employment proof to unlock this phase.";
+      case "signature":
+        return "Add signed proof from a named signer to unlock this phase.";
+      case "institution":
+        return "Add institution-issued identity proof to reach the highest trust layer.";
+      default:
+        return "This phase is ready for its first signal.";
+    }
+  }
+
+  return "Waiting on the earlier trust layers to complete first.";
+}
+
+function buildSnapshot(viewer: BuilderViewer, correlationId: string): CareerBuilderSnapshotDto {
+  const { aggregate, profile } = getOrCreateProfile(viewer, correlationId);
+  const evidenceMap = getEvidenceMap(aggregate.talentIdentity.id);
+
+  const evidence = builderEvidenceTemplates.map((template) => {
+    const record = evidenceMap.get(template.id);
+
+    if (record) {
+      const status = deriveEvidenceStatus(template, record);
+
+      if (record.status !== status) {
+        const updated = {
+          ...record,
+          status,
+        };
+        evidenceMap.set(template.id, updated);
+        return updated;
+      }
+
+      return record;
+    }
+
+    return getOrCreateEvidenceRecord({
+      talentIdentityId: aggregate.talentIdentity.id,
+      soulRecordId: aggregate.soulRecord.id,
+      template,
+    });
+  });
+
+  const completedProfileFields = builderProfileFields.filter((field) =>
+    hasProfileFieldValue(profile, field),
+  ).length;
+  const completedEvidenceCount = builderEvidenceTemplates.filter((template) =>
+    isEvidenceComplete(
+      template,
+      evidence.find((record) => record.templateId === template.id)!,
+    ),
+  ).length;
+  const totalTasks = builderProfileFields.length + builderEvidenceTemplates.length;
+  const overallProgress = Math.round(
+    ((completedProfileFields + completedEvidenceCount) / totalTasks) * 100,
+  );
+  const selfComplete = completedProfileFields === builderProfileFields.length;
+  const tierStats = Object.fromEntries(
+    phaseSequence.map((phase) => {
+      if (phase === "self") {
+        return [
+          phase,
+          {
+            completed: completedProfileFields,
+            started: completedProfileFields,
+            total: builderProfileFields.length,
+          },
+        ];
+      }
+
+      const phaseTemplates = builderEvidenceTemplates.filter(
+        (template) => template.completionTier === phase,
+      );
+
+      return [
+        phase,
+        {
+          completed: phaseTemplates.filter((template) =>
+            isEvidenceComplete(
+              template,
+              evidence.find((record) => record.templateId === template.id)!,
+            ),
+          ).length,
+          started: phaseTemplates.filter((template) =>
+            isEvidenceStarted(
+              evidence.find((record) => record.templateId === template.id)!,
+            ),
+          ).length,
+          total: phaseTemplates.length,
+        },
+      ];
+    }),
+  ) as Record<
+    CareerPhase,
+    {
+      completed: number;
+      started: number;
+      total: number;
+    }
+  >;
+
+  let strongestTier: CareerPhase = "self";
+
+  if (selfComplete) {
+    strongestTier = "self";
+
+    for (const phase of phaseSequence.slice(1)) {
+      if (tierStats[phase].completed === tierStats[phase].total) {
+        strongestTier = phase;
+        continue;
+      }
+
+      break;
+    }
+  }
+
+  const strongestRank = selfComplete ? phaseMeta[strongestTier].rank : 0;
+  const activeRank = selfComplete
+    ? Math.min(strongestRank + 1, phaseSequence.length)
+    : phaseMeta.self.rank;
+
+  const phaseProgress = phaseSequence.map((phase) => {
+    const rank = phaseMeta[phase].rank;
+    const isComplete =
+      phase === "self"
+        ? selfComplete
+        : selfComplete && strongestRank >= rank;
+    const isCurrent = !isComplete && rank === activeRank;
+
+    return {
+      phase,
+      label: phaseMeta[phase].label,
+      completed: tierStats[phase].completed,
+      started: tierStats[phase].started,
+      total: tierStats[phase].total,
+      isComplete,
+      isCurrent,
+      summary: getPhaseSummary(phase, tierStats[phase], isComplete, isCurrent),
+    };
+  });
+
+  const nextUploads = nextUploadPriority
+    .filter((templateId) => {
+      const template = builderEvidenceTemplates.find((candidate) => candidate.id === templateId)!;
+      const record = evidence.find((candidate) => candidate.templateId === templateId)!;
+      return !isEvidenceComplete(template, record);
+    })
+    .slice(0, 3)
+    .map((templateId) => {
+      const template = builderEvidenceTemplates.find((candidate) => candidate.id === templateId)!;
+      return {
+        templateId,
+        title: template.title,
+      };
+    });
+
+  return {
+    identity: {
+      talentIdentityId: aggregate.talentIdentity.id,
+      talentAgentId: aggregate.talentIdentity.talent_agent_id,
+      soulRecordId: aggregate.soulRecord.id,
+      displayName: aggregate.talentIdentity.display_name,
+      email: aggregate.talentIdentity.email,
+    },
+    profile,
+    evidence,
+    progress: {
+      overallProgress,
+      completedEvidenceCount,
+      strongestTier,
+      nextUploads,
+    },
+    phaseProgress,
+  };
+}
+
+function validateDate(value: string) {
+  return value === "" || !Number.isNaN(Date.parse(value));
+}
+
+function validateEvidenceSubmission(args: {
+  template: BuilderEvidenceTemplate;
+  value: CareerEvidenceInput;
+  newFiles: SubmittedFile[];
+  retainedFiles: CareerArtifactReference[];
+}) {
+  const errors: Record<string, string> = {};
+  const hasFiles = args.retainedFiles.length + args.newFiles.length > 0;
+
+  if (hasFiles && args.value.sourceOrIssuer.trim().length === 0) {
+    errors.sourceOrIssuer = "Source / issuer is required once proof is attached.";
+  }
+
+  if (
+    hasFiles &&
+    args.value.issuedOn.trim().length === 0 &&
+    !isDriverLicenseTemplate(args.template)
+  ) {
+    errors.issuedOn = "Verified or issued date is required once proof is attached.";
+  }
+
+  if (!validateDate(args.value.issuedOn)) {
+    errors.issuedOn = "Enter a valid date.";
+  }
+
+  if (isDriverLicenseTemplate(args.template)) {
+    const invalidFile = args.newFiles.find((item) => !item.file.type.startsWith("image/"));
+
+    if (invalidFile) {
+      errors.files = "Driver's license uploads must be images.";
+    }
+  }
+
+  return errors;
+}
+
+function orderedDriverLicenseFiles(files: CareerArtifactReference[]) {
+  return driversLicenseImageSlots.flatMap(({ key }) =>
+    files.filter((file) => file.slot === key),
+  );
+}
+
+export function getCareerBuilderWorkspace(args: {
+  viewer: BuilderViewer;
+  correlationId: string;
+}) {
+  return buildSnapshot(args.viewer, args.correlationId);
+}
+
+export async function saveCareerBuilderPhase(args: {
+  viewer: BuilderViewer;
+  phase: CareerPhase;
+  input: CareerBuilderPhaseSaveInput;
+  uploadsByTemplateId: Partial<Record<string, SubmittedFile[]>>;
+  correlationId: string;
+}): Promise<CareerBuilderSnapshotDto> {
+  const parsed = careerBuilderPhaseSaveInputSchema.parse(args.input);
+  const { aggregate, profile } = getOrCreateProfile(args.viewer, args.correlationId);
+  const store = getCareerBuilderStore();
+  const evidenceMap = getEvidenceMap(aggregate.talentIdentity.id);
+  const fieldErrors: Record<string, Record<string, string>> = {};
+  const allowedTemplateIds = new Set(builderPhaseTemplateIds[args.phase]);
+
+  if (args.phase === "self" && parsed.profile) {
+    const now = new Date().toISOString();
+    store.profileByTalentIdentityId.set(aggregate.talentIdentity.id, {
+      ...profile,
+      ...parsed.profile,
+      updatedAt: now,
+    });
+
+    logAuditEvent({
+      eventType: "career_builder.profile.saved",
+      actorType: "talent_user",
+      actorId: aggregate.talentIdentity.id,
+      targetType: "talent_identity",
+      targetId: aggregate.talentIdentity.id,
+      correlationId: args.correlationId,
+      metadataJson: {
+        phase: args.phase,
+      },
+    });
+
+    return buildSnapshot(args.viewer, args.correlationId);
+  }
+
+  for (const evidenceInput of parsed.evidence) {
+    if (!allowedTemplateIds.has(evidenceInput.templateId)) {
+      throw new ApiError({
+        errorCode: "VALIDATION_FAILED",
+        status: 422,
+        message: "Evidence item does not belong to this phase.",
+        details: {
+          phase: args.phase,
+          templateId: evidenceInput.templateId,
+        },
+        correlationId: args.correlationId,
+      });
+    }
+
+    const template = builderEvidenceTemplates.find(
+      (candidate) => candidate.id === evidenceInput.templateId,
+    )!;
+    const currentRecord = getOrCreateEvidenceRecord({
+      talentIdentityId: aggregate.talentIdentity.id,
+      soulRecordId: aggregate.soulRecord.id,
+      template,
+    });
+    const retainedFiles = currentRecord.files.filter((file) =>
+      evidenceInput.retainedArtifactIds.includes(file.artifactId),
+    );
+    const newFiles = args.uploadsByTemplateId[evidenceInput.templateId] ?? [];
+    const validationErrors = validateEvidenceSubmission({
+      template,
+      value: evidenceInput,
+      newFiles,
+      retainedFiles,
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      fieldErrors[evidenceInput.templateId] = validationErrors;
+    }
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    throw new ApiError({
+      errorCode: "VALIDATION_FAILED",
+      status: 422,
+      message: "Phase validation failed.",
+      details: {
+        accept: defaultUploadAccept,
+        errors: fieldErrors,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  for (const evidenceInput of parsed.evidence) {
+    const template = builderEvidenceTemplates.find(
+      (candidate) => candidate.id === evidenceInput.templateId,
+    )!;
+    const currentRecord = getOrCreateEvidenceRecord({
+      talentIdentityId: aggregate.talentIdentity.id,
+      soulRecordId: aggregate.soulRecord.id,
+      template,
+    });
+    const retainedFiles = currentRecord.files.filter((file) =>
+      evidenceInput.retainedArtifactIds.includes(file.artifactId),
+    );
+    const submittedFiles = args.uploadsByTemplateId[evidenceInput.templateId] ?? [];
+    const uploadedFiles: CareerArtifactReference[] = [];
+
+    for (const submittedFile of submittedFiles) {
+      const upload = await uploadArtifact({
+        file: submittedFile.file,
+        ownerTalentId: aggregate.talentIdentity.id,
+        actorType: "talent_user",
+        actorId: aggregate.talentIdentity.id,
+        correlationId: args.correlationId,
+      });
+
+      uploadedFiles.push({
+        artifactId: upload.artifact.artifact_id,
+        name: upload.artifact.original_filename,
+        sizeLabel: formatBytes(submittedFile.file.size),
+        mimeType: upload.artifact.mime_type,
+        uploadedAt: upload.artifact.uploaded_at,
+        slot: submittedFile.slot,
+      });
+    }
+
+    const mergedFiles = isDriverLicenseTemplate(template)
+      ? orderedDriverLicenseFiles([...retainedFiles, ...uploadedFiles])
+      : [...retainedFiles, ...uploadedFiles];
+    const now = new Date().toISOString();
+    const nextRecord: CareerEvidenceRecord = {
+      ...currentRecord,
+      sourceOrIssuer: evidenceInput.sourceOrIssuer,
+      issuedOn: evidenceInput.issuedOn,
+      validationContext: evidenceInput.validationContext,
+      whyItMatters: evidenceInput.whyItMatters,
+      files: mergedFiles,
+      updatedAt: now,
+      status: deriveEvidenceStatus(template, {
+        ...currentRecord,
+        sourceOrIssuer: evidenceInput.sourceOrIssuer,
+        issuedOn: evidenceInput.issuedOn,
+        validationContext: evidenceInput.validationContext,
+        whyItMatters: evidenceInput.whyItMatters,
+        files: mergedFiles,
+        updatedAt: now,
+        status: currentRecord.status,
+      }),
+    };
+
+    evidenceMap.set(template.id, nextRecord);
+  }
+
+  logAuditEvent({
+    eventType: "career_builder.phase.saved",
+    actorType: "talent_user",
+    actorId: aggregate.talentIdentity.id,
+    targetType: "talent_identity",
+    targetId: aggregate.talentIdentity.id,
+    correlationId: args.correlationId,
+    metadataJson: {
+      phase: args.phase,
+      evidenceCount: parsed.evidence.length,
+    },
+  });
+
+  return buildSnapshot(args.viewer, args.correlationId);
+}

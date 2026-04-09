@@ -179,6 +179,20 @@ export function getTalentIdentityBySoulRecordId(args: {
   });
 }
 
+export function findTalentIdentityByEmail(args: {
+  email: string;
+  correlationId: string;
+}): TalentIdentityAggregate | null {
+  const normalizedEmail = args.email.toLowerCase();
+  const talentIdentityId = getIdentityStore().identitiesByEmail.get(normalizedEmail);
+
+  if (!talentIdentityId) {
+    return null;
+  }
+
+  return requireAggregate(talentIdentityId, args.correlationId);
+}
+
 export function updatePrivacySettings(args: {
   talentIdentityId: string;
   input: UpdatePrivacySettingsInput;

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
 import {
   createTalentIdentity,
+  findTalentIdentityByEmail,
   getTalentIdentity,
   resetIdentityStore,
   updatePrivacySettings,
@@ -108,5 +109,32 @@ describe("identity service", () => {
     expect(listAuditEvents().map((event) => event.event_type)).toContain(
       "candidate.privacy_settings.updated",
     );
+  });
+
+  it("finds a talent identity by normalized email", () => {
+    const created = createTalentIdentity({
+      input: {
+        email: "jane@example.com",
+        firstName: "Jane",
+        lastName: "Doe",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-1",
+    });
+
+    const found = findTalentIdentityByEmail({
+      email: "JANE@example.com",
+      correlationId: "corr-2",
+    });
+
+    expect(found?.talentIdentity.id).toBe(created.talentIdentity.id);
+    expect(
+      findTalentIdentityByEmail({
+        email: "missing@example.com",
+        correlationId: "corr-3",
+      }),
+    ).toBeNull();
   });
 });
