@@ -34,7 +34,7 @@
   -webkit-backdrop-filter: blur(26px) saturate(180%);
   backdrop-filter: blur(26px) saturate(180%);
   isolation: isolate;
-  overflow: hidden;
+  overflow: visible;
   animation: headerFloatIn 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -43,7 +43,9 @@
 .ghostAction,
 .primaryAction,
 .ghostButton,
-.accountAction {
+.accountAction,
+.settingsTrigger,
+.settingsItem {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -192,6 +194,10 @@
   justify-self: end;
 }
 
+.settingsMenu {
+  position: relative;
+}
+
 .ghostAction {
   padding: 0.8rem 1.15rem;
   border-radius: 1.15rem;
@@ -247,6 +253,33 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+.settingsTrigger {
+  min-width: 13.5rem;
+  padding: 0.62rem 0.78rem 0.62rem 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(16, 19, 29, 0.66);
+  color: #f7f7f7;
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.settingsTriggerOpen {
+  border-color: var(--header-accent-line-strong);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(141, 127, 255, 0.18), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
+    linear-gradient(180deg, rgba(119, 104, 255, 0.14), rgba(22, 20, 44, 0.84));
+  box-shadow:
+    0 20px 32px rgba(19, 15, 46, 0.28),
+    0 0 0 1px rgba(141, 127, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
 .accountAvatar {
   display: inline-flex;
   align-items: center;
@@ -267,6 +300,13 @@
   text-align: left;
 }
 
+.settingsCopy {
+  display: grid;
+  gap: 0.05rem;
+  flex: 1;
+  text-align: left;
+}
+
 .accountCopy strong {
   max-width: 9rem;
   overflow: hidden;
@@ -279,6 +319,93 @@
 .accountCopy small {
   color: rgba(255, 255, 255, 0.62);
   font-size: 0.72rem;
+}
+
+.settingsCopy strong {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.settingsCopy small {
+  max-width: 8.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+}
+
+.settingsIcons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.settingsCaretOpen {
+  transform: rotate(180deg);
+}
+
+.settingsPanel {
+  position: absolute;
+  top: calc(100% + 0.7rem);
+  right: 0;
+  min-width: 14.75rem;
+  padding: 0.7rem;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(141, 127, 255, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.14), transparent 38%),
+    linear-gradient(180deg, rgba(43, 44, 57, 0.96), rgba(27, 28, 37, 0.98));
+  box-shadow:
+    0 22px 44px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(141, 127, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.settingsPanelHeader {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.35rem 0.35rem 0.6rem;
+}
+
+.settingsPanelTitle {
+  color: #f7f7f7;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.settingsPanelMeta {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+}
+
+.settingsItem {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.68rem;
+  padding: 0.88rem 0.92rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background: transparent;
+  color: rgba(247, 247, 247, 0.88);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settingsItemCurrent {
+  border-color: rgba(141, 127, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(141, 127, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(22, 20, 44, 0.72);
+  color: #f7fbff;
+  box-shadow:
+    0 14px 24px rgba(19, 15, 46, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .loadingAction {
@@ -294,7 +421,9 @@
 .ghostAction:hover,
 .primaryAction:hover,
 .ghostButton:hover,
-.accountAction:hover {
+.accountAction:hover,
+.settingsTrigger:hover,
+.settingsItem:hover {
   transform: translateY(-2px);
 }
 
@@ -307,7 +436,9 @@
 .ghostAction:focus-visible,
 .primaryAction:focus-visible,
 .ghostButton:focus-visible,
-.accountAction:focus-visible {
+.accountAction:focus-visible,
+.settingsTrigger:focus-visible,
+.settingsItem:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.82);
   outline-offset: 3px;
 }
@@ -404,6 +535,19 @@
     padding-inline: 1rem;
   }
 
+  .settingsMenu {
+    width: 100%;
+  }
+
+  .settingsTrigger {
+    width: 100%;
+  }
+
+  .settingsPanel {
+    min-width: 0;
+    width: 100%;
+  }
+
   .accountAction {
     width: 100%;
     justify-content: space-between;
@@ -418,7 +562,9 @@
   .homeAction:hover,
   .navTab:hover,
   .ghostAction:hover,
-  .primaryAction:hover {
+  .primaryAction:hover,
+  .settingsTrigger:hover,
+  .settingsItem:hover {
     transform: none;
   }
 }
