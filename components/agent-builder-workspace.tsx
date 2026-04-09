@@ -646,6 +646,13 @@ export function AgentBuilderWorkspace({
     [activeTemplates],
   );
 
+  const visibleTemplateGroups = useMemo(
+    () => activeTemplateGroups.filter(({ templates }) => templates.length > 0),
+    [activeTemplateGroups],
+  );
+
+  const showTemplateSectionHeaders = visibleTemplateGroups.length > 1;
+
   const isDirty =
     activePhase !== null &&
     serializePhaseDraft(activePhase, draft) !== initialDraftSignatureRef.current;
@@ -982,20 +989,32 @@ export function AgentBuilderWorkspace({
               <div className={styles.modalScroll}>
                 {activePhase === "self" ? (
                   <section className={styles.sectionPanel}>
-                    <div className={styles.sectionHeader}>
-                      <div>
-                        <span className={styles.sectionEyebrow}>Structured intake</span>
-                        <h3 className={styles.sectionTitle}>Self-reported foundation</h3>
-                        <p className={styles.sectionCopy}>{phaseMeta.self.description}</p>
-                      </div>
+                    <ol
+                      aria-label="Self-reported foundation steps"
+                      className={styles.selfStepList}
+                    >
+                      {profileFieldConfig.map((fieldConfig, index) => {
+                        const isReady = draft.profile[fieldConfig.field].trim().length > 0;
 
-                      {activePhaseData ? (
-                        <PhaseCount
-                          completed={activePhaseData.completed}
-                          total={activePhaseData.total}
-                        />
-                      ) : null}
-                    </div>
+                        return (
+                          <li className={styles.selfStepItem} key={fieldConfig.field}>
+                            <span
+                              aria-hidden="true"
+                              className={`${styles.selfStepMarker} ${
+                                isReady ? styles.selfStepMarkerComplete : ""
+                              }`}
+                            >
+                              {isReady ? <Check size={14} strokeWidth={2.6} /> : index + 1}
+                            </span>
+
+                            <div className={styles.selfStepContent}>
+                              <strong>{fieldConfig.label}</strong>
+                              <span>{isReady ? "Ready" : "Add this field"}</span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
 
                     <div className={styles.fieldGrid}>
                       {profileFieldConfig.map((fieldConfig) => (
@@ -1051,9 +1070,9 @@ export function AgentBuilderWorkspace({
                       </div>
                     ) : null}
 
-                    {activeTemplateGroups.map(({ section, templates }) =>
-                      templates.length > 0 ? (
-                        <section className={styles.sectionPanel} key={section}>
+                    {visibleTemplateGroups.map(({ section, templates }) => (
+                      <section className={styles.sectionPanel} key={section}>
+                        {showTemplateSectionHeaders ? (
                           <div className={styles.sectionHeader}>
                             <div>
                               <span className={styles.sectionEyebrow}>Structured intake</span>
@@ -1061,24 +1080,24 @@ export function AgentBuilderWorkspace({
                               <p className={styles.sectionCopy}>{sectionMeta[section].copy}</p>
                             </div>
                           </div>
+                        ) : null}
 
-                          <div className={styles.evidenceGrid}>
-                            {templates.map((template) => (
-                              <EvidenceCard
-                                draft={draft.evidence[template.id]}
-                                errors={fieldErrors[template.id]}
-                                key={template.id}
-                                onChange={updateEvidenceField}
-                                onDefaultFiles={addFiles}
-                                onDriverLicenseFile={addDriverLicenseFile}
-                                onRemoveFile={removeDraftFile}
-                                template={template}
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      ) : null,
-                    )}
+                        <div className={styles.evidenceGrid}>
+                          {templates.map((template) => (
+                            <EvidenceCard
+                              draft={draft.evidence[template.id]}
+                              errors={fieldErrors[template.id]}
+                              key={template.id}
+                              onChange={updateEvidenceField}
+                              onDefaultFiles={addFiles}
+                              onDriverLicenseFile={addDriverLicenseFile}
+                              onRemoveFile={removeDraftFile}
+                              template={template}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ))}
                   </>
                 )}
               </div>
