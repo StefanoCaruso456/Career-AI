@@ -8,24 +8,58 @@ import {
   Mic,
   Plus,
 } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, startTransition, useState } from "react";
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  startTransition,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import styles from "./chat-home-shell.module.css";
+
+type TranscriptEntry = {
+  content: string;
+  error?: boolean;
+  id: string;
+  role: "assistant" | "user";
+};
 
 export function HeroComposer() {
   const [message, setMessage] = useState("");
-  const [response, setResponse] = useState("");
-  const [error, setError] = useState("");
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   const canSubmit = message.trim().length > 0 && !isSubmitting;
+
+  useEffect(() => {
+    const transcriptNode = transcriptRef.current;
+
+    if (!transcriptNode) {
+      return;
+    }
+
+    transcriptNode.scrollTo({
+      behavior: "smooth",
+      top: transcriptNode.scrollHeight,
+    });
+  }, [transcript]);
 
   async function submitMessage() {
     if (!canSubmit) {
       return;
     }
 
+    const prompt = message.trim();
+    const requestId = `msg-${Date.now()}`;
+
     setIsSubmitting(true);
-    setError("");
+    setMessage("");
+    setTranscript((currentTranscript) => [
+      ...currentTranscript,
+      { content: prompt, id: `${requestId}-user`, role: "user" },
+    ]);
 
     try {
       const reply = await fetch("/api/chat", {
@@ -33,7 +67,7 @@ export function HeroComposer() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: message.trim() }),
+        body: JSON.stringify({ message: prompt }),
       });
 
       const payload = (await reply.json()) as { error?: string; output?: string };
@@ -43,16 +77,29 @@ export function HeroComposer() {
       }
 
       startTransition(() => {
-        setResponse(payload.output || "");
+        setTranscript((currentTranscript) => [
+          ...currentTranscript,
+          {
+            content: payload.output || "",
+            id: `${requestId}-assistant`,
+            role: "assistant",
+          },
+        ]);
       });
     } catch (requestError) {
       startTransition(() => {
-        setResponse("");
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "The assistant could not respond.",
-        );
+        setTranscript((currentTranscript) => [
+          ...currentTranscript,
+          {
+            content:
+              requestError instanceof Error
+                ? requestError.message
+                : "The assistant could not respond.",
+            error: true,
+            id: `${requestId}-assistant-error`,
+            role: "assistant",
+          },
+        ]);
       });
     } finally {
       setIsSubmitting(false);
@@ -72,8 +119,56 @@ export function HeroComposer() {
   }
 
   return (
-    <>
-      <form className={styles.composer} onSubmit={handleSubmit}>
+    <section className={styles.chatStage}>
+      <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
+        {transcript.length === 0 ? (
+          <div className={styles.chatEmptyState}>
+            <span className={styles.chatEmptyEyebrow}>Preview the workflow</span>
+            <p className={styles.chatEmptyBody}>
+              Ask about candidate verification, recruiter sharing, or review operations.
+            </p>
+          </div>
+        ) : (
+          transcript.map((entry) => (
+            <div
+              className={[
+                styles.transcriptRow,
+                entry.role === "user" ? styles.transcriptRowUser : styles.transcriptRowAssistant,
+              ].join(" ")}
+              key={entry.id}
+            >
+              <article
+                className={[
+                  styles.transcriptBubble,
+                  entry.role === "user"
+                    ? styles.transcriptBubbleUser
+                    : styles.transcriptBubbleAssistant,
+                  entry.error ? styles.transcriptBubbleError : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <p>{entry.content}</p>
+              </article>
+            </div>
+          ))
+        )}
+
+        {isSubmitting ? (
+          <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
+            <article
+              className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
+            >
+              <div className={styles.transcriptTyping}>
+                <LoaderCircle aria-hidden="true" className={styles.spinner} size={18} strokeWidth={2} />
+                <span>Thinking through your verification workflow...</span>
+              </div>
+            </article>
+          </div>
+        ) : null}
+      </div>
+
+      <form className={styles.composerDock} onSubmit={handleSubmit}>
         <div className={styles.composerTop}>
           <textarea
             aria-label="Message composer"
@@ -84,7 +179,7 @@ export function HeroComposer() {
               void handleKeyDown(event);
             }}
             placeholder="Ask about verification workflows, recruiter trust views, or candidate proof."
-            rows={2}
+            rows={3}
             value={message}
           />
         </div>
@@ -121,24 +216,6 @@ export function HeroComposer() {
           </div>
         </div>
       </form>
-
-      {(response || error) && (
-        <section
-          aria-live="polite"
-          className={[
-            styles.heroResponse,
-            error ? styles.heroResponseError : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <div className={styles.heroResponseHeader}>
-            <span>{error ? "Connection issue" : "OpenAI preview"}</span>
-            <small>{error ? "Check the server configuration and try again." : "Server-side response"}</small>
-          </div>
-          <p className={styles.heroResponseBody}>{error || response}</p>
-        </section>
-      )}
-    </>
+    </section>
   );
 }
