@@ -15,6 +15,14 @@ function deriveArtifactType(mimeType: string, fileName: string) {
   return "DOCUMENT";
 }
 
+async function toBuffer(file: File) {
+  if (typeof file.arrayBuffer === "function") {
+    return Buffer.from(await file.arrayBuffer());
+  }
+
+  return Buffer.from(await new Response(file).arrayBuffer());
+}
+
 export async function uploadArtifact(args: {
   file: File;
   ownerTalentId: string;
@@ -23,7 +31,7 @@ export async function uploadArtifact(args: {
   correlationId: string;
 }): Promise<{ artifact: ArtifactMetadata; dto: ArtifactUploadDto }> {
   const store = getArtifactStore();
-  const buffer = Buffer.from(await args.file.arrayBuffer());
+  const buffer = await toBuffer(args.file);
   const artifactId = `art_${crypto.randomUUID()}`;
   const uploadedAt = new Date().toISOString();
   const checksum = createHash("sha256").update(buffer).digest("hex");

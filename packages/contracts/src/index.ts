@@ -2,6 +2,7 @@ export * from "./admin";
 export * from "./audit";
 export * from "./artifact";
 export * from "./claim";
+export * from "./career-builder";
 export * from "./enums";
 export * from "./errors";
 export * from "./identity";

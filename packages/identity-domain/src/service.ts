@@ -1,4 +1,5 @@
 import {
+  ApiError,
   createTalentIdentityInputSchema,
   updatePrivacySettingsInputSchema,
   type ActorType,
@@ -78,6 +79,21 @@ export async function getTalentIdentityByEmail(args: {
   const context = await findPersistentContextByEmail(args);
 
   return context.aggregate;
+}
+
+export async function findTalentIdentityByEmail(args: {
+  email: string;
+  correlationId: string;
+}) {
+  try {
+    return await getTalentIdentityByEmail(args);
+  } catch (error) {
+    if (error instanceof ApiError && error.errorCode === "NOT_FOUND") {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getTalentIdentityBySoulRecordId(args: {
