@@ -158,6 +158,27 @@ export function getTalentIdentity(args: {
   return requireAggregate(args.talentIdentityId, args.correlationId);
 }
 
+export function getTalentIdentityByEmail(args: {
+  email: string;
+  correlationId: string;
+}): TalentIdentityAggregate {
+  const normalizedEmail = args.email.trim().toLowerCase();
+  const store = getIdentityStore();
+  const talentIdentityId = store.identitiesByEmail.get(normalizedEmail);
+
+  if (!talentIdentityId) {
+    throw new ApiError({
+      errorCode: "NOT_FOUND",
+      status: 404,
+      message: "Talent identity was not found.",
+      details: { email: normalizedEmail },
+      correlationId: args.correlationId,
+    });
+  }
+
+  return requireAggregate(talentIdentityId, args.correlationId);
+}
+
 export function getTalentIdentityBySoulRecordId(args: {
   soulRecordId: string;
   correlationId: string;
