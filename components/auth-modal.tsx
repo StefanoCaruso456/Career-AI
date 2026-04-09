@@ -25,7 +25,6 @@ type AuthModalTriggerProps = {
 function getModeCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
-      eyebrow: "Create your account",
       title: "Create your Career AI account",
       copy:
         "Build a verified career identity to increase credibility, attract employers, and get hired faster.",
@@ -37,7 +36,6 @@ function getModeCopy(mode: AuthMode) {
   }
 
   return {
-    eyebrow: "Welcome back",
     title: "Sign in to Career AI",
     copy:
       "Return to your workspace and pick up your verified profile where you left it.",
@@ -162,7 +160,6 @@ export function AuthModalTrigger({
             >
               <div className={styles.header}>
                 <div className={styles.headerCopy}>
-                  <span className={styles.eyebrow}>{modeCopy.eyebrow}</span>
                   <h2 className={styles.title} id={titleId}>
                     {modeCopy.title}
                   </h2>

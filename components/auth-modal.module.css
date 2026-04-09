@@ -41,15 +41,6 @@
 
 .headerCopy {
   display: grid;
-  gap: 0.22rem;
-}
-
-.eyebrow {
-  color: #a6b6ff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .title {
