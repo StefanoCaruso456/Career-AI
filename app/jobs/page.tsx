@@ -47,6 +47,10 @@ function formatStatusLabel(value: "connected" | "degraded" | "not_configured") {
       : "Not configured";
 }
 
+function formatStorageLabel(value: "database" | "ephemeral") {
+  return value === "database" ? "Saved in Postgres" : "Preview only";
+}
+
 export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: 9 });
   const environmentGuide = getJobsEnvironmentGuide();
@@ -65,8 +69,8 @@ export default async function JobsPage() {
             <p className={styles.subtitle}>
               Career AI now treats job sourcing like a two-lane system: direct ATS feeds for
               cleaner, recruiter-grade openings and an aggregator feed for immediate market
-              coverage. The stack below shows what is connected, what is live, and what still
-              needs credentials.
+              coverage. The stack below shows what is connected, what is live, and what has been
+              saved into the app&apos;s Postgres-backed jobs layer.
             </p>
 
             <div className={styles.statusRow}>
@@ -82,6 +86,10 @@ export default async function JobsPage() {
                 <Radar aria-hidden="true" size={18} strokeWidth={2} />
                 <span>{snapshot.summary.aggregatorJobs} coverage jobs in view</span>
               </div>
+              <div className={styles.statusPill}>
+                <Sparkles aria-hidden="true" size={18} strokeWidth={2} />
+                <span>{formatStorageLabel(snapshot.storage.mode)}</span>
+              </div>
             </div>
           </div>
 
@@ -90,12 +98,27 @@ export default async function JobsPage() {
               <BriefcaseBusiness aria-hidden="true" size={18} strokeWidth={2} />
               <span>Pipeline mix</span>
             </div>
-            <h2>{snapshot.summary.totalJobs} deduped jobs are in the current merged window.</h2>
+            <h2>
+              {snapshot.summary.totalJobs} deduped jobs{" "}
+              {snapshot.storage.mode === "database"
+                ? "are available from the persisted jobs layer."
+                : "are in the current merged window."}
+            </h2>
             <p>
               Direct ATS lanes stay closest to the source, while the coverage lane makes the page
               useful immediately. As more feeds are connected, this becomes the matching cockpit
               for verified candidates and role pipelines.
             </p>
+            <div className={styles.storageNote}>
+              <strong>{formatStorageLabel(snapshot.storage.mode)}</strong>
+              <span>
+                {snapshot.storage.mode === "database"
+                  ? snapshot.storage.lastSyncAt
+                    ? `Last persisted sync ${formatTimestamp(snapshot.storage.lastSyncAt)}.`
+                    : "Database is connected and ready for the first jobs sync."
+                  : "The current response is a live preview because database persistence is unavailable."}
+              </span>
+            </div>
             <Link className={styles.inlineLink} href="/agent-build">
               Open Agent Builder
               <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
@@ -156,6 +179,11 @@ export default async function JobsPage() {
                   <div className={styles.sourceMetaRow}>
                     <span>{source.jobCount} jobs surfaced</span>
                     <span>{formatLaneLabel(source.lane)}</span>
+                    <span>
+                      {source.lastSyncedAt
+                        ? `Saved ${formatTimestamp(source.lastSyncedAt)}`
+                        : "Awaiting first sync"}
+                    </span>
                   </div>
                   <p className={styles.sourceMessage}>{source.message}</p>
                 </article>
@@ -197,6 +225,11 @@ export default async function JobsPage() {
                   <div className={styles.sourceMetaRow}>
                     <span>{source.jobCount} jobs surfaced</span>
                     <span>{formatLaneLabel(source.lane)}</span>
+                    <span>
+                      {source.lastSyncedAt
+                        ? `Saved ${formatTimestamp(source.lastSyncedAt)}`
+                        : "Awaiting first sync"}
+                    </span>
                   </div>
                   <p className={styles.sourceMessage}>{source.message}</p>
                 </article>
@@ -209,7 +242,11 @@ export default async function JobsPage() {
           <div className={styles.sectionHeader}>
             <div>
               <span className={styles.eyebrow}>Merged feed window</span>
-              <h2>Live roles in the intake stack</h2>
+              <h2>
+                {snapshot.storage.mode === "database"
+                  ? "Persisted roles in the intake stack"
+                  : "Live roles in the intake stack"}
+              </h2>
             </div>
             <span className={styles.sectionCount}>{snapshot.jobs.length} roles shown</span>
           </div>
@@ -260,8 +297,8 @@ export default async function JobsPage() {
               <h3>No job feeds are connected yet.</h3>
               <p>
                 The hybrid intake layer is live, but it needs at least one ATS feed or one
-                aggregator endpoint to start filling the jobs surface. Add any of these environment
-                variables to activate the stack.
+                aggregator endpoint to start filling the jobs surface. Once a source is configured,
+                Career AI will sync the feed and save those jobs to Postgres automatically.
               </p>
               <div className={styles.envList}>
                 {environmentGuide.map((entry) => (

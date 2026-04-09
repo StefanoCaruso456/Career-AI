@@ -122,6 +122,28 @@
   line-height: 1.75;
 }
 
+.storageNote {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(146, 182, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(146, 182, 255, 0.1), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.storageNote strong {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+}
+
+.storageNote span {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
 .metricGrid,
 .pipelineGrid,
 .jobsGrid,
