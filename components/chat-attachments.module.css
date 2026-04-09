@@ -1,0 +1,237 @@
+.attachmentButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzone {
+  position: relative;
+  display: block;
+}
+
+.dropzoneActive::after {
+  content: "";
+  position: absolute;
+  inset: -0.4rem;
+  border: 1px dashed rgba(139, 178, 255, 0.42);
+  border-radius: 1.4rem;
+  pointer-events: none;
+}
+
+.dropzoneHint {
+  margin: 0.55rem 0 0;
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.dropzoneHintError {
+  color: #ff9c92;
+}
+
+.attachmentList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.attachmentListComposer {
+  margin-top: 0.9rem;
+}
+
+.attachmentListMessage {
+  margin-bottom: 0.9rem;
+}
+
+.attachmentCard {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+  width: min(100%, 19.5rem);
+  padding: 0.78rem 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 1.1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.attachmentCardReadOnly {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.015);
+}
+
+.attachmentCardFailed {
+  border-color: rgba(255, 135, 123, 0.34);
+  background:
+    linear-gradient(180deg, rgba(255, 118, 101, 0.12), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.attachmentCardUploading {
+  border-color: rgba(152, 160, 255, 0.34);
+}
+
+.attachmentThumbnail {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.9rem;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05)),
+    rgba(255, 255, 255, 0.04);
+  color: rgba(244, 247, 255, 0.92);
+}
+
+.attachmentThumbnailImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachmentThumbnailLabel {
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.attachmentCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.38rem;
+}
+
+.attachmentTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 0.87rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.attachmentMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.attachmentStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-height: 1.45rem;
+  padding: 0.18rem 0.52rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.attachmentStatusReady {
+  background: rgba(102, 227, 158, 0.12);
+  color: #c9ffe0;
+}
+
+.attachmentStatusUploading {
+  background: rgba(154, 161, 255, 0.14);
+  color: #d8dbff;
+}
+
+.attachmentStatusFailed {
+  background: rgba(255, 134, 121, 0.15);
+  color: #ffd7d2;
+}
+
+.attachmentError {
+  margin: 0;
+  color: #ffb3aa;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.attachmentActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.attachmentAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.attachmentAction:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(121, 167, 255, 0.1), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.attachmentLink {
+  display: block;
+  text-decoration: none;
+}
+
+.attachmentLink:hover {
+  transform: translateY(-1px);
+}
+
+.attachmentLink:focus-visible,
+.attachmentAction:focus-visible {
+  outline: 2px solid color-mix(in srgb, #635bff 78%, white 22%);
+  outline-offset: 3px;
+}
+
+.spinner {
+  animation: attachmentSpinnerTurn 900ms linear infinite;
+}
+
+@keyframes attachmentSpinnerTurn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .attachmentCard {
+    width: min(100%, 100%);
+  }
+
+  .attachmentTitle {
+    max-width: 100%;
+  }
+}
