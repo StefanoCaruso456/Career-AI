@@ -545,25 +545,6 @@
   box-shadow: none;
 }
 
-.previewHeader {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.previewHeader h2 {
-  font-size: 1.35rem;
-  line-height: 1.1;
-}
-
-.previewStatus {
-  padding: 0.5rem 0.78rem;
-  border-color: transparent;
-  background: transparent;
-  white-space: nowrap;
-}
-
 .legendGrid {
   display: grid;
   gap: 0.7rem;
