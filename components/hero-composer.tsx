@@ -32,6 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import styles from "./chat-home-shell.module.css";
 
 type TranscriptEntry = {
@@ -66,6 +67,19 @@ type SidebarRenameDraft = {
   type: SidebarEntityType;
   value: string;
 };
+
+type SidebarDeleteDraft =
+  | {
+      chatCount: number;
+      id: string;
+      label: string;
+      type: "project";
+    }
+  | {
+      id: string;
+      label: string;
+      type: "chat";
+    };
 
 type SidebarNoticeTone = "default" | "error";
 
@@ -301,6 +315,8 @@ function formatThreadUpdatedAt(updatedAt: number) {
 
 export function HeroComposer() {
   const sidebarId = useId();
+  const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
+  const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
   const [message, setMessage] = useState("");
   const [projects, setProjects] = useState(initialProjectCollections);
   const [activeProjectId, setActiveProjectId] = useState(initialProjectCollections[0].id);
@@ -308,16 +324,19 @@ export function HeroComposer() {
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
+  const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
+  const sidebarDeleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -336,6 +355,10 @@ export function HeroComposer() {
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -393,6 +416,32 @@ export function HeroComposer() {
       sidebarRenameInputRef.current?.select();
     });
   }, [sidebarRenameDraft]);
+
+  useEffect(() => {
+    if (!sidebarDeleteDraft) {
+      return;
+    }
+
+    function handleDeleteEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSidebarDeleteDraft(null);
+      }
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => {
+      sidebarDeleteCancelButtonRef.current?.focus();
+    });
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleDeleteEscape);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", handleDeleteEscape);
+    };
+  }, [sidebarDeleteDraft]);
 
   useEffect(() => {
     if (!sidebarActionMenu && !sidebarRenameDraft) {
@@ -1062,15 +1111,10 @@ export function HeroComposer() {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${project.label}" and its chats?`);
-
-    if (!confirmed) {
-      return;
-    }
-
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setSidebarDeleteDraft(null);
 
     const remainingProjects = projects.filter((currentProject) => currentProject.id !== projectId);
     const remainingThreads = threads.filter((thread) => thread.projectId !== projectId);
@@ -1116,15 +1160,10 @@ export function HeroComposer() {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${chat.label}"?`);
-
-    if (!confirmed) {
-      return;
-    }
-
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setSidebarDeleteDraft(null);
 
     const remainingThreads = threads.filter((thread) => thread.id !== chatId);
 
@@ -1141,6 +1180,56 @@ export function HeroComposer() {
       message: "Chat deleted.",
       tone: "default",
     });
+  }
+
+  function requestProjectDelete(projectId: string) {
+    const project = projects.find((currentProject) => currentProject.id === projectId);
+
+    if (!project) {
+      return;
+    }
+
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+    setSidebarDeleteDraft({
+      chatCount: threads.filter((thread) => thread.projectId === project.id).length,
+      id: project.id,
+      label: project.label,
+      type: "project",
+    });
+  }
+
+  function requestChatDelete(chatId: string) {
+    const chat = threads.find((currentChat) => currentChat.id === chatId);
+
+    if (!chat) {
+      return;
+    }
+
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+    setSidebarDeleteDraft({
+      id: chat.id,
+      label: chat.label,
+      type: "chat",
+    });
+  }
+
+  function closeSidebarDeleteDialog() {
+    setSidebarDeleteDraft(null);
+  }
+
+  function confirmSidebarDelete() {
+    if (!sidebarDeleteDraft) {
+      return;
+    }
+
+    if (sidebarDeleteDraft.type === "project") {
+      handleProjectDelete(sidebarDeleteDraft.id);
+      return;
+    }
+
+    handleChatDelete(sidebarDeleteDraft.id);
   }
 
   function getProjectThreads(projectId: string) {
@@ -1459,7 +1548,7 @@ export function HeroComposer() {
               <Folder aria-hidden="true" size={18} strokeWidth={1.9} />
             </span>
           ),
-          onDelete: () => handleProjectDelete(project.id),
+          onDelete: () => requestProjectDelete(project.id),
           onSelect: () => handleProjectSelect(project.id),
           trailingVisual: isActiveProject ? (
             <ChevronDown aria-hidden="true" size={15} strokeWidth={2} />
@@ -1479,7 +1568,7 @@ export function HeroComposer() {
                     itemClassName: styles.chatSidebarProjectChatItem,
                     label: chat.label,
                     labelClassName: styles.chatSidebarProjectChatLabel,
-                    onDelete: () => handleChatDelete(chat.id),
+                    onDelete: () => requestChatDelete(chat.id),
                     onSelect: () => openThread(chat),
                     shellClassName: styles.chatSidebarProjectChatShell,
                     type: "chat",
@@ -1496,228 +1585,300 @@ export function HeroComposer() {
   }
 
   return (
-    <section
-      className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {workspaceVisible && !sidebarOpen ? (
-        <button
-          aria-expanded={sidebarOpen}
-          aria-label="Expand conversation sidebar"
-          className={styles.chatSidebarReveal}
-          onClick={() => {
-            setSidebarActionMenu(null);
-            setSidebarRenameDraft(null);
-            setSidebarOpen(true);
-          }}
-          type="button"
-        >
-          <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
-        </button>
-      ) : null}
-
-      {workspaceVisible && sidebarOpen ? (
-        <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
-          <div className={styles.chatSidebarHeader}>
-            <button
-              aria-expanded={sidebarOpen}
-              aria-label="Collapse conversation sidebar"
-              className={styles.chatSidebarCollapse}
-              onClick={() => {
-                setSidebarActionMenu(null);
-                setSidebarRenameDraft(null);
-                setSidebarOpen(false);
-              }}
-              type="button"
-            >
-              <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.9} />
-            </button>
-          </div>
-
-          <div className={styles.chatSidebarSection}>
-            <button className={styles.chatSidebarAction} onClick={handleNewProject} type="button">
-              <span className={styles.chatSidebarActionLabel}>
-                <FolderPlus aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>New project</span>
-              </span>
-            </button>
-
-            <ul className={styles.chatSidebarList} id="chat-project-collection">
-              {projects.map((project) => renderProjectRow(project))}
-            </ul>
-          </div>
-
-          <div className={styles.chatSidebarSection}>
-            <button className={styles.chatSidebarAction} onClick={handleNewChat} type="button">
-              <span className={styles.chatSidebarActionLabel}>
-                <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>New chat</span>
-              </span>
-            </button>
-          </div>
-
-          {sidebarNotice ? (
-            <p
-              aria-live="polite"
-              className={[
-                styles.chatSidebarNotice,
-                sidebarNotice.tone === "error" ? styles.chatSidebarNoticeError : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {sidebarNotice.message}
-            </p>
-          ) : null}
-        </aside>
-      ) : null}
-
-      <div
-        className={[
-          styles.chatStageMain,
-          workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
-          workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
-        ]
+    <>
+      <section
+        className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
           .filter(Boolean)
           .join(" ")}
       >
-        <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
-          {isProjectHomeVisible && activeProject ? (
-            <section className={styles.projectHome}>
-              <header className={styles.projectHomeHeader}>
-                <div className={styles.projectHomeTitle}>
-                  <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
-                  <h2>{activeProject.label}</h2>
+        {workspaceVisible && !sidebarOpen ? (
+          <button
+            aria-expanded={sidebarOpen}
+            aria-label="Expand conversation sidebar"
+            className={styles.chatSidebarReveal}
+            onClick={() => {
+              setSidebarActionMenu(null);
+              setSidebarRenameDraft(null);
+              setSidebarOpen(true);
+            }}
+            type="button"
+          >
+            <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
+          </button>
+        ) : null}
+
+        {workspaceVisible && sidebarOpen ? (
+          <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
+            <div className={styles.chatSidebarHeader}>
+              <button
+                aria-expanded={sidebarOpen}
+                aria-label="Collapse conversation sidebar"
+                className={styles.chatSidebarCollapse}
+                onClick={() => {
+                  setSidebarActionMenu(null);
+                  setSidebarRenameDraft(null);
+                  setSidebarOpen(false);
+                }}
+                type="button"
+              >
+                <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.9} />
+              </button>
+            </div>
+
+            <div className={styles.chatSidebarSection}>
+              <button className={styles.chatSidebarAction} onClick={handleNewProject} type="button">
+                <span className={styles.chatSidebarActionLabel}>
+                  <FolderPlus aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>New project</span>
+                </span>
+              </button>
+
+              <ul className={styles.chatSidebarList} id="chat-project-collection">
+                {projects.map((project) => renderProjectRow(project))}
+              </ul>
+            </div>
+
+            <div className={styles.chatSidebarSection}>
+              <button className={styles.chatSidebarAction} onClick={handleNewChat} type="button">
+                <span className={styles.chatSidebarActionLabel}>
+                  <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>New chat</span>
+                </span>
+              </button>
+            </div>
+
+            {sidebarNotice ? (
+              <p
+                aria-live="polite"
+                className={[
+                  styles.chatSidebarNotice,
+                  sidebarNotice.tone === "error" ? styles.chatSidebarNoticeError : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {sidebarNotice.message}
+              </p>
+            ) : null}
+          </aside>
+        ) : null}
+
+        <div
+          className={[
+            styles.chatStageMain,
+            workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+            workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
+            {isProjectHomeVisible && activeProject ? (
+              <section className={styles.projectHome}>
+                <header className={styles.projectHomeHeader}>
+                  <div className={styles.projectHomeTitle}>
+                    <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
+                    <h2>{activeProject.label}</h2>
+                  </div>
+                </header>
+
+                {renderComposer(`New chat in ${activeProject.label}`, styles.projectHomeComposer)}
+
+                <div className={styles.projectHomeTabs}>
+                  <button
+                    className={[styles.projectHomeTab, styles.projectHomeTabActive]
+                      .filter(Boolean)
+                      .join(" ")}
+                    type="button"
+                  >
+                    Chats
+                  </button>
+                  <button className={styles.projectHomeTab} type="button">
+                    Sources
+                  </button>
                 </div>
-              </header>
 
-              {renderComposer(
-                `New chat in ${activeProject.label}`,
-                styles.projectHomeComposer,
-              )}
-
-              <div className={styles.projectHomeTabs}>
-                <button
-                  className={[styles.projectHomeTab, styles.projectHomeTabActive]
-                    .filter(Boolean)
-                    .join(" ")}
-                  type="button"
-                >
-                  Chats
-                </button>
-                <button className={styles.projectHomeTab} type="button">
-                  Sources
-                </button>
-              </div>
-
-              <div className={styles.projectHomeList}>
-                {activeProjectThreads.length > 0 ? (
-                  activeProjectThreads.map((thread) => (
-                    <button
-                      className={styles.projectHomeThreadRow}
-                      key={thread.id}
-                      onClick={() => openThread(thread)}
-                      type="button"
-                    >
-                      <div className={styles.projectHomeThreadHeader}>
-                        <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
-                        <span className={styles.projectHomeThreadDate}>
-                          {formatThreadUpdatedAt(thread.updatedAt)}
-                        </span>
-                      </div>
-                      <p className={styles.projectHomeThreadPreview}>
-                        {buildThreadPreview(thread)}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <p className={styles.projectHomeEmpty}>
-                    Start a new chat in this project and it will appear here.
-                  </p>
-                )}
-              </div>
-            </section>
-          ) : transcript.length === 0 ? (
-            <div className={styles.chatEmptyState}>
-              <div className={styles.chatStarterGroup}>
-                <div className={styles.starterQuestionStack}>
-                  {starterActions.map((action) =>
-                    action.kind === "prompt" ? (
+                <div className={styles.projectHomeList}>
+                  {activeProjectThreads.length > 0 ? (
+                    activeProjectThreads.map((thread) => (
                       <button
-                        className={styles.starterQuestionPill}
-                        key={action.label}
-                        onClick={() => handleStarterQuestion(action.label)}
+                        className={styles.projectHomeThreadRow}
+                        key={thread.id}
+                        onClick={() => openThread(thread)}
                         type="button"
                       >
-                        {action.label}
+                        <div className={styles.projectHomeThreadHeader}>
+                          <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
+                          <span className={styles.projectHomeThreadDate}>
+                            {formatThreadUpdatedAt(thread.updatedAt)}
+                          </span>
+                        </div>
+                        <p className={styles.projectHomeThreadPreview}>
+                          {buildThreadPreview(thread)}
+                        </p>
                       </button>
-                    ) : (
-                      <Link
-                        className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
-                          .filter(Boolean)
-                          .join(" ")}
-                        href={action.href}
-                        key={action.label}
-                      >
-                        {action.label}
-                      </Link>
-                    ),
+                    ))
+                  ) : (
+                    <p className={styles.projectHomeEmpty}>
+                      Start a new chat in this project and it will appear here.
+                    </p>
                   )}
                 </div>
+              </section>
+            ) : transcript.length === 0 ? (
+              <div className={styles.chatEmptyState}>
+                <div className={styles.chatStarterGroup}>
+                  <div className={styles.starterQuestionStack}>
+                    {starterActions.map((action) =>
+                      action.kind === "prompt" ? (
+                        <button
+                          className={styles.starterQuestionPill}
+                          key={action.label}
+                          onClick={() => handleStarterQuestion(action.label)}
+                          type="button"
+                        >
+                          {action.label}
+                        </button>
+                      ) : (
+                        <Link
+                          className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
+                            .filter(Boolean)
+                            .join(" ")}
+                          href={action.href}
+                          key={action.label}
+                        >
+                          {action.label}
+                        </Link>
+                      ),
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ) : (
-            transcript.map((entry) => (
-              <div
-                className={[
-                  styles.transcriptRow,
-                  entry.role === "user" ? styles.transcriptRowUser : styles.transcriptRowAssistant,
-                ].join(" ")}
-                key={entry.id}
-              >
-                <article
+            ) : (
+              transcript.map((entry) => (
+                <div
                   className={[
-                    styles.transcriptBubble,
+                    styles.transcriptRow,
                     entry.role === "user"
-                      ? styles.transcriptBubbleUser
-                      : styles.transcriptBubbleAssistant,
-                    entry.error ? styles.transcriptBubbleError : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                      ? styles.transcriptRowUser
+                      : styles.transcriptRowAssistant,
+                  ].join(" ")}
+                  key={entry.id}
                 >
-                  <p>{entry.content}</p>
+                  <article
+                    className={[
+                      styles.transcriptBubble,
+                      entry.role === "user"
+                        ? styles.transcriptBubbleUser
+                        : styles.transcriptBubbleAssistant,
+                      entry.error ? styles.transcriptBubbleError : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    <p>{entry.content}</p>
+                  </article>
+                </div>
+              ))
+            )}
+
+            {isSubmitting ? (
+              <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
+                <article
+                  className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
+                >
+                  <div className={styles.transcriptTyping}>
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className={styles.spinner}
+                      size={18}
+                      strokeWidth={2}
+                    />
+                    <span>Thinking through your verification workflow...</span>
+                  </div>
                 </article>
               </div>
-            ))
-          )}
+            ) : null}
+          </div>
 
-          {isSubmitting ? (
-            <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
-              <article
-                className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
-              >
-                <div className={styles.transcriptTyping}>
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className={styles.spinner}
-                    size={18}
-                    strokeWidth={2}
-                  />
-                  <span>Thinking through your verification workflow...</span>
-                </div>
-              </article>
-            </div>
-          ) : null}
+          {!isProjectHomeVisible
+            ? renderComposer(
+                "Ask about verification workflows, recruiter trust views, or candidate proof.",
+              )
+            : null}
         </div>
+      </section>
 
-        {!isProjectHomeVisible
-          ? renderComposer(
-              "Ask about verification workflows, recruiter trust views, or candidate proof.",
-            )
-          : null}
-      </div>
-    </section>
+      {isMounted && sidebarDeleteDraft
+        ? createPortal(
+            <div
+              className={styles.sidebarDeleteOverlay}
+              onClick={closeSidebarDeleteDialog}
+              role="presentation"
+            >
+              <div
+                aria-describedby={deleteDialogDescriptionId}
+                aria-labelledby={deleteDialogTitleId}
+                aria-modal="true"
+                className={styles.sidebarDeleteDialog}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+                role="dialog"
+              >
+                <div className={styles.sidebarDeleteDialogBody}>
+                  <h2 className={styles.sidebarDeleteDialogTitle} id={deleteDialogTitleId}>
+                    {sidebarDeleteDraft.type === "project" ? "Delete project?" : "Delete chat?"}
+                  </h2>
+                  <p
+                    className={styles.sidebarDeleteDialogCopy}
+                    id={deleteDialogDescriptionId}
+                  >
+                    {sidebarDeleteDraft.type === "project" ? (
+                      <>
+                        This will delete{" "}
+                        <strong>{sidebarDeleteDraft.label}</strong>
+                        {sidebarDeleteDraft.chatCount > 0
+                          ? ` and ${sidebarDeleteDraft.chatCount} ${
+                              sidebarDeleteDraft.chatCount === 1 ? "chat" : "chats"
+                            } inside it.`
+                          : "."}
+                      </>
+                    ) : (
+                      <>
+                        This will delete <strong>{sidebarDeleteDraft.label}</strong>.
+                      </>
+                    )}
+                  </p>
+                  <p className={styles.sidebarDeleteDialogMeta}>
+                    {sidebarDeleteDraft.type === "project"
+                      ? "Every chat inside this project will be removed from your workspace."
+                      : "Messages inside this chat will be removed from your workspace."}
+                  </p>
+                </div>
+
+                <div className={styles.sidebarDeleteDialogActions}>
+                  <button
+                    className={styles.sidebarDeleteDialogCancel}
+                    onClick={closeSidebarDeleteDialog}
+                    ref={sidebarDeleteCancelButtonRef}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.sidebarDeleteDialogConfirm}
+                    onClick={confirmSidebarDelete}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
