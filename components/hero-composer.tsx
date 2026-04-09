@@ -25,6 +25,12 @@ type TranscriptEntry = {
   role: "assistant" | "user";
 };
 
+const starterQuestions = [
+  "What does the agent actually do?",
+  "How is this different from a resume builder?",
+  "How does the agent help me get hired faster?",
+];
+
 export function HeroComposer() {
   const [message, setMessage] = useState("");
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
@@ -46,12 +52,13 @@ export function HeroComposer() {
     });
   }, [transcript]);
 
-  async function submitMessage() {
-    if (!canSubmit) {
+  async function submitMessage(nextMessage?: string) {
+    const prompt = (nextMessage ?? message).trim();
+
+    if (!prompt || isSubmitting) {
       return;
     }
 
-    const prompt = message.trim();
     const requestId = `msg-${Date.now()}`;
 
     setIsSubmitting(true);
@@ -118,15 +125,33 @@ export function HeroComposer() {
     }
   }
 
+  function handleStarterQuestion(question: string) {
+    void submitMessage(question);
+  }
+
   return (
     <section className={styles.chatStage}>
       <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
         {transcript.length === 0 ? (
           <div className={styles.chatEmptyState}>
-            <span className={styles.chatEmptyEyebrow}>Preview the workflow</span>
-            <p className={styles.chatEmptyBody}>
-              Ask about candidate verification, recruiter sharing, or review operations.
-            </p>
+            <div className={styles.chatStarterGroup}>
+              <span className={styles.chatEmptyEyebrow}>Start with a question</span>
+              <p className={styles.chatEmptyBody}>
+                Tap a prompt to start the conversation instantly, or type your own question below.
+              </p>
+              <div className={styles.starterQuestionStack}>
+                {starterQuestions.map((question) => (
+                  <button
+                    className={styles.starterQuestionPill}
+                    key={question}
+                    onClick={() => handleStarterQuestion(question)}
+                    type="button"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           transcript.map((entry) => (
