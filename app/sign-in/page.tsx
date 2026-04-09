@@ -20,14 +20,24 @@ export default async function SignInPage() {
           your protected Career AI workspace.
         </p>
 
-        <GoogleSignInButton callbackUrl="/account" disabled={!googleOAuthEnabled} label="Sign in with Google" />
+        <GoogleSignInButton
+          callbackUrl="/account"
+          disabled={!googleOAuthEnabled}
+          disabledLabel="Google sign-in unavailable"
+          disabledTitle={
+            googleOAuthEnabled
+              ? undefined
+              : "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to enable Google sign-in."
+          }
+          label="Sign in with Google"
+        />
 
         <div className={styles.noteCard}>
-          <strong>{googleOAuthEnabled ? "Google sign-in is live." : "Google sign-in is being connected."}</strong>
+          <strong>{googleOAuthEnabled ? "Google sign-in is live." : "Google sign-in is disabled locally."}</strong>
           <p>
             {googleOAuthEnabled
               ? "After authentication, you will land in your account workspace at /account."
-              : "The Google path is still being finished. Refresh again shortly to continue with verified access."}
+              : "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to your local environment, then restart the app to enable the Google flow."}
           </p>
         </div>
       </section>
