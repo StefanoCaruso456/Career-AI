@@ -29,6 +29,7 @@ import {
   startTransition,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -79,6 +80,18 @@ type SidebarDeleteDraft =
       id: string;
       label: string;
       type: "chat";
+    };
+
+type TranscriptScrollIntent =
+  | {
+      mode: "anchor-entry";
+      entryId: string;
+    }
+  | {
+      mode: "bottom";
+    }
+  | {
+      mode: "top";
     };
 
 type SidebarNoticeTone = "default" | "error";
@@ -344,6 +357,7 @@ export function HeroComposer() {
   const voiceSeedMessageRef = useRef("");
   const voiceDraftRef = useRef("");
   const voiceCaptureErrorRef = useRef<string | null>(null);
+  const transcriptScrollIntentRef = useRef<TranscriptScrollIntent | null>(null);
 
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
@@ -360,17 +374,49 @@ export function HeroComposer() {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const transcriptNode = transcriptRef.current;
+    const scrollIntent = transcriptScrollIntentRef.current;
 
-    if (!transcriptNode) {
+    if (!transcriptNode || !scrollIntent) {
+      return;
+    }
+
+    if (scrollIntent.mode === "top") {
+      transcriptNode.scrollTo({
+        behavior: "auto",
+        top: 0,
+      });
+      transcriptScrollIntentRef.current = null;
+      return;
+    }
+
+    if (scrollIntent.mode === "bottom") {
+      transcriptNode.scrollTo({
+        behavior: "smooth",
+        top: transcriptNode.scrollHeight,
+      });
+      transcriptScrollIntentRef.current = null;
+      return;
+    }
+
+    const entrySelector =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(scrollIntent.entryId)
+        : scrollIntent.entryId.replace(/"/g, '\\"');
+    const anchoredEntry = transcriptNode.querySelector<HTMLElement>(
+      `[data-transcript-entry-id="${entrySelector}"]`,
+    );
+
+    if (!anchoredEntry) {
       return;
     }
 
     transcriptNode.scrollTo({
-      behavior: "smooth",
-      top: transcriptNode.scrollHeight,
+      behavior: "auto",
+      top: Math.max(anchoredEntry.offsetTop - 4, 0),
     });
+    transcriptScrollIntentRef.current = null;
   }, [transcript]);
 
   useEffect(() => {
@@ -816,6 +862,7 @@ export function HeroComposer() {
     setProjectHomeProjectId(null);
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
+    transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript(thread.transcript);
     setMessage("");
     setSidebarOpen(true);
@@ -827,6 +874,7 @@ export function HeroComposer() {
     setSidebarRenameDraft(null);
     setProjectHomeProjectId(activeProjectId);
     setCurrentThreadId(null);
+    transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
     setMessage("");
     setSidebarOpen(true);
@@ -852,6 +900,7 @@ export function HeroComposer() {
     }
 
     setCurrentThreadId(null);
+    transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
     setMessage("");
     focusComposer();
@@ -871,6 +920,7 @@ export function HeroComposer() {
     setProjectHomeProjectId(nextProject.id);
     setSidebarOpen(true);
     setCurrentThreadId(null);
+    transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
     setMessage("");
     focusComposer();
@@ -895,6 +945,7 @@ export function HeroComposer() {
     setMessage("");
     setProjectHomeProjectId(null);
     setCurrentThreadId(threadId);
+    transcriptScrollIntentRef.current = { mode: "bottom" };
     setTranscript(nextUserTranscript);
     upsertThread(threadId, projectId, nextUserTranscript);
 
@@ -923,6 +974,10 @@ export function HeroComposer() {
           },
         ];
 
+        transcriptScrollIntentRef.current = {
+          entryId: `${requestId}-assistant`,
+          mode: "anchor-entry",
+        };
         setTranscript(nextAssistantTranscript);
         upsertThread(threadId, projectId, nextAssistantTranscript);
       });
@@ -941,6 +996,10 @@ export function HeroComposer() {
           },
         ];
 
+        transcriptScrollIntentRef.current = {
+          entryId: `${requestId}-assistant-error`,
+          mode: "anchor-entry",
+        };
         setTranscript(nextAssistantTranscript);
         upsertThread(threadId, projectId, nextAssistantTranscript);
       });
@@ -1143,6 +1202,7 @@ export function HeroComposer() {
       setActiveProjectId(nextActiveProjectId);
       setProjectHomeProjectId(nextActiveProjectId);
       setCurrentThreadId(null);
+      transcriptScrollIntentRef.current = { mode: "top" };
       setTranscript([]);
       setMessage("");
     }
@@ -1172,6 +1232,7 @@ export function HeroComposer() {
     if (currentThreadId === chatId) {
       setProjectHomeProjectId(activeProjectId);
       setCurrentThreadId(null);
+      transcriptScrollIntentRef.current = { mode: "top" };
       setTranscript([]);
       setMessage("");
     }
@@ -1763,6 +1824,7 @@ export function HeroComposer() {
                       ? styles.transcriptRowUser
                       : styles.transcriptRowAssistant,
                   ].join(" ")}
+                  data-transcript-entry-id={entry.id}
                   key={entry.id}
                 >
                   <article
