@@ -9,6 +9,8 @@ import {
   LoaderCircle,
   MessageSquareText,
   Mic,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
 } from "lucide-react";
 import {
@@ -54,7 +56,8 @@ export function HeroComposer() {
   const [message, setMessage] = useState("");
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [projectsOpen, setProjectsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [projectsOpen, setProjectsOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
@@ -165,8 +168,34 @@ export function HeroComposer() {
         .filter(Boolean)
         .join(" ")}
     >
-      {conversationStarted ? (
+      {conversationStarted && !sidebarOpen ? (
+        <button
+          aria-expanded={sidebarOpen}
+          aria-label="Expand conversation sidebar"
+          className={styles.chatSidebarReveal}
+          onClick={() => setSidebarOpen(true)}
+          type="button"
+        >
+          <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
+          <span>Workspace</span>
+        </button>
+      ) : null}
+
+      {conversationStarted && sidebarOpen ? (
         <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
+          <div className={styles.chatSidebarHeader}>
+            <span className={styles.chatSidebarCaption}>Workspace</span>
+            <button
+              aria-expanded={sidebarOpen}
+              aria-label="Collapse conversation sidebar"
+              className={styles.chatSidebarCollapse}
+              onClick={() => setSidebarOpen(false)}
+              type="button"
+            >
+              <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.9} />
+            </button>
+          </div>
+
           <div className={styles.chatSidebarSection}>
             <button
               aria-controls="chat-project-collection"
@@ -268,7 +297,11 @@ export function HeroComposer() {
       ) : null}
 
       <div
-        className={[styles.chatStageMain, conversationStarted ? styles.chatStageMainShifted : ""]
+        className={[
+          styles.chatStageMain,
+          conversationStarted && sidebarOpen ? styles.chatStageMainShifted : "",
+          conversationStarted && !sidebarOpen ? styles.chatStageMainExpanded : "",
+        ]
           .filter(Boolean)
           .join(" ")}
       >
