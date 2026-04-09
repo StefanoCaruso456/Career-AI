@@ -8,6 +8,7 @@ export function HeaderCenterTab() {
   const pathname = usePathname();
   const isAgentBuild =
     pathname === "/agent-build" || pathname.startsWith("/agent-build/");
+  const isJobs = pathname === "/jobs" || pathname.startsWith("/jobs/");
 
   return (
     <div className={styles.centerNav}>
@@ -17,6 +18,13 @@ export function HeaderCenterTab() {
         href="/agent-build"
       >
         Agent Builder
+      </Link>
+      <Link
+        aria-current={isJobs ? "page" : undefined}
+        className={isJobs ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
+        href="/jobs"
+      >
+        Jobs
       </Link>
     </div>
   );
