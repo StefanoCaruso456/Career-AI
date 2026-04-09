@@ -2,9 +2,9 @@
 
 import { X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
-import { googleOAuthDisabledMessage } from "@/auth";
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
+import { useGoogleAuthStatus } from "./use-google-auth-status";
 import styles from "./auth-modal.module.css";
 
 type AuthMode = "signup" | "signin";
@@ -19,7 +19,6 @@ type AuthModalTriggerProps = {
   callbackUrl?: string;
   className?: string;
   defaultMode?: AuthMode;
-  googleOAuthEnabled: boolean;
   label: string;
 };
 
@@ -58,7 +57,6 @@ export function AuthModalTrigger({
   callbackUrl = "/account",
   className,
   defaultMode = "signin",
-  googleOAuthEnabled,
   label,
 }: AuthModalTriggerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -72,6 +70,7 @@ export function AuthModalTrigger({
     formValues.confirmPassword.length === 0 ||
     formValues.password === formValues.confirmPassword;
   const titleId = useId();
+  const { isLoading: isGoogleAuthLoading, status: googleAuthStatus } = useGoogleAuthStatus(isOpen);
 
   useEffect(() => {
     setIsMounted(true);
@@ -144,6 +143,14 @@ export function AuthModalTrigger({
   }
 
   const modeCopy = getModeCopy(mode);
+  const googleOAuthEnabled = googleAuthStatus.enabled;
+  const googleSignInDisabled = isGoogleAuthLoading || !googleOAuthEnabled;
+  const googleSignInDisabledLabel = isGoogleAuthLoading
+    ? "Checking Google sign-in..."
+    : "Google sign-in unavailable";
+  const googleOAuthDisabledMessage = isGoogleAuthLoading
+    ? "Checking Google sign-in configuration."
+    : googleAuthStatus.disabledMessage;
   const modal =
     isMounted && isOpen
       ? createPortal(
@@ -273,12 +280,12 @@ export function AuthModalTrigger({
               <div className={styles.actionBlock}>
                 <GoogleSignInButton
                   callbackUrl={callbackUrl}
-                  disabled={!googleOAuthEnabled}
-                  disabledLabel="Google sign-in unavailable"
-                  disabledTitle={googleOAuthEnabled ? undefined : googleOAuthDisabledMessage}
+                  disabled={googleSignInDisabled}
+                  disabledLabel={googleSignInDisabledLabel}
+                  disabledTitle={googleSignInDisabled ? googleOAuthDisabledMessage : undefined}
                   label={modeCopy.buttonLabel}
                 />
-                {!googleOAuthEnabled ? (
+                {googleSignInDisabled ? (
                   <p className={styles.googleStatusNote} role="status">
                     {googleOAuthDisabledMessage}
                   </p>

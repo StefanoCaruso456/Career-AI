@@ -1,4 +1,3 @@
-import { googleOAuthEnabled } from "@/auth";
 import { HeaderAuthControls } from "./header-auth-controls";
 import { HeaderCenterTab } from "./header-center-tab";
 import { HeaderHomeLink } from "./header-home-link";
@@ -10,7 +9,7 @@ export function FloatingSiteHeader() {
       <div className={styles.shell}>
         <HeaderHomeLink />
         <HeaderCenterTab />
-        <HeaderAuthControls googleOAuthEnabled={googleOAuthEnabled} />
+        <HeaderAuthControls />
       </div>
     </header>
   );

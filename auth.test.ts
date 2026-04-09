@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAuthSecret,
   getGoogleAuthDisabledMessage,
+  getGoogleAuthStatus,
   getGoogleClientId,
   getGoogleClientSecret,
   getGoogleRedirectUri,
@@ -95,6 +96,20 @@ describe("auth config helpers", () => {
     expect(getGoogleAuthDisabledMessage()).toBe(
       "Google sign-in is disabled until GOOGLE_CLIENT_SECRET or GOOGLE_SECRET and NEXTAUTH_SECRET or AUTH_SECRET are configured.",
     );
+  });
+
+  it("returns a live Google auth status payload for the UI", () => {
+    process.env.GOOGLE_CLIENT_ID = "project-client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "project-client-secret";
+    process.env.RAILWAY_PUBLIC_DOMAIN = "career-ai.up.railway.app";
+
+    expect(getGoogleAuthStatus()).toEqual({
+      disabledMessage:
+        "Google sign-in is disabled until NEXTAUTH_SECRET or AUTH_SECRET is configured.",
+      enabled: false,
+      missingRequirements: ["NEXTAUTH_SECRET or AUTH_SECRET"],
+      redirectUri: "https://career-ai.up.railway.app/api/auth/callback/google",
+    });
   });
 });
 

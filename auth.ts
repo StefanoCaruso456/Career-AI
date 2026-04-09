@@ -4,11 +4,9 @@ import GoogleProvider from "next-auth/providers/google";
 import { ensureTalentIdentityForSessionUser } from "@/auth-identity";
 import {
   getAuthSecret,
-  getGoogleAuthDisabledMessage,
-  getGoogleAuthMissingRequirements,
+  getGoogleAuthStatus,
   getGoogleClientId,
   getGoogleClientSecret,
-  getGoogleRedirectUri,
   getPublicBaseUrl,
 } from "@/auth-config";
 
@@ -16,6 +14,7 @@ const googleClientId = getGoogleClientId();
 const googleClientSecret = getGoogleClientSecret();
 const publicBaseUrl = getPublicBaseUrl();
 const authSecret = getAuthSecret();
+const googleAuthStatus = getGoogleAuthStatus();
 
 if (!process.env.NEXTAUTH_URL && publicBaseUrl) {
   process.env.NEXTAUTH_URL = publicBaseUrl;
@@ -25,14 +24,12 @@ if (!process.env.NEXTAUTH_SECRET && authSecret) {
   process.env.NEXTAUTH_SECRET = authSecret;
 }
 
-export const googleOAuthEnabled = Boolean(
-  googleClientId && googleClientSecret && publicBaseUrl && authSecret,
-);
+export const googleOAuthEnabled = googleAuthStatus.enabled;
 
 export const publicOrigin = publicBaseUrl;
-export const googleRedirectUri = getGoogleRedirectUri();
-export const googleOAuthMissingRequirements = getGoogleAuthMissingRequirements();
-export const googleOAuthDisabledMessage = getGoogleAuthDisabledMessage();
+export const googleRedirectUri = googleAuthStatus.redirectUri;
+export const googleOAuthMissingRequirements = googleAuthStatus.missingRequirements;
+export const googleOAuthDisabledMessage = googleAuthStatus.disabledMessage;
 
 export const authOptions = {
   secret: authSecret || undefined,

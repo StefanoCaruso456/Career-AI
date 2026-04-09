@@ -22,6 +22,13 @@ function joinWithAnd(values: string[]) {
   return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
 }
 
+export type GoogleAuthStatus = {
+  disabledMessage: string;
+  enabled: boolean;
+  missingRequirements: string[];
+  redirectUri: string;
+};
+
 export function getGoogleClientId() {
   return readFirstEnv("GOOGLE_CLIENT_ID", "GOOGLE_ID", "CLIENT_ID");
 }
@@ -89,4 +96,18 @@ export function getGoogleAuthDisabledMessage() {
   const verb = missingRequirements.length === 1 ? "is" : "are";
 
   return `Google sign-in is disabled until ${missingList} ${verb} configured.`;
+}
+
+export function getGoogleAuthStatus(): GoogleAuthStatus {
+  const missingRequirements = getGoogleAuthMissingRequirements();
+
+  return {
+    disabledMessage:
+      missingRequirements.length === 0
+        ? ""
+        : getGoogleAuthDisabledMessage(),
+    enabled: missingRequirements.length === 0,
+    missingRequirements,
+    redirectUri: getGoogleRedirectUri(),
+  };
 }
