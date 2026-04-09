@@ -3,7 +3,6 @@ import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src"
 import {
   createTalentIdentity,
   getTalentIdentity,
-  getTalentIdentityByEmail,
   findTalentIdentityByEmail,
   resetIdentityStore,
   updatePrivacySettings,
@@ -74,6 +73,33 @@ describe("identity service", () => {
     ).toThrowError(/already exists/i);
   });
 
+  it("finds a talent identity by normalized email", () => {
+    createTalentIdentity({
+      input: {
+        email: "jane@example.com",
+        firstName: "Jane",
+        lastName: "Doe",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-1",
+    });
+
+    const found = findTalentIdentityByEmail({
+      email: "JANE@example.com",
+      correlationId: "corr-2",
+    });
+
+    expect(found?.talentIdentity.email).toBe("jane@example.com");
+    expect(
+      findTalentIdentityByEmail({
+        email: "missing@example.com",
+        correlationId: "corr-3",
+      }),
+    ).toBeNull();
+  });
+
   it("updates privacy settings and writes an audit event", () => {
     const created = createTalentIdentity({
       input: {
@@ -110,54 +136,5 @@ describe("identity service", () => {
     expect(listAuditEvents().map((event) => event.event_type)).toContain(
       "candidate.privacy_settings.updated",
     );
-  });
-
-  it("retrieves an existing identity by normalized email", () => {
-    const created = createTalentIdentity({
-      input: {
-        email: "jane@example.com",
-        firstName: "Jane",
-        lastName: "Doe",
-        countryCode: "US",
-      },
-      actorType: "system_service",
-      actorId: "seed",
-      correlationId: "corr-1",
-    });
-
-    const fetched = getTalentIdentityByEmail({
-      email: "JANE@example.com",
-      correlationId: "corr-2",
-    });
-
-    expect(fetched.talentIdentity.id).toBe(created.talentIdentity.id);
-    expect(fetched.soulRecord.id).toBe(created.soulRecord.id);
-  });
-
-  it("finds a talent identity by normalized email", () => {
-    createTalentIdentity({
-      input: {
-        email: "jane@example.com",
-        firstName: "Jane",
-        lastName: "Doe",
-        countryCode: "US",
-      },
-      actorType: "system_service",
-      actorId: "seed",
-      correlationId: "corr-1",
-    });
-
-    const found = findTalentIdentityByEmail({
-      email: "JANE@example.com",
-      correlationId: "corr-2",
-    });
-
-    expect(found?.talentIdentity.email).toBe("jane@example.com");
-    expect(
-      findTalentIdentityByEmail({
-        email: "missing@example.com",
-        correlationId: "corr-3",
-      }),
-    ).toBeNull();
   });
 });
