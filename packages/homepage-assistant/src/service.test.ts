@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createResponseMock, openAIConstructorMock } = vi.hoisted(() => ({
+const { createResponseMock, createTranscriptionMock, openAIConstructorMock } = vi.hoisted(() => ({
   createResponseMock: vi.fn(),
+  createTranscriptionMock: vi.fn(),
   openAIConstructorMock: vi.fn(),
 }));
 
@@ -10,6 +11,11 @@ vi.mock("openai", () => ({
     openAIConstructorMock(config);
 
     return {
+      audio: {
+        transcriptions: {
+          create: createTranscriptionMock,
+        },
+      },
       responses: {
         create: createResponseMock,
       },
@@ -21,6 +27,7 @@ import {
   OpenAIConfigError,
   OpenAIResponseError,
   generateHomepageAssistantReply,
+  transcribeHomepageAssistantAudio,
 } from "@/packages/homepage-assistant/src";
 
 describe("homepage assistant service", () => {
@@ -29,6 +36,7 @@ describe("homepage assistant service", () => {
 
   beforeEach(() => {
     createResponseMock.mockReset();
+    createTranscriptionMock.mockReset();
     openAIConstructorMock.mockReset();
     process.env.OPENAI_API_KEY = "test-openai-key";
     delete process.env.OPENAI_MODEL;
@@ -78,6 +86,27 @@ describe("homepage assistant service", () => {
     createResponseMock.mockResolvedValue({ output_text: "   " });
 
     await expect(generateHomepageAssistantReply("Hello")).rejects.toBeInstanceOf(
+      OpenAIResponseError,
+    );
+  });
+
+  it("transcribes uploaded audio with the default transcription model", async () => {
+    const file = new File(["voice"], "voice-note.webm", { type: "audio/webm" });
+    createTranscriptionMock.mockResolvedValue({ text: "  spoken summary  " });
+
+    await expect(transcribeHomepageAssistantAudio(file)).resolves.toBe("spoken summary");
+
+    expect(createTranscriptionMock).toHaveBeenCalledWith({
+      file,
+      model: "gpt-4o-mini-transcribe",
+    });
+  });
+
+  it("throws a response error when the transcription is empty", async () => {
+    const file = new File(["voice"], "voice-note.webm", { type: "audio/webm" });
+    createTranscriptionMock.mockResolvedValue({ text: "   " });
+
+    await expect(transcribeHomepageAssistantAudio(file)).rejects.toBeInstanceOf(
       OpenAIResponseError,
     );
   });

@@ -1,9 +1,11 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { getProviders, signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
 import styles from "./google-sign-in-button.module.css";
+
+type GoogleProviderStatus = "checking" | "ready" | "unavailable";
 
 function GoogleMark() {
   return (
@@ -38,26 +40,60 @@ export function GoogleSignInButton({
   label?: string;
 }) {
   const [isPending, setIsPending] = useState(false);
-  const isDisabled = disabled || isPending;
+  const [providerStatus, setProviderStatus] = useState<GoogleProviderStatus>("checking");
+
+  useEffect(() => {
+    let isActive = true;
+
+    void getProviders()
+      .then((providers) => {
+        if (!isActive) {
+          return;
+        }
+
+        setProviderStatus(providers?.google ? "ready" : "unavailable");
+      })
+      .catch(() => {
+        if (isActive) {
+          setProviderStatus("unavailable");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const isConfigured = providerStatus === "ready";
+  const isDisabled = disabled || isPending || !isConfigured;
+  const buttonLabel = isPending
+    ? "Opening Google..."
+    : providerStatus === "checking"
+      ? "Checking Google sign-in..."
+      : providerStatus === "unavailable"
+        ? "Google sign-in unavailable"
+        : label;
 
   return (
     <button
       className={styles.button}
       disabled={isDisabled}
       onClick={() => {
-        if (isDisabled) {
+        if (isDisabled || !isConfigured) {
           return;
         }
 
         setIsPending(true);
-        void signIn("google", { callbackUrl });
+        void signIn("google", { callbackUrl }).catch(() => {
+          setIsPending(false);
+        });
       }}
       type="button"
     >
       <span className={styles.iconShell} aria-hidden="true">
         {isPending ? <LoaderCircle className={styles.spinner} size={18} strokeWidth={2} /> : <GoogleMark />}
       </span>
-      <span className={styles.label}>{isPending ? "Opening Google..." : label}</span>
+      <span className={styles.label}>{buttonLabel}</span>
       <span className={styles.trailingSlot} aria-hidden="true" />
     </button>
   );

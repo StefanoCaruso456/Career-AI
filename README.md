@@ -31,7 +31,7 @@ The product creates a persistent, portable candidate identity that stores truste
 ```bash
 npm install
 cp .env.example .env.local
-# add your OPENAI_API_KEY, NEXTAUTH_SECRET, GOOGLE_CLIENT_ID, and GOOGLE_CLIENT_SECRET to .env.local
+# add your OPENAI_API_KEY and Google auth settings to .env.local
 npm run dev
 ```
 
@@ -42,19 +42,31 @@ The homepage assistant calls the official OpenAI Node SDK from the server-side `
 
 This app now includes Google sign-in using Auth.js and NextAuth route handlers.
 
-Required environment variables:
+Required server-side environment variables:
 
-- `NEXTAUTH_URL`
-- `NEXTAUTH_SECRET`
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
+- `NEXTAUTH_URL` or `AUTH_URL`
+- `NEXTAUTH_SECRET` or `AUTH_SECRET`
+- `GOOGLE_CLIENT_ID` or `GOOGLE_ID`
+- `GOOGLE_CLIENT_SECRET` or `GOOGLE_SECRET`
 
-The auth flow also accepts Railway-style aliases if you already created them that way:
+The auth flow also accepts legacy aliases if you already created them that way:
 
 - `CLIENT_ID` as an alias for `GOOGLE_CLIENT_ID`
 - `CLIENT_SECRET` as an alias for `GOOGLE_CLIENT_SECRET`
 
 If Railway injects `RAILWAY_PUBLIC_DOMAIN`, the app can derive `NEXTAUTH_URL` automatically when it is missing.
+
+Google setup checklist:
+
+1. Create a Google OAuth 2.0 client with the `Web application` type.
+2. Add your local and production callback URLs exactly as authorized redirect URIs.
+3. Copy the client ID and client secret into your server environment.
+4. Generate a strong `NEXTAUTH_SECRET` for session encryption.
+
+Security note:
+
+- The Google client secret must stay server-side.
+- A Google client ID is an application identifier, not a secret. It can appear in OAuth requests, but it should not be hard-coded into user-facing setup copy.
 
 Google Cloud OAuth client values for Railway production:
 

@@ -18,7 +18,6 @@ type AuthModalTriggerProps = {
   callbackUrl?: string;
   className?: string;
   defaultMode?: AuthMode;
-  googleOAuthEnabled: boolean;
   label: string;
 };
 
@@ -32,7 +31,7 @@ function getModeCopy(mode: AuthMode) {
       buttonLabel: "Continue with Google",
       emailActionLabel: "Create account",
       formStatus:
-        "Use Google to open your workspace today.",
+        "Email/password sign-up is not enabled yet. Use Google to create your workspace securely.",
     };
   }
 
@@ -44,7 +43,7 @@ function getModeCopy(mode: AuthMode) {
     buttonLabel: "Sign in with Google",
     emailActionLabel: "Sign in",
     formStatus:
-      "Use Google to continue right now.",
+      "Email/password sign-in is not enabled yet. Use Google to continue securely.",
   };
 }
 
@@ -59,7 +58,6 @@ export function AuthModalTrigger({
   callbackUrl = "/account",
   className,
   defaultMode = "signin",
-  googleOAuthEnabled,
   label,
 }: AuthModalTriggerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -277,11 +275,7 @@ export function AuthModalTrigger({
               </div>
 
               <div className={styles.actionBlock}>
-                <GoogleSignInButton
-                  callbackUrl={callbackUrl}
-                  disabled={!googleOAuthEnabled}
-                  label={modeCopy.buttonLabel}
-                />
+                <GoogleSignInButton callbackUrl={callbackUrl} label={modeCopy.buttonLabel} />
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />

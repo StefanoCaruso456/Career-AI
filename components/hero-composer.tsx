@@ -13,6 +13,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Square,
 } from "lucide-react";
 import {
   type FormEvent,
@@ -44,6 +45,54 @@ type ChatThread = {
   updatedAt: number;
 };
 
+type ComposerNoticeTone = "active" | "default" | "error";
+
+type ComposerNotice = {
+  message: string;
+  tone: ComposerNoticeTone;
+};
+
+type VoiceInputState = "idle" | "recording" | "transcribing";
+
+type BrowserSpeechRecognitionAlternative = {
+  transcript: string;
+};
+
+type BrowserSpeechRecognitionResult = {
+  isFinal: boolean;
+  0: BrowserSpeechRecognitionAlternative;
+  length: number;
+};
+
+type BrowserSpeechRecognitionEvent = Event & {
+  results: ArrayLike<BrowserSpeechRecognitionResult>;
+};
+
+type BrowserSpeechRecognitionErrorEvent = Event & {
+  error?: string;
+  message?: string;
+};
+
+type BrowserSpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: ((event: Event) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  abort(): void;
+  start(): void;
+  stop(): void;
+};
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
+
+type VoiceEnabledWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+  };
+
 const starterActions = [
   { kind: "prompt", label: "What does the agent actually do?" },
   { kind: "prompt", label: "How is this different from a resume builder?" },
@@ -56,6 +105,104 @@ const initialProjectCollections: ProjectEntry[] = [
   { id: "project-career-story", label: "Career story" },
   { id: "project-hiring-signals", label: "Hiring signals" },
 ];
+
+const preferredRecorderMimeTypes = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+] as const;
+
+const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
+
+function mergeVoiceDraft(base: string, incoming: string) {
+  const normalizedIncoming = incoming.replace(/\s+/g, " ").trim();
+
+  if (!normalizedIncoming) {
+    return base;
+  }
+
+  if (!base.trim()) {
+    return normalizedIncoming;
+  }
+
+  return `${base.trimEnd()} ${normalizedIncoming}`;
+}
+
+function getSpeechRecognitionConstructor() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const voiceEnabledWindow = window as VoiceEnabledWindow;
+
+  return voiceEnabledWindow.SpeechRecognition ?? voiceEnabledWindow.webkitSpeechRecognition ?? null;
+}
+
+function getRecorderMimeType() {
+  if (
+    typeof MediaRecorder === "undefined" ||
+    typeof MediaRecorder.isTypeSupported !== "function"
+  ) {
+    return "";
+  }
+
+  return preferredRecorderMimeTypes.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) ?? "";
+}
+
+function getAudioExtension(type: string) {
+  if (type.includes("mp4")) {
+    return ".m4a";
+  }
+
+  if (type.includes("ogg")) {
+    return ".ogg";
+  }
+
+  if (type.includes("mpeg") || type.includes("mp3")) {
+    return ".mp3";
+  }
+
+  if (type.includes("wav")) {
+    return ".wav";
+  }
+
+  return ".webm";
+}
+
+function getSpeechRecognitionErrorMessage(errorCode?: string) {
+  switch (errorCode) {
+    case "audio-capture":
+      return "No microphone was available for live dictation.";
+    case "network":
+      return "The browser lost its connection to speech recognition. Try again.";
+    case "no-speech":
+      return "No speech was detected. Try again.";
+    case "not-allowed":
+    case "service-not-allowed":
+      return "Microphone access is blocked. Enable it and try again.";
+    default:
+      return "Live dictation could not start right now.";
+  }
+}
+
+function getMicrophoneErrorMessage(error: unknown) {
+  if (error instanceof DOMException) {
+    switch (error.name) {
+      case "NotAllowedError":
+      case "SecurityError":
+        return "Microphone access is blocked. Enable it and try again.";
+      case "NotFoundError":
+        return "No microphone was found on this device.";
+      case "NotReadableError":
+        return "The microphone is already in use by another app.";
+      default:
+        return "The microphone could not start right now.";
+    }
+  }
+
+  return "The microphone could not start right now.";
+}
 
 function formatThreadLabel(content: string) {
   const normalized = content.replace(/\s+/g, " ").trim();
@@ -106,9 +253,21 @@ export function HeroComposer() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
+  const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
+  const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const voiceSeedMessageRef = useRef("");
+  const voiceDraftRef = useRef("");
+  const voiceCaptureErrorRef = useRef<string | null>(null);
 
-  const canSubmit = message.trim().length > 0 && !isSubmitting;
+  const isRecording = voiceInputState === "recording";
+  const isTranscribing = voiceInputState === "transcribing";
+  const canSubmit = message.trim().length > 0 && !isSubmitting && !isRecording && !isTranscribing;
   const workspaceVisible =
     transcript.length > 0 ||
     isSubmitting ||
@@ -131,6 +290,319 @@ export function HeroComposer() {
     });
   }, [transcript]);
 
+  useEffect(() => {
+    return () => {
+      voiceCaptureErrorRef.current = cancelledVoiceCaptureError;
+      speechRecognitionRef.current?.abort();
+      speechRecognitionRef.current = null;
+
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.ondataavailable = null;
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.onerror = null;
+        mediaRecorderRef.current.stop();
+      }
+
+      mediaRecorderRef.current = null;
+      recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+      recordingStreamRef.current = null;
+    };
+  }, []);
+
+  function focusComposer() {
+    window.requestAnimationFrame(() => {
+      const input = composerInputRef.current;
+
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
+  }
+
+  function stopRecordingStream() {
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop());
+    recordingStreamRef.current = null;
+  }
+
+  function cancelVoiceCapture() {
+    voiceCaptureErrorRef.current = cancelledVoiceCaptureError;
+    speechRecognitionRef.current?.abort();
+    speechRecognitionRef.current = null;
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.onerror = null;
+      mediaRecorderRef.current.stop();
+    }
+
+    mediaRecorderRef.current = null;
+    recordedChunksRef.current = [];
+    voiceDraftRef.current = "";
+    stopRecordingStream();
+    setVoiceInputState("idle");
+    setVoiceNotice(null);
+  }
+
+  async function requestVoiceTranscription(audioBlob: Blob) {
+    const formData = new FormData();
+    const normalizedType = audioBlob.type || "audio/webm";
+    const audioFile = new File([audioBlob], `voice-note${getAudioExtension(normalizedType)}`, {
+      type: normalizedType,
+    });
+
+    formData.set("file", audioFile);
+
+    const response = await fetch("/api/chat/transcribe", {
+      method: "POST",
+      body: formData,
+    });
+
+    const payload = (await response.json()) as { error?: string; transcript?: string };
+
+    if (!response.ok || !payload.transcript) {
+      throw new Error(payload.error || "The voice note could not be transcribed.");
+    }
+
+    return payload.transcript;
+  }
+
+  async function finalizeRecordedAudio() {
+    const audioType = mediaRecorderRef.current?.mimeType || recordedChunksRef.current[0]?.type || "audio/webm";
+    const audioBlob = new Blob(recordedChunksRef.current, { type: audioType });
+
+    mediaRecorderRef.current = null;
+    recordedChunksRef.current = [];
+
+    if (audioBlob.size === 0) {
+      setVoiceInputState("idle");
+      setVoiceNotice({
+        message: "That recording was empty. Try speaking again.",
+        tone: "error",
+      });
+      return;
+    }
+
+    try {
+      const nextTranscript = await requestVoiceTranscription(audioBlob);
+      const nextMessage = mergeVoiceDraft(voiceSeedMessageRef.current, nextTranscript);
+
+      setMessage(nextMessage);
+      setVoiceNotice({
+        message: "Voice note added to your draft.",
+        tone: "default",
+      });
+      focusComposer();
+    } catch (error) {
+      setMessage(voiceSeedMessageRef.current);
+      setVoiceNotice({
+        message:
+          error instanceof Error
+            ? error.message
+            : "The voice note could not be transcribed right now.",
+        tone: "error",
+      });
+    } finally {
+      setVoiceInputState("idle");
+    }
+  }
+
+  function startSpeechRecognition(
+    SpeechRecognitionConstructor: BrowserSpeechRecognitionConstructor,
+  ) {
+    const recognition = new SpeechRecognitionConstructor();
+
+    voiceSeedMessageRef.current = message;
+    voiceDraftRef.current = "";
+    voiceCaptureErrorRef.current = null;
+
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event) => {
+      let nextDraft = "";
+
+      for (let resultIndex = 0; resultIndex < event.results.length; resultIndex += 1) {
+        const result = event.results[resultIndex];
+        const snippet = result[0]?.transcript ?? "";
+
+        if (!snippet) {
+          continue;
+        }
+
+        nextDraft = `${nextDraft} ${snippet}`.trim();
+      }
+
+      voiceDraftRef.current = nextDraft;
+      setMessage(mergeVoiceDraft(voiceSeedMessageRef.current, nextDraft));
+    };
+
+    recognition.onerror = (event) => {
+      const nextErrorMessage = getSpeechRecognitionErrorMessage(event.error);
+
+      voiceCaptureErrorRef.current = nextErrorMessage;
+      speechRecognitionRef.current = null;
+      setVoiceInputState("idle");
+      setVoiceNotice({ message: nextErrorMessage, tone: "error" });
+    };
+
+    recognition.onend = () => {
+      speechRecognitionRef.current = null;
+
+      const nextErrorMessage = voiceCaptureErrorRef.current;
+      voiceCaptureErrorRef.current = null;
+
+      if (nextErrorMessage === cancelledVoiceCaptureError) {
+        return;
+      }
+
+      setVoiceInputState("idle");
+
+      if (nextErrorMessage) {
+        setVoiceNotice({ message: nextErrorMessage, tone: "error" });
+        return;
+      }
+
+      if (!voiceDraftRef.current.trim()) {
+        setMessage(voiceSeedMessageRef.current);
+        setVoiceNotice({
+          message: "No speech was detected. Try again.",
+          tone: "error",
+        });
+        return;
+      }
+
+      setVoiceNotice({
+        message: "Voice note added to your draft.",
+        tone: "default",
+      });
+      focusComposer();
+    };
+
+    recognition.start();
+    speechRecognitionRef.current = recognition;
+    setVoiceInputState("recording");
+    setVoiceNotice({
+      message: "Listening live. Click the mic again when you're done.",
+      tone: "active",
+    });
+  }
+
+  async function startAudioCaptureFallback() {
+    if (
+      typeof MediaRecorder === "undefined" ||
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      setVoiceNotice({
+        message: "Voice dictation is not supported in this browser.",
+        tone: "error",
+      });
+      return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = getRecorderMimeType();
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+
+    voiceSeedMessageRef.current = message;
+    voiceDraftRef.current = "";
+    voiceCaptureErrorRef.current = null;
+    recordedChunksRef.current = [];
+    recordingStreamRef.current = stream;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunksRef.current.push(event.data);
+      }
+    };
+
+    recorder.onerror = () => {
+      mediaRecorderRef.current = null;
+      stopRecordingStream();
+      setVoiceInputState("idle");
+      setVoiceNotice({
+        message: "The microphone recording failed. Try again.",
+        tone: "error",
+      });
+    };
+
+    recorder.onstop = () => {
+      void finalizeRecordedAudio();
+    };
+
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    setVoiceInputState("recording");
+    setVoiceNotice({
+      message: "Recording voice note. Click the mic again to transcribe it.",
+      tone: "active",
+    });
+  }
+
+  async function startVoiceInput() {
+    setVoiceNotice(null);
+
+    const SpeechRecognitionConstructor = getSpeechRecognitionConstructor();
+
+    if (SpeechRecognitionConstructor) {
+      try {
+        startSpeechRecognition(SpeechRecognitionConstructor);
+        return;
+      } catch {
+        // Fall through to the server-backed recording path.
+      }
+    }
+
+    try {
+      await startAudioCaptureFallback();
+    } catch (error) {
+      setVoiceInputState("idle");
+      setVoiceNotice({
+        message: getMicrophoneErrorMessage(error),
+        tone: "error",
+      });
+    }
+  }
+
+  function stopVoiceInput() {
+    if (speechRecognitionRef.current) {
+      setVoiceNotice({
+        message: "Wrapping up your dictation...",
+        tone: "active",
+      });
+      speechRecognitionRef.current.stop();
+      return;
+    }
+
+    if (mediaRecorderRef.current) {
+      setVoiceInputState("transcribing");
+      setVoiceNotice({
+        message: "Transcribing your voice note...",
+        tone: "active",
+      });
+      mediaRecorderRef.current.stop();
+      stopRecordingStream();
+    }
+  }
+
+  async function handleVoiceInputToggle() {
+    if (isSubmitting || isTranscribing) {
+      return;
+    }
+
+    if (isRecording) {
+      stopVoiceInput();
+      return;
+    }
+
+    await startVoiceInput();
+  }
+
   function upsertThread(threadId: string, projectId: string, nextTranscript: TranscriptEntry[]) {
     if (nextTranscript.length === 0) {
       return;
@@ -151,6 +623,7 @@ export function HeroComposer() {
   }
 
   function openThread(thread: ChatThread) {
+    cancelVoiceCapture();
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
     setTranscript(thread.transcript);
@@ -160,6 +633,7 @@ export function HeroComposer() {
   }
 
   function handleNewChat() {
+    cancelVoiceCapture();
     setCurrentThreadId(null);
     setTranscript([]);
     setMessage("");
@@ -170,6 +644,7 @@ export function HeroComposer() {
   function handleProjectSelect(projectId: string) {
     const nextThread = threads.find((thread) => thread.projectId === projectId);
 
+    cancelVoiceCapture();
     setActiveProjectId(projectId);
     setProjectsOpen(true);
     setChatsOpen(true);
@@ -192,6 +667,7 @@ export function HeroComposer() {
       label: buildProjectLabel(projects),
     };
 
+    cancelVoiceCapture();
     setProjects((currentProjects) => [nextProject, ...currentProjects]);
     setActiveProjectId(nextProject.id);
     setProjectsOpen(true);
@@ -283,6 +759,14 @@ export function HeroComposer() {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       await submitMessage();
+    }
+  }
+
+  function handleMessageChange(nextMessage: string) {
+    setMessage(nextMessage);
+
+    if (voiceNotice?.tone === "error") {
+      setVoiceNotice(null);
     }
   }
 
@@ -528,17 +1012,44 @@ export function HeroComposer() {
           <div className={styles.composerTop}>
             <textarea
               aria-label="Message composer"
+              aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
               className={styles.composerInput}
-              disabled={isSubmitting}
-              onChange={(event) => setMessage(event.target.value)}
+              disabled={isSubmitting || isRecording || isTranscribing}
+              onChange={(event) => handleMessageChange(event.target.value)}
               onKeyDown={(event) => {
                 void handleKeyDown(event);
               }}
-              placeholder="Ask about verification workflows, recruiter trust views, or candidate proof."
+              placeholder={
+                isRecording
+                  ? "Listening to your voice note..."
+                  : isTranscribing
+                    ? "Transcribing your voice note..."
+                    : "Ask about verification workflows, recruiter trust views, or candidate proof."
+              }
+              ref={composerInputRef}
               rows={3}
               value={message}
             />
           </div>
+
+          {voiceNotice ? (
+            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
+              <p
+                className={[
+                  styles.composerStatus,
+                  voiceNotice.tone === "active"
+                    ? styles.composerStatusActive
+                    : voiceNotice.tone === "error"
+                      ? styles.composerStatusError
+                      : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {voiceNotice.message}
+              </p>
+            </div>
+          ) : null}
 
           <div className={styles.composerFooter}>
             <div className={styles.composerStart}>
@@ -554,8 +1065,35 @@ export function HeroComposer() {
             </div>
 
             <div className={styles.composerEnd}>
-              <button aria-label="Voice input" className={styles.iconGhost} type="button">
-                <Mic size={16} strokeWidth={1.9} />
+              <button
+                aria-label={
+                  isRecording
+                    ? "Stop voice input"
+                    : isTranscribing
+                      ? "Transcribing voice input"
+                      : "Start voice input"
+                }
+                aria-pressed={isRecording}
+                className={[
+                  styles.iconGhost,
+                  isRecording ? styles.iconGhostActive : "",
+                  isTranscribing ? styles.iconGhostBusy : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={isSubmitting || isTranscribing}
+                onClick={() => {
+                  void handleVoiceInputToggle();
+                }}
+                type="button"
+              >
+                {isTranscribing ? (
+                  <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
+                ) : isRecording ? (
+                  <Square size={14} strokeWidth={2.2} />
+                ) : (
+                  <Mic size={16} strokeWidth={1.9} />
+                )}
               </button>
               <button
                 aria-label={isSubmitting ? "Generating reply" : "Send message"}

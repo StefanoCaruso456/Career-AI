@@ -223,6 +223,10 @@
   letter-spacing: -0.045em;
 }
 
+.heroTitleLine {
+  display: block;
+}
+
 .chatStage {
   position: relative;
   width: 100%;
@@ -736,6 +740,43 @@
   gap: 0.55rem;
 }
 
+.composerMeta {
+  min-height: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+.composerStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.composerStatus::before {
+  content: "";
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.72;
+}
+
+.composerStatusActive {
+  color: #9c97ff;
+}
+
+.composerStatusActive::before {
+  animation: composerStatusPulse 1.45s ease-out infinite;
+  box-shadow: 0 0 0 0 rgba(123, 116, 255, 0.44);
+}
+
+.composerStatusError {
+  color: #ff8e83;
+}
+
 .composerInput {
   width: 100%;
   min-height: 4.9rem;
@@ -800,6 +841,7 @@
 }
 
 .iconGhost {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -808,6 +850,37 @@
   border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.iconGhost:disabled {
+  cursor: not-allowed;
+  opacity: 0.68;
+}
+
+.iconGhostActive {
+  background: rgba(114, 104, 255, 0.14);
+  color: #f8f7ff;
+  box-shadow:
+    inset 0 0 0 1px rgba(138, 130, 255, 0.88),
+    0 0 0 0 rgba(114, 104, 255, 0.36);
+}
+
+.iconGhostActive::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 999px;
+  border: 1px solid rgba(132, 123, 255, 0.24);
+  animation: voiceButtonPulse 1.55s ease-out infinite;
+}
+
+.iconGhostBusy {
+  color: #a7b8ff;
 }
 
 .voiceButton {
@@ -839,6 +912,37 @@
 @keyframes spinnerTurn {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes composerStatusPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(123, 116, 255, 0.48);
+  }
+
+  70% {
+    box-shadow: 0 0 0 9px rgba(123, 116, 255, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(123, 116, 255, 0);
+  }
+}
+
+@keyframes voiceButtonPulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.96);
+  }
+
+  70% {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.22);
   }
 }
 
@@ -2433,7 +2537,9 @@
   .introRibbonSecondary,
   .introRibbonMesh,
   .introRibbonSpine,
-  .sectionTitleLineHighlight {
+  .sectionTitleLineHighlight,
+  .composerStatusActive::before,
+  .iconGhostActive::after {
     animation: none;
   }
 
