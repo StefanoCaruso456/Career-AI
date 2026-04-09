@@ -1,19 +1,25 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resetAuditStore } from "@/packages/audit-security/src";
-import { resetIdentityStore } from "@/packages/identity-domain/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import { ensureTalentIdentityForSessionUser, requireSessionEmail } from "@/auth-identity";
 
 describe("auth identity provisioning", () => {
-  beforeEach(() => {
-    resetIdentityStore();
+  beforeEach(async () => {
+    await resetTestDatabase();
+    await installTestDatabase();
     resetAuditStore();
   });
 
-  it("creates a Career AI identity from a verified Google session user", () => {
-    const aggregate = ensureTalentIdentityForSessionUser({
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
+  it("creates a Career AI identity from a verified Google session user", async () => {
+    const aggregate = await ensureTalentIdentityForSessionUser({
       user: {
         email: "taylor.morgan@example.com",
         name: "Taylor Morgan",
+        providerUserId: "google-user-1",
       },
       correlationId: "corr-1",
     });
@@ -25,19 +31,21 @@ describe("auth identity provisioning", () => {
     expect(aggregate.soulRecord.talent_identity_id).toBe(aggregate.talentIdentity.id);
   });
 
-  it("reuses the same identity on subsequent sign-ins for the same email", () => {
-    const first = ensureTalentIdentityForSessionUser({
+  it("reuses the same identity on subsequent sign-ins for the same email", async () => {
+    const first = await ensureTalentIdentityForSessionUser({
       user: {
         email: "taylor.morgan@example.com",
         name: "Taylor Morgan",
+        providerUserId: "google-user-1",
       },
       correlationId: "corr-1",
     });
 
-    const second = ensureTalentIdentityForSessionUser({
+    const second = await ensureTalentIdentityForSessionUser({
       user: {
         email: "TAYLOR.MORGAN@example.com",
         name: "Taylor Morgan",
+        providerUserId: "google-user-1",
       },
       correlationId: "corr-2",
     });

@@ -14,6 +14,7 @@ const trackedKeys = [
   "AUTH_URL",
   "CLIENT_ID",
   "CLIENT_SECRET",
+  "DATABASE_URL",
   "GOOGLE_CLIENT_ID",
   "GOOGLE_CLIENT_SECRET",
   "GOOGLE_ID",
@@ -37,7 +38,9 @@ afterEach(() => {
       continue;
     }
 
-    process.env[key] = originalValue;
+    Object.assign(process.env, {
+      [key]: originalValue,
+    });
   }
 });
 
@@ -75,15 +78,19 @@ describe("auth config helpers", () => {
   });
 
   it("derives the Railway public URL when NEXTAUTH_URL is unset", () => {
-    process.env.NODE_ENV = "production";
-    process.env.RAILWAY_PUBLIC_DOMAIN = "career-ai.up.railway.app";
+    Object.assign(process.env, {
+      NODE_ENV: "production",
+      RAILWAY_PUBLIC_DOMAIN: "career-ai.up.railway.app",
+    });
 
     expect(getPublicBaseUrl()).toBe("https://career-ai.up.railway.app");
     expect(getGoogleRedirectUri()).toBe("https://career-ai.up.railway.app/api/auth/callback/google");
   });
 
   it("does not guess a localhost callback when the app URL is unset", () => {
-    process.env.NODE_ENV = "development";
+    Object.assign(process.env, {
+      NODE_ENV: "development",
+    });
 
     expect(getPublicBaseUrl()).toBe("");
     expect(getGoogleRedirectUri()).toBe("");
@@ -94,7 +101,7 @@ describe("auth config helpers", () => {
     process.env.AUTH_URL = "https://career-ai.example.com";
 
     expect(getGoogleAuthDisabledMessage()).toBe(
-      "Google sign-in is disabled until GOOGLE_CLIENT_SECRET or GOOGLE_SECRET and NEXTAUTH_SECRET or AUTH_SECRET are configured.",
+      "Google sign-in is disabled until GOOGLE_CLIENT_SECRET or GOOGLE_SECRET, NEXTAUTH_SECRET or AUTH_SECRET, and DATABASE_URL are configured.",
     );
   });
 
@@ -105,9 +112,9 @@ describe("auth config helpers", () => {
 
     expect(getGoogleAuthStatus()).toEqual({
       disabledMessage:
-        "Google sign-in is disabled until NEXTAUTH_SECRET or AUTH_SECRET is configured.",
+        "Google sign-in is disabled until NEXTAUTH_SECRET or AUTH_SECRET and DATABASE_URL are configured.",
       enabled: false,
-      missingRequirements: ["NEXTAUTH_SECRET or AUTH_SECRET"],
+      missingRequirements: ["NEXTAUTH_SECRET or AUTH_SECRET", "DATABASE_URL"],
       redirectUri: "https://career-ai.up.railway.app/api/auth/callback/google",
     });
   });
@@ -124,6 +131,7 @@ describe("auth module readiness", () => {
       "GOOGLE_CLIENT_SECRET or GOOGLE_SECRET",
       "NEXTAUTH_URL, AUTH_URL, or RAILWAY_PUBLIC_DOMAIN",
       "NEXTAUTH_SECRET or AUTH_SECRET",
+      "DATABASE_URL",
     ]);
     await expect(authModule.auth()).resolves.toBeNull();
   });
@@ -133,6 +141,7 @@ describe("auth module readiness", () => {
     process.env.GOOGLE_CLIENT_SECRET = "project-client-secret";
     process.env.AUTH_URL = "https://career-ai.example.com";
     process.env.AUTH_SECRET = "super-secret";
+    process.env.DATABASE_URL = "postgres://career-ai:secret@localhost:5432/career_ai";
 
     const authModule = await loadAuthModule();
 

@@ -34,7 +34,7 @@ export function GoogleSignInPanel() {
           {isLoading
             ? "The button will enable automatically as soon as the server reports a ready OAuth configuration."
             : status.enabled
-              ? "After authentication, you will land in /account with a Career AI talent identity and soul record provisioned for that verified email."
+              ? "After authentication, the app provisions your persistent user and identity records, then routes you into onboarding or your account based on saved progress."
               : `${disabledMessage} The Google client secret stays on the server.`}
         </p>
       </div>

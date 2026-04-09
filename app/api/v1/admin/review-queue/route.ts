@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     return successResponse(
       {
-        items: listPendingReviewQueue({
+        items: await listPendingReviewQueue({
           correlationId,
         }),
       },

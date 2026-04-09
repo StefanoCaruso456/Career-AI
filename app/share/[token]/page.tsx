@@ -23,7 +23,7 @@ export default async function ShareProfilePage({ params }: PageProps) {
   const { token } = await params;
 
   try {
-    const profile = getRecruiterTrustProfileByToken({
+    const profile = await getRecruiterTrustProfileByToken({
       token,
       actorType: "system_service",
       actorId: "public_request",

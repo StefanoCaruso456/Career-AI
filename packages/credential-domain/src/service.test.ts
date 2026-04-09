@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resetArtifactStore, uploadArtifact, attachArtifactToClaim } from "@/packages/artifact-domain/src";
 import { resetAuditStore } from "@/packages/audit-security/src";
 import {
@@ -7,20 +7,26 @@ import {
   getClaimDetails,
   resetCredentialStore,
 } from "@/packages/credential-domain/src";
-import { createTalentIdentity, resetIdentityStore } from "@/packages/identity-domain/src";
+import { createTalentIdentity } from "@/packages/identity-domain/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import { resetVerificationStore } from "@/packages/verification-domain/src";
 
 describe("credential service", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetArtifactStore();
     resetAuditStore();
     resetCredentialStore();
-    resetIdentityStore();
+    await resetTestDatabase();
+    await installTestDatabase();
     resetVerificationStore();
   });
 
-  it("creates an employment claim with a verification record", () => {
-    const identity = createTalentIdentity({
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
+  it("creates an employment claim with a verification record", async () => {
+    const identity = await createTalentIdentity({
       input: {
         email: "claims@example.com",
         firstName: "Claim",
@@ -32,7 +38,7 @@ describe("credential service", () => {
       correlationId: "corr-1",
     });
 
-    const created = createEmploymentClaim({
+    const created = await createEmploymentClaim({
       input: {
         soulRecordId: identity.soulRecord.id,
         employerName: "Acme Inc",
@@ -52,7 +58,7 @@ describe("credential service", () => {
   });
 
   it("elevates confidence when an artifact is attached", async () => {
-    const identity = createTalentIdentity({
+    const identity = await createTalentIdentity({
       input: {
         email: "claims@example.com",
         firstName: "Claim",
@@ -64,7 +70,7 @@ describe("credential service", () => {
       correlationId: "corr-1",
     });
 
-    const created = createEmploymentClaim({
+    const created = await createEmploymentClaim({
       input: {
         soulRecordId: identity.soulRecord.id,
         employerName: "Acme Inc",

@@ -41,18 +41,24 @@ function toReviewQueueItemDto(item: ReviewQueueItem): ReviewQueueItemDto {
 
 export function listPendingReviewQueue(args: {
   correlationId: string;
-}): ReviewQueueItemDto[] {
+}) {
+  return listPendingReviewQueueAsync(args);
+}
+
+async function listPendingReviewQueueAsync(args: {
+  correlationId: string;
+}): Promise<ReviewQueueItemDto[]> {
   const claimDetails = listClaimDetails({
     correlationId: args.correlationId,
   });
 
-  return claimDetails
-    .map((details) => {
+  const items = await Promise.all(
+    claimDetails.map(async (details) => {
       const claim = getClaim({
         claimId: details.claimId,
         correlationId: args.correlationId,
       });
-      const owner = getTalentIdentityBySoulRecordId({
+      const owner = await getTalentIdentityBySoulRecordId({
         soulRecordId: claim.soul_record_id,
         correlationId: args.correlationId,
       });
@@ -73,7 +79,10 @@ export function listPendingReviewQueue(args: {
       };
 
       return item;
-    })
+    }),
+  );
+
+  return items
     .filter((item) => pendingStatuses.has(item.verification_status))
     .sort((left, right) => right.last_updated_at.localeCompare(left.last_updated_at))
     .map(toReviewQueueItemDto);
@@ -115,7 +124,14 @@ export function submitReviewDecision(args: {
 export function getClaimAuditTrail(args: {
   claimId: string;
   correlationId: string;
-}): AdminClaimAuditDto {
+}) {
+  return getClaimAuditTrailAsync(args);
+}
+
+async function getClaimAuditTrailAsync(args: {
+  claimId: string;
+  correlationId: string;
+}): Promise<AdminClaimAuditDto> {
   const details = getClaimDetails({
     claimId: args.claimId,
     correlationId: args.correlationId,
@@ -124,7 +140,7 @@ export function getClaimAuditTrail(args: {
     claimId: args.claimId,
     correlationId: args.correlationId,
   });
-  const owner = getTalentIdentityBySoulRecordId({
+  const owner = await getTalentIdentityBySoulRecordId({
     soulRecordId: claim.soul_record_id,
     correlationId: args.correlationId,
   });
@@ -184,9 +200,15 @@ export function getClaimAuditTrail(args: {
 }
 
 export function getAdminOpsMetrics() {
+  return getAdminOpsMetricsAsync();
+}
+
+async function getAdminOpsMetricsAsync() {
   return {
-    pendingReviewItems: listPendingReviewQueue({
+    pendingReviewItems: (
+      await listPendingReviewQueue({
       correlationId: "health-admin-metrics",
-    }).length,
+      })
+    ).length,
   };
 }

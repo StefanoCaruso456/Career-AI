@@ -8,6 +8,11 @@ import { getRecruiterReadModelMetrics } from "@/packages/recruiter-read-model/sr
 import { getVerificationServiceMetrics } from "@/packages/verification-domain/src";
 
 export async function GET() {
+  const [identityMetrics, adminOpsMetrics] = await Promise.all([
+    getIdentityServiceMetrics(),
+    getAdminOpsMetrics(),
+  ]);
+
   return NextResponse.json({
     status: "ok",
     services: {
@@ -20,12 +25,12 @@ export async function GET() {
       audit: "up",
     },
     metrics: {
-      identity: getIdentityServiceMetrics(),
+      identity: identityMetrics,
       artifact: getArtifactServiceMetrics(),
       credential: getCredentialServiceMetrics(),
       verification: getVerificationServiceMetrics(),
       recruiterReadModel: getRecruiterReadModelMetrics(),
-      adminOps: getAdminOpsMetrics(),
+      adminOps: adminOpsMetrics,
       auditEvents: listAuditEvents().length,
     },
     generatedAt: new Date().toISOString(),

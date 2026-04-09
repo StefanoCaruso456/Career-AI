@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { createTalentIdentity, resetIdentityStore } from "@/packages/identity-domain/src";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createTalentIdentity } from "@/packages/identity-domain/src";
 import {
   attachArtifactToClaim,
   getArtifactMetadata,
@@ -8,16 +8,22 @@ import {
   uploadArtifact,
 } from "@/packages/artifact-domain/src";
 import { resetAuditStore } from "@/packages/audit-security/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
 describe("artifact service", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetArtifactStore();
-    resetIdentityStore();
+    await resetTestDatabase();
+    await installTestDatabase();
     resetAuditStore();
   });
 
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
   it("stores artifact metadata and checksum", async () => {
-    const talent = createTalentIdentity({
+    const talent = await createTalentIdentity({
       input: {
         email: "artifact@example.com",
         firstName: "Artifact",
@@ -51,7 +57,7 @@ describe("artifact service", () => {
   });
 
   it("links artifacts to claims", async () => {
-    const talent = createTalentIdentity({
+    const talent = await createTalentIdentity({
       input: {
         email: "artifact@example.com",
         firstName: "Artifact",

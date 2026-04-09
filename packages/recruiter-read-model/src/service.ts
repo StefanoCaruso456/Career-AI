@@ -6,6 +6,7 @@ import {
   type GenerateShareProfileInput,
   type GenerateShareQrInput,
   type RecruiterEmploymentRecordView,
+  type TalentIdentity,
   type RecruiterTrustProfile,
   type RecruiterTrustProfileDto,
   type ShareProfileQrDto,
@@ -96,11 +97,11 @@ function buildTrustSummary(args: {
   };
 }
 
-function refreshRecruiterTrustProfileProjection(args: {
+async function refreshRecruiterTrustProfileProjection(args: {
   profile: RecruiterTrustProfile;
   correlationId: string;
 }) {
-  const aggregate = getTalentIdentity({
+  const aggregate = await getTalentIdentity({
     talentIdentityId: args.profile.talent_identity_id,
     correlationId: args.correlationId,
   });
@@ -144,7 +145,7 @@ function refreshRecruiterTrustProfileProjection(args: {
 
 function toRecruiterTrustProfileDto(args: {
   profile: RecruiterTrustProfile;
-  talentIdentity: ReturnType<typeof getTalentIdentity>["talentIdentity"];
+  talentIdentity: TalentIdentity;
   baseUrlOptional?: string;
 }): RecruiterTrustProfileDto {
   return {
@@ -214,9 +215,18 @@ export function generateRecruiterTrustProfile(args: {
   actorType: ActorType;
   actorId: string;
   correlationId: string;
-}): RecruiterTrustProfileDto {
+}) {
+  return generateRecruiterTrustProfileAsync(args);
+}
+
+async function generateRecruiterTrustProfileAsync(args: {
+  input: GenerateShareProfileInput;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}): Promise<RecruiterTrustProfileDto> {
   const input = generateShareProfileInputSchema.parse(args.input);
-  const aggregate = getTalentIdentity({
+  const aggregate = await getTalentIdentity({
     talentIdentityId: input.talentIdentityId,
     correlationId: args.correlationId,
   });
@@ -266,7 +276,7 @@ export function generateRecruiterTrustProfile(args: {
   store.profilesById.set(profile.id, profile);
   store.profileIdByToken.set(profile.public_share_token, profile.id);
 
-  updateSoulRecordReferences({
+  await updateSoulRecordReferences({
     talentIdentityId: aggregate.talentIdentity.id,
     trustSummaryIdOptional: trustSummary.id,
     defaultShareProfileIdOptional: profile.id,
@@ -303,6 +313,16 @@ export function getRecruiterTrustProfileByToken(args: {
   correlationId: string;
   baseUrlOptional?: string;
 }) {
+  return getRecruiterTrustProfileByTokenAsync(args);
+}
+
+async function getRecruiterTrustProfileByTokenAsync(args: {
+  token: string;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+  baseUrlOptional?: string;
+}) {
   const store = getRecruiterReadModelStore();
   const profileId = store.profileIdByToken.get(args.token);
 
@@ -331,7 +351,7 @@ export function getRecruiterTrustProfileByToken(args: {
     });
   }
 
-  const refreshed = refreshRecruiterTrustProfileProjection({
+  const refreshed = await refreshRecruiterTrustProfileProjection({
     profile,
     correlationId: args.correlationId,
   });
@@ -362,13 +382,23 @@ export function generateShareProfileQr(args: {
   actorType: ActorType;
   actorId: string;
   correlationId: string;
-}): ShareProfileQrDto {
+}) {
+  return generateShareProfileQrAsync(args);
+}
+
+async function generateShareProfileQrAsync(args: {
+  profileId: string;
+  input: GenerateShareQrInput;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}): Promise<ShareProfileQrDto> {
   const input = generateShareQrInputSchema.parse(args.input);
   const profile = requireProfileById({
     profileId: args.profileId,
     correlationId: args.correlationId,
   });
-  const aggregate = getTalentIdentity({
+  const aggregate = await getTalentIdentity({
     talentIdentityId: profile.talent_identity_id,
     correlationId: args.correlationId,
   });
