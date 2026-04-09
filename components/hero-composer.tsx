@@ -339,7 +339,7 @@ export function HeroComposer() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
