@@ -296,6 +296,12 @@
   padding: 0.6rem 0.35rem 0;
 }
 
+.chatStarterGroup {
+  display: grid;
+  gap: 0.95rem;
+  max-width: 42rem;
+}
+
 .chatEmptyEyebrow {
   color: rgba(255, 255, 255, 0.42);
   font-size: 0.74rem;
@@ -306,10 +312,57 @@
 
 .chatEmptyBody {
   max-width: 28rem;
-  margin: 0.8rem 0 0;
+  margin: 0;
   color: rgba(255, 255, 255, 0.62);
   font-size: 1rem;
   line-height: 1.7;
+}
+
+.starterQuestionStack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.starterQuestionPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 2.7rem;
+  max-width: min(100%, 24rem);
+  padding: 0.76rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.93rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    transform 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease;
+}
+
+.starterQuestionPill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.3);
+  background:
+    linear-gradient(180deg, rgba(121, 167, 255, 0.14), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.03);
+  color: #f6f8ff;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .transcriptRow {
@@ -1746,6 +1799,7 @@
 .primaryCta:hover,
 .secondaryCta:hover,
 .inlineLink:hover,
+.starterQuestionPill:hover,
 .iconCircle:hover,
 .modePill:hover,
 .iconGhost:hover,
@@ -1758,6 +1812,7 @@
 .primaryCta:focus-visible,
 .secondaryCta:focus-visible,
 .inlineLink:focus-visible,
+.starterQuestionPill:focus-visible,
 .iconCircle:focus-visible,
 .modePill:focus-visible,
 .iconGhost:focus-visible,
@@ -1906,6 +1961,15 @@
     border-radius: 1.7rem;
   }
 
+  .starterQuestionStack {
+    gap: 0.6rem;
+  }
+
+  .starterQuestionPill {
+    max-width: 100%;
+    width: 100%;
+  }
+
   .composerFooter {
     flex-direction: column;
     align-items: stretch;
@@ -2030,6 +2094,7 @@
   .primaryCta:hover,
   .secondaryCta:hover,
   .inlineLink:hover,
+  .starterQuestionPill:hover,
   .iconCircle:hover,
   .modePill:hover,
   .iconGhost:hover,
