@@ -24,9 +24,10 @@ vi.mock("openai", () => ({
 }));
 
 import {
+  generateHomepageAssistantReply,
+  getFallbackHomepageReply,
   OpenAIConfigError,
   OpenAIResponseError,
-  generateHomepageAssistantReply,
   transcribeHomepageAssistantAudio,
 } from "@/packages/homepage-assistant/src";
 
@@ -82,12 +83,23 @@ describe("homepage assistant service", () => {
     expect(openAIConstructorMock).not.toHaveBeenCalled();
   });
 
-  it("throws a response error when the SDK returns an empty reply", async () => {
+  it("falls back when the SDK returns an empty reply", async () => {
     createResponseMock.mockResolvedValue({ output_text: "   " });
 
-    await expect(generateHomepageAssistantReply("Hello")).rejects.toBeInstanceOf(
-      OpenAIResponseError,
+    await expect(generateHomepageAssistantReply("Hello")).resolves.toBe(
+      getFallbackHomepageReply("Hello"),
     );
+  });
+
+  it("falls back when the SDK request throws", async () => {
+    createResponseMock.mockRejectedValue(new Error("upstream exploded"));
+    const consoleErrorMock = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      generateHomepageAssistantReply("How is this different from a resume builder?"),
+    ).resolves.toBe(getFallbackHomepageReply("How is this different from a resume builder?"));
+
+    consoleErrorMock.mockRestore();
   });
 
   it("transcribes uploaded audio with the default transcription model", async () => {
