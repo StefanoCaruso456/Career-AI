@@ -6,7 +6,8 @@
   --builder-soft: rgba(197, 205, 221, 0.48);
   --builder-blue: #92b6ff;
   min-height: 100vh;
-  padding: calc(var(--site-header-clearance) + 1.5rem) 0 4.5rem;
+  --builder-header-gap: clamp(2.35rem, 4vw, 3.1rem);
+  padding: calc(var(--site-header-clearance) + var(--builder-header-gap)) 0 4.5rem;
 }
 
 .shell {
@@ -661,7 +662,7 @@
 
 @media (max-width: 560px) {
   .page {
-    padding-top: calc(var(--site-header-clearance) + 1rem);
+    padding-top: calc(var(--site-header-clearance) + 1.5rem);
   }
 
   .shell {
