@@ -7,10 +7,10 @@
 }
 
 .shell {
-  max-width: 1120px;
+  max-width: 1180px;
   margin: 0 auto;
   display: grid;
-  gap: 1.45rem;
+  gap: 1.3rem;
 }
 
 .hero {
@@ -50,10 +50,10 @@
 
 .title {
   margin: 0;
-  max-width: 12ch;
+  max-width: 13ch;
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(2.5rem, 5vw, 4.4rem);
-  line-height: 0.95;
+  font-size: clamp(2.65rem, 5vw, 4.55rem);
+  line-height: 0.93;
   letter-spacing: -0.05em;
   color: var(--text-primary);
 }
@@ -122,6 +122,251 @@
   line-height: 1.75;
 }
 
+.metricGrid,
+.pipelineGrid,
+.jobsGrid,
+.envList {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.metricGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metricCard,
+.pipelinePanel,
+.jobsPanel,
+.emptyState,
+.jobCard,
+.sourceCard,
+.envCard {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    rgba(15, 20, 31, 0.92);
+  box-shadow:
+    0 24px 52px rgba(0, 0, 0, 0.24),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.metricCard {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.25rem;
+  border-radius: 1.55rem;
+}
+
+.metricCard strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2rem, 3vw, 2.65rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.metricCard p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.pipelineGrid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.pipelinePanel,
+.jobsPanel,
+.emptyState {
+  padding: 1.35rem;
+  border-radius: 1.75rem;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sectionHeader h2 {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.sectionCount {
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(146, 182, 255, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sourceList {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.sourceCard {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem;
+  border-radius: 1.3rem;
+}
+
+.sourceHeader,
+.jobFooter,
+.sourceMetaRow,
+.badgeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.sourceHeader h3,
+.jobCard h3,
+.emptyState h3 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.sourceHeader p,
+.sourceMessage,
+.jobCopy p,
+.jobSnippet,
+.emptyState p,
+.envCard span {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.sourceMetaRow,
+.jobFooter {
+  color: var(--text-tertiary);
+  font-size: 0.88rem;
+}
+
+.statusBadge,
+.qualityBadge,
+.laneBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.statusBadge {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.statusConnected {
+  background: rgba(113, 219, 173, 0.12);
+  color: #b8f8da;
+}
+
+.statusDegraded {
+  background: rgba(244, 186, 96, 0.14);
+  color: #ffd899;
+}
+
+.statusPending {
+  background: rgba(150, 163, 184, 0.12);
+  color: #d9e0ec;
+}
+
+.qualityBadge {
+  background: rgba(146, 182, 255, 0.12);
+  color: #e2ecff;
+}
+
+.laneBadge {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f6f8fd;
+}
+
+.jobsPanel {
+  display: grid;
+  gap: 1rem;
+}
+
+.jobsGrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.jobCard {
+  display: grid;
+  gap: 0.95rem;
+  padding: 1.1rem;
+  border-radius: 1.45rem;
+}
+
+.jobCopy {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.jobCopy h3 {
+  font-size: 1.22rem;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+}
+
+.jobLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  justify-self: start;
+  color: #f3f7ff;
+  font-weight: 700;
+}
+
+.emptyState {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.emptyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 127, 255, 0.22);
+  background: rgba(141, 127, 255, 0.1);
+  color: #f0edff;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.envList {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.envCard {
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1.1rem;
+}
+
+.envCard code {
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .inlineLink {
   display: inline-flex;
   align-items: center;
@@ -131,42 +376,12 @@
   font-weight: 700;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.2rem;
-}
-
-.card {
-  display: grid;
-  gap: 0.8rem;
-  padding: 1.3rem;
-  border-radius: 1.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-    rgba(16, 21, 32, 0.92);
-  box-shadow:
-    0 24px 52px rgba(0, 0, 0, 0.24),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.03);
-}
-
-.card h2 {
-  margin: 0;
-  font-size: 1.18rem;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-}
-
-.card p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
 @media (max-width: 920px) {
   .hero,
-  .grid {
+  .metricGrid,
+  .pipelineGrid,
+  .jobsGrid,
+  .envList {
     grid-template-columns: 1fr;
   }
 
@@ -185,7 +400,20 @@
 
   .hero,
   .heroPanel,
-  .card {
+  .metricCard,
+  .pipelinePanel,
+  .jobsPanel,
+  .jobCard,
+  .sourceCard,
+  .emptyState,
+  .envCard {
     border-radius: 1.45rem;
+  }
+
+  .sectionHeader,
+  .sourceHeader,
+  .sourceMetaRow,
+  .jobFooter {
+    align-items: flex-start;
   }
 }
