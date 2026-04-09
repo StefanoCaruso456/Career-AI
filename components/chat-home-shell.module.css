@@ -257,6 +257,78 @@
   inset: auto 20% 7.25rem;
 }
 
+.chatSidebarReveal {
+  position: absolute;
+  top: 1.2rem;
+  left: 1.15rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.76rem 0.92rem;
+  border: 1px solid rgba(139, 178, 255, 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(121, 167, 255, 0.1), rgba(255, 255, 255, 0.03)),
+    rgba(31, 31, 31, 0.9);
+  color: rgba(245, 247, 255, 0.88);
+  box-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.chatSidebarReveal:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.28);
+}
+
+.chatSidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.chatSidebarCaption {
+  color: rgba(255, 255, 255, 0.36);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.chatSidebarCollapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.68);
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.chatSidebarCollapse:hover {
+  transform: translateY(-1px);
+  color: #f5f7ff;
+  border-color: rgba(139, 178, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(121, 167, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+}
+
 .chatSidebar {
   position: absolute;
   top: 1.3rem;
@@ -344,6 +416,10 @@
   list-style: none;
 }
 
+.chatSidebarList[hidden] {
+  display: none;
+}
+
 .chatSidebarListLabel {
   padding: 0 0.85rem;
   color: rgba(255, 255, 255, 0.4);
@@ -387,12 +463,17 @@
   min-height: inherit;
   transition:
     margin-left 220ms ease,
-    width 220ms ease;
+    width 220ms ease,
+    padding-top 220ms ease;
 }
 
 .chatStageMainShifted {
   width: calc(100% - 16rem);
   margin-left: 16rem;
+}
+
+.chatStageMainExpanded {
+  padding-top: 3.55rem;
 }
 
 .chatTranscript {
@@ -1955,6 +2036,9 @@
 .secondaryCta:focus-visible,
 .inlineLink:focus-visible,
 .starterQuestionPill:focus-visible,
+.chatSidebarToggle:focus-visible,
+.chatSidebarCollapse:focus-visible,
+.chatSidebarReveal:focus-visible,
 .iconCircle:focus-visible,
 .modePill:focus-visible,
 .iconGhost:focus-visible,
@@ -2058,6 +2142,13 @@
     border-radius: 1.8rem;
   }
 
+  .chatSidebarReveal {
+    position: relative;
+    top: auto;
+    left: auto;
+    margin-bottom: 0.95rem;
+  }
+
   .chatSidebar {
     position: relative;
     top: auto;
@@ -2077,6 +2168,10 @@
   .chatStageMainShifted {
     width: 100%;
     margin-left: 0;
+  }
+
+  .chatStageMainExpanded {
+    padding-top: 0;
   }
 
   .chatTranscript {
@@ -2207,6 +2302,10 @@
 
   .chatSidebar {
     padding: 0.68rem;
+  }
+
+  .chatSidebarHeader {
+    gap: 0.6rem;
   }
 
   .chatSidebarToggle {
