@@ -267,6 +267,148 @@
   pointer-events: none;
 }
 
+.chatStageActive::before {
+  inset: auto 20% 7.25rem;
+}
+
+.chatSidebar {
+  position: absolute;
+  top: 1.3rem;
+  bottom: 1.3rem;
+  left: 1.1rem;
+  z-index: 2;
+  width: 14.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.82rem;
+  border: 1px solid rgba(139, 178, 255, 0.15);
+  border-radius: 1.9rem;
+  background:
+    linear-gradient(180deg, rgba(48, 48, 48, 0.94), rgba(28, 28, 28, 0.98)),
+    rgba(20, 20, 20, 0.92);
+  box-shadow:
+    0 28px 48px rgba(0, 0, 0, 0.3),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.04);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  animation: chatSidebarEnter 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chatSidebarSection {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.chatSidebarToggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 1.05rem;
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.84);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.chatSidebarToggle:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.24);
+  background:
+    linear-gradient(180deg, rgba(121, 167, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.03);
+  color: #f5f7ff;
+}
+
+.chatSidebarToggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.chatSidebarChevron {
+  color: rgba(255, 255, 255, 0.42);
+  transition:
+    transform 180ms ease,
+    color 180ms ease;
+}
+
+.chatSidebarChevronOpen {
+  transform: rotate(90deg);
+  color: #d9e5ff;
+}
+
+.chatSidebarList {
+  margin: 0;
+  padding: 0 0.1rem;
+  display: grid;
+  gap: 0.45rem;
+  list-style: none;
+}
+
+.chatSidebarListLabel {
+  padding: 0 0.85rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.chatSidebarItem {
+  padding: 0.76rem 0.85rem;
+  border: 1px solid transparent;
+  border-radius: 0.98rem;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.92rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.chatSidebarItemActive {
+  border-color: rgba(139, 178, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(129, 171, 255, 0.13), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+  color: #f6f8ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.chatSidebarEmpty {
+  margin: 0;
+  padding: 0 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.chatStageMain {
+  position: relative;
+  min-width: 0;
+  min-height: inherit;
+  transition:
+    margin-left 220ms ease,
+    width 220ms ease;
+}
+
+.chatStageMainShifted {
+  width: calc(100% - 16rem);
+  margin-left: 16rem;
+}
+
 .chatTranscript {
   position: relative;
   z-index: 1;
@@ -277,6 +419,18 @@
   max-height: calc(clamp(34rem, 74vh, 50rem) - 11rem);
   overflow-y: auto;
   padding-right: 0.35rem;
+}
+
+@keyframes chatSidebarEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-18px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
 }
 
 .chatTranscript::-webkit-scrollbar {
@@ -1918,6 +2072,27 @@
     border-radius: 1.8rem;
   }
 
+  .chatSidebar {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    margin-bottom: 0.95rem;
+    padding: 0.74rem;
+    border-radius: 1.45rem;
+  }
+
+  .chatStageMain {
+    min-height: 0;
+  }
+
+  .chatStageMainShifted {
+    width: 100%;
+    margin-left: 0;
+  }
+
   .chatTranscript {
     max-height: calc(31rem - 9.4rem);
     gap: 0.85rem;
@@ -2042,6 +2217,22 @@
   .chatStage {
     min-height: 29rem;
     padding-bottom: 10.2rem;
+  }
+
+  .chatSidebar {
+    padding: 0.68rem;
+  }
+
+  .chatSidebarToggle {
+    padding: 0.82rem 0.88rem;
+  }
+
+  .chatSidebarToggleLabel {
+    font-size: 0.94rem;
+  }
+
+  .chatSidebarItem {
+    font-size: 0.88rem;
   }
 
   .chatTranscript {
