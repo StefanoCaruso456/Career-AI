@@ -35,12 +35,12 @@ export default async function SignInPage() {
         <div className={styles.noteCard}>
           <strong>
             {googleOAuthEnabled
-              ? "Google sign-in runs through our server-side OAuth flow."
+              ? "Google sign-in runs through our server-side OAuth and identity provisioning flow."
               : "Google sign-in is disabled locally."}
           </strong>
           <p>
             {googleOAuthEnabled
-              ? "After authentication, you will land in your account workspace at /account."
+              ? "After authentication, you will land in /account with a Career AI talent identity and soul record provisioned for that verified email."
               : `${googleOAuthDisabledMessage} The Google client secret stays on the server.`}
           </p>
         </div>

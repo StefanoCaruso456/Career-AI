@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 import { auth } from "@/auth";
+import { ensureTalentIdentityForSessionUser } from "@/auth-identity";
 import styles from "./page.module.css";
 
 function getFallbackName(name: string | null | undefined, email: string | null | undefined) {
@@ -24,6 +25,13 @@ export default async function AccountPage() {
     redirect("/sign-in");
   }
 
+  const aggregate = ensureTalentIdentityForSessionUser({
+    user: {
+      email: session.user.email,
+      name: session.user.name,
+    },
+    correlationId: `account_page_${session.user.email ?? "unknown"}`,
+  });
   const displayName = getFallbackName(session.user.name, session.user.email);
 
   return (
@@ -51,8 +59,8 @@ export default async function AccountPage() {
               <span className={styles.eyebrow}>Authenticated workspace</span>
               <h1 className={styles.title}>{displayName}</h1>
               <p className={styles.subtitle}>
-                Google sign-in is live on the Railway deployment. This protected page confirms
-                the OAuth callback, session cookie, and account routing are working together.
+                Google sign-in now provisions your Career AI identity automatically, so the
+                OAuth callback, session cookie, and identity record are all working together.
               </p>
             </div>
           </div>
@@ -65,6 +73,10 @@ export default async function AccountPage() {
             <div className={styles.statusRow}>
               <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
               <span>Email verified by Google</span>
+            </div>
+            <div className={styles.statusRow}>
+              <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+              <span>Career AI identity provisioned</span>
             </div>
           </div>
         </section>
@@ -85,15 +97,27 @@ export default async function AccountPage() {
                 <dt>Provider</dt>
                 <dd>Google OAuth</dd>
               </div>
+              <div>
+                <dt>Talent identity ID</dt>
+                <dd>{aggregate.talentIdentity.id}</dd>
+              </div>
+              <div>
+                <dt>Talent Agent ID</dt>
+                <dd>{aggregate.talentIdentity.talent_agent_id}</dd>
+              </div>
+              <div>
+                <dt>Soul record ID</dt>
+                <dd>{aggregate.soulRecord.id}</dd>
+              </div>
             </dl>
           </article>
 
           <article className={styles.panel}>
-            <h2>Recommended next steps</h2>
+            <h2>Backend handoff</h2>
             <ul className={styles.list}>
-              <li>Store your Google client credentials in Railway production variables.</li>
-              <li>Restrict access to future talent or recruiter flows using this session.</li>
-              <li>Connect the authenticated user to a persistent Career AI identity record.</li>
+              <li>Your verified Google session now maps to a Career AI talent identity record.</li>
+              <li>Session-backed identity details are available at <code>/api/v1/me/talent-identity</code>.</li>
+              <li>Next protected flows can rely on the provisioned talent identity and soul record IDs.</li>
             </ul>
             <Link className={styles.inlineLink} href="/">
               Return to homepage

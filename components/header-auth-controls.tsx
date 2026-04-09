@@ -71,7 +71,7 @@ export function HeaderAuthControls({
         </span>
         <span className={styles.accountCopy}>
           <strong>{displayName}</strong>
-          <small>Google connected</small>
+          <small>{session.user.talentAgentId ?? "Google connected"}</small>
         </span>
         <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
       </Link>
