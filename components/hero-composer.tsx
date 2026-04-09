@@ -168,7 +168,7 @@ export function HeroComposer() {
         .filter(Boolean)
         .join(" ")}
     >
-      {conversationStarted && !sidebarOpen ? (
+      {!sidebarOpen ? (
         <button
           aria-expanded={sidebarOpen}
           aria-label="Expand conversation sidebar"
@@ -181,7 +181,7 @@ export function HeroComposer() {
         </button>
       ) : null}
 
-      {conversationStarted && sidebarOpen ? (
+      {sidebarOpen ? (
         <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
           <div className={styles.chatSidebarHeader}>
             <span className={styles.chatSidebarCaption}>Workspace</span>
@@ -299,8 +299,8 @@ export function HeroComposer() {
       <div
         className={[
           styles.chatStageMain,
-          conversationStarted && sidebarOpen ? styles.chatStageMainShifted : "",
-          conversationStarted && !sidebarOpen ? styles.chatStageMainExpanded : "",
+          sidebarOpen ? styles.chatStageMainShifted : "",
+          !sidebarOpen ? styles.chatStageMainExpanded : "",
         ]
           .filter(Boolean)
           .join(" ")}
