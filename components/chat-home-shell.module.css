@@ -202,7 +202,7 @@
   width: min(980px, calc(100% - 2rem));
   min-height: calc(100vh - 82px);
   margin: 0 auto;
-  padding-top: max(var(--site-header-clearance), clamp(3.8rem, 10vh, 6rem));
+  padding-top: max(calc(var(--site-header-clearance) + 1.85rem), clamp(5.6rem, 14vh, 8.1rem));
   padding-bottom: 3rem;
   display: flex;
   flex-direction: column;
@@ -1846,7 +1846,7 @@
 
   .heroInner {
     min-height: auto;
-    padding-top: max(var(--site-header-clearance), 5rem);
+    padding-top: max(calc(var(--site-header-clearance) + 1.2rem), 6.25rem);
   }
 
   .heroTitle {
