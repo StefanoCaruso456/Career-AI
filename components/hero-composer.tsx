@@ -156,6 +156,10 @@ type BrowserSpeechRecognition = {
 
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
+type HeroComposerProps = {
+  onConversationStateChange?: (active: boolean) => void;
+};
+
 type VoiceEnabledWindow = Window &
   typeof globalThis & {
     SpeechRecognition?: BrowserSpeechRecognitionConstructor;
@@ -384,7 +388,7 @@ function formatThreadUpdatedAt(updatedAt: number) {
   }).format(new Date(updatedAt));
 }
 
-export function HeroComposer() {
+export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const sidebarId = useId();
   const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
   const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
@@ -438,6 +442,10 @@ export function HeroComposer() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  useEffect(() => {
+    onConversationStateChange?.(hasActiveConversation);
+  }, [hasActiveConversation, onConversationStateChange]);
 
   useLayoutEffect(() => {
     const transcriptNode = transcriptRef.current;
