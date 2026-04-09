@@ -16,7 +16,7 @@ export function HeaderCenterTab() {
         className={isAgentBuild ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
         href="/agent-build"
       >
-        Agent Build
+        Agent Builder
       </Link>
     </div>
   );

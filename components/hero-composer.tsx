@@ -305,14 +305,12 @@ export function HeroComposer() {
           type="button"
         >
           <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
-          <span>Workspace</span>
         </button>
       ) : null}
 
       {workspaceVisible && sidebarOpen ? (
         <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
           <div className={styles.chatSidebarHeader}>
-            <span className={styles.chatSidebarCaption}>Workspace</span>
             <button
               aria-expanded={sidebarOpen}
               aria-label="Collapse conversation sidebar"
@@ -442,11 +440,11 @@ export function HeroComposer() {
         </aside>
       ) : null}
 
-      <div
-        className={[
-          styles.chatStageMain,
-          workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
-          workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
+        <div
+          className={[
+            styles.chatStageMain,
+            workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+            workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -455,10 +453,6 @@ export function HeroComposer() {
           {transcript.length === 0 ? (
             <div className={styles.chatEmptyState}>
               <div className={styles.chatStarterGroup}>
-                <span className={styles.chatEmptyEyebrow}>Start with a question</span>
-                <p className={styles.chatEmptyBody}>
-                  Tap a prompt to start the conversation instantly, or type your own question below.
-                </p>
                 <div className={styles.starterQuestionStack}>
                   {starterActions.map((action) =>
                     action.kind === "prompt" ? (
