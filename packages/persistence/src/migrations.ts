@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { DatabasePool } from "./client";
-import { getDatabasePool } from "./client";
+import { getDatabasePool, isDatabaseConfigured } from "./client";
 
 const DEFAULT_MIGRATIONS_DIR = resolve(process.cwd(), "db/migrations");
 
@@ -63,15 +63,27 @@ export async function runDatabaseMigrations(options?: {
   return migrations;
 }
 
-async function runCli() {
+export async function runDatabaseMigrationsCli(logger: Pick<Console, "log" | "warn"> = console) {
+  if (!isDatabaseConfigured()) {
+    logger.warn("Skipping database migrations because DATABASE_URL is not configured.");
+
+    return {
+      skipped: true as const,
+    };
+  }
+
   await runDatabaseMigrations();
-  console.log("Database migrations are up to date.");
+  logger.log("Database migrations are up to date.");
+
+  return {
+    skipped: false as const,
+  };
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
 
 if (import.meta.url === invokedPath) {
-  runCli().catch((error) => {
+  runDatabaseMigrationsCli().catch((error) => {
     console.error(error);
     process.exitCode = 1;
   });
