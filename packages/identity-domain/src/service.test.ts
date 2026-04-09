@@ -4,6 +4,7 @@ import {
   createTalentIdentity,
   findTalentIdentityByEmail,
   getTalentIdentity,
+  getTalentIdentityByEmail,
   resetIdentityStore,
   updatePrivacySettings,
 } from "@/packages/identity-domain/src";
@@ -136,5 +137,27 @@ describe("identity service", () => {
         correlationId: "corr-3",
       }),
     ).toBeNull();
+  });
+
+  it("retrieves an existing identity by normalized email", () => {
+    const created = createTalentIdentity({
+      input: {
+        email: "jane@example.com",
+        firstName: "Jane",
+        lastName: "Doe",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-1",
+    });
+
+    const fetched = getTalentIdentityByEmail({
+      email: "JANE@example.com",
+      correlationId: "corr-2",
+    });
+
+    expect(fetched.talentIdentity.id).toBe(created.talentIdentity.id);
+    expect(fetched.soulRecord.id).toBe(created.soulRecord.id);
   });
 });
