@@ -213,14 +213,14 @@
 }
 
 .heroTitle {
-  margin: clamp(0.9rem, 2.4vw, 1.5rem) 0 clamp(2rem, 4.6vw, 3.1rem);
+  margin: clamp(1.7rem, 4.2vw, 2.9rem) 0 clamp(2.9rem, 6.6vw, 4.8rem);
   color: var(--hero-text);
-  font-family: var(--font-body), sans-serif;
-  max-width: 42ch;
-  font-size: clamp(1.45rem, 2.75vw, 2.35rem);
-  font-weight: 700;
-  line-height: 1.12;
-  letter-spacing: -0.035em;
+  font-family: var(--font-display), sans-serif;
+  max-width: 32ch;
+  font-size: clamp(1.52rem, 2.85vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
 }
 
 .chatStage {
@@ -2167,10 +2167,10 @@
   }
 
   .heroTitle {
-    max-width: 28ch;
-    font-size: clamp(1.4rem, 6.1vw, 1.95rem);
-    line-height: 1.14;
-    margin: 0.75rem 0 1.65rem;
+    max-width: 22ch;
+    font-size: clamp(1.5rem, 6.2vw, 2.05rem);
+    line-height: 1.1;
+    margin: 1.25rem 0 2.35rem;
   }
 
   .chatStage {

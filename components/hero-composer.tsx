@@ -440,11 +440,11 @@ export function HeroComposer() {
         </aside>
       ) : null}
 
-        <div
-          className={[
-            styles.chatStageMain,
-            workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
-            workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
+      <div
+        className={[
+          styles.chatStageMain,
+          workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+          workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
         ]
           .filter(Boolean)
           .join(" ")}
