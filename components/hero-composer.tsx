@@ -3,23 +3,30 @@
 import Link from "next/link";
 import {
   ArrowUp,
+  Check,
   ChevronDown,
   ChevronRight,
   Clock3,
+  Ellipsis,
   FolderOpen,
   LoaderCircle,
   MessageSquareText,
   Mic,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Plus,
+  Share2,
   Square,
+  Trash2,
+  X,
 } from "lucide-react";
 import {
   type FormEvent,
-  type KeyboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   startTransition,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -43,6 +50,26 @@ type ChatThread = {
   projectId: string;
   transcript: TranscriptEntry[];
   updatedAt: number;
+};
+
+type SidebarEntityType = "chat" | "project";
+
+type SidebarActionMenu = {
+  id: string;
+  type: SidebarEntityType;
+};
+
+type SidebarRenameDraft = {
+  id: string;
+  type: SidebarEntityType;
+  value: string;
+};
+
+type SidebarNoticeTone = "default" | "error";
+
+type SidebarNotice = {
+  message: string;
+  tone: SidebarNoticeTone;
 };
 
 type ComposerNoticeTone = "active" | "default" | "error";
@@ -218,6 +245,14 @@ function createEntityId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function getSidebarEntityLabel(type: SidebarEntityType) {
+  return type === "project" ? "project" : "chat";
+}
+
+function capitalizeLabel(label: string) {
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+}
+
 function buildThreadLabel(transcript: TranscriptEntry[]) {
   const firstUserEntry = transcript.find((entry) => entry.role === "user");
 
@@ -243,6 +278,7 @@ function buildProjectLabel(projects: ProjectEntry[]) {
 }
 
 export function HeroComposer() {
+  const sidebarId = useId();
   const [message, setMessage] = useState("");
   const [projects, setProjects] = useState(initialProjectCollections);
   const [activeProjectId, setActiveProjectId] = useState(initialProjectCollections[0].id);
@@ -255,8 +291,12 @@ export function HeroComposer() {
   const [chatsOpen, setChatsOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
+  const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
+  const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
+  const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -304,6 +344,84 @@ export function HeroComposer() {
       recordingStreamRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!sidebarNotice) {
+      return;
+    }
+
+    const noticeTimeout = window.setTimeout(() => {
+      setSidebarNotice(null);
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(noticeTimeout);
+    };
+  }, [sidebarNotice]);
+
+  useEffect(() => {
+    if (!sidebarRenameDraft) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      sidebarRenameInputRef.current?.focus();
+      sidebarRenameInputRef.current?.select();
+    });
+  }, [sidebarRenameDraft]);
+
+  useEffect(() => {
+    if (!sidebarActionMenu && !sidebarRenameDraft) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        setSidebarActionMenu(null);
+        setSidebarRenameDraft(null);
+        return;
+      }
+
+      const activeShell = target.closest("[data-sidebar-item-shell='true']");
+      const activeEntityId = activeShell?.getAttribute("data-entity-id");
+      const activeEntityType = activeShell?.getAttribute("data-entity-type");
+
+      const clickedInsideOpenMenu =
+        sidebarActionMenu &&
+        activeEntityId === sidebarActionMenu.id &&
+        activeEntityType === sidebarActionMenu.type;
+      const clickedInsideRename =
+        sidebarRenameDraft &&
+        activeEntityId === sidebarRenameDraft.id &&
+        activeEntityType === sidebarRenameDraft.type;
+
+      if (clickedInsideOpenMenu || clickedInsideRename) {
+        return;
+      }
+
+      setSidebarActionMenu(null);
+      setSidebarRenameDraft(null);
+    }
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setSidebarActionMenu(null);
+      setSidebarRenameDraft(null);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [sidebarActionMenu, sidebarRenameDraft]);
 
   function focusComposer() {
     window.requestAnimationFrame(() => {
@@ -620,6 +738,8 @@ export function HeroComposer() {
 
   function openThread(thread: ChatThread) {
     cancelVoiceCapture();
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
     setTranscript(thread.transcript);
@@ -630,6 +750,8 @@ export function HeroComposer() {
 
   function handleNewChat() {
     cancelVoiceCapture();
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
     setCurrentThreadId(null);
     setTranscript([]);
     setMessage("");
@@ -641,6 +763,8 @@ export function HeroComposer() {
     const nextThread = threads.find((thread) => thread.projectId === projectId);
 
     cancelVoiceCapture();
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
     setActiveProjectId(projectId);
     setProjectsOpen(true);
     setChatsOpen(true);
@@ -664,6 +788,8 @@ export function HeroComposer() {
     };
 
     cancelVoiceCapture();
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
     setProjects((currentProjects) => [nextProject, ...currentProjects]);
     setActiveProjectId(nextProject.id);
     setProjectsOpen(true);
@@ -751,7 +877,7 @@ export function HeroComposer() {
     await submitMessage();
   }
 
-  async function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+  async function handleKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       await submitMessage();
@@ -770,6 +896,379 @@ export function HeroComposer() {
     void submitMessage(question);
   }
 
+  function toggleSidebarActionMenu(type: SidebarEntityType, id: string) {
+    setSidebarRenameDraft(null);
+    setSidebarActionMenu((currentMenu) =>
+      currentMenu?.id === id && currentMenu.type === type ? null : { id, type },
+    );
+  }
+
+  function beginSidebarRename(type: SidebarEntityType, id: string, currentLabel: string) {
+    setSidebarNotice(null);
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft({ id, type, value: currentLabel });
+  }
+
+  function handleSidebarRenameValueChange(value: string) {
+    setSidebarRenameDraft((currentDraft) =>
+      currentDraft
+        ? {
+            ...currentDraft,
+            value,
+          }
+        : currentDraft,
+    );
+  }
+
+  function cancelSidebarRename() {
+    setSidebarRenameDraft(null);
+  }
+
+  function submitSidebarRename() {
+    if (!sidebarRenameDraft) {
+      return;
+    }
+
+    const normalizedLabel = sidebarRenameDraft.value.replace(/\s+/g, " ").trim();
+    const entityLabel = getSidebarEntityLabel(sidebarRenameDraft.type);
+
+    if (!normalizedLabel) {
+      setSidebarNotice({
+        message: `Add a ${entityLabel} name before saving.`,
+        tone: "error",
+      });
+      return;
+    }
+
+    if (sidebarRenameDraft.type === "project") {
+      setProjects((currentProjects) =>
+        currentProjects.map((project) =>
+          project.id === sidebarRenameDraft.id
+            ? {
+                ...project,
+                label: normalizedLabel,
+              }
+            : project,
+        ),
+      );
+    } else {
+      setThreads((currentThreads) =>
+        currentThreads.map((thread) =>
+          thread.id === sidebarRenameDraft.id
+            ? {
+                ...thread,
+                label: normalizedLabel,
+              }
+            : thread,
+        ),
+      );
+    }
+
+    setSidebarRenameDraft(null);
+    setSidebarNotice({
+      message: `${capitalizeLabel(entityLabel)} renamed.`,
+      tone: "default",
+    });
+  }
+
+  async function handleSidebarShare(type: SidebarEntityType, id: string) {
+    const entityLabel = getSidebarEntityLabel(type);
+    const item =
+      type === "project"
+        ? projects.find((project) => project.id === id)
+        : threads.find((thread) => thread.id === id);
+
+    if (!item || typeof window === "undefined") {
+      return;
+    }
+
+    const shareUrl = window.location.href;
+    const shareTitle = item.label;
+    const shareText = `Career AI ${entityLabel}: ${item.label}`;
+
+    setSidebarActionMenu(null);
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          text: shareText,
+          title: shareTitle,
+          url: shareUrl,
+        });
+        setSidebarNotice({
+          message: `${capitalizeLabel(entityLabel)} shared.`,
+          tone: "default",
+        });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+        setSidebarNotice({
+          message: `${capitalizeLabel(entityLabel)} link copied.`,
+          tone: "default",
+        });
+        return;
+      }
+
+      throw new Error("Sharing is not supported in this browser.");
+    } catch (shareError) {
+      if (shareError instanceof DOMException && shareError.name === "AbortError") {
+        return;
+      }
+
+      setSidebarNotice({
+        message:
+          shareError instanceof Error
+            ? shareError.message
+            : `The ${entityLabel} could not be shared right now.`,
+        tone: "error",
+      });
+    }
+  }
+
+  function handleProjectDelete(projectId: string) {
+    const project = projects.find((currentProject) => currentProject.id === projectId);
+
+    if (!project) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete "${project.label}" and its chats?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    cancelVoiceCapture();
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+
+    const remainingProjects = projects.filter((currentProject) => currentProject.id !== projectId);
+    const remainingThreads = threads.filter((thread) => thread.projectId !== projectId);
+
+    let nextProjects = remainingProjects;
+    let nextActiveProjectId = activeProjectId;
+
+    if (remainingProjects.length === 0) {
+      const replacementProject: ProjectEntry = {
+        id: createEntityId("project"),
+        label: "New project",
+      };
+
+      nextProjects = [replacementProject];
+      nextActiveProjectId = replacementProject.id;
+    } else if (activeProjectId === projectId) {
+      nextActiveProjectId = remainingProjects[0].id;
+    }
+
+    const nextThread = remainingThreads.find((thread) => thread.projectId === nextActiveProjectId);
+
+    setProjects(nextProjects);
+    setThreads(remainingThreads);
+    setActiveProjectId(nextActiveProjectId);
+    setCurrentThreadId(nextThread?.id ?? null);
+    setTranscript(nextThread?.transcript ?? []);
+    setMessage("");
+    setSidebarNotice({
+      message: "Project deleted.",
+      tone: "default",
+    });
+  }
+
+  function handleChatDelete(chatId: string) {
+    const chat = threads.find((currentChat) => currentChat.id === chatId);
+
+    if (!chat) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete "${chat.label}"?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    cancelVoiceCapture();
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+
+    const remainingThreads = threads.filter((thread) => thread.id !== chatId);
+
+    setThreads(remainingThreads);
+
+    if (currentThreadId === chatId) {
+      const nextThread = remainingThreads.find((thread) => thread.projectId === activeProjectId);
+
+      setCurrentThreadId(nextThread?.id ?? null);
+      setTranscript(nextThread?.transcript ?? []);
+      setMessage("");
+    }
+
+    setSidebarNotice({
+      message: "Chat deleted.",
+      tone: "default",
+    });
+  }
+
+  function renderSidebarItemRow({
+    id,
+    isActive,
+    label,
+    onDelete,
+    onSelect,
+    type,
+  }: {
+    id: string;
+    isActive: boolean;
+    label: string;
+    onDelete: () => void;
+    onSelect: () => void;
+    type: SidebarEntityType;
+  }) {
+    const isMenuOpen = sidebarActionMenu?.id === id && sidebarActionMenu.type === type;
+    const isRenaming = sidebarRenameDraft?.id === id && sidebarRenameDraft.type === type;
+    const entityLabel = getSidebarEntityLabel(type);
+    const menuId = `${sidebarId}-${type}-${id}-menu`;
+
+    return (
+      <div
+        className={styles.chatSidebarItemShell}
+        data-entity-id={id}
+        data-entity-type={type}
+        data-sidebar-item-shell="true"
+        key={id}
+      >
+        {isRenaming ? (
+          <form
+            className={styles.chatSidebarRenameForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitSidebarRename();
+            }}
+          >
+            <input
+              aria-label={`Rename ${entityLabel}`}
+              className={styles.chatSidebarRenameInput}
+              onChange={(event) => handleSidebarRenameValueChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancelSidebarRename();
+                }
+              }}
+              ref={sidebarRenameInputRef}
+              type="text"
+              value={sidebarRenameDraft?.value ?? ""}
+            />
+            <div className={styles.chatSidebarRenameActions}>
+              <button
+                aria-label={`Save ${entityLabel} name`}
+                className={[
+                  styles.chatSidebarRenameAction,
+                  styles.chatSidebarRenameActionConfirm,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                type="submit"
+              >
+                <Check aria-hidden="true" size={14} strokeWidth={2.1} />
+              </button>
+              <button
+                aria-label={`Cancel renaming ${entityLabel}`}
+                className={[
+                  styles.chatSidebarRenameAction,
+                  styles.chatSidebarRenameActionCancel,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={cancelSidebarRename}
+                type="button"
+              >
+                <X aria-hidden="true" size={14} strokeWidth={2.1} />
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className={styles.chatSidebarItemRow}>
+            <button
+              className={[
+                styles.chatSidebarItem,
+                styles.chatSidebarItemButton,
+                isActive ? styles.chatSidebarItemActive : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={onSelect}
+              type="button"
+            >
+              {label}
+            </button>
+            <button
+              aria-controls={menuId}
+              aria-expanded={isMenuOpen}
+              aria-haspopup="menu"
+              aria-label={`${capitalizeLabel(entityLabel)} actions`}
+              className={[
+                styles.chatSidebarItemMenuTrigger,
+                isMenuOpen ? styles.chatSidebarItemMenuTriggerVisible : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={() => toggleSidebarActionMenu(type, id)}
+              type="button"
+            >
+              <Ellipsis aria-hidden="true" size={16} strokeWidth={2.1} />
+            </button>
+
+            {isMenuOpen ? (
+              <div
+                className={styles.chatSidebarItemMenu}
+                id={menuId}
+                role="menu"
+                aria-label={`${capitalizeLabel(entityLabel)} actions`}
+              >
+                <button
+                  className={styles.chatSidebarItemMenuAction}
+                  onClick={() => void handleSidebarShare(type, id)}
+                  role="menuitem"
+                  type="button"
+                >
+                  <Share2 aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>Share</span>
+                </button>
+                <button
+                  className={styles.chatSidebarItemMenuAction}
+                  onClick={() => beginSidebarRename(type, id, label)}
+                  role="menuitem"
+                  type="button"
+                >
+                  <Pencil aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>{`Rename ${entityLabel}`}</span>
+                </button>
+                <div className={styles.chatSidebarItemMenuDivider} />
+                <button
+                  className={[
+                    styles.chatSidebarItemMenuAction,
+                    styles.chatSidebarItemMenuDanger,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  onClick={onDelete}
+                  role="menuitem"
+                  type="button"
+                >
+                  <Trash2 aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>{`Delete ${entityLabel}`}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <section
       className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
@@ -781,7 +1280,11 @@ export function HeroComposer() {
           aria-expanded={sidebarOpen}
           aria-label="Expand conversation sidebar"
           className={styles.chatSidebarReveal}
-          onClick={() => setSidebarOpen(true)}
+          onClick={() => {
+            setSidebarActionMenu(null);
+            setSidebarRenameDraft(null);
+            setSidebarOpen(true);
+          }}
           type="button"
         >
           <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
@@ -795,7 +1298,11 @@ export function HeroComposer() {
               aria-expanded={sidebarOpen}
               aria-label="Collapse conversation sidebar"
               className={styles.chatSidebarCollapse}
-              onClick={() => setSidebarOpen(false)}
+              onClick={() => {
+                setSidebarActionMenu(null);
+                setSidebarRenameDraft(null);
+                setSidebarOpen(false);
+              }}
               type="button"
             >
               <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.9} />
@@ -840,19 +1347,15 @@ export function HeroComposer() {
               id="chat-project-collection"
             >
               {projects.map((project) => (
-                <li key={project.id}>
-                  <button
-                    className={[
-                      styles.chatSidebarItem,
-                      project.id === activeProjectId ? styles.chatSidebarItemActive : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    onClick={() => handleProjectSelect(project.id)}
-                    type="button"
-                  >
-                    {project.label}
-                  </button>
+                <li className={styles.chatSidebarListRow} key={project.id}>
+                  {renderSidebarItemRow({
+                    id: project.id,
+                    isActive: project.id === activeProjectId,
+                    label: project.label,
+                    onDelete: () => handleProjectDelete(project.id),
+                    onSelect: () => handleProjectSelect(project.id),
+                    type: "project",
+                  })}
                 </li>
               ))}
             </ul>
@@ -898,25 +1401,36 @@ export function HeroComposer() {
               <span className={styles.chatSidebarListLabel}>Collection</span>
               {recentChats.length > 0 ? (
                 recentChats.map((chat) => (
-                  <button
-                    className={[
-                      styles.chatSidebarItem,
-                      chat.id === currentThreadId ? styles.chatSidebarItemActive : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    key={chat.id}
-                    onClick={() => openThread(chat)}
-                    type="button"
-                  >
-                    {chat.label}
-                  </button>
+                  <div className={styles.chatSidebarListRow} key={chat.id}>
+                    {renderSidebarItemRow({
+                      id: chat.id,
+                      isActive: chat.id === currentThreadId,
+                      label: chat.label,
+                      onDelete: () => handleChatDelete(chat.id),
+                      onSelect: () => openThread(chat),
+                      type: "chat",
+                    })}
+                  </div>
                 ))
               ) : (
                 <p className={styles.chatSidebarEmpty}>Start a new chat to collect threads here.</p>
               )}
             </div>
           </div>
+
+          {sidebarNotice ? (
+            <p
+              aria-live="polite"
+              className={[
+                styles.chatSidebarNotice,
+                sidebarNotice.tone === "error" ? styles.chatSidebarNoticeError : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {sidebarNotice.message}
+            </p>
+          ) : null}
         </aside>
       ) : null}
 
