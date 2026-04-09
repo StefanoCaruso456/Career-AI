@@ -22,6 +22,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
 import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -983,15 +984,22 @@ export function HeroComposer() {
         upsertThread(threadId, projectId, nextAssistantTranscript);
       });
     } catch (requestError) {
+      const fallbackReply = getFallbackHomepageReply(prompt);
+      const recoveredMessage =
+        requestError instanceof Error
+          ? ["Failed to fetch", "The assistant could not respond.", "The assistant could not generate a reply right now."].includes(
+              requestError.message,
+            )
+            ? fallbackReply
+            : requestError.message
+          : fallbackReply;
+
       startTransition(() => {
         const nextAssistantTranscript = [
           ...nextUserTranscript,
           {
-            content:
-              requestError instanceof Error
-                ? requestError.message
-                : "The assistant could not respond.",
-            error: true,
+            content: recoveredMessage,
+            error: recoveredMessage !== fallbackReply,
             id: `${requestId}-assistant-error`,
             role: "assistant" as const,
           },
