@@ -29,7 +29,11 @@ function getInitials(name: string | null | undefined, email: string | null | und
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-export function HeaderAuthControls() {
+export function HeaderAuthControls({
+  googleOAuthEnabled,
+}: {
+  googleOAuthEnabled: boolean;
+}) {
   const { data: session, status } = useSession();
 
   if (status === "loading") {
@@ -49,6 +53,7 @@ export function HeaderAuthControls() {
         <AuthModalTrigger
           className={styles.primaryAction}
           defaultMode="signup"
+          googleOAuthEnabled={googleOAuthEnabled}
           label="Getting Started"
         />
       </div>

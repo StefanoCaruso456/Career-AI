@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { googleOAuthEnabled, auth } from "@/auth";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import styles from "./page.module.css";
+
+const googleDisabledMessage =
+  "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to enable Google sign-in.";
 
 export default async function SignInPage() {
   const session = await auth();
@@ -20,13 +23,28 @@ export default async function SignInPage() {
           your protected Career AI workspace.
         </p>
 
-        <GoogleSignInButton callbackUrl="/account" label="Sign in with Google" />
+        <GoogleSignInButton
+          callbackUrl="/account"
+          disabled={!googleOAuthEnabled}
+          disabledLabel="Google sign-in unavailable"
+          disabledTitle={
+            googleOAuthEnabled
+              ? undefined
+              : googleDisabledMessage
+          }
+          label="Sign in with Google"
+        />
 
         <div className={styles.noteCard}>
-          <strong>Google sign-in runs through our server-side OAuth flow.</strong>
+          <strong>
+            {googleOAuthEnabled
+              ? "Google sign-in runs through our server-side OAuth flow."
+              : "Google sign-in is disabled locally."}
+          </strong>
           <p>
-            The Google client secret stays on the server. If sign-in is unavailable here, this environment still
-            needs the backend OAuth credentials or callback URL configured correctly.
+            {googleOAuthEnabled
+              ? "After authentication, you will land in your account workspace at /account."
+              : `${googleDisabledMessage} The Google client secret stays on the server.`}
           </p>
         </div>
       </section>

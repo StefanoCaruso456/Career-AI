@@ -41,15 +41,6 @@
 
 .headerCopy {
   display: grid;
-  gap: 0.22rem;
-}
-
-.eyebrow {
-  color: #a6b6ff;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .title {
@@ -245,6 +236,19 @@
   margin-top: 0.7rem;
   display: grid;
   gap: 0.7rem;
+}
+
+.googleStatusNote {
+  margin: 0;
+  padding: 0.82rem 0.92rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+  color: rgba(244, 247, 252, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.55;
 }
 
 .trustRow {

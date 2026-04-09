@@ -33,10 +33,14 @@ function GoogleMark() {
 export function GoogleSignInButton({
   callbackUrl,
   disabled = false,
+  disabledLabel = "Google sign-in unavailable",
+  disabledTitle,
   label = "Continue with Google",
 }: {
   callbackUrl: string;
   disabled?: boolean;
+  disabledLabel?: string;
+  disabledTitle?: string;
   label?: string;
 }) {
   const [isPending, setIsPending] = useState(false);
@@ -64,22 +68,35 @@ export function GoogleSignInButton({
     };
   }, []);
 
-  const isConfigured = providerStatus === "ready";
-  const isDisabled = disabled || isPending || !isConfigured;
-  const buttonLabel = isPending
+  const isProviderReady = providerStatus === "ready";
+  const isDisabled = disabled || isPending || !isProviderReady;
+  const displayLabel = isPending
     ? "Opening Google..."
-    : providerStatus === "checking"
-      ? "Checking Google sign-in..."
-      : providerStatus === "unavailable"
-        ? "Google sign-in unavailable"
-        : label;
+    : disabled
+      ? disabledLabel
+      : providerStatus === "checking"
+        ? "Checking Google sign-in..."
+        : providerStatus === "unavailable"
+          ? disabledLabel
+          : label;
+  const buttonTitle = disabled
+    ? disabledTitle
+    : providerStatus === "unavailable"
+      ? disabledLabel
+      : undefined;
 
   return (
     <button
-      className={styles.button}
+      aria-disabled={isDisabled}
+      className={[
+        styles.button,
+        disabled || providerStatus === "unavailable" ? styles.buttonDisabled : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       disabled={isDisabled}
       onClick={() => {
-        if (isDisabled || !isConfigured) {
+        if (isDisabled) {
           return;
         }
 
@@ -88,12 +105,13 @@ export function GoogleSignInButton({
           setIsPending(false);
         });
       }}
+      title={buttonTitle}
       type="button"
     >
       <span className={styles.iconShell} aria-hidden="true">
         {isPending ? <LoaderCircle className={styles.spinner} size={18} strokeWidth={2} /> : <GoogleMark />}
       </span>
-      <span className={styles.label}>{buttonLabel}</span>
+      <span className={styles.label}>{displayLabel}</span>
       <span className={styles.trailingSlot} aria-hidden="true" />
     </button>
   );

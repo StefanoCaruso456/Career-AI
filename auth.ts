@@ -17,7 +17,7 @@ if (!process.env.NEXTAUTH_SECRET && authSecret) {
 }
 
 export const googleOAuthEnabled = Boolean(
-  googleClientId && googleClientSecret,
+  googleClientId && googleClientSecret && publicBaseUrl && authSecret,
 );
 
 export const publicOrigin = publicBaseUrl;

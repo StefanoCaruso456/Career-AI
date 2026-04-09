@@ -18,13 +18,13 @@ type AuthModalTriggerProps = {
   callbackUrl?: string;
   className?: string;
   defaultMode?: AuthMode;
+  googleOAuthEnabled: boolean;
   label: string;
 };
 
 function getModeCopy(mode: AuthMode) {
   if (mode === "signup") {
     return {
-      eyebrow: "Create your account",
       title: "Create your Career AI account",
       copy:
         "Build a verified career identity to increase credibility, attract employers, and get hired faster.",
@@ -36,7 +36,6 @@ function getModeCopy(mode: AuthMode) {
   }
 
   return {
-    eyebrow: "Welcome back",
     title: "Sign in to Career AI",
     copy:
       "Return to your workspace and pick up your verified profile where you left it.",
@@ -58,6 +57,7 @@ export function AuthModalTrigger({
   callbackUrl = "/account",
   className,
   defaultMode = "signin",
+  googleOAuthEnabled,
   label,
 }: AuthModalTriggerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -143,6 +143,8 @@ export function AuthModalTrigger({
   }
 
   const modeCopy = getModeCopy(mode);
+  const googleDisabledMessage =
+    "Google sign-in is disabled here until GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET are configured.";
   const modal =
     isMounted && isOpen
       ? createPortal(
@@ -160,7 +162,6 @@ export function AuthModalTrigger({
             >
               <div className={styles.header}>
                 <div className={styles.headerCopy}>
-                  <span className={styles.eyebrow}>{modeCopy.eyebrow}</span>
                   <h2 className={styles.title} id={titleId}>
                     {modeCopy.title}
                   </h2>
@@ -275,7 +276,18 @@ export function AuthModalTrigger({
               </div>
 
               <div className={styles.actionBlock}>
-                <GoogleSignInButton callbackUrl={callbackUrl} label={modeCopy.buttonLabel} />
+                <GoogleSignInButton
+                  callbackUrl={callbackUrl}
+                  disabled={!googleOAuthEnabled}
+                  disabledLabel="Google sign-in unavailable"
+                  disabledTitle={googleOAuthEnabled ? undefined : googleDisabledMessage}
+                  label={modeCopy.buttonLabel}
+                />
+                {!googleOAuthEnabled ? (
+                  <p className={styles.googleStatusNote} role="status">
+                    {googleDisabledMessage}
+                  </p>
+                ) : null}
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
