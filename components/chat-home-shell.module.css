@@ -230,7 +230,7 @@
   margin: 0;
   color: var(--hero-text);
   font-family: var(--font-body), sans-serif;
-  max-width: 24ch;
+  max-width: 42ch;
   font-size: clamp(1.45rem, 2.75vw, 2.35rem);
   font-weight: 700;
   line-height: 1.12;
@@ -2061,7 +2061,7 @@
   }
 
   .heroTitle {
-    max-width: 22ch;
+    max-width: 28ch;
     font-size: clamp(1.4rem, 6.1vw, 1.95rem);
     line-height: 1.14;
   }
