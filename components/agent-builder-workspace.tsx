@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   FileCheck2,
   ShieldCheck,
-  Sparkles,
   Upload,
   UserRoundCheck,
   Workflow,
@@ -697,11 +696,7 @@ export function AgentBuilderWorkspace() {
       <div className={styles.shell}>
         <section className={styles.hero}>
           <div className={styles.heroCopy}>
-            <span className={styles.heroEyebrow}>
-              <Sparkles aria-hidden="true" size={15} strokeWidth={2} />
-              Career AI Agent Builder
-            </span>
-            <h1 className={styles.heroTitle}>Build and grow your soul.md</h1>
+            <h1 className={styles.heroTitle}>Build and grow your agent ID</h1>
             <p className={styles.heroBody}>
               Create the living credibility profile behind your verified career identity.
               Start with self-reported context, attach trusted evidence, and keep appending
