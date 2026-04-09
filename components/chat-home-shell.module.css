@@ -213,7 +213,7 @@
 }
 
 .heroTitle {
-  margin: 0;
+  margin: clamp(0.9rem, 2.4vw, 1.5rem) 0 clamp(2rem, 4.6vw, 3.1rem);
   color: var(--hero-text);
   font-family: var(--font-body), sans-serif;
   max-width: 42ch;
@@ -2134,6 +2134,7 @@
     max-width: 28ch;
     font-size: clamp(1.4rem, 6.1vw, 1.95rem);
     line-height: 1.14;
+    margin: 0.75rem 0 1.65rem;
   }
 
   .chatStage {
