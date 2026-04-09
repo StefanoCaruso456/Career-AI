@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       allowAnonymousSystemActor: true,
     });
     const { shareProfileKey } = await context.params;
-    const profile = getRecruiterTrustProfileByToken({
+    const profile = await getRecruiterTrustProfileByToken({
       token: shareProfileKey,
       actorType: actor.actorType,
       actorId: actor.actorId,

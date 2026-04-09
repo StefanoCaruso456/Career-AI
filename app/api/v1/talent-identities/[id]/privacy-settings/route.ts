@@ -23,7 +23,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     assertTalentIdentityAccess(actor, id, correlationId);
     const body = updatePrivacySettingsInputSchema.parse(await request.json());
-    const aggregate = updatePrivacySettings({
+    const aggregate = await updatePrivacySettings({
       talentIdentityId: id,
       input: body,
       actorType:

@@ -1,22 +1,28 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getClaimAuditTrail, listPendingReviewQueue, submitReviewDecision } from "@/packages/admin-ops/src";
 import { addProvenanceRecord, resetVerificationStore } from "@/packages/verification-domain/src";
 import { resetAuditStore } from "@/packages/audit-security/src";
 import { resetArtifactStore } from "@/packages/artifact-domain/src";
 import { createEmploymentClaim, resetCredentialStore } from "@/packages/credential-domain/src";
-import { createTalentIdentity, resetIdentityStore } from "@/packages/identity-domain/src";
+import { createTalentIdentity } from "@/packages/identity-domain/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
 describe("admin operations service", () => {
-  beforeEach(() => {
-    resetIdentityStore();
+  beforeEach(async () => {
+    await resetTestDatabase();
+    await installTestDatabase();
     resetCredentialStore();
     resetVerificationStore();
     resetArtifactStore();
     resetAuditStore();
   });
 
-  it("lists pending review items and resolves them through reviewer decisions", () => {
-    const aggregate = createTalentIdentity({
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
+  it("lists pending review items and resolves them through reviewer decisions", async () => {
+    const aggregate = await createTalentIdentity({
       input: {
         email: "review@example.com",
         firstName: "Review",
@@ -28,7 +34,7 @@ describe("admin operations service", () => {
       correlationId: "corr-1",
     });
 
-    const created = createEmploymentClaim({
+    const created = await createEmploymentClaim({
       input: {
         soulRecordId: aggregate.soulRecord.id,
         employerName: "Signal Labs",
@@ -41,7 +47,7 @@ describe("admin operations service", () => {
       correlationId: "corr-2",
     });
 
-    const queue = listPendingReviewQueue({
+    const queue = await listPendingReviewQueue({
       correlationId: "corr-3",
     });
 
@@ -61,14 +67,14 @@ describe("admin operations service", () => {
     });
 
     expect(
-      listPendingReviewQueue({
+      await listPendingReviewQueue({
         correlationId: "corr-5",
       }),
     ).toHaveLength(0);
   });
 
-  it("builds an audit trail with provenance and related audit events", () => {
-    const aggregate = createTalentIdentity({
+  it("builds an audit trail with provenance and related audit events", async () => {
+    const aggregate = await createTalentIdentity({
       input: {
         email: "audit@example.com",
         firstName: "Audit",
@@ -80,7 +86,7 @@ describe("admin operations service", () => {
       correlationId: "corr-1",
     });
 
-    const created = createEmploymentClaim({
+    const created = await createEmploymentClaim({
       input: {
         soulRecordId: aggregate.soulRecord.id,
         employerName: "Atlas Works",
@@ -108,7 +114,7 @@ describe("admin operations service", () => {
       correlationId: "corr-3",
     });
 
-    const trail = getClaimAuditTrail({
+    const trail = await getClaimAuditTrail({
       claimId: created.claim.id,
       correlationId: "corr-4",
     });

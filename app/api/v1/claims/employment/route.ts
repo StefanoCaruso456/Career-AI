@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       "create employment claims",
     );
     const body = createEmploymentClaimInputSchema.parse(await request.json());
-    const owner = getTalentIdentityBySoulRecordId({
+    const owner = await getTalentIdentityBySoulRecordId({
       soulRecordId: body.soulRecordId,
       correlationId,
     });
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       assertTalentIdentityAccess(actor, owner.talentIdentity.id, correlationId);
     }
 
-    const result = createEmploymentClaim({
+    const result = await createEmploymentClaim({
       input: body,
       actorType: actor.actorType,
       actorId: actor.actorId,

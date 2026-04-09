@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       "attach artifacts to claims",
     );
     const { claimId } = await context.params;
-    const ownerIdentityId = getClaimOwnerIdentityId({
+    const ownerIdentityId = await getClaimOwnerIdentityId({
       claimId,
       correlationId,
     });

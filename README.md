@@ -31,7 +31,8 @@ The product creates a persistent, portable candidate identity that stores truste
 ```bash
 npm install
 cp .env.example .env.local
-# add your OPENAI_API_KEY and Google auth settings to .env.local
+# add your OPENAI_API_KEY, Google auth settings, and DATABASE_URL to .env.local
+npm run db:migrate
 npm run dev
 ```
 
@@ -48,6 +49,7 @@ Required server-side environment variables:
 - `NEXTAUTH_SECRET` or `AUTH_SECRET`
 - `GOOGLE_CLIENT_ID` or `GOOGLE_ID`
 - `GOOGLE_CLIENT_SECRET` or `GOOGLE_SECRET`
+- `DATABASE_URL`
 
 The auth flow also accepts legacy aliases if you already created them that way:
 
@@ -83,7 +85,9 @@ If you run the app on a different local port, update both `NEXTAUTH_URL` and the
 After configuration:
 
 - `/sign-in` starts the Google flow
-- `/account` is a protected page that requires a valid session
+- first-time users are routed into the resumable `/onboarding` flow
+- returning users resume onboarding until completed
+- `/account` reads the persistent Postgres-backed user and identity records after onboarding is complete
 
 ## Deployment
 
@@ -113,7 +117,7 @@ Optional GitHub repository variables:
 The Railway deployment is configured in `railway.toml` with:
 
 - `npm run build` as the build command
-- `npm run start` as the start command
+- `npm run db:migrate && npm run start` as the start command
 - `/api/v1/health` as the healthcheck path
 
 If you connect a public domain in Railway, this Next.js app is ready to serve it without additional code changes.

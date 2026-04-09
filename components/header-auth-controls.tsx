@@ -33,7 +33,15 @@ function getInitials(name: string | null | undefined, email: string | null | und
 export function HeaderAuthControls() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
-  const isAccountPage = pathname === "/account" || pathname.startsWith("/account/");
+  const shouldResumeOnboarding =
+    session?.user?.onboardingStatus !== null &&
+    session?.user?.onboardingStatus !== undefined &&
+    session.user.onboardingStatus !== "completed";
+  const accountHref = shouldResumeOnboarding ? "/onboarding" : "/account";
+  const isAccountPage =
+    accountHref === "/account"
+      ? pathname === "/account" || pathname.startsWith("/account/")
+      : pathname === "/onboarding" || pathname.startsWith("/onboarding/");
 
   if (status === "loading") {
     return (
@@ -60,6 +68,12 @@ export function HeaderAuthControls() {
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
+  const accountLabel = shouldResumeOnboarding ? "Finish onboarding" : displayName;
+  const accountMeta = shouldResumeOnboarding
+    ? session.user.currentStep
+      ? `Step ${session.user.currentStep} of 4`
+      : "Resume setup"
+    : session.user.talentAgentId ?? "Google connected";
 
   return (
     <div className={styles.actions}>
@@ -70,14 +84,14 @@ export function HeaderAuthControls() {
             ? `${styles.accountAction} ${styles.accountActionCurrent}`
             : styles.accountAction
         }
-        href="/account"
+        href={accountHref}
       >
         <span className={styles.accountAvatar} aria-hidden="true">
           {initials}
         </span>
         <span className={styles.accountCopy}>
-          <strong>{displayName}</strong>
-          <small>{session.user.talentAgentId ?? "Google connected"}</small>
+          <strong>{accountLabel}</strong>
+          <small>{accountMeta}</small>
         </span>
         <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
       </Link>

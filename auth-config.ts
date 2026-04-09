@@ -10,6 +10,10 @@ function readFirstEnv(...keys: string[]) {
   return "";
 }
 
+export function getDatabaseUrl() {
+  return readFirstEnv("DATABASE_URL");
+}
+
 function joinWithAnd(values: string[]) {
   if (values.length <= 1) {
     return values[0] ?? "";
@@ -80,6 +84,10 @@ export function getGoogleAuthMissingRequirements() {
 
   if (!getAuthSecret()) {
     missingRequirements.push("NEXTAUTH_SECRET or AUTH_SECRET");
+  }
+
+  if (!getDatabaseUrl()) {
+    missingRequirements.push("DATABASE_URL");
   }
 
   return missingRequirements;

@@ -3,19 +3,17 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 import { auth } from "@/auth";
-import { ensureTalentIdentityForSessionUser } from "@/auth-identity";
+import {
+  ensurePersistentCareerIdentityForSessionUser,
+  getDisplayNameForContext,
+} from "@/auth-identity";
 import styles from "./page.module.css";
 
-function getFallbackName(name: string | null | undefined, email: string | null | undefined) {
-  if (name?.trim()) {
-    return name.trim();
-  }
-
-  if (email?.trim()) {
-    return email.split("@")[0];
-  }
-
-  return "Verified user";
+function formatTimestamp(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 export default async function AccountPage() {
@@ -25,14 +23,23 @@ export default async function AccountPage() {
     redirect("/sign-in");
   }
 
-  const aggregate = ensureTalentIdentityForSessionUser({
+  const { context } = await ensurePersistentCareerIdentityForSessionUser({
     user: {
+      appUserId: session.user.appUserId,
+      authProvider: session.user.authProvider,
       email: session.user.email,
+      image: session.user.image,
       name: session.user.name,
+      providerUserId: session.user.providerUserId,
     },
-    correlationId: `account_page_${session.user.email ?? "unknown"}`,
+    correlationId: `account_page_${session.user.appUserId ?? session.user.email ?? "unknown"}`,
   });
-  const displayName = getFallbackName(session.user.name, session.user.email);
+
+  if (context.onboarding.status !== "completed") {
+    redirect("/onboarding");
+  }
+
+  const displayName = getDisplayNameForContext(context);
 
   return (
     <main className={styles.page}>
@@ -40,12 +47,12 @@ export default async function AccountPage() {
         <section className={styles.hero}>
           <div className={styles.identityBlock}>
             <div className={styles.avatarShell}>
-              {session.user.image ? (
+              {context.user.imageUrl ? (
                 <Image
                   alt={`${displayName} profile image`}
                   className={styles.avatar}
                   height={88}
-                  src={session.user.image}
+                  src={context.user.imageUrl}
                   width={88}
                 />
               ) : (
@@ -56,11 +63,11 @@ export default async function AccountPage() {
             </div>
 
             <div className={styles.identityCopy}>
-              <span className={styles.eyebrow}>Authenticated workspace</span>
+              <span className={styles.eyebrow}>Persistent account</span>
               <h1 className={styles.title}>{displayName}</h1>
               <p className={styles.subtitle}>
-                Google sign-in now provisions your Career AI identity automatically, so the
-                OAuth callback, session cookie, and identity record are all working together.
+                Your Google session now resolves to a durable Railway Postgres user
+                record, a linked Career AI identity, and a completed onboarding state.
               </p>
             </div>
           </div>
@@ -72,52 +79,62 @@ export default async function AccountPage() {
             </div>
             <div className={styles.statusRow}>
               <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-              <span>Email verified by Google</span>
+              <span>Postgres-backed identity active</span>
             </div>
             <div className={styles.statusRow}>
               <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
-              <span>Career AI identity provisioned</span>
+              <span>Onboarding completed and persisted</span>
             </div>
           </div>
         </section>
 
         <section className={styles.grid}>
           <article className={styles.panel}>
-            <h2>Session snapshot</h2>
+            <h2>Persistent profile</h2>
             <dl className={styles.details}>
               <div>
                 <dt>Name</dt>
-                <dd>{displayName}</dd>
+                <dd>{context.user.fullName}</dd>
               </div>
               <div>
                 <dt>Email</dt>
-                <dd>{session.user.email ?? "Not returned by provider"}</dd>
+                <dd>{context.user.email}</dd>
               </div>
               <div>
                 <dt>Provider</dt>
-                <dd>Google OAuth</dd>
+                <dd>{context.user.authProvider}</dd>
+              </div>
+              <div>
+                <dt>Last login</dt>
+                <dd>{formatTimestamp(context.user.lastLoginAt)}</dd>
               </div>
               <div>
                 <dt>Talent identity ID</dt>
-                <dd>{aggregate.talentIdentity.id}</dd>
+                <dd>{context.aggregate.talentIdentity.id}</dd>
               </div>
               <div>
                 <dt>Talent Agent ID</dt>
-                <dd>{aggregate.talentIdentity.talent_agent_id}</dd>
+                <dd>{context.aggregate.talentIdentity.talent_agent_id}</dd>
               </div>
               <div>
                 <dt>Soul record ID</dt>
-                <dd>{aggregate.soulRecord.id}</dd>
+                <dd>{context.aggregate.soulRecord.id}</dd>
               </div>
             </dl>
           </article>
 
           <article className={styles.panel}>
-            <h2>Backend handoff</h2>
+            <h2>Onboarding state</h2>
             <ul className={styles.list}>
-              <li>Your verified Google session now maps to a Career AI talent identity record.</li>
-              <li>Session-backed identity details are available at <code>/api/v1/me/talent-identity</code>.</li>
-              <li>Next protected flows can rely on the provisioned talent identity and soul record IDs.</li>
+              <li>Status: {context.onboarding.status}</li>
+              <li>Profile completion: {context.onboarding.profileCompletionPercent}%</li>
+              <li>Role type: {context.onboarding.roleType ?? "Not selected"}</li>
+              <li>
+                Career intent:{" "}
+                {typeof context.onboarding.profile.intent === "string"
+                  ? context.onboarding.profile.intent
+                  : "Not provided"}
+              </li>
             </ul>
             <Link className={styles.inlineLink} href="/">
               Return to homepage

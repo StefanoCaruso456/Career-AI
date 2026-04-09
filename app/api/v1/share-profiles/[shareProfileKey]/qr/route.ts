@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const body = generateShareQrInputSchema.parse(
       rawBody ? (JSON.parse(rawBody) as unknown) : {},
     );
-    const payload = generateShareProfileQr({
+    const payload = await generateShareProfileQr({
       profileId: shareProfileKey,
       input: {
         ...body,

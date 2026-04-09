@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const actor = getAuthenticatedActor(request.headers, correlationId);
     const { id } = await context.params;
     assertTalentIdentityAccess(actor, id, correlationId);
-    const aggregate = getTalentIdentity({
+    const aggregate = await getTalentIdentity({
       talentIdentityId: id,
       correlationId,
     });

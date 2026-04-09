@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { ensureTalentIdentityForSessionUser } from "@/auth-identity";
+import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { ApiError } from "@/packages/contracts/src";
 import { errorResponse, getCorrelationId, successResponse } from "@/packages/audit-security/src";
 import { toTalentIdentityDetailsDto } from "@/packages/identity-domain/src";
@@ -21,15 +21,19 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const aggregate = ensureTalentIdentityForSessionUser({
+    const { context } = await ensurePersistentCareerIdentityForSessionUser({
       user: {
+        appUserId: session.user.appUserId,
+        authProvider: session.user.authProvider,
         email: session.user.email,
+        image: session.user.image,
         name: session.user.name,
+        providerUserId: session.user.providerUserId,
       },
       correlationId,
     });
 
-    return successResponse(toTalentIdentityDetailsDto(aggregate), correlationId);
+    return successResponse(toTalentIdentityDetailsDto(context.aggregate), correlationId);
   } catch (error) {
     return errorResponse(error, correlationId);
   }
