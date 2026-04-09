@@ -126,7 +126,7 @@ const starterActions = [
   { kind: "prompt", label: "What does the agent actually do?" },
   { kind: "prompt", label: "How is this different from a resume builder?" },
   { kind: "prompt", label: "How does the agent help me get hired faster?" },
-  { kind: "link", href: "/agent-build", label: "Start Building My Agent ID" },
+  { kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
 ] as const;
 
 const initialProjectCollections: ProjectEntry[] = [
