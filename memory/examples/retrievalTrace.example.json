@@ -1,0 +1,80 @@
+{
+  "query": "prepare a concise implementation plan for this repo",
+  "scopes": ["repo", "workspace"],
+  "retrieved_at": "2026-04-09T18:05:00.000Z",
+  "authority_notes": [
+    "Repo source docs/memory-architecture.md overrides semantic memory mem_project_fact_014 for \"Semantic memory write policy\"."
+  ],
+  "layers": [
+    {
+      "layer": "instruction",
+      "considered_count": 2,
+      "returned_count": 1,
+      "results": [
+        {
+          "id": "inst_repo_agents",
+          "layer": "instruction",
+          "scope": "repo",
+          "title": "Publish and merge to main",
+          "content": "Show git commands, commit, push, PR, and merge to main when GitHub allows.",
+          "tags": ["git", "publish"],
+          "confidence": 1,
+          "score": 0.94,
+          "source": {
+            "kind": "instruction",
+            "reference": "AGENTS.md"
+          },
+          "why_retrieved": ["scope aligned", "high keyword overlap"],
+          "authoritative": true
+        }
+      ]
+    },
+    {
+      "layer": "semantic",
+      "considered_count": 3,
+      "returned_count": 1,
+      "results": [
+        {
+          "id": "mem_user_pref_001",
+          "layer": "semantic",
+          "scope": "global",
+          "title": "User prefers concise technical documentation",
+          "content": "Keep architectural docs concise, explicit, and auditable.",
+          "tags": ["style", "documentation"],
+          "confidence": 0.91,
+          "score": 0.79,
+          "source": {
+            "kind": "conversation",
+            "reference": "thread_abc123"
+          },
+          "why_retrieved": ["high keyword overlap", "high confidence"],
+          "authoritative": false
+        }
+      ]
+    },
+    {
+      "layer": "repo",
+      "considered_count": 2,
+      "returned_count": 1,
+      "results": [
+        {
+          "id": "repo_memory_001",
+          "layer": "repo",
+          "scope": "repo",
+          "title": "Memory architecture source-of-truth",
+          "content": "docs/memory-architecture.md defines the canonical layering and precedence rules.",
+          "tags": ["memory", "architecture", "repo"],
+          "confidence": 1,
+          "score": 0.88,
+          "source": {
+            "kind": "file",
+            "reference": "docs/memory-architecture.md"
+          },
+          "why_retrieved": ["scope aligned", "high keyword overlap"],
+          "authoritative": true
+        }
+      ]
+    }
+  ],
+  "context_package": []
+}
