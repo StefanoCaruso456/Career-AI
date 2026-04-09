@@ -1004,6 +1004,12 @@
   padding: 0.6rem 0 0;
 }
 
+.chatEmptyStateLanding {
+  min-height: clamp(12rem, 28vh, 18rem);
+  padding-top: 1rem;
+  padding-bottom: clamp(7.75rem, 14vh, 9.5rem);
+}
+
 .projectHome {
   width: min(100%, 46rem);
   margin-inline: auto;
@@ -1317,6 +1323,10 @@
   width: 100%;
   margin-top: 0.15rem;
   transform: none;
+}
+
+.composerDock.composerDockLanding {
+  bottom: clamp(4.8rem, 10vh, 6.75rem);
 }
 
 .composerTop {
@@ -2947,6 +2957,11 @@
     min-height: 12rem;
   }
 
+  .chatEmptyStateLanding {
+    min-height: 9rem;
+    padding-bottom: 7rem;
+  }
+
   .projectHome {
     padding-bottom: 1.5rem;
   }
@@ -2999,6 +3014,10 @@
     right: auto;
     bottom: auto;
     left: auto;
+  }
+
+  .composerDockLanding {
+    bottom: 5.75rem;
   }
 
   .starterQuestionStack {

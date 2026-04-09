@@ -1797,7 +1797,11 @@ export function HeroComposer() {
                 </div>
               </section>
             ) : transcript.length === 0 ? (
-              <div className={styles.chatEmptyState}>
+              <div
+                className={[styles.chatEmptyState, styles.chatEmptyStateLanding]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
                 <div className={styles.chatStarterGroup}>
                   <div className={styles.starterQuestionStack}>
                     {starterActions.map((action) =>
@@ -1876,6 +1880,7 @@ export function HeroComposer() {
           {!isProjectHomeVisible
             ? renderComposer(
                 "Ask about verification workflows, recruiter trust views, or candidate proof.",
+                transcript.length === 0 ? styles.composerDockLanding : undefined,
               )
             : null}
         </div>
