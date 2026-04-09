@@ -1,62 +1,75 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src";
+import { generateHomepageAssistantReply } from "@/packages/homepage-assistant/src";
+import { sendChatMessageInputSchema } from "@/packages/contracts/src";
 import {
-  OpenAIConfigError,
-  OpenAIResponseError,
-  generateHomepageAssistantReply,
-} from "@/packages/homepage-assistant/src";
+  createAssistantChatMessage,
+  createUserChatMessage,
+  summarizeChatAttachmentsForAssistant,
+} from "@/packages/chat-domain/src";
+import {
+  jsonChatErrorResponse,
+  jsonChatResponse,
+  resolveChatRouteContext,
+} from "./route-helpers";
 
 export const runtime = "nodejs";
 
-const chatRequestSchema = z.object({
-  attachments: z
-    .array(
-      z.object({
-        mimeType: z.string().trim().max(200),
-        name: z.string().trim().min(1).max(260),
-        size: z.number().int().nonnegative().max(250 * 1024 * 1024),
-      }),
-    )
-    .max(50)
-    .default([]),
-  message: z.string().trim().max(4000).default(""),
-}).superRefine((payload, context) => {
-  if (!payload.message.trim() && payload.attachments.length === 0) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Please enter a message or attach a file before sending.",
-      path: ["message"],
-    });
-  }
-});
-
 export async function POST(request: Request) {
-  try {
-    const payload = chatRequestSchema.parse(await request.json());
-    const output = await generateHomepageAssistantReply(payload.message, payload.attachments);
+  const { actor, ownerId } = await resolveChatRouteContext(request);
 
-    return NextResponse.json({ output });
+  try {
+    const payload = sendChatMessageInputSchema.parse(await request.json());
+    const userMessageResult = await createUserChatMessage({
+      attachmentIds: payload.attachmentIds,
+      conversationId: payload.conversationId ?? null,
+      message: payload.message,
+      ownerId,
+      projectId: payload.projectId,
+    });
+
+    const attachmentSummaries = summarizeChatAttachmentsForAssistant(
+      userMessageResult.userMessage.attachments,
+    );
+    let assistantReply: string;
+    let assistantReplyError = false;
+
+    try {
+      assistantReply = await generateHomepageAssistantReply(payload.message, attachmentSummaries);
+    } catch (error) {
+      console.error("Chat reply generation fell back to the deterministic assistant reply", error);
+      assistantReply = getFallbackHomepageReply(payload.message, attachmentSummaries);
+      assistantReplyError = true;
+    }
+
+    const assistantMessageResult = await createAssistantChatMessage({
+      content: assistantReply,
+      conversationId: userMessageResult.conversation.id,
+      error: assistantReplyError,
+      ownerId,
+    });
+
+    return jsonChatResponse(
+      {
+        assistantMessage: assistantMessageResult.assistantMessage,
+        conversation: assistantMessageResult.conversation,
+        userMessage: userMessageResult.userMessage,
+      },
+      actor,
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return jsonChatResponse(
         { error: error.issues[0]?.message ?? "Please enter a message before sending." },
+        actor,
         { status: 400 },
       );
     }
 
-    if (error instanceof OpenAIConfigError) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    if (error instanceof OpenAIResponseError) {
-      return NextResponse.json({ error: error.message }, { status: 502 });
-    }
-
-    console.error("OpenAI chat route failed", error);
-
-    return NextResponse.json(
-      { error: "The assistant could not generate a reply right now." },
-      { status: 500 },
-    );
+    return jsonChatErrorResponse({
+      actor,
+      error,
+      fallbackMessage: "The assistant could not generate a reply right now.",
+    });
   }
 }

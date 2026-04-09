@@ -15,13 +15,23 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
-  Plus,
   Share2,
   Square,
   Trash2,
   X,
 } from "lucide-react";
-import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
+import { AttachmentButton } from "@/components/attachment-button";
+import { ChatMessageAttachments } from "@/components/chat-message-attachments";
+import { FileUploadDropzone } from "@/components/file-upload-dropzone";
+import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
+import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
+import {
+  type ChatConversation,
+  type ChatMessage,
+  type ChatProject,
+  type ChatWorkspaceSnapshot,
+  supportedChatAttachmentTypes,
+} from "@/packages/contracts/src";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -37,37 +47,9 @@ import {
 import { createPortal } from "react-dom";
 import styles from "./chat-home-shell.module.css";
 
-type TranscriptEntry = {
-  attachments?: AttachmentSummary[];
-  content: string;
-  error?: boolean;
-  id: string;
-  role: "assistant" | "user";
-};
-
-type AttachmentSummary = {
-  id: string;
-  mimeType: string;
-  name: string;
-  size: number;
-};
-
-type PendingAttachment = AttachmentSummary & {
-  file: File;
-};
-
-type ProjectEntry = {
-  id: string;
-  label: string;
-};
-
-type ChatThread = {
-  id: string;
-  label: string;
-  projectId: string;
-  transcript: TranscriptEntry[];
-  updatedAt: number;
-};
+type TranscriptEntry = ChatMessage;
+type ProjectEntry = ChatProject;
+type ChatThread = ChatConversation;
 
 type SidebarEntityType = "chat" | "project";
 
@@ -173,12 +155,6 @@ const starterActions = [
   { kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
 ] as const;
 
-const initialProjectCollections: ProjectEntry[] = [
-  { id: "project-verified-profile", label: "Verified profile" },
-  { id: "project-career-story", label: "Career story" },
-  { id: "project-hiring-signals", label: "Hiring signals" },
-];
-
 const preferredRecorderMimeTypes = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -187,7 +163,9 @@ const preferredRecorderMimeTypes = [
 ] as const;
 
 const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
-const attachmentMimeTypeFallback = "application/octet-stream";
+const attachmentInputAccept = supportedChatAttachmentTypes
+  .map((type) => `.${type.extension}`)
+  .join(",");
 
 function mergeVoiceDraft(base: string, incoming: string) {
   const normalizedIncoming = incoming.replace(/\s+/g, " ").trim();
@@ -278,41 +256,6 @@ function getMicrophoneErrorMessage(error: unknown) {
   return "The microphone could not start right now.";
 }
 
-function formatThreadLabel(content: string) {
-  const normalized = content.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= 38) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 35)}...`;
-}
-
-function formatAttachmentSize(size: number) {
-  if (size < 1024) {
-    return `${size} B`;
-  }
-
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
-  }
-
-  return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
-}
-
-function buildAttachmentSummary(file: File): AttachmentSummary {
-  return {
-    id: createEntityId("attachment"),
-    mimeType: file.type || attachmentMimeTypeFallback,
-    name: file.name,
-    size: file.size,
-  };
-}
-
-function getAttachmentFingerprint(file: File) {
-  return [file.name, file.size, file.lastModified, file.type].join(":");
-}
-
 function buildTranscriptEntrySummary(entry: TranscriptEntry) {
   const normalizedContent = entry.content.replace(/\s+/g, " ").trim();
 
@@ -322,15 +265,11 @@ function buildTranscriptEntrySummary(entry: TranscriptEntry) {
 
   if (entry.attachments?.length) {
     return entry.attachments.length === 1
-      ? `Attachment: ${entry.attachments[0].name}`
-      : `Attachments: ${entry.attachments[0].name} +${entry.attachments.length - 1} more`;
+      ? `Attachment: ${entry.attachments[0].originalName}`
+      : `Attachments: ${entry.attachments[0].originalName} +${entry.attachments.length - 1} more`;
   }
 
   return "";
-}
-
-function createEntityId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function getSidebarEntityLabel(type: SidebarEntityType) {
@@ -341,33 +280,9 @@ function capitalizeLabel(label: string) {
   return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 }
 
-function buildThreadLabel(transcript: TranscriptEntry[]) {
-  const firstUserEntry = transcript.find((entry) => entry.role === "user");
-
-  if (!firstUserEntry) {
-    return "New chat";
-  }
-
-  return formatThreadLabel(buildTranscriptEntrySummary(firstUserEntry) || "New chat");
-}
-
-function buildProjectLabel(projects: ProjectEntry[]) {
-  let projectIndex = 1;
-
-  while (true) {
-    const candidateLabel = projectIndex === 1 ? "New project" : `New project ${projectIndex}`;
-
-    if (!projects.some((project) => project.label === candidateLabel)) {
-      return candidateLabel;
-    }
-
-    projectIndex += 1;
-  }
-}
-
 function buildThreadPreview(thread: ChatThread) {
-  const firstNarrativeEntry = thread.transcript.find((entry) => entry.role === "user");
-  const fallbackEntry = thread.transcript[thread.transcript.length - 1];
+  const firstNarrativeEntry = thread.messages.find((entry) => entry.role === "user");
+  const fallbackEntry = thread.messages[thread.messages.length - 1];
   const previewSource =
     (firstNarrativeEntry ? buildTranscriptEntrySummary(firstNarrativeEntry) : "") ||
     (fallbackEntry ? buildTranscriptEntrySummary(fallbackEntry) : "") ||
@@ -381,7 +296,7 @@ function buildThreadPreview(thread: ChatThread) {
   return `${normalizedPreview.slice(0, 93)}...`;
 }
 
-function formatThreadUpdatedAt(updatedAt: number) {
+function formatThreadUpdatedAt(updatedAt: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
@@ -393,15 +308,15 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
   const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
   const [message, setMessage] = useState("");
-  const [projects, setProjects] = useState(initialProjectCollections);
-  const [activeProjectId, setActiveProjectId] = useState(initialProjectCollections[0].id);
+  const [projects, setProjects] = useState<ProjectEntry[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
@@ -409,6 +324,16 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
+  const {
+    addFiles,
+    attachments: pendingAttachments,
+    clearAttachments,
+    clearSelectionError,
+    removeAttachment,
+    resetAttachments,
+    retryAttachment,
+    selectionError,
+  } = useChatAttachmentDrafts();
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -425,11 +350,16 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
+  const hasBlockedAttachments = pendingAttachments.some((attachment) =>
+    ["failed", "pending", "uploading"].includes(attachment.uploadStatus),
+  );
   const canSubmit =
     (message.trim().length > 0 || pendingAttachments.length > 0) &&
     !isSubmitting &&
+    !isWorkspaceLoading &&
     !isRecording &&
-    !isTranscribing;
+    !isTranscribing &&
+    !hasBlockedAttachments;
   const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
@@ -614,6 +544,106 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       document.removeEventListener("keydown", handleDocumentKeyDown);
     };
   }, [sidebarActionMenu, sidebarRenameDraft]);
+
+  function applyWorkspaceSnapshot(
+    snapshot: ChatWorkspaceSnapshot,
+    options?: {
+      preferredConversationId?: string | null;
+      preferredProjectId?: string | null;
+    },
+  ) {
+    const nextProjects = snapshot.projects;
+    const nextThreads = snapshot.conversations;
+    const preferredConversationId = options?.preferredConversationId ?? currentThreadId;
+    const preferredProjectId = options?.preferredProjectId ?? activeProjectId;
+    const nextConversation =
+      (preferredConversationId
+        ? nextThreads.find((thread) => thread.id === preferredConversationId)
+        : null) ?? null;
+    const nextProjectId =
+      nextConversation?.projectId ??
+      (preferredProjectId && nextProjects.some((project) => project.id === preferredProjectId)
+        ? preferredProjectId
+        : nextProjects[0]?.id ?? null);
+
+    setProjects(nextProjects);
+    setThreads(nextThreads);
+    setActiveProjectId(nextProjectId);
+
+    if (nextConversation) {
+      setCurrentThreadId(nextConversation.id);
+      setProjectHomeProjectId(null);
+      setTranscript(nextConversation.messages);
+      return;
+    }
+
+    setCurrentThreadId(null);
+    setProjectHomeProjectId(nextProjectId);
+    setTranscript([]);
+  }
+
+  function replaceConversation(nextConversation: ChatConversation) {
+    setThreads((currentThreads) => [
+      nextConversation,
+      ...currentThreads.filter((thread) => thread.id !== nextConversation.id),
+    ]);
+    setActiveProjectId(nextConversation.projectId);
+    setCurrentThreadId(nextConversation.id);
+    setProjectHomeProjectId(null);
+    setTranscript(nextConversation.messages);
+  }
+
+  async function loadWorkspaceSnapshot(options?: {
+    preferredConversationId?: string | null;
+    preferredProjectId?: string | null;
+  }) {
+    const snapshot = await requestWorkspaceSnapshot("/api/chat/state", {
+      method: "GET",
+    });
+
+    applyWorkspaceSnapshot(snapshot, options);
+  }
+
+  async function requestWorkspaceSnapshot(input: string, init: RequestInit) {
+    const response = await fetch(input, init);
+    const payload = (await response.json()) as ChatWorkspaceSnapshot & {
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Chat history could not be loaded right now.");
+    }
+
+    return payload;
+  }
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        await loadWorkspaceSnapshot();
+      } catch (error) {
+        if (!isCancelled) {
+          setSidebarNotice({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Chat history could not be loaded right now.",
+            tone: "error",
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsWorkspaceLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   function focusComposer() {
     window.requestAnimationFrame(() => {
@@ -909,25 +939,6 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     await startVoiceInput();
   }
 
-  function upsertThread(threadId: string, projectId: string, nextTranscript: TranscriptEntry[]) {
-    if (nextTranscript.length === 0) {
-      return;
-    }
-
-    const nextThread: ChatThread = {
-      id: threadId,
-      label: buildThreadLabel(nextTranscript),
-      projectId,
-      transcript: nextTranscript,
-      updatedAt: Date.now(),
-    };
-
-    setThreads((currentThreads) => [
-      nextThread,
-      ...currentThreads.filter((thread) => thread.id !== threadId),
-    ]);
-  }
-
   function openThread(thread: ChatThread) {
     cancelVoiceCapture();
     setSidebarActionMenu(null);
@@ -936,8 +947,9 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
     transcriptScrollIntentRef.current = { mode: "top" };
-    setTranscript(thread.transcript);
-    setPendingAttachments([]);
+    void clearAttachments();
+    clearSelectionError();
+    setTranscript(thread.messages);
     setMessage("");
     setSidebarOpen(true);
   }
@@ -950,7 +962,8 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
-    setPendingAttachments([]);
+    void clearAttachments();
+    clearSelectionError();
     setMessage("");
     setSidebarOpen(true);
     focusComposer();
@@ -977,61 +990,88 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
-    setPendingAttachments([]);
+    void clearAttachments();
+    clearSelectionError();
     setMessage("");
     focusComposer();
   }
 
-  function handleNewProject() {
-    const nextProject: ProjectEntry = {
-      id: createEntityId("project"),
-      label: buildProjectLabel(projects),
-    };
-
+  async function handleNewProject() {
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
-    setProjects((currentProjects) => [nextProject, ...currentProjects]);
-    setActiveProjectId(nextProject.id);
-    setProjectHomeProjectId(nextProject.id);
     setSidebarOpen(true);
-    setCurrentThreadId(null);
-    transcriptScrollIntentRef.current = { mode: "top" };
-    setTranscript([]);
-    setPendingAttachments([]);
-    setMessage("");
-    focusComposer();
+
+    try {
+      const existingProjectIds = new Set(projects.map((project) => project.id));
+      const snapshot = await requestWorkspaceSnapshot("/api/chat/projects", {
+        body: JSON.stringify({}),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const nextProject =
+        snapshot.projects.find((project) => !existingProjectIds.has(project.id)) ??
+        snapshot.projects[snapshot.projects.length - 1] ??
+        null;
+
+      transcriptScrollIntentRef.current = { mode: "top" };
+      await clearAttachments();
+      clearSelectionError();
+      setMessage("");
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: null,
+        preferredProjectId: nextProject?.id ?? null,
+      });
+      focusComposer();
+    } catch (error) {
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Project could not be created right now.",
+        tone: "error",
+      });
+    }
   }
 
   async function submitMessage(nextMessage?: string) {
     const prompt = (nextMessage ?? message).trim();
-    const attachmentSummaries = pendingAttachments.map(({ file: _file, ...attachment }) => attachment);
+    const readyAttachments = pendingAttachments.filter(
+      (attachment) => attachment.uploadStatus === "uploaded" && attachment.attachmentId,
+    );
 
-    if ((!prompt && attachmentSummaries.length === 0) || isSubmitting) {
+    if ((!prompt && readyAttachments.length === 0) || isSubmitting || !activeProjectId || hasBlockedAttachments) {
       return;
     }
 
-    const requestId = `msg-${Date.now()}`;
-    const threadId = currentThreadId ?? createEntityId("thread");
-    const projectId = activeProjectId;
-    const nextUserTranscript = [
-      ...transcript,
-      {
-        attachments: attachmentSummaries,
-        content: prompt,
-        id: `${requestId}-user`,
-        role: "user" as const,
-      },
-    ];
+    const previousTranscript = transcript;
+    const previousProjectHomeProjectId = projectHomeProjectId;
+    const previousCurrentThreadId = currentThreadId;
+    const optimisticUserMessage: TranscriptEntry = {
+      attachments: readyAttachments.map((attachment) => ({
+        createdAt: new Date().toISOString(),
+        downloadUrl: attachment.downloadUrl ?? attachment.openUrl ?? "#",
+        extension: attachment.extension,
+        id: attachment.attachmentId ?? attachment.localId,
+        messageId: null,
+        mimeType: attachment.mimeType,
+        openUrl: attachment.openUrl ?? attachment.previewUrl ?? "#",
+        originalName: attachment.originalName,
+        previewKind: attachment.previewKind,
+        sizeBytes: attachment.sizeBytes,
+        status: "uploaded",
+        thumbnailUrl: attachment.thumbnailUrl ?? attachment.previewUrl,
+        updatedAt: new Date().toISOString(),
+      })),
+      content: prompt,
+      createdAt: new Date().toISOString(),
+      id: `pending_message_${Date.now()}`,
+      role: "user",
+    };
 
     setIsSubmitting(true);
-    setMessage("");
-    setPendingAttachments([]);
     setProjectHomeProjectId(null);
-    setCurrentThreadId(threadId);
     transcriptScrollIntentRef.current = { mode: "bottom" };
-    setTranscript(nextUserTranscript);
-    upsertThread(threadId, projectId, nextUserTranscript);
+    setTranscript([...transcript, optimisticUserMessage]);
 
     try {
       const reply = await fetch("/api/chat", {
@@ -1039,61 +1079,55 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ attachments: attachmentSummaries, message: prompt }),
+        body: JSON.stringify({
+          attachmentIds: readyAttachments
+            .map((attachment) => attachment.attachmentId)
+            .filter((attachmentId): attachmentId is string => Boolean(attachmentId)),
+          conversationId: currentThreadId,
+          message: prompt,
+          projectId: activeProjectId,
+        }),
       });
 
-      const payload = (await reply.json()) as { error?: string; output?: string };
+      const payload = (await reply.json()) as {
+        assistantMessage?: ChatMessage;
+        conversation?: ChatConversation;
+        error?: string;
+        userMessage?: ChatMessage;
+      };
 
-      if (!reply.ok || !payload.output) {
+      if (!reply.ok || !payload.conversation || !payload.userMessage) {
         throw new Error(payload.error || "The assistant could not respond.");
       }
 
-      startTransition(() => {
-        const nextAssistantTranscript = [
-          ...nextUserTranscript,
-          {
-            content: payload.output || "",
-            id: `${requestId}-assistant`,
-            role: "assistant" as const,
-          },
-        ];
+      const { conversation, userMessage } = payload;
 
+      resetAttachments();
+      clearSelectionError();
+      setMessage("");
+
+      startTransition(() => {
         transcriptScrollIntentRef.current = {
-          entryId: `${requestId}-user`,
+          entryId: userMessage.id,
           mode: "anchor-entry",
         };
-        setTranscript(nextAssistantTranscript);
-        upsertThread(threadId, projectId, nextAssistantTranscript);
+        replaceConversation(conversation);
       });
     } catch (requestError) {
-      const fallbackReply = getFallbackHomepageReply(prompt, attachmentSummaries);
-      const recoveredMessage =
-        requestError instanceof Error
-          ? ["Failed to fetch", "The assistant could not respond.", "The assistant could not generate a reply right now."].includes(
-              requestError.message,
-            )
-            ? fallbackReply
-            : requestError.message
-          : fallbackReply;
-
-      startTransition(() => {
-        const nextAssistantTranscript = [
-          ...nextUserTranscript,
-          {
-            content: recoveredMessage,
-            error: recoveredMessage !== fallbackReply,
-            id: `${requestId}-assistant-error`,
-            role: "assistant" as const,
-          },
-        ];
-
-        transcriptScrollIntentRef.current = {
-          entryId: `${requestId}-user`,
-          mode: "anchor-entry",
-        };
-        setTranscript(nextAssistantTranscript);
-        upsertThread(threadId, projectId, nextAssistantTranscript);
+      setTranscript(previousTranscript);
+      setProjectHomeProjectId(previousProjectHomeProjectId);
+      setCurrentThreadId(previousCurrentThreadId);
+      setSidebarNotice({
+        message:
+          requestError instanceof Error
+            ? requestError.message
+            : "The assistant could not respond.",
+        tone: "error",
       });
+
+      if (nextMessage) {
+        setMessage(prompt);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1121,41 +1155,12 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
   function handleAttachmentSelection(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
-
-    if (files.length === 0) {
-      return;
-    }
-
-    setPendingAttachments((currentAttachments) => {
-      const existingFingerprints = new Set(
-        currentAttachments.map((attachment) => getAttachmentFingerprint(attachment.file)),
-      );
-      const nextAttachments = [...currentAttachments];
-
-      files.forEach((file) => {
-        const fingerprint = getAttachmentFingerprint(file);
-
-        if (existingFingerprints.has(fingerprint)) {
-          return;
-        }
-
-        existingFingerprints.add(fingerprint);
-        nextAttachments.push({
-          ...buildAttachmentSummary(file),
-          file,
-        });
-      });
-
-      return nextAttachments;
-    });
-
+    addFiles(files);
     event.target.value = "";
   }
 
   function handleAttachmentRemove(attachmentId: string) {
-    setPendingAttachments((currentAttachments) =>
-      currentAttachments.filter((attachment) => attachment.id !== attachmentId),
-    );
+    void removeAttachment(attachmentId);
   }
 
   function handleStarterQuestion(question: string) {
@@ -1190,7 +1195,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setSidebarRenameDraft(null);
   }
 
-  function submitSidebarRename() {
+  async function submitSidebarRename() {
     if (!sidebarRenameDraft) {
       return;
     }
@@ -1206,35 +1211,35 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       return;
     }
 
-    if (sidebarRenameDraft.type === "project") {
-      setProjects((currentProjects) =>
-        currentProjects.map((project) =>
-          project.id === sidebarRenameDraft.id
-            ? {
-                ...project,
-                label: normalizedLabel,
-              }
-            : project,
-        ),
+    try {
+      const snapshot = await requestWorkspaceSnapshot(
+        sidebarRenameDraft.type === "project"
+          ? `/api/chat/projects/${sidebarRenameDraft.id}`
+          : `/api/chat/conversations/${sidebarRenameDraft.id}`,
+        {
+          body: JSON.stringify({ label: normalizedLabel }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "PATCH",
+        },
       );
-    } else {
-      setThreads((currentThreads) =>
-        currentThreads.map((thread) =>
-          thread.id === sidebarRenameDraft.id
-            ? {
-                ...thread,
-                label: normalizedLabel,
-              }
-            : thread,
-        ),
-      );
-    }
 
-    setSidebarRenameDraft(null);
-    setSidebarNotice({
-      message: `${capitalizeLabel(entityLabel)} renamed.`,
-      tone: "default",
-    });
+      applyWorkspaceSnapshot(snapshot);
+      setSidebarRenameDraft(null);
+      setSidebarNotice({
+        message: `${capitalizeLabel(entityLabel)} renamed.`,
+        tone: "default",
+      });
+    } catch (error) {
+      setSidebarNotice({
+        message:
+          error instanceof Error
+            ? error.message
+            : `${capitalizeLabel(entityLabel)} could not be renamed right now.`,
+        tone: "error",
+      });
+    }
   }
 
   async function handleSidebarShare(type: SidebarEntityType, id: string) {
@@ -1293,7 +1298,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     }
   }
 
-  function handleProjectDelete(projectId: string) {
+  async function handleProjectDelete(projectId: string) {
     const project = projects.find((currentProject) => currentProject.id === projectId);
 
     if (!project) {
@@ -1304,47 +1309,38 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
     setSidebarDeleteDraft(null);
-
-    const remainingProjects = projects.filter((currentProject) => currentProject.id !== projectId);
-    const remainingThreads = threads.filter((thread) => thread.projectId !== projectId);
-
-    let nextProjects = remainingProjects;
-    let nextActiveProjectId = activeProjectId;
     const isDeletedProjectActive =
       activeProjectId === projectId || projectHomeProjectId === projectId;
 
-    if (remainingProjects.length === 0) {
-      const replacementProject: ProjectEntry = {
-        id: createEntityId("project"),
-        label: "New project",
-      };
+    try {
+      const snapshot = await requestWorkspaceSnapshot(`/api/chat/projects/${projectId}`, {
+        method: "DELETE",
+      });
 
-      nextProjects = [replacementProject];
-      nextActiveProjectId = replacementProject.id;
-    } else if (activeProjectId === projectId) {
-      nextActiveProjectId = remainingProjects[0].id;
+      if (isDeletedProjectActive) {
+        transcriptScrollIntentRef.current = { mode: "top" };
+        await clearAttachments();
+        clearSelectionError();
+        setMessage("");
+      }
+
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: currentThreadId,
+        preferredProjectId: activeProjectId === projectId ? null : activeProjectId,
+      });
+      setSidebarNotice({
+        message: "Project deleted.",
+        tone: "default",
+      });
+    } catch (error) {
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Project could not be deleted right now.",
+        tone: "error",
+      });
     }
-
-    setProjects(nextProjects);
-    setThreads(remainingThreads);
-
-    if (isDeletedProjectActive) {
-      setActiveProjectId(nextActiveProjectId);
-      setProjectHomeProjectId(nextActiveProjectId);
-      setCurrentThreadId(null);
-      transcriptScrollIntentRef.current = { mode: "top" };
-      setTranscript([]);
-      setPendingAttachments([]);
-      setMessage("");
-    }
-
-    setSidebarNotice({
-      message: "Project deleted.",
-      tone: "default",
-    });
   }
 
-  function handleChatDelete(chatId: string) {
+  async function handleChatDelete(chatId: string) {
     const chat = threads.find((currentChat) => currentChat.id === chatId);
 
     if (!chat) {
@@ -1356,23 +1352,32 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setSidebarRenameDraft(null);
     setSidebarDeleteDraft(null);
 
-    const remainingThreads = threads.filter((thread) => thread.id !== chatId);
+    try {
+      const snapshot = await requestWorkspaceSnapshot(`/api/chat/conversations/${chatId}`, {
+        method: "DELETE",
+      });
 
-    setThreads(remainingThreads);
+      if (currentThreadId === chatId) {
+        transcriptScrollIntentRef.current = { mode: "top" };
+        await clearAttachments();
+        clearSelectionError();
+        setMessage("");
+      }
 
-    if (currentThreadId === chatId) {
-      setProjectHomeProjectId(activeProjectId);
-      setCurrentThreadId(null);
-      transcriptScrollIntentRef.current = { mode: "top" };
-      setTranscript([]);
-      setPendingAttachments([]);
-      setMessage("");
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: currentThreadId === chatId ? null : currentThreadId,
+        preferredProjectId: chat.projectId,
+      });
+      setSidebarNotice({
+        message: "Chat deleted.",
+        tone: "default",
+      });
+    } catch (error) {
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Chat could not be deleted right now.",
+        tone: "error",
+      });
     }
-
-    setSidebarNotice({
-      message: "Chat deleted.",
-      tone: "default",
-    });
   }
 
   function requestProjectDelete(projectId: string) {
@@ -1418,11 +1423,11 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     }
 
     if (sidebarDeleteDraft.type === "project") {
-      handleProjectDelete(sidebarDeleteDraft.id);
+      void handleProjectDelete(sidebarDeleteDraft.id);
       return;
     }
 
-    handleChatDelete(sidebarDeleteDraft.id);
+    void handleChatDelete(sidebarDeleteDraft.id);
   }
 
   function getProjectThreads(projectId: string) {
@@ -1431,141 +1436,133 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
   function renderComposer(placeholder: string, className?: string) {
     return (
-      <form
-        className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
-        onSubmit={handleSubmit}
+      <FileUploadDropzone
+        disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
+        error={selectionError}
+        hint="Drop PDFs, docs, spreadsheets, slides, text files, or images here."
+        onFilesDropped={addFiles}
       >
-        <input
-          className={styles.hiddenAttachmentInput}
-          multiple
-          onChange={handleAttachmentSelection}
-          ref={attachmentInputRef}
-          tabIndex={-1}
-          type="file"
-        />
-        <div className={styles.composerTop}>
-          <textarea
-            aria-label="Message composer"
-            aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
-            className={styles.composerInput}
-            disabled={isSubmitting || isRecording || isTranscribing}
-            onChange={(event) => handleMessageChange(event.target.value)}
-            onKeyDown={(event) => {
-              void handleKeyDown(event);
-            }}
-            placeholder={
-              isRecording
-                ? "Listening to your voice note..."
-                : isTranscribing
-                  ? "Transcribing your voice note..."
-                  : placeholder
-            }
-            ref={composerInputRef}
-            rows={3}
-            value={message}
+        <form
+          className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
+          onSubmit={handleSubmit}
+        >
+          <input
+            accept={attachmentInputAccept}
+            className={styles.hiddenAttachmentInput}
+            multiple
+            onChange={handleAttachmentSelection}
+            ref={attachmentInputRef}
+            tabIndex={-1}
+            type="file"
           />
-        </div>
-
-        {voiceNotice ? (
-          <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
-            <p
-              className={[
-                styles.composerStatus,
-                voiceNotice.tone === "active"
-                  ? styles.composerStatusActive
-                  : voiceNotice.tone === "error"
-                    ? styles.composerStatusError
-                    : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {voiceNotice.message}
-            </p>
-          </div>
-        ) : null}
-
-        {pendingAttachments.length > 0 ? (
-          <div className={styles.composerAttachmentStrip}>
-            {pendingAttachments.map((attachment) => (
-              <div className={styles.attachmentChip} key={attachment.id}>
-                <div className={styles.attachmentChipCopy}>
-                  <span className={styles.attachmentChipName}>{attachment.name}</span>
-                  <span className={styles.attachmentChipMeta}>
-                    {formatAttachmentSize(attachment.size)}
-                  </span>
-                </div>
-                <button
-                  aria-label={`Remove ${attachment.name}`}
-                  className={styles.attachmentChipRemove}
-                  onClick={() => handleAttachmentRemove(attachment.id)}
-                  type="button"
-                >
-                  <X aria-hidden="true" size={12} strokeWidth={2.2} />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        <div className={styles.composerFooter}>
-          <div className={styles.composerStart}>
-            <button
-              aria-label="Add attachment"
-              className={styles.iconCircle}
-              onClick={() => attachmentInputRef.current?.click()}
-              type="button"
-            >
-              <Plus size={18} strokeWidth={2.1} />
-            </button>
-          </div>
-
-          <div className={styles.composerEnd}>
-            <button
-              aria-label={
-                isRecording
-                  ? "Stop voice input"
-                  : isTranscribing
-                    ? "Transcribing voice input"
-                    : "Start voice input"
-              }
-              aria-pressed={isRecording}
-              className={[
-                styles.iconGhost,
-                isRecording ? styles.iconGhostActive : "",
-                isTranscribing ? styles.iconGhostBusy : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              disabled={isSubmitting || isTranscribing}
-              onClick={() => {
-                void handleVoiceInputToggle();
+          <div className={styles.composerTop}>
+            <textarea
+              aria-label="Message composer"
+              aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
+              className={styles.composerInput}
+              disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
+              onChange={(event) => handleMessageChange(event.target.value)}
+              onKeyDown={(event) => {
+                void handleKeyDown(event);
               }}
-              type="button"
-            >
-              {isTranscribing ? (
-                <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
-              ) : isRecording ? (
-                <Square size={14} strokeWidth={2.2} />
-              ) : (
-                <Mic size={16} strokeWidth={1.9} />
-              )}
-            </button>
-            <button
-              aria-label={isSubmitting ? "Generating reply" : "Send message"}
-              className={styles.voiceButton}
-              disabled={!canSubmit}
-              type="submit"
-            >
-              {isSubmitting ? (
-                <LoaderCircle className={styles.spinner} size={18} strokeWidth={2.1} />
-              ) : (
-                <ArrowUp size={18} strokeWidth={2.4} />
-              )}
-            </button>
+              placeholder={
+                isWorkspaceLoading
+                  ? "Loading your chat workspace..."
+                  : isRecording
+                    ? "Listening to your voice note..."
+                    : isTranscribing
+                      ? "Transcribing your voice note..."
+                      : placeholder
+              }
+              ref={composerInputRef}
+              rows={3}
+              value={message}
+            />
           </div>
-        </div>
-      </form>
+
+          {voiceNotice ? (
+            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
+              <p
+                className={[
+                  styles.composerStatus,
+                  voiceNotice.tone === "active"
+                    ? styles.composerStatusActive
+                    : voiceNotice.tone === "error"
+                      ? styles.composerStatusError
+                      : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {voiceNotice.message}
+              </p>
+            </div>
+          ) : null}
+
+          <PromptComposerAttachments
+            attachments={pendingAttachments}
+            onRemove={handleAttachmentRemove}
+            onRetry={retryAttachment}
+          />
+
+          <div className={styles.composerFooter}>
+            <div className={styles.composerStart}>
+              <AttachmentButton
+                className={styles.iconCircle}
+                onClick={() => {
+                  clearSelectionError();
+                  attachmentInputRef.current?.click();
+                }}
+              />
+            </div>
+
+            <div className={styles.composerEnd}>
+              <button
+                aria-label={
+                  isRecording
+                    ? "Stop voice input"
+                    : isTranscribing
+                      ? "Transcribing voice input"
+                      : "Start voice input"
+                }
+                aria-pressed={isRecording}
+                className={[
+                  styles.iconGhost,
+                  isRecording ? styles.iconGhostActive : "",
+                  isTranscribing ? styles.iconGhostBusy : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={isSubmitting || isWorkspaceLoading || isTranscribing}
+                onClick={() => {
+                  void handleVoiceInputToggle();
+                }}
+                type="button"
+              >
+                {isTranscribing ? (
+                  <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
+                ) : isRecording ? (
+                  <Square size={14} strokeWidth={2.2} />
+                ) : (
+                  <Mic size={16} strokeWidth={1.9} />
+                )}
+              </button>
+              <button
+                aria-label={isSubmitting ? "Generating reply" : "Send message"}
+                className={styles.voiceButton}
+                disabled={!canSubmit}
+                type="submit"
+              >
+                {isSubmitting ? (
+                  <LoaderCircle className={styles.spinner} size={18} strokeWidth={2.1} />
+                ) : (
+                  <ArrowUp size={18} strokeWidth={2.4} />
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
+      </FileUploadDropzone>
     );
   }
 
@@ -1611,7 +1608,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
             className={styles.chatSidebarRenameForm}
             onSubmit={(event) => {
               event.preventDefault();
-              submitSidebarRename();
+              void submitSidebarRename();
             }}
           >
             <input
@@ -2019,18 +2016,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
                       .join(" ")}
                   >
                     {entry.attachments?.length ? (
-                      <div className={styles.transcriptAttachmentStrip}>
-                        {entry.attachments.map((attachment) => (
-                          <div className={styles.attachmentChip} key={attachment.id}>
-                            <div className={styles.attachmentChipCopy}>
-                              <span className={styles.attachmentChipName}>{attachment.name}</span>
-                              <span className={styles.attachmentChipMeta}>
-                                {formatAttachmentSize(attachment.size)}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      <ChatMessageAttachments attachments={entry.attachments} />
                     ) : null}
                     {entry.content.trim() ? <p>{entry.content}</p> : null}
                   </article>
