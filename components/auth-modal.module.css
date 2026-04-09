@@ -56,10 +56,10 @@
   margin: 0;
   color: #f8fbff;
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(1.6rem, 3.4vw, 2.45rem);
-  line-height: 0.92;
+  font-size: clamp(1.18rem, 2.4vw, 1.82rem);
+  line-height: 0.98;
   letter-spacing: -0.055em;
-  max-width: 9ch;
+  max-width: 12ch;
 }
 
 .closeButton {
@@ -118,8 +118,8 @@
 .copy {
   margin: 0.8rem 0 0;
   color: rgba(244, 247, 252, 0.78);
-  font-size: 0.96rem;
-  line-height: 1.6;
+  font-size: 0.84rem;
+  line-height: 1.5;
   max-width: 48ch;
 }
 
