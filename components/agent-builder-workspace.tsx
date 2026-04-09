@@ -8,7 +8,6 @@ import {
 import {
   type ChangeEvent,
   type ReactNode,
-  useDeferredValue,
   useState,
 } from "react";
 import styles from "./agent-builder-workspace.module.css";
@@ -335,96 +334,6 @@ function getCurrentTier(template: EvidenceTemplate, draft: EvidenceDraft): TierK
   return "self";
 }
 
-function buildSoulPreview(
-  profile: ProfileDraft,
-  evidence: Record<string, EvidenceDraft>,
-  completedEvidenceCount: number,
-  strongestTier: TierKey,
-) {
-  const sectionLines = (sectionId: EvidenceSectionId) => {
-    const templates = evidenceTemplates.filter((template) => template.section === sectionId);
-    const lines = templates
-      .map((template) => {
-        const draft = evidence[template.id];
-
-        if (!isEvidenceStarted(draft)) {
-          return null;
-        }
-
-        const tier = tierMeta[getCurrentTier(template, draft)];
-
-        if (isDriversLicenseImageTemplate(template)) {
-          const frontImage = getSlottedFile(draft, "front")?.name || "pending";
-          const backImage = getSlottedFile(draft, "back")?.name || "pending";
-
-          return [
-            `- signal: ${template.title}`,
-            `  tier: ${tier.previewLabel}`,
-            "  capture_mode: required image pair",
-            `  front_image: ${frontImage}`,
-            `  back_image: ${backImage}`,
-          ].join("\n");
-        }
-
-        const source = draft.source.trim() || "pending source";
-        const context = draft.context.trim() || "context to be added";
-        const files =
-          draft.files.length > 0
-            ? draft.files.map((file) => file.name).join(", ")
-            : "pending upload";
-
-        return [
-          `- signal: ${template.title}`,
-          `  tier: ${tier.previewLabel}`,
-          `  source: ${source}`,
-          `  context: ${context}`,
-          `  verified_on: ${draft.verifiedOn || "pending"}`,
-          `  files: ${files}`,
-          draft.note.trim() ? `  note: ${draft.note.trim()}` : null,
-        ]
-          .filter(Boolean)
-          .join("\n");
-      })
-      .filter(Boolean);
-
-    return lines.length > 0 ? lines.join("\n") : "- pending evidence";
-  };
-
-  return [
-    "# soul.md",
-    "",
-    "## profile",
-    `legal_name: ${profile.legalName || "pending"}`,
-    `career_headline: ${profile.careerHeadline || "pending"}`,
-    `target_role: ${profile.targetRole || "pending"}`,
-    `location: ${profile.location || "pending"}`,
-    `summary: ${profile.coreNarrative || "pending"}`,
-    "",
-    "## credibility_overview",
-    `total_uploaded_signals: ${completedEvidenceCount}`,
-    `strongest_tier: ${tierMeta[strongestTier].previewLabel}`,
-    `profile_mode: living career credibility profile`,
-    "",
-    "## self_reported_foundation",
-    "- type: self-reported",
-    "  status: ready to strengthen with uploaded proof",
-    "",
-    "## identity",
-    sectionLines("identity"),
-    "",
-    "## employment",
-    sectionLines("employment"),
-    "",
-    "## network_signals",
-    sectionLines("network"),
-    "",
-    "## growth_loop",
-    "- append new evidence as career milestones happen",
-    "- keep older proof visible for chronology and trust history",
-    "- refresh recruiter-facing views from this source of truth",
-  ].join("\n");
-}
-
 function SectionCount({
   complete,
   total,
@@ -536,9 +445,6 @@ export function AgentBuilderWorkspace() {
   });
   const [evidence, setEvidence] = useState<Record<string, EvidenceDraft>>(emptyEvidence);
 
-  const deferredProfile = useDeferredValue(profile);
-  const deferredEvidence = useDeferredValue(evidence);
-
   const profileFields = [
     profile.legalName,
     profile.careerHeadline,
@@ -640,12 +546,6 @@ export function AgentBuilderWorkspace() {
   });
   const queuedTemplates = evidenceTemplates.filter(
     (template) => !isEvidenceComplete(template, evidence[template.id]),
-  );
-  const deferredPreview = buildSoulPreview(
-    deferredProfile,
-    deferredEvidence,
-    completedEvidenceCount,
-    strongestTier,
   );
 
   function handleProfileChange(field: keyof ProfileDraft) {
@@ -1158,33 +1058,6 @@ export function AgentBuilderWorkspace() {
               </div>
             </BuilderSection>
           </div>
-
-          <aside className={styles.previewPanel}>
-            <div className={styles.legendGrid}>
-              {(["self", "relationship", "document", "signature", "institution"] as TierKey[]).map(
-                (tier) => (
-                  <article className={styles.legendCard} key={tier}>
-                    <span className={[styles.tierBadge, styles[tierMeta[tier].toneClass]].join(" ")}>
-                      {tierMeta[tier].label}
-                    </span>
-                  </article>
-                ),
-              )}
-            </div>
-
-            <div className={styles.previewSummary}>
-              <article>
-                <strong>{completedEvidenceCount}</strong>
-                <span>evidence-backed signals attached</span>
-              </article>
-              <article>
-                <strong>{queuedTemplates.length}</strong>
-                <span>signals still waiting for proof</span>
-              </article>
-            </div>
-
-            <pre className={styles.previewCode}>{deferredPreview}</pre>
-          </aside>
         </section>
       </div>
     </main>
