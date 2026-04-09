@@ -465,7 +465,13 @@ export function HeroComposer() {
                         {action.label}
                       </button>
                     ) : (
-                      <Link className={styles.starterQuestionPill} href={action.href} key={action.label}>
+                      <Link
+                        className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
+                          .filter(Boolean)
+                          .join(" ")}
+                        href={action.href}
+                        key={action.label}
+                      >
                         {action.label}
                       </Link>
                     ),

@@ -75,31 +75,31 @@ const tierMeta: Record<
   }
 > = {
   self: {
-    label: "Tier 1 - Self-reported",
+    label: "Self-reported",
     previewLabel: "self-reported",
     rank: 1,
     toneClass: "tierSelf",
   },
   relationship: {
-    label: "Tier 2 - Relationship-backed",
+    label: "Relationship-backed",
     previewLabel: "relationship-backed",
     rank: 2,
     toneClass: "tierRelationship",
   },
   document: {
-    label: "Tier 3 - Document-backed",
+    label: "Document-backed",
     previewLabel: "document-backed",
     rank: 3,
     toneClass: "tierDocument",
   },
   signature: {
-    label: "Tier 4 - Signature-backed",
+    label: "Signature-backed",
     previewLabel: "signature-backed",
     rank: 4,
     toneClass: "tierSignature",
   },
   institution: {
-    label: "Tier 5 - Institution-verified",
+    label: "Institution-verified",
     previewLabel: "institution-verified",
     rank: 5,
     toneClass: "tierInstitution",
@@ -118,7 +118,7 @@ const evidenceTemplates: EvidenceTemplate[] = [
     title: "ID.me verification",
   },
   {
-    acceptedFormats: "Images only · front and back required",
+    acceptedFormats: "Images only",
     contextHint: "What should this ID unlock inside the credibility profile?",
     guidance: "Government-issued ID helps bind soul.md to an identity layer before broader sharing begins.",
     id: "drivers-license",
@@ -670,14 +670,13 @@ export function AgentBuilderWorkspace() {
       .map((template) => {
         const draft = evidence[template.id];
         const currentTier = tierMeta[getCurrentTier(template, draft)];
-        const potentialTier = tierMeta[template.tier];
         const uploadCount = getCompletedUploadCount(template, draft);
         const stateLabel = isDriversLicenseImageTemplate(template)
           ? uploadCount === driversLicenseImageSlots.length
             ? "Front and back attached"
             : uploadCount > 0
               ? `${uploadCount} of ${driversLicenseImageSlots.length} images attached`
-              : "Front and back required"
+              : ""
           : draft.files.length > 0
             ? `${draft.files.length} upload${draft.files.length === 1 ? "" : "s"} attached`
             : isEvidenceStarted(draft)
@@ -695,15 +694,14 @@ export function AgentBuilderWorkspace() {
                 <span className={[styles.tierBadge, styles[currentTier.toneClass]].join(" ")}>
                   {currentTier.label}
                 </span>
-                <span className={styles.secondaryBadge}>
-                  Potential: {potentialTier.label}
-                </span>
               </div>
             </div>
 
             <div className={styles.evidenceMetaRow}>
-              <span className={styles.statusBadge}>{stateLabel}</span>
-              <span className={styles.formatHint}>{template.acceptedFormats}</span>
+              {stateLabel ? <span className={styles.statusBadge}>{stateLabel}</span> : null}
+              {template.acceptedFormats ? (
+                <span className={styles.formatHint}>{template.acceptedFormats}</span>
+              ) : null}
             </div>
 
             {isDriversLicenseImageTemplate(template) ? (
@@ -926,9 +924,6 @@ export function AgentBuilderWorkspace() {
             >
               <div className={styles.foundationPanel}>
                 <div className={styles.foundationHeader}>
-                  <span className={[styles.tierBadge, styles.tierSelf].join(" ")}>
-                    Tier 1 - Self-reported
-                  </span>
                   <span className={styles.sectionHint}>
                     This section establishes the profile narrative before evidence is attached.
                   </span>
