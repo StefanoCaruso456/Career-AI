@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { googleOAuthDisabledMessage } from "@/auth";
 import { createPortal } from "react-dom";
@@ -270,10 +270,6 @@ export function AuthModalTrigger({
                 ) : null}
               </form>
 
-              <div className={styles.divider}>
-                <span>Or continue instantly</span>
-              </div>
-
               <div className={styles.actionBlock}>
                 <GoogleSignInButton
                   callbackUrl={callbackUrl}
@@ -287,16 +283,6 @@ export function AuthModalTrigger({
                     {googleOAuthDisabledMessage}
                   </p>
                 ) : null}
-                <div className={styles.trustRow}>
-                  <div className={styles.trustPill}>
-                    <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                    Verified Google email only
-                  </div>
-                  <div className={styles.trustPill}>
-                    <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
-                    Protected workspace entry
-                  </div>
-                </div>
               </div>
             </div>
           </div>,
