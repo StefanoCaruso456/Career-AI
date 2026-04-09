@@ -565,7 +565,7 @@
 .chatEmptyState {
   display: grid;
   align-content: end;
-  justify-items: start;
+  justify-items: center;
   width: min(100%, var(--chat-conversation-width));
   min-height: clamp(16rem, 38vh, 24rem);
   margin-inline: auto;
@@ -575,13 +575,17 @@
 .chatStarterGroup {
   display: grid;
   gap: 0.95rem;
+  justify-items: center;
   max-width: 42rem;
+  width: 100%;
 }
 
 .starterQuestionStack {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
   gap: 0.7rem;
+  width: 100%;
 }
 
 .starterQuestionPill {
