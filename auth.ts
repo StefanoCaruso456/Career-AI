@@ -1,38 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-
-export function getGoogleClientId() {
-  return process.env.GOOGLE_CLIENT_ID?.trim() || process.env.CLIENT_ID?.trim() || "";
-}
-
-export function getGoogleClientSecret() {
-  return process.env.GOOGLE_CLIENT_SECRET?.trim() || process.env.CLIENT_SECRET?.trim() || "";
-}
-
-export function getAuthSecret() {
-  return process.env.NEXTAUTH_SECRET?.trim() || process.env.AUTH_SECRET?.trim() || "";
-}
-
-export function getPublicBaseUrl() {
-  const configuredUrl = process.env.NEXTAUTH_URL?.trim();
-
-  if (configuredUrl) {
-    return configuredUrl;
-  }
-
-  const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
-
-  if (railwayPublicDomain) {
-    return `https://${railwayPublicDomain}`;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:3000";
-  }
-
-  return "";
-}
+import { getAuthSecret, getGoogleClientId, getGoogleClientSecret, getGoogleRedirectUri, getPublicBaseUrl } from "@/auth-config";
 
 const googleClientId = getGoogleClientId();
 const googleClientSecret = getGoogleClientSecret();
@@ -48,15 +17,14 @@ if (!process.env.NEXTAUTH_SECRET && authSecret) {
 }
 
 export const googleOAuthEnabled = Boolean(
-  googleClientId && googleClientSecret,
+  googleClientId && googleClientSecret && publicBaseUrl && authSecret,
 );
 
 export const publicOrigin = publicBaseUrl;
-export const googleRedirectUri = publicBaseUrl
-  ? `${publicBaseUrl}/api/auth/callback/google`
-  : "";
+export const googleRedirectUri = getGoogleRedirectUri();
 
 export const authOptions = {
+  secret: authSecret || undefined,
   providers: googleOAuthEnabled
     ? [
         GoogleProvider({

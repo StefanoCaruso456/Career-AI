@@ -459,8 +459,9 @@ export function ChatHomeShell() {
       <section className={styles.heroSection}>
         <div className={styles.heroInner}>
           <h1 className={styles.heroTitle}>
-            Career AI is a verified career identity platform for job seekers that helps
-            them build trust, stand out to employers, and get hired faster.
+            <span className={styles.heroTitleLine}>Career AI is a verified career identity platform</span>
+            <span className={styles.heroTitleLine}>for job seekers that helps them build trust,</span>
+            <span className={styles.heroTitleLine}>stand out to employers, and get hired faster.</span>
           </h1>
 
           <HeroComposer />

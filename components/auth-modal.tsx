@@ -31,7 +31,7 @@ function getModeCopy(mode: AuthMode) {
       buttonLabel: "Continue with Google",
       emailActionLabel: "Create account",
       formStatus:
-        "Use Google to open your workspace today.",
+        "Email/password sign-up is not enabled yet. Use Google to create your workspace securely.",
     };
   }
 
@@ -42,7 +42,7 @@ function getModeCopy(mode: AuthMode) {
     buttonLabel: "Sign in with Google",
     emailActionLabel: "Sign in",
     formStatus:
-      "Use Google to continue right now.",
+      "Email/password sign-in is not enabled yet. Use Google to continue securely.",
   };
 }
 

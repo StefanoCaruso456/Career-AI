@@ -1,9 +1,11 @@
 "use client";
 
 import { LoaderCircle } from "lucide-react";
-import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { getProviders, signIn } from "next-auth/react";
+import { useEffect, useState } from "react";
 import styles from "./google-sign-in-button.module.css";
+
+type GoogleProviderStatus = "checking" | "ready" | "unavailable";
 
 function GoogleMark() {
   return (
@@ -42,13 +44,56 @@ export function GoogleSignInButton({
   label?: string;
 }) {
   const [isPending, setIsPending] = useState(false);
-  const isDisabled = disabled || isPending;
-  const displayLabel = isPending ? "Opening Google..." : disabled ? disabledLabel : label;
+  const [providerStatus, setProviderStatus] = useState<GoogleProviderStatus>("checking");
+
+  useEffect(() => {
+    let isActive = true;
+
+    void getProviders()
+      .then((providers) => {
+        if (!isActive) {
+          return;
+        }
+
+        setProviderStatus(providers?.google ? "ready" : "unavailable");
+      })
+      .catch(() => {
+        if (isActive) {
+          setProviderStatus("unavailable");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const isProviderReady = providerStatus === "ready";
+  const isDisabled = disabled || isPending || !isProviderReady;
+  const displayLabel = isPending
+    ? "Opening Google..."
+    : disabled
+      ? disabledLabel
+      : providerStatus === "checking"
+        ? "Checking Google sign-in..."
+        : providerStatus === "unavailable"
+          ? disabledLabel
+          : label;
+  const buttonTitle = disabled
+    ? disabledTitle
+    : providerStatus === "unavailable"
+      ? disabledLabel
+      : undefined;
 
   return (
     <button
       aria-disabled={isDisabled}
-      className={[styles.button, disabled ? styles.buttonDisabled : ""].filter(Boolean).join(" ")}
+      className={[
+        styles.button,
+        disabled || providerStatus === "unavailable" ? styles.buttonDisabled : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       disabled={isDisabled}
       onClick={() => {
         if (isDisabled) {
@@ -56,9 +101,11 @@ export function GoogleSignInButton({
         }
 
         setIsPending(true);
-        void signIn("google", { callbackUrl });
+        void signIn("google", { callbackUrl }).catch(() => {
+          setIsPending(false);
+        });
       }}
-      title={disabled ? disabledTitle : undefined}
+      title={buttonTitle}
       type="button"
     >
       <span className={styles.iconShell} aria-hidden="true">

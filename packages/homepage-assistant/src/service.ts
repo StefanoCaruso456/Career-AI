@@ -31,6 +31,10 @@ function getModel() {
   return process.env.OPENAI_MODEL?.trim() || "gpt-5";
 }
 
+function getTranscriptionModel() {
+  return process.env.OPENAI_TRANSCRIPTION_MODEL?.trim() || "gpt-4o-mini-transcribe";
+}
+
 export async function generateHomepageAssistantReply(message: string) {
   const response = await getOpenAIClient().responses.create({
     model: getModel(),
@@ -43,6 +47,21 @@ export async function generateHomepageAssistantReply(message: string) {
 
   if (!output) {
     throw new OpenAIResponseError("The model returned an empty response.");
+  }
+
+  return output;
+}
+
+export async function transcribeHomepageAssistantAudio(file: File) {
+  const response = await getOpenAIClient().audio.transcriptions.create({
+    file,
+    model: getTranscriptionModel(),
+  });
+
+  const output = response.text?.trim();
+
+  if (!output) {
+    throw new OpenAIResponseError("The transcription came back empty.");
   }
 
   return output;

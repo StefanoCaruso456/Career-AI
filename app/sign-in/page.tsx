@@ -3,6 +3,9 @@ import { googleOAuthEnabled, auth } from "@/auth";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import styles from "./page.module.css";
 
+const googleDisabledMessage =
+  "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to enable Google sign-in.";
+
 export default async function SignInPage() {
   const session = await auth();
 
@@ -27,17 +30,21 @@ export default async function SignInPage() {
           disabledTitle={
             googleOAuthEnabled
               ? undefined
-              : "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to enable Google sign-in."
+              : googleDisabledMessage
           }
           label="Sign in with Google"
         />
 
         <div className={styles.noteCard}>
-          <strong>{googleOAuthEnabled ? "Google sign-in is live." : "Google sign-in is disabled locally."}</strong>
+          <strong>
+            {googleOAuthEnabled
+              ? "Google sign-in runs through our server-side OAuth flow."
+              : "Google sign-in is disabled locally."}
+          </strong>
           <p>
             {googleOAuthEnabled
               ? "After authentication, you will land in your account workspace at /account."
-              : "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to your local environment, then restart the app to enable the Google flow."}
+              : `${googleDisabledMessage} The Google client secret stays on the server.`}
           </p>
         </div>
       </section>
