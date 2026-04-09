@@ -73,12 +73,12 @@ describe("homepage assistant service", () => {
     });
   });
 
-  it("throws a config error when the OpenAI key is missing", async () => {
+  it("returns a deterministic fallback reply when the OpenAI key is missing", async () => {
     delete process.env.OPENAI_API_KEY;
 
-    await expect(generateHomepageAssistantReply("Hello")).rejects.toBeInstanceOf(
-      OpenAIConfigError,
-    );
+    await expect(
+      generateHomepageAssistantReply("How is this different from a resume builder?"),
+    ).resolves.toContain("Career AI helps you prove it");
     expect(openAIConstructorMock).not.toHaveBeenCalled();
   });
 
@@ -109,5 +109,15 @@ describe("homepage assistant service", () => {
     await expect(transcribeHomepageAssistantAudio(file)).rejects.toBeInstanceOf(
       OpenAIResponseError,
     );
+  });
+
+  it("still requires an OpenAI key for transcription", async () => {
+    const file = new File(["voice"], "voice-note.webm", { type: "audio/webm" });
+    delete process.env.OPENAI_API_KEY;
+
+    await expect(transcribeHomepageAssistantAudio(file)).rejects.toBeInstanceOf(
+      OpenAIConfigError,
+    );
+    expect(openAIConstructorMock).not.toHaveBeenCalled();
   });
 });
