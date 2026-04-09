@@ -41,16 +41,18 @@
 
 .headerCopy {
   display: grid;
+  min-width: 0;
 }
 
 .title {
   margin: 0;
   color: #f8fbff;
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(1.18rem, 2.4vw, 1.82rem);
-  line-height: 0.98;
+  font-size: clamp(1.06rem, 0.82rem + 1.2vw, 1.52rem);
+  line-height: 1.02;
   letter-spacing: -0.055em;
-  max-width: 12ch;
+  max-width: none;
+  white-space: nowrap;
 }
 
 .closeButton {
@@ -252,7 +254,6 @@
   }
 
   .title {
-    max-width: none;
-    font-size: clamp(1.45rem, 8vw, 2rem);
+    font-size: clamp(1rem, 1.6vw + 0.74rem, 1.18rem);
   }
 }
