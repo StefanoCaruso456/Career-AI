@@ -355,6 +355,7 @@ export function HeroComposer() {
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
+  const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1672,7 +1673,16 @@ export function HeroComposer() {
             .filter(Boolean)
             .join(" ")}
         >
-          <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
+          <div
+            aria-live="polite"
+            className={[
+              styles.chatTranscript,
+              hasActiveConversation ? styles.chatTranscriptConversation : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            ref={transcriptRef}
+          >
             {isProjectHomeVisible && activeProject ? (
               <section className={styles.projectHome}>
                 <header className={styles.projectHomeHeader}>
