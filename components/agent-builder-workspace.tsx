@@ -716,7 +716,6 @@ export function AgentBuilderWorkspace() {
           <aside className={styles.progressRail}>
             <div className={styles.progressRailHeader}>
               <span className={styles.sectionEyebrow}>Progress map</span>
-              <h2>Move from profile setup into a living trust layer.</h2>
             </div>
 
             <div className={styles.progressSteps}>

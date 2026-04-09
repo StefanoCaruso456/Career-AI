@@ -290,7 +290,7 @@
 .chatSidebarHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.8rem;
 }
 
@@ -356,6 +356,37 @@
 .chatSidebarSection {
   display: grid;
   gap: 0.65rem;
+}
+
+.chatSidebarAction {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.7rem;
+  padding: 0.18rem 0.4rem 0.1rem;
+  border: 0;
+  background: transparent;
+  color: rgba(244, 247, 255, 0.84);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    color 180ms ease;
+}
+
+.chatSidebarAction:hover {
+  transform: translateX(1px);
+  color: #f6f8ff;
+}
+
+.chatSidebarActionLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62rem;
+  font-size: 0.96rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .chatSidebarToggle {
@@ -430,6 +461,8 @@
 }
 
 .chatSidebarItem {
+  width: 100%;
+  display: block;
   padding: 0.76rem 0.85rem;
   border: 1px solid transparent;
   border-radius: 0.98rem;
@@ -438,6 +471,19 @@
   font-size: 0.92rem;
   font-weight: 500;
   line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.chatSidebarItem:hover {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.18);
+  color: #eef4ff;
 }
 
 .chatSidebarItemActive {
@@ -458,6 +504,7 @@
 }
 
 .chatStageMain {
+  --chat-conversation-width: 47rem;
   position: relative;
   min-width: 0;
   min-height: inherit;
@@ -515,30 +562,16 @@
   display: grid;
   align-content: end;
   justify-items: start;
+  width: min(100%, var(--chat-conversation-width));
   min-height: clamp(16rem, 38vh, 24rem);
-  padding: 0.6rem 0.35rem 0;
+  margin-inline: auto;
+  padding: 0.6rem 0 0;
 }
 
 .chatStarterGroup {
   display: grid;
   gap: 0.95rem;
   max-width: 42rem;
-}
-
-.chatEmptyEyebrow {
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.chatEmptyBody {
-  max-width: 28rem;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 1rem;
-  line-height: 1.7;
 }
 
 .starterQuestionStack {
@@ -590,7 +623,8 @@
 
 .transcriptRow {
   display: flex;
-  width: 100%;
+  width: min(100%, var(--chat-conversation-width));
+  margin-inline: auto;
 }
 
 .transcriptRowUser {
@@ -650,10 +684,10 @@
 
 .composerDock {
   position: absolute;
-  right: 1.3rem;
   bottom: 1.3rem;
-  left: 1.3rem;
+  left: 50%;
   z-index: 3;
+  width: min(calc(100% - 2.6rem), 44rem);
   padding: 1.05rem 1.15rem 1rem;
   border-radius: 2rem;
   border: 1px solid var(--hero-border);
@@ -663,6 +697,7 @@
   box-shadow:
     0 24px 46px rgba(0, 0, 0, 0.32),
     inset 1px 1px 0 rgba(255, 255, 255, 0.04);
+  transform: translateX(-50%);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
@@ -2036,6 +2071,7 @@
 .secondaryCta:focus-visible,
 .inlineLink:focus-visible,
 .starterQuestionPill:focus-visible,
+.chatSidebarAction:focus-visible,
 .chatSidebarToggle:focus-visible,
 .chatSidebarCollapse:focus-visible,
 .chatSidebarReveal:focus-visible,
@@ -2218,8 +2254,10 @@
     right: 0.9rem;
     bottom: 0.9rem;
     left: 0.9rem;
+    width: auto;
     padding: 0.95rem;
     border-radius: 1.7rem;
+    transform: none;
   }
 
   .starterQuestionStack {
@@ -2313,6 +2351,7 @@
     padding: 0.82rem 0.88rem;
   }
 
+  .chatSidebarActionLabel,
   .chatSidebarToggleLabel {
     font-size: 0.94rem;
   }
