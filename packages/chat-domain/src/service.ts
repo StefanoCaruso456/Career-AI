@@ -136,6 +136,67 @@ function buildProjectLabel(projects: ChatProjectRecord[]) {
   }
 }
 
+async function readFileBuffer(file: File) {
+  const arrayBufferReader = (
+    file as File & {
+      arrayBuffer?: () => Promise<ArrayBuffer>;
+    }
+  ).arrayBuffer;
+
+  if (typeof arrayBufferReader === "function") {
+    return Buffer.from(await arrayBufferReader.call(file));
+  }
+
+  const streamReader = (
+    file as File & {
+      stream?: () => ReadableStream<Uint8Array>;
+    }
+  ).stream;
+
+  if (typeof streamReader === "function") {
+    const reader = streamReader.call(file).getReader();
+    const chunks: Uint8Array[] = [];
+
+    while (true) {
+      const result = await reader.read();
+
+      if (result.done) {
+        break;
+      }
+
+      if (result.value) {
+        chunks.push(result.value);
+      }
+    }
+
+    return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+  }
+
+  if (typeof FileReader !== "undefined") {
+    return new Promise<Buffer>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => {
+        reject(reader.error ?? new Error("Unable to read uploaded file."));
+      };
+      reader.onload = () => {
+        const result = reader.result;
+
+        if (!(result instanceof ArrayBuffer)) {
+          reject(new Error("Unable to read uploaded file."));
+          return;
+        }
+
+        resolve(Buffer.from(result));
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  return Buffer.from(await new Response(file).arrayBuffer());
+}
+
 function mapAttachmentToDto(record: ChatAttachmentRecord): ChatAttachment {
   const openUrl = `/api/chat/attachments/${record.id}`;
 
@@ -665,7 +726,7 @@ export async function createChatAttachment(args: {
     const database = await prepareDatabase(args);
     const attachmentId = createEntityId("attachment");
     const timestamp = new Date().toISOString();
-    const buffer = Buffer.from(await args.file.arrayBuffer());
+    const buffer = await readFileBuffer(args.file);
     const checksum = createHash("sha256").update(buffer).digest("hex");
     const storageKey = `${checksum.slice(0, 12)}/${attachmentId}.${validation.descriptor.extension}`;
 
