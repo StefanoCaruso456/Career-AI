@@ -453,6 +453,71 @@
   gap: 1rem;
 }
 
+.selfStepList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selfStepItem {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 0;
+  padding: 0.85rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(8, 11, 18, 0.48);
+}
+
+.selfStepMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 11, 18, 0.82);
+  color: rgba(244, 247, 252, 0.92);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.selfStepMarkerComplete {
+  border-color: rgba(146, 182, 255, 0.44);
+  background:
+    linear-gradient(180deg, rgba(104, 92, 255, 0.42), rgba(92, 133, 255, 0.2)),
+    rgba(18, 22, 33, 0.94);
+  box-shadow:
+    0 0 0 4px rgba(133, 147, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.selfStepContent {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+}
+
+.selfStepContent strong {
+  color: var(--builder-text);
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.selfStepContent span {
+  color: var(--builder-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .sectionTitle {
   font-size: 1.55rem;
   line-height: 1.05;

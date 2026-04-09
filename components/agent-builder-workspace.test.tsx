@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentBuilderWorkspace } from "@/components/agent-builder-workspace";
 import { builderEvidenceTemplates } from "@/packages/career-builder-domain/src";
@@ -123,6 +123,30 @@ describe("AgentBuilderWorkspace", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Self-reported foundation" })).toBeInTheDocument();
     expect(screen.getByLabelText("Legal name")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Capture the profile narrative before trust signals and evidence are attached."),
+    ).not.toBeInTheDocument();
+
+    const stepList = screen.getByRole("list", {
+      name: "Self-reported foundation steps",
+    });
+
+    expect(within(stepList).getAllByText(/^[1-5]$/)).toHaveLength(5);
+  });
+
+  it("removes the duplicate phase section header when a modal only has one section", async () => {
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /relationship-backed/i }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByText("Structured intake")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
   });
 
   it("loads existing saved values into the phase modal", async () => {
