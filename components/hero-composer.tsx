@@ -976,7 +976,7 @@ export function HeroComposer() {
         ];
 
         transcriptScrollIntentRef.current = {
-          entryId: `${requestId}-assistant`,
+          entryId: `${requestId}-user`,
           mode: "anchor-entry",
         };
         setTranscript(nextAssistantTranscript);
@@ -998,7 +998,7 @@ export function HeroComposer() {
         ];
 
         transcriptScrollIntentRef.current = {
-          entryId: `${requestId}-assistant-error`,
+          entryId: `${requestId}-user`,
           mode: "anchor-entry",
         };
         setTranscript(nextAssistantTranscript);
