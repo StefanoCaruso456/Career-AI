@@ -26,6 +26,9 @@ export function HeaderHomeLink() {
           src="/career-ai-home-mark.png"
         />
       </span>
+      <span className={styles.homeBrandCopy} aria-hidden="true">
+        <strong className={styles.homeBrandWordmark}>Career AI</strong>
+      </span>
       <span className={styles.srOnly}>Career AI home</span>
     </Link>
   );
