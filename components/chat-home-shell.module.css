@@ -230,8 +230,10 @@
   margin: 0;
   color: var(--hero-text);
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(2.8rem, 6vw, 4.8rem);
+  max-width: 16ch;
+  font-size: clamp(1.85rem, 4.15vw, 3.1rem);
   font-weight: 600;
+  line-height: 1.02;
   letter-spacing: -0.05em;
 }
 
@@ -1905,7 +1907,7 @@
   }
 
   .heroTitle {
-    font-size: clamp(2.4rem, 10vw, 3.5rem);
+    font-size: clamp(1.55rem, 7vw, 2.2rem);
   }
 
   .chatStage {
