@@ -78,6 +78,8 @@ Local development values:
 - Authorized JavaScript origin: `http://localhost:3000`
 - Authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
 
+If you run the app on a different local port, update both `NEXTAUTH_URL` and the Google redirect URI to that exact origin before testing OAuth.
+
 After configuration:
 
 - `/sign-in` starts the Google flow

@@ -73,10 +73,10 @@ describe("auth config helpers", () => {
     expect(getGoogleRedirectUri()).toBe("https://career-ai.up.railway.app/api/auth/callback/google");
   });
 
-  it("falls back to localhost during development", () => {
+  it("does not guess a localhost callback when the app URL is unset", () => {
     process.env.NODE_ENV = "development";
 
-    expect(getPublicBaseUrl()).toBe("http://localhost:3000");
-    expect(getGoogleRedirectUri()).toBe("http://localhost:3000/api/auth/callback/google");
+    expect(getPublicBaseUrl()).toBe("");
+    expect(getGoogleRedirectUri()).toBe("");
   });
 });

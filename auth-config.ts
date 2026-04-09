@@ -35,10 +35,6 @@ export function getPublicBaseUrl() {
     return `https://${railwayPublicDomain}`;
   }
 
-  if (process.env.NODE_ENV !== "production") {
-    return "http://localhost:3000";
-  }
-
   return "";
 }
 
