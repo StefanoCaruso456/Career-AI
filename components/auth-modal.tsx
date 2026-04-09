@@ -145,6 +145,8 @@ export function AuthModalTrigger({
   }
 
   const modeCopy = getModeCopy(mode);
+  const googleDisabledMessage =
+    "Google sign-in is disabled here until GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET are configured.";
   const modal =
     isMounted && isOpen
       ? createPortal(
@@ -280,8 +282,15 @@ export function AuthModalTrigger({
                 <GoogleSignInButton
                   callbackUrl={callbackUrl}
                   disabled={!googleOAuthEnabled}
+                  disabledLabel="Google sign-in unavailable"
+                  disabledTitle={googleOAuthEnabled ? undefined : googleDisabledMessage}
                   label={modeCopy.buttonLabel}
                 />
+                {!googleOAuthEnabled ? (
+                  <p className={styles.googleStatusNote} role="status">
+                    {googleDisabledMessage}
+                  </p>
+                ) : null}
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />

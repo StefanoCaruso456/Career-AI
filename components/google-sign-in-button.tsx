@@ -31,18 +31,24 @@ function GoogleMark() {
 export function GoogleSignInButton({
   callbackUrl,
   disabled = false,
+  disabledLabel = "Google sign-in unavailable",
+  disabledTitle,
   label = "Continue with Google",
 }: {
   callbackUrl: string;
   disabled?: boolean;
+  disabledLabel?: string;
+  disabledTitle?: string;
   label?: string;
 }) {
   const [isPending, setIsPending] = useState(false);
   const isDisabled = disabled || isPending;
+  const displayLabel = isPending ? "Opening Google..." : disabled ? disabledLabel : label;
 
   return (
     <button
-      className={styles.button}
+      aria-disabled={isDisabled}
+      className={[styles.button, disabled ? styles.buttonDisabled : ""].filter(Boolean).join(" ")}
       disabled={isDisabled}
       onClick={() => {
         if (isDisabled) {
@@ -52,12 +58,13 @@ export function GoogleSignInButton({
         setIsPending(true);
         void signIn("google", { callbackUrl });
       }}
+      title={disabled ? disabledTitle : undefined}
       type="button"
     >
       <span className={styles.iconShell} aria-hidden="true">
         {isPending ? <LoaderCircle className={styles.spinner} size={18} strokeWidth={2} /> : <GoogleMark />}
       </span>
-      <span className={styles.label}>{isPending ? "Opening Google..." : label}</span>
+      <span className={styles.label}>{displayLabel}</span>
       <span className={styles.trailingSlot} aria-hidden="true" />
     </button>
   );

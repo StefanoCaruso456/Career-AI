@@ -36,6 +36,15 @@
   transform: none;
 }
 
+.buttonDisabled {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(241, 243, 247, 0.88));
+  color: rgba(17, 24, 39, 0.76);
+  box-shadow:
+    0 12px 24px rgba(5, 10, 20, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
 .button:focus-visible {
   outline: 2px solid rgba(66, 133, 244, 0.7);
   outline-offset: 3px;
