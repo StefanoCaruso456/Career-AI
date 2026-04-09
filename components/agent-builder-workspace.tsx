@@ -24,10 +24,12 @@ type TierKey =
   | "institution";
 
 type EvidenceSectionId = "identity" | "employment" | "network";
+type EvidenceFileSlot = "front" | "back";
 
 type FileSummary = {
   name: string;
   sizeLabel: string;
+  slot?: EvidenceFileSlot;
 };
 
 type EvidenceDraft = {
@@ -55,7 +57,13 @@ type EvidenceTemplate = {
   sourceHint: string;
   tier: TierKey;
   title: string;
+  uploadKind?: "default" | "drivers-license-images";
 };
+
+const driversLicenseImageSlots = [
+  { key: "front", label: "Front of driver's license" },
+  { key: "back", label: "Back of driver's license" },
+] as const;
 
 const tierMeta: Record<
   TierKey,
@@ -116,7 +124,7 @@ const evidenceTemplates: EvidenceTemplate[] = [
     title: "ID.me verification",
   },
   {
-    acceptedFormats: "Front/back scan or secure image",
+    acceptedFormats: "Images only · front and back required",
     contextHint: "What should this ID unlock inside the credibility profile?",
     guidance: "Government-issued ID helps bind soul.md to an identity layer before broader sharing begins.",
     id: "drivers-license",
@@ -124,6 +132,7 @@ const evidenceTemplates: EvidenceTemplate[] = [
     sourceHint: "Issuing authority or state",
     tier: "institution",
     title: "Driver's license",
+    uploadKind: "drivers-license-images",
   },
   {
     acceptedFormats: "Signed PDF, notarized file, or official agreement",
@@ -294,8 +303,33 @@ function isEvidenceStarted(draft: EvidenceDraft) {
   );
 }
 
+function isDriversLicenseImageTemplate(template: EvidenceTemplate) {
+  return template.uploadKind === "drivers-license-images";
+}
+
+function getSlottedFile(draft: EvidenceDraft, slot: EvidenceFileSlot) {
+  return draft.files.find((file) => file.slot === slot);
+}
+
+function getCompletedUploadCount(template: EvidenceTemplate, draft: EvidenceDraft) {
+  if (!isDriversLicenseImageTemplate(template)) {
+    return draft.files.length;
+  }
+
+  return driversLicenseImageSlots.filter(({ key }) => getSlottedFile(draft, key) !== undefined)
+    .length;
+}
+
+function isEvidenceComplete(template: EvidenceTemplate, draft: EvidenceDraft) {
+  if (isDriversLicenseImageTemplate(template)) {
+    return getCompletedUploadCount(template, draft) === driversLicenseImageSlots.length;
+  }
+
+  return draft.files.length > 0;
+}
+
 function getCurrentTier(template: EvidenceTemplate, draft: EvidenceDraft): TierKey {
-  if (draft.files.length > 0) {
+  if (isEvidenceComplete(template, draft)) {
     return template.tier;
   }
 
@@ -319,6 +353,20 @@ function buildSoulPreview(
         }
 
         const tier = tierMeta[getCurrentTier(template, draft)];
+
+        if (isDriversLicenseImageTemplate(template)) {
+          const frontImage = getSlottedFile(draft, "front")?.name || "pending";
+          const backImage = getSlottedFile(draft, "back")?.name || "pending";
+
+          return [
+            `- signal: ${template.title}`,
+            `  tier: ${tier.previewLabel}`,
+            "  capture_mode: required image pair",
+            `  front_image: ${frontImage}`,
+            `  back_image: ${backImage}`,
+          ].join("\n");
+        }
+
         const source = draft.source.trim() || "pending source";
         const context = draft.context.trim() || "context to be added";
         const files =
@@ -460,13 +508,13 @@ export function AgentBuilderWorkspace() {
   );
   const networkTemplates = evidenceTemplates.filter((template) => template.section === "network");
   const completedIdentitySignals = identityTemplates.filter(
-    (template) => evidence[template.id].files.length > 0,
+    (template) => isEvidenceComplete(template, evidence[template.id]),
   ).length;
   const completedEmploymentSignals = employmentTemplates.filter(
-    (template) => evidence[template.id].files.length > 0,
+    (template) => isEvidenceComplete(template, evidence[template.id]),
   ).length;
   const completedNetworkSignals = networkTemplates.filter(
-    (template) => evidence[template.id].files.length > 0,
+    (template) => isEvidenceComplete(template, evidence[template.id]),
   ).length;
   const completedEvidenceCount =
     completedIdentitySignals + completedEmploymentSignals + completedNetworkSignals;
@@ -480,7 +528,7 @@ export function AgentBuilderWorkspace() {
     return tierMeta[tier].rank > tierMeta[currentStrongest].rank ? tier : currentStrongest;
   }, "self");
   const queuedTemplates = evidenceTemplates.filter(
-    (template) => evidence[template.id].files.length === 0,
+    (template) => !isEvidenceComplete(template, evidence[template.id]),
   );
   const deferredPreview = buildSoulPreview(
     deferredProfile,
@@ -561,12 +609,63 @@ export function AgentBuilderWorkspace() {
     };
   }
 
+  function handleSlottedFileChange(evidenceId: string, slot: EvidenceFileSlot) {
+    return (event: ChangeEvent<HTMLInputElement>) => {
+      const nextFile = Array.from(event.target.files ?? []).find((file) =>
+        file.type.startsWith("image/"),
+      );
+
+      if (!nextFile) {
+        event.target.value = "";
+        return;
+      }
+
+      setEvidence((currentEvidence) => {
+        const remainingFiles = currentEvidence[evidenceId].files.filter(
+          (file) => file.slot !== slot,
+        );
+        const updatedFiles = [
+          ...remainingFiles,
+          {
+            name: nextFile.name,
+            sizeLabel: formatBytes(nextFile.size),
+            slot,
+          },
+        ];
+        const orderedFiles = driversLicenseImageSlots.flatMap(({ key }) => {
+          const file = updatedFiles.find((candidate) => candidate.slot === key);
+          return file ? [file] : [];
+        });
+
+        return {
+          ...currentEvidence,
+          [evidenceId]: {
+            ...currentEvidence[evidenceId],
+            files: orderedFiles,
+          },
+        };
+      });
+
+      event.target.value = "";
+    };
+  }
+
   function removeFile(evidenceId: string, fileName: string) {
     setEvidence((currentEvidence) => ({
       ...currentEvidence,
       [evidenceId]: {
         ...currentEvidence[evidenceId],
         files: currentEvidence[evidenceId].files.filter((file) => file.name !== fileName),
+      },
+    }));
+  }
+
+  function removeSlottedFile(evidenceId: string, slot: EvidenceFileSlot) {
+    setEvidence((currentEvidence) => ({
+      ...currentEvidence,
+      [evidenceId]: {
+        ...currentEvidence[evidenceId],
+        files: currentEvidence[evidenceId].files.filter((file) => file.slot !== slot),
       },
     }));
   }
@@ -578,8 +677,14 @@ export function AgentBuilderWorkspace() {
         const draft = evidence[template.id];
         const currentTier = tierMeta[getCurrentTier(template, draft)];
         const potentialTier = tierMeta[template.tier];
-        const stateLabel =
-          draft.files.length > 0
+        const uploadCount = getCompletedUploadCount(template, draft);
+        const stateLabel = isDriversLicenseImageTemplate(template)
+          ? uploadCount === driversLicenseImageSlots.length
+            ? "Front and back attached"
+            : uploadCount > 0
+              ? `${uploadCount} of ${driversLicenseImageSlots.length} images attached`
+              : "Front and back required"
+          : draft.files.length > 0
             ? `${draft.files.length} upload${draft.files.length === 1 ? "" : "s"} attached`
             : isEvidenceStarted(draft)
               ? "Draft started"
@@ -607,85 +712,135 @@ export function AgentBuilderWorkspace() {
               <span className={styles.formatHint}>{template.acceptedFormats}</span>
             </div>
 
-            <div className={styles.fieldGrid}>
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Source / issuer</span>
-                <input
-                  className={styles.input}
-                  onChange={handleEvidenceChange(template.id, "source")}
-                  placeholder={template.sourceHint}
-                  type="text"
-                  value={draft.source}
-                />
-              </label>
+            {isDriversLicenseImageTemplate(template) ? (
+              <div className={styles.uploadSlotGrid}>
+                {driversLicenseImageSlots.map(({ key, label }) => {
+                  const file = getSlottedFile(draft, key);
 
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Verified or issued on</span>
-                <input
-                  className={styles.input}
-                  onChange={handleEvidenceChange(template.id, "verifiedOn")}
-                  type="date"
-                  value={draft.verifiedOn}
-                />
-              </label>
+                  return (
+                    <div className={styles.uploadSlot} key={`${template.id}-${key}`}>
+                      <span className={styles.fieldLabel}>{label}</span>
+                      <label className={styles.uploadZone} htmlFor={`upload-${template.id}-${key}`}>
+                        <input
+                          accept="image/*"
+                          className={styles.fileInput}
+                          id={`upload-${template.id}-${key}`}
+                          onChange={handleSlottedFileChange(template.id, key)}
+                          type="file"
+                        />
+                        <Upload aria-hidden="true" size={18} strokeWidth={2} />
+                        <div>
+                          <strong>{file ? "Replace image" : `Upload ${label.toLowerCase()}`}</strong>
+                          <span>Image only</span>
+                        </div>
+                      </label>
 
-              <label className={[styles.field, styles.fieldFull].join(" ")}>
-                <span className={styles.fieldLabel}>Validation context</span>
-                <textarea
-                  className={styles.textarea}
-                  onChange={handleEvidenceChange(template.id, "context")}
-                  placeholder={template.contextHint}
-                  rows={3}
-                  value={draft.context}
-                />
-              </label>
-
-              <label className={[styles.field, styles.fieldFull].join(" ")}>
-                <span className={styles.fieldLabel}>Why this should matter in soul.md</span>
-                <textarea
-                  className={styles.textarea}
-                  onChange={handleEvidenceChange(template.id, "note")}
-                  placeholder="Add the signal, overlap, or milestone this evidence should reinforce."
-                  rows={2}
-                  value={draft.note}
-                />
-              </label>
-            </div>
-
-            <label className={styles.uploadZone} htmlFor={`upload-${template.id}`}>
-              <input
-                className={styles.fileInput}
-                id={`upload-${template.id}`}
-                multiple
-                onChange={handleFileChange(template.id)}
-                type="file"
-              />
-              <Upload aria-hidden="true" size={18} strokeWidth={2} />
-              <div>
-                <strong>Upload supporting evidence</strong>
-                <span>{template.acceptedFormats}</span>
-              </div>
-            </label>
-
-            {draft.files.length > 0 ? (
-              <div className={styles.fileChipRow}>
-                {draft.files.map((file) => (
-                  <div className={styles.fileChip} key={`${template.id}-${file.name}`}>
-                    <div>
-                      <strong>{file.name}</strong>
-                      <small>{file.sizeLabel}</small>
+                      {file ? (
+                        <div className={styles.fileChipRow}>
+                          <div className={styles.fileChip}>
+                            <div>
+                              <strong>{file.name}</strong>
+                              <small>{file.sizeLabel}</small>
+                            </div>
+                            <button
+                              className={styles.fileChipRemove}
+                              onClick={() => removeSlottedFile(template.id, key)}
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className={styles.uploadSlotHint}>Required image slot.</p>
+                      )}
                     </div>
-                    <button
-                      className={styles.fileChipRemove}
-                      onClick={() => removeFile(template.id, file.name)}
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            ) : null}
+            ) : (
+              <>
+                <div className={styles.fieldGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Source / issuer</span>
+                    <input
+                      className={styles.input}
+                      onChange={handleEvidenceChange(template.id, "source")}
+                      placeholder={template.sourceHint}
+                      type="text"
+                      value={draft.source}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Verified or issued on</span>
+                    <input
+                      className={styles.input}
+                      onChange={handleEvidenceChange(template.id, "verifiedOn")}
+                      type="date"
+                      value={draft.verifiedOn}
+                    />
+                  </label>
+
+                  <label className={[styles.field, styles.fieldFull].join(" ")}>
+                    <span className={styles.fieldLabel}>Validation context</span>
+                    <textarea
+                      className={styles.textarea}
+                      onChange={handleEvidenceChange(template.id, "context")}
+                      placeholder={template.contextHint}
+                      rows={3}
+                      value={draft.context}
+                    />
+                  </label>
+
+                  <label className={[styles.field, styles.fieldFull].join(" ")}>
+                    <span className={styles.fieldLabel}>Why this should matter in soul.md</span>
+                    <textarea
+                      className={styles.textarea}
+                      onChange={handleEvidenceChange(template.id, "note")}
+                      placeholder="Add the signal, overlap, or milestone this evidence should reinforce."
+                      rows={2}
+                      value={draft.note}
+                    />
+                  </label>
+                </div>
+
+                <label className={styles.uploadZone} htmlFor={`upload-${template.id}`}>
+                  <input
+                    className={styles.fileInput}
+                    id={`upload-${template.id}`}
+                    multiple
+                    onChange={handleFileChange(template.id)}
+                    type="file"
+                  />
+                  <Upload aria-hidden="true" size={18} strokeWidth={2} />
+                  <div>
+                    <strong>Upload supporting evidence</strong>
+                    <span>{template.acceptedFormats}</span>
+                  </div>
+                </label>
+
+                {draft.files.length > 0 ? (
+                  <div className={styles.fileChipRow}>
+                    {draft.files.map((file) => (
+                      <div className={styles.fileChip} key={`${template.id}-${file.name}`}>
+                        <div>
+                          <strong>{file.name}</strong>
+                          <small>{file.sizeLabel}</small>
+                        </div>
+                        <button
+                          className={styles.fileChipRemove}
+                          onClick={() => removeFile(template.id, file.name)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
           </article>
         );
       });

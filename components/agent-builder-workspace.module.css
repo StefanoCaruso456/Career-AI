@@ -384,9 +384,21 @@
   gap: 0.85rem;
 }
 
+.uploadSlotGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
 .field {
   display: grid;
   gap: 0.45rem;
+}
+
+.uploadSlot {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
 }
 
 .fieldFull {
@@ -496,6 +508,13 @@
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.uploadSlotHint {
+  margin: 0;
+  color: var(--builder-soft);
+  font-size: 0.76rem;
+  line-height: 1.45;
 }
 
 .growthGrid {
@@ -647,7 +666,8 @@
 
   .statGrid,
   .previewSummary,
-  .fieldGrid {
+  .fieldGrid,
+  .uploadSlotGrid {
     grid-template-columns: 1fr;
   }
 
