@@ -279,6 +279,26 @@ function buildProjectLabel(projects: ProjectEntry[]) {
   }
 }
 
+function buildThreadPreview(thread: ChatThread) {
+  const firstNarrativeEntry = thread.transcript.find((entry) => entry.role === "user");
+  const fallbackEntry = thread.transcript[thread.transcript.length - 1];
+  const previewSource = firstNarrativeEntry?.content ?? fallbackEntry?.content ?? "Start a new chat in this project.";
+  const normalizedPreview = previewSource.replace(/\s+/g, " ").trim();
+
+  if (normalizedPreview.length <= 96) {
+    return normalizedPreview;
+  }
+
+  return `${normalizedPreview.slice(0, 93)}...`;
+}
+
+function formatThreadUpdatedAt(updatedAt: number) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+  }).format(new Date(updatedAt));
+}
+
 export function HeroComposer() {
   const sidebarId = useId();
   const [message, setMessage] = useState("");
@@ -286,6 +306,7 @@ export function HeroComposer() {
   const [activeProjectId, setActiveProjectId] = useState(initialProjectCollections[0].id);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -309,6 +330,12 @@ export function HeroComposer() {
   const isTranscribing = voiceInputState === "transcribing";
   const canSubmit = message.trim().length > 0 && !isSubmitting && !isRecording && !isTranscribing;
   const workspaceVisible = true;
+  const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
+  const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
+  const isProjectHomeVisible =
+    activeProject !== null &&
+    currentThreadId === null &&
+    projectHomeProjectId === activeProject.id;
 
   useEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -737,6 +764,7 @@ export function HeroComposer() {
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setProjectHomeProjectId(null);
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
     setTranscript(thread.transcript);
@@ -748,30 +776,36 @@ export function HeroComposer() {
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setProjectHomeProjectId(activeProjectId);
     setCurrentThreadId(null);
     setTranscript([]);
     setMessage("");
     setSidebarOpen(true);
+    focusComposer();
   }
 
   function handleProjectSelect(projectId: string) {
-    const nextThread = threads.find((thread) => thread.projectId === projectId);
+    const isProjectAlreadyOpen =
+      activeProjectId === projectId &&
+      currentThreadId === null &&
+      projectHomeProjectId === projectId;
 
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
     setActiveProjectId(projectId);
+    setProjectHomeProjectId(projectId);
     setSidebarOpen(true);
-    setMessage("");
 
-    if (nextThread) {
-      setCurrentThreadId(nextThread.id);
-      setTranscript(nextThread.transcript);
+    if (isProjectAlreadyOpen) {
+      focusComposer();
       return;
     }
 
     setCurrentThreadId(null);
     setTranscript([]);
+    setMessage("");
+    focusComposer();
   }
 
   function handleNewProject() {
@@ -785,10 +819,12 @@ export function HeroComposer() {
     setSidebarRenameDraft(null);
     setProjects((currentProjects) => [nextProject, ...currentProjects]);
     setActiveProjectId(nextProject.id);
+    setProjectHomeProjectId(nextProject.id);
     setSidebarOpen(true);
     setCurrentThreadId(null);
     setTranscript([]);
     setMessage("");
+    focusComposer();
   }
 
   async function submitMessage(nextMessage?: string) {
@@ -808,6 +844,7 @@ export function HeroComposer() {
 
     setIsSubmitting(true);
     setMessage("");
+    setProjectHomeProjectId(null);
     setCurrentThreadId(threadId);
     setTranscript(nextUserTranscript);
     upsertThread(threadId, projectId, nextUserTranscript);
@@ -1040,6 +1077,8 @@ export function HeroComposer() {
 
     let nextProjects = remainingProjects;
     let nextActiveProjectId = activeProjectId;
+    const isDeletedProjectActive =
+      activeProjectId === projectId || projectHomeProjectId === projectId;
 
     if (remainingProjects.length === 0) {
       const replacementProject: ProjectEntry = {
@@ -1053,14 +1092,17 @@ export function HeroComposer() {
       nextActiveProjectId = remainingProjects[0].id;
     }
 
-    const nextThread = remainingThreads.find((thread) => thread.projectId === nextActiveProjectId);
-
     setProjects(nextProjects);
     setThreads(remainingThreads);
-    setActiveProjectId(nextActiveProjectId);
-    setCurrentThreadId(nextThread?.id ?? null);
-    setTranscript(nextThread?.transcript ?? []);
-    setMessage("");
+
+    if (isDeletedProjectActive) {
+      setActiveProjectId(nextActiveProjectId);
+      setProjectHomeProjectId(nextActiveProjectId);
+      setCurrentThreadId(null);
+      setTranscript([]);
+      setMessage("");
+    }
+
     setSidebarNotice({
       message: "Project deleted.",
       tone: "default",
@@ -1089,10 +1131,9 @@ export function HeroComposer() {
     setThreads(remainingThreads);
 
     if (currentThreadId === chatId) {
-      const nextThread = remainingThreads.find((thread) => thread.projectId === activeProjectId);
-
-      setCurrentThreadId(nextThread?.id ?? null);
-      setTranscript(nextThread?.transcript ?? []);
+      setProjectHomeProjectId(activeProjectId);
+      setCurrentThreadId(null);
+      setTranscript([]);
       setMessage("");
     }
 
@@ -1104,6 +1145,116 @@ export function HeroComposer() {
 
   function getProjectThreads(projectId: string) {
     return threads.filter((thread) => thread.projectId === projectId);
+  }
+
+  function renderComposer(placeholder: string, className?: string) {
+    return (
+      <form
+        className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
+        onSubmit={handleSubmit}
+      >
+        <div className={styles.composerTop}>
+          <textarea
+            aria-label="Message composer"
+            aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
+            className={styles.composerInput}
+            disabled={isSubmitting || isRecording || isTranscribing}
+            onChange={(event) => handleMessageChange(event.target.value)}
+            onKeyDown={(event) => {
+              void handleKeyDown(event);
+            }}
+            placeholder={
+              isRecording
+                ? "Listening to your voice note..."
+                : isTranscribing
+                  ? "Transcribing your voice note..."
+                  : placeholder
+            }
+            ref={composerInputRef}
+            rows={3}
+            value={message}
+          />
+        </div>
+
+        {voiceNotice ? (
+          <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
+            <p
+              className={[
+                styles.composerStatus,
+                voiceNotice.tone === "active"
+                  ? styles.composerStatusActive
+                  : voiceNotice.tone === "error"
+                    ? styles.composerStatusError
+                    : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {voiceNotice.message}
+            </p>
+          </div>
+        ) : null}
+
+        <div className={styles.composerFooter}>
+          <div className={styles.composerStart}>
+            <button aria-label="Add attachment" className={styles.iconCircle} type="button">
+              <Plus size={18} strokeWidth={2.1} />
+            </button>
+
+            <button className={styles.modePill} type="button">
+              <Clock3 aria-hidden="true" size={16} strokeWidth={1.9} />
+              <span>Thinking</span>
+              <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
+            </button>
+          </div>
+
+          <div className={styles.composerEnd}>
+            <button
+              aria-label={
+                isRecording
+                  ? "Stop voice input"
+                  : isTranscribing
+                    ? "Transcribing voice input"
+                    : "Start voice input"
+              }
+              aria-pressed={isRecording}
+              className={[
+                styles.iconGhost,
+                isRecording ? styles.iconGhostActive : "",
+                isTranscribing ? styles.iconGhostBusy : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={isSubmitting || isTranscribing}
+              onClick={() => {
+                void handleVoiceInputToggle();
+              }}
+              type="button"
+            >
+              {isTranscribing ? (
+                <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
+              ) : isRecording ? (
+                <Square size={14} strokeWidth={2.2} />
+              ) : (
+                <Mic size={16} strokeWidth={1.9} />
+              )}
+            </button>
+            <button
+              aria-label={isSubmitting ? "Generating reply" : "Send message"}
+              className={styles.voiceButton}
+              disabled={!canSubmit}
+              type="submit"
+            >
+              {isSubmitting ? (
+                <LoaderCircle className={styles.spinner} size={18} strokeWidth={2.1} />
+              ) : (
+                <ArrowUp size={18} strokeWidth={2.4} />
+              )}
+            </button>
+          </div>
+        </div>
+      </form>
+    );
   }
 
   function renderSidebarItemRow({
@@ -1432,7 +1583,62 @@ export function HeroComposer() {
           .join(" ")}
       >
         <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
-          {transcript.length === 0 ? (
+          {isProjectHomeVisible && activeProject ? (
+            <section className={styles.projectHome}>
+              <header className={styles.projectHomeHeader}>
+                <div className={styles.projectHomeTitle}>
+                  <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
+                  <h2>{activeProject.label}</h2>
+                </div>
+              </header>
+
+              {renderComposer(
+                `New chat in ${activeProject.label}`,
+                styles.projectHomeComposer,
+              )}
+
+              <div className={styles.projectHomeTabs}>
+                <button
+                  className={[styles.projectHomeTab, styles.projectHomeTabActive]
+                    .filter(Boolean)
+                    .join(" ")}
+                  type="button"
+                >
+                  Chats
+                </button>
+                <button className={styles.projectHomeTab} type="button">
+                  Sources
+                </button>
+              </div>
+
+              <div className={styles.projectHomeList}>
+                {activeProjectThreads.length > 0 ? (
+                  activeProjectThreads.map((thread) => (
+                    <button
+                      className={styles.projectHomeThreadRow}
+                      key={thread.id}
+                      onClick={() => openThread(thread)}
+                      type="button"
+                    >
+                      <div className={styles.projectHomeThreadHeader}>
+                        <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
+                        <span className={styles.projectHomeThreadDate}>
+                          {formatThreadUpdatedAt(thread.updatedAt)}
+                        </span>
+                      </div>
+                      <p className={styles.projectHomeThreadPreview}>
+                        {buildThreadPreview(thread)}
+                      </p>
+                    </button>
+                  ))
+                ) : (
+                  <p className={styles.projectHomeEmpty}>
+                    Start a new chat in this project and it will appear here.
+                  </p>
+                )}
+              </div>
+            </section>
+          ) : transcript.length === 0 ? (
             <div className={styles.chatEmptyState}>
               <div className={styles.chatStarterGroup}>
                 <div className={styles.starterQuestionStack}>
@@ -1506,108 +1712,11 @@ export function HeroComposer() {
           ) : null}
         </div>
 
-        <form className={styles.composerDock} onSubmit={handleSubmit}>
-          <div className={styles.composerTop}>
-            <textarea
-              aria-label="Message composer"
-              aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
-              className={styles.composerInput}
-              disabled={isSubmitting || isRecording || isTranscribing}
-              onChange={(event) => handleMessageChange(event.target.value)}
-              onKeyDown={(event) => {
-                void handleKeyDown(event);
-              }}
-              placeholder={
-                isRecording
-                  ? "Listening to your voice note..."
-                  : isTranscribing
-                    ? "Transcribing your voice note..."
-                    : "Ask about verification workflows, recruiter trust views, or candidate proof."
-              }
-              ref={composerInputRef}
-              rows={3}
-              value={message}
-            />
-          </div>
-
-          {voiceNotice ? (
-            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
-              <p
-                className={[
-                  styles.composerStatus,
-                  voiceNotice.tone === "active"
-                    ? styles.composerStatusActive
-                    : voiceNotice.tone === "error"
-                      ? styles.composerStatusError
-                      : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                {voiceNotice.message}
-              </p>
-            </div>
-          ) : null}
-
-          <div className={styles.composerFooter}>
-            <div className={styles.composerStart}>
-              <button aria-label="Add attachment" className={styles.iconCircle} type="button">
-                <Plus size={18} strokeWidth={2.1} />
-              </button>
-
-              <button className={styles.modePill} type="button">
-                <Clock3 aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>Thinking</span>
-                <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
-              </button>
-            </div>
-
-            <div className={styles.composerEnd}>
-              <button
-                aria-label={
-                  isRecording
-                    ? "Stop voice input"
-                    : isTranscribing
-                      ? "Transcribing voice input"
-                      : "Start voice input"
-                }
-                aria-pressed={isRecording}
-                className={[
-                  styles.iconGhost,
-                  isRecording ? styles.iconGhostActive : "",
-                  isTranscribing ? styles.iconGhostBusy : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                disabled={isSubmitting || isTranscribing}
-                onClick={() => {
-                  void handleVoiceInputToggle();
-                }}
-                type="button"
-              >
-                {isTranscribing ? (
-                  <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
-                ) : isRecording ? (
-                  <Square size={14} strokeWidth={2.2} />
-                ) : (
-                  <Mic size={16} strokeWidth={1.9} />
-                )}
-              </button>
-              <button
-                aria-label={isSubmitting ? "Generating reply" : "Send message"}
-                className={styles.voiceButton}
-                disabled={!canSubmit}
-                type="submit"
-              >
-                {isSubmitting ? (
-                  <LoaderCircle className={styles.spinner} size={18} strokeWidth={2.1} />
-                ) : (
-                  <ArrowUp size={18} strokeWidth={2.4} />
-                )}
-              </button>
-            </div>
-          </div>
-        </form>
+        {!isProjectHomeVisible
+          ? renderComposer(
+              "Ask about verification workflows, recruiter trust views, or candidate proof.",
+            )
+          : null}
       </div>
     </section>
   );
