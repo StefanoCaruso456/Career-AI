@@ -934,6 +934,7 @@
 
 .chatStageMain {
   --chat-conversation-width: 47rem;
+  --chat-composer-clearance: 10.5rem;
   position: relative;
   min-width: 0;
   min-height: inherit;
@@ -962,6 +963,12 @@
   max-height: calc(clamp(34rem, 74vh, 50rem) - 11rem);
   overflow-y: auto;
   padding-right: 0.35rem;
+}
+
+.chatTranscriptConversation {
+  justify-content: flex-end;
+  padding-bottom: var(--chat-composer-clearance);
+  scroll-padding-bottom: var(--chat-composer-clearance);
 }
 
 @keyframes chatSidebarEnter {
@@ -2918,6 +2925,7 @@
   }
 
   .chatStageMain {
+    --chat-composer-clearance: 8.6rem;
     min-height: 0;
   }
 
