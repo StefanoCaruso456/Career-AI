@@ -1,4 +1,6 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getDatabasePool } from "@/packages/persistence/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
 
 function createJsonResponse(body: unknown) {
@@ -16,6 +18,7 @@ describe("jobs feed service", () => {
   const originalAggregatorFeedUrl = process.env.JOBS_AGGREGATOR_FEED_URL;
   const originalAggregatorApiKey = process.env.JOBS_AGGREGATOR_API_KEY;
   const originalAggregatorLabel = process.env.JOBS_AGGREGATOR_LABEL;
+  const originalDatabaseUrl = process.env.DATABASE_URL;
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -24,6 +27,11 @@ describe("jobs feed service", () => {
     delete process.env.JOBS_AGGREGATOR_FEED_URL;
     delete process.env.JOBS_AGGREGATOR_API_KEY;
     delete process.env.JOBS_AGGREGATOR_LABEL;
+    delete process.env.DATABASE_URL;
+  });
+
+  afterEach(async () => {
+    await resetTestDatabase();
   });
 
   afterAll(() => {
@@ -56,6 +64,12 @@ describe("jobs feed service", () => {
     } else {
       process.env.JOBS_AGGREGATOR_LABEL = originalAggregatorLabel;
     }
+
+    if (originalDatabaseUrl === undefined) {
+      delete process.env.DATABASE_URL;
+    } else {
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
   });
 
   it("reports unconfigured ATS and aggregator sources when no feeds are connected", async () => {
@@ -86,13 +100,14 @@ describe("jobs feed service", () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 
-      if (url === "https://boards-api.greenhouse.io/v1/boards/acme/jobs") {
+      if (url === "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true") {
         return createJsonResponse({
           jobs: [
             {
               id: 101,
               title: "Senior Product Designer",
               absolute_url: "https://jobs.acme.com/designer",
+              content: "<p>Lead product design across the entire workflow.</p>",
               location: { name: "San Francisco, CA" },
               departments: [{ name: "Design" }],
               updated_at: "2026-04-09T18:00:00.000Z",
@@ -166,5 +181,92 @@ describe("jobs feed service", () => {
       "connected",
       "connected",
     ]);
+    expect(snapshot.storage.mode).toBe("ephemeral");
+  });
+
+  it("persists Greenhouse jobs to Postgres when the database is configured", async () => {
+    await installTestDatabase();
+    process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
+    process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 101,
+              title: "Senior Product Designer",
+              absolute_url: "https://jobs.acme.com/designer",
+              content: "<p>Lead product design across the entire workflow.</p>",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Design" }],
+              updated_at: "2026-04-09T18:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+    const pool = getDatabasePool();
+    const counts = await pool.query<{ job_count: string; source_count: string }>(`
+      SELECT
+        (SELECT COUNT(*)::text FROM job_postings) AS job_count,
+        (SELECT COUNT(*)::text FROM job_sources) AS source_count
+    `);
+
+    expect(snapshot.storage.mode).toBe("database");
+    expect(snapshot.storage.persistedJobs).toBe(1);
+    expect(snapshot.jobs[0]?.descriptionSnippet).toContain("Lead product design");
+    expect(snapshot.sources[0]?.status).toBe("connected");
+    expect(Number(counts.rows[0]?.job_count ?? 0)).toBe(1);
+    expect(Number(counts.rows[0]?.source_count ?? 0)).toBe(1);
+  });
+
+  it("continues showing persisted jobs when a later Greenhouse sync degrades", async () => {
+    await installTestDatabase();
+    process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
+    process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url !== "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true") {
+        throw new Error(`Unexpected URL ${url}`);
+      }
+
+      if (fetchMock.mock.calls.length === 1) {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 101,
+              title: "Senior Product Designer",
+              absolute_url: "https://jobs.acme.com/designer",
+              content: "<p>Lead product design across the entire workflow.</p>",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Design" }],
+              updated_at: "2026-04-09T18:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      return new Response("upstream unavailable", { status: 503 });
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getJobsFeedSnapshot({ limit: 10 });
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(snapshot.storage.mode).toBe("database");
+    expect(snapshot.jobs).toHaveLength(1);
+    expect(snapshot.sources[0]?.status).toBe("degraded");
   });
 });

@@ -30,6 +30,7 @@ export const jobSourceSnapshotSchema = z.object({
   status: jobSourceStatusSchema,
   jobCount: z.number().int().nonnegative(),
   endpointLabel: z.string().nullable(),
+  lastSyncedAt: z.string().datetime().nullable(),
   message: z.string(),
 });
 
@@ -43,11 +44,19 @@ export const jobsFeedSummarySchema = z.object({
   coverageSourceCount: z.number().int().nonnegative(),
 });
 
+export const jobsFeedStorageSchema = z.object({
+  mode: z.enum(["database", "ephemeral"]),
+  persistedJobs: z.number().int().nonnegative(),
+  persistedSources: z.number().int().nonnegative(),
+  lastSyncAt: z.string().datetime().nullable(),
+});
+
 export const jobsFeedResponseSchema = z.object({
   generatedAt: z.string().datetime(),
   jobs: z.array(jobPostingSchema),
   sources: z.array(jobSourceSnapshotSchema),
   summary: jobsFeedSummarySchema,
+  storage: jobsFeedStorageSchema,
 });
 
 export type JobSourceLane = z.infer<typeof jobSourceLaneSchema>;
@@ -56,4 +65,5 @@ export type JobSourceStatus = z.infer<typeof jobSourceStatusSchema>;
 export type JobPostingDto = z.infer<typeof jobPostingSchema>;
 export type JobSourceSnapshotDto = z.infer<typeof jobSourceSnapshotSchema>;
 export type JobsFeedSummaryDto = z.infer<typeof jobsFeedSummarySchema>;
+export type JobsFeedStorageDto = z.infer<typeof jobsFeedStorageSchema>;
 export type JobsFeedResponseDto = z.infer<typeof jobsFeedResponseSchema>;

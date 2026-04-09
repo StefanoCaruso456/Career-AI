@@ -50,6 +50,7 @@ Required server-side environment variables:
 - `GOOGLE_CLIENT_ID` or `GOOGLE_ID`
 - `GOOGLE_CLIENT_SECRET` or `GOOGLE_SECRET`
 - `DATABASE_URL`
+- `GREENHOUSE_BOARD_TOKENS` for public Greenhouse job boards you want to ingest
 
 The auth flow also accepts legacy aliases if you already created them that way:
 
@@ -88,6 +89,13 @@ After configuration:
 - first-time users are routed into the resumable `/onboarding` flow
 - returning users resume onboarding until completed
 - `/account` reads the persistent Postgres-backed user and identity records after onboarding is complete
+- `/jobs` syncs configured public job feeds and stores them in Postgres before rendering the jobs tab
+
+Jobs feed examples:
+
+- `GREENHOUSE_BOARD_TOKENS=Acme=acme,Globex=globex`
+- `LEVER_SITE_NAMES=Orbit=orbit`
+- `JOBS_AGGREGATOR_FEED_URL=https://jobs.example.com/api/v1/open-roles`
 
 ## Deployment
 

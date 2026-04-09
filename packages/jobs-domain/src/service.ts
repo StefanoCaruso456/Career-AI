@@ -5,7 +5,13 @@ import {
   type JobSourceQuality,
   type JobSourceSnapshotDto,
   type JobsFeedResponseDto,
+  type JobsFeedStorageDto,
 } from "@/packages/contracts/src";
+import {
+  getPersistedJobsFeedSnapshot,
+  isDatabaseConfigured,
+  persistSourcedJobs,
+} from "@/packages/persistence/src";
 
 const JOBS_PER_SOURCE = 12;
 const DEFAULT_RESPONSE_LIMIT = 18;
@@ -40,6 +46,7 @@ type SourceCollection = {
 
 type GreenhouseJob = {
   absolute_url?: string;
+  content?: string;
   id?: number | string;
   internal_job_id?: number | string;
   location?: {
@@ -159,6 +166,21 @@ function toIsoDate(value: unknown) {
   return candidate.toISOString();
 }
 
+function stripHtml(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -187,6 +209,7 @@ function createSourceSnapshot(args: {
   status: JobSourceSnapshotDto["status"];
   jobCount: number;
   endpointLabel: string | null;
+  lastSyncedAt: string | null;
   message: string;
 }): JobSourceSnapshotDto {
   return {
@@ -197,6 +220,7 @@ function createSourceSnapshot(args: {
     status: args.status,
     jobCount: args.jobCount,
     endpointLabel: args.endpointLabel,
+    lastSyncedAt: args.lastSyncedAt,
     message: args.message,
   };
 }
@@ -265,6 +289,7 @@ function createNotConfiguredSources() {
         status: "not_configured",
         jobCount: 0,
         endpointLabel: null,
+        lastSyncedAt: null,
         message: "Add GREENHOUSE_BOARD_TOKENS to pull direct ATS jobs from Greenhouse.",
       }),
     );
@@ -280,6 +305,7 @@ function createNotConfiguredSources() {
         status: "not_configured",
         jobCount: 0,
         endpointLabel: null,
+        lastSyncedAt: null,
         message: "Add LEVER_SITE_NAMES to pull direct ATS jobs from Lever.",
       }),
     );
@@ -295,6 +321,7 @@ function createNotConfiguredSources() {
         status: "not_configured",
         jobCount: 0,
         endpointLabel: null,
+        lastSyncedAt: null,
         message: "Add JOBS_AGGREGATOR_FEED_URL to layer in immediate job-volume coverage.",
       }),
     );
@@ -413,6 +440,7 @@ function mapGreenhouseJobs(source: DirectSourceSpec, payload: unknown): JobPosti
           ?.find((entry) => entry.name?.toLowerCase() === "commitment")
           ?.value?.trim() || null;
       const externalId = String(job.id ?? job.internal_job_id ?? applyUrl);
+      const descriptionSnippet = trimSnippet(stripHtml(job.content));
 
       return {
         id: createJobId(source.key, externalId),
@@ -429,7 +457,7 @@ function mapGreenhouseJobs(source: DirectSourceSpec, payload: unknown): JobPosti
         applyUrl,
         postedAt: null,
         updatedAt: toIsoDate(job.updated_at),
-        descriptionSnippet: null,
+        descriptionSnippet,
       } satisfies JobPostingDto;
     })
     .filter(isPresent) as JobPostingDto[];
@@ -591,9 +619,11 @@ function mapAggregatorJobs(source: AggregatorSourceSpec, payload: unknown): JobP
 async function collectGreenhouseJobs(
   source: DirectSourceSpec & { token: string },
 ): Promise<SourceCollection> {
+  const syncedAt = new Date().toISOString();
+
   try {
     const payload = await fetchJson(
-      `https://boards-api.greenhouse.io/v1/boards/${source.token}/jobs`,
+      `https://boards-api.greenhouse.io/v1/boards/${source.token}/jobs?content=true`,
     );
     const jobs = mapGreenhouseJobs(source, payload);
 
@@ -607,9 +637,10 @@ async function collectGreenhouseJobs(
         status: "connected",
         jobCount: jobs.length,
         endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
-            ? "Direct ATS jobs are flowing from Greenhouse."
+            ? "Greenhouse public jobs synced and ready to persist."
             : "Greenhouse is connected but did not return any published jobs.",
       }),
     };
@@ -624,6 +655,7 @@ async function collectGreenhouseJobs(
         status: "degraded",
         jobCount: 0,
         endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
         message:
           error instanceof Error
             ? `Greenhouse feed could not be loaded: ${error.message}`
@@ -636,6 +668,8 @@ async function collectGreenhouseJobs(
 async function collectLeverJobs(
   source: DirectSourceSpec & { site: string },
 ): Promise<SourceCollection> {
+  const syncedAt = new Date().toISOString();
+
   try {
     const payload = await fetchJson(
       `https://api.lever.co/v0/postings/${source.site}?mode=json&limit=${JOBS_PER_SOURCE}`,
@@ -652,6 +686,7 @@ async function collectLeverJobs(
         status: "connected",
         jobCount: jobs.length,
         endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
             ? "Direct ATS jobs are flowing from Lever."
@@ -669,6 +704,7 @@ async function collectLeverJobs(
         status: "degraded",
         jobCount: 0,
         endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
         message:
           error instanceof Error
             ? `Lever feed could not be loaded: ${error.message}`
@@ -681,6 +717,8 @@ async function collectLeverJobs(
 async function collectAggregatorJobs(
   source: AggregatorSourceSpec & { feedUrl: string },
 ): Promise<SourceCollection> {
+  const syncedAt = new Date().toISOString();
+
   try {
     const payload = await fetchJson(source.feedUrl, source.apiKey);
     const jobs = mapAggregatorJobs(source, payload);
@@ -695,6 +733,7 @@ async function collectAggregatorJobs(
         status: "connected",
         jobCount: jobs.length,
         endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
             ? "Aggregator coverage feed is connected and adding volume."
@@ -712,6 +751,7 @@ async function collectAggregatorJobs(
         status: "degraded",
         jobCount: 0,
         endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
         message:
           error instanceof Error
             ? `Aggregator feed could not be loaded: ${error.message}`
@@ -719,6 +759,50 @@ async function collectAggregatorJobs(
       }),
     };
   }
+}
+
+function buildSummary(args: {
+  jobs: JobPostingDto[];
+  sources: JobSourceSnapshotDto[];
+}) {
+  return {
+    totalJobs: args.jobs.length,
+    directAtsJobs: args.jobs.filter((job) => job.sourceLane === "ats_direct").length,
+    aggregatorJobs: args.jobs.filter((job) => job.sourceLane === "aggregator").length,
+    sourceCount: args.sources.length,
+    connectedSourceCount: args.sources.filter((source) => source.status === "connected").length,
+    highSignalSourceCount: args.sources.filter((source) => source.quality === "high_signal").length,
+    coverageSourceCount: args.sources.filter((source) => source.quality === "coverage").length,
+  };
+}
+
+function buildJobsFeedResponse(args: {
+  generatedAt: string;
+  jobs: JobPostingDto[];
+  sources: JobSourceSnapshotDto[];
+  storage: JobsFeedStorageDto;
+}): JobsFeedResponseDto {
+  return jobsFeedResponseSchema.parse({
+    generatedAt: args.generatedAt,
+    jobs: args.jobs,
+    sources: args.sources,
+    summary: buildSummary({
+      jobs: args.jobs,
+      sources: args.sources,
+    }),
+    storage: args.storage,
+  });
+}
+
+async function collectLiveSourceCollections() {
+  const { greenhouseBoards, leverSites } = getDirectSourceSpecs();
+  const aggregatorSpec = getAggregatorSpec();
+
+  return Promise.all([
+    ...greenhouseBoards.map((source) => collectGreenhouseJobs(source)),
+    ...leverSites.map((source) => collectLeverJobs(source)),
+    ...(aggregatorSpec ? [collectAggregatorJobs(aggregatorSpec)] : []),
+  ]);
 }
 
 export function getJobsEnvironmentGuide() {
@@ -729,31 +813,54 @@ export async function getJobsFeedSnapshot(args?: {
   limit?: number;
 }): Promise<JobsFeedResponseDto> {
   const limit = Math.max(1, Math.min(args?.limit ?? DEFAULT_RESPONSE_LIMIT, 30));
-  const { greenhouseBoards, leverSites } = getDirectSourceSpecs();
-  const aggregatorSpec = getAggregatorSpec();
-  const collections = await Promise.all([
-    ...greenhouseBoards.map((source) => collectGreenhouseJobs(source)),
-    ...leverSites.map((source) => collectLeverJobs(source)),
-    ...(aggregatorSpec ? [collectAggregatorJobs(aggregatorSpec)] : []),
-  ]);
-
+  const generatedAt = new Date().toISOString();
+  const liveCollections = await collectLiveSourceCollections();
+  const liveJobs = dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, limit);
+  const liveSources = liveCollections.map((collection) => collection.source);
   const staticSources = createNotConfiguredSources();
-  const combinedJobs = dedupeJobs(collections.flatMap((collection) => collection.jobs)).slice(0, limit);
-  const sources = [...collections.map((collection) => collection.source), ...staticSources];
-  const summary = {
-    totalJobs: combinedJobs.length,
-    directAtsJobs: combinedJobs.filter((job) => job.sourceLane === "ats_direct").length,
-    aggregatorJobs: combinedJobs.filter((job) => job.sourceLane === "aggregator").length,
-    sourceCount: sources.length,
-    connectedSourceCount: sources.filter((source) => source.status === "connected").length,
-    highSignalSourceCount: sources.filter((source) => source.quality === "high_signal").length,
-    coverageSourceCount: sources.filter((source) => source.quality === "coverage").length,
-  };
 
-  return jobsFeedResponseSchema.parse({
-    generatedAt: new Date().toISOString(),
-    jobs: combinedJobs,
-    sources,
-    summary,
-  });
+  if (!isDatabaseConfigured()) {
+    return buildJobsFeedResponse({
+      generatedAt,
+      jobs: liveJobs,
+      sources: [...liveSources, ...staticSources],
+      storage: {
+        mode: "ephemeral",
+        persistedJobs: 0,
+        persistedSources: 0,
+        lastSyncAt: null,
+      },
+    });
+  }
+
+  try {
+    await persistSourcedJobs({
+      sources: liveSources,
+      jobs: liveCollections.flatMap((collection) => collection.jobs),
+      syncedAt: generatedAt,
+    });
+
+    const persisted = await getPersistedJobsFeedSnapshot({ limit });
+
+    return buildJobsFeedResponse({
+      generatedAt,
+      jobs: persisted.jobs,
+      sources: [...persisted.sources, ...staticSources],
+      storage: persisted.storage,
+    });
+  } catch (error) {
+    console.error("Jobs persistence failed; falling back to live feed preview.", error);
+
+    return buildJobsFeedResponse({
+      generatedAt,
+      jobs: liveJobs,
+      sources: [...liveSources, ...staticSources],
+      storage: {
+        mode: "ephemeral",
+        persistedJobs: 0,
+        persistedSources: 0,
+        lastSyncAt: null,
+      },
+    });
+  }
 }
