@@ -15,6 +15,7 @@ const googleClientSecret = getGoogleClientSecret();
 const publicBaseUrl = getPublicBaseUrl();
 const authSecret = getAuthSecret();
 const googleAuthStatus = getGoogleAuthStatus();
+const authSessionEnabled = Boolean(authSecret);
 
 if (!process.env.NEXTAUTH_URL && publicBaseUrl) {
   process.env.NEXTAUTH_URL = publicBaseUrl;
@@ -25,6 +26,7 @@ if (!process.env.NEXTAUTH_SECRET && authSecret) {
 }
 
 export const googleOAuthEnabled = googleAuthStatus.enabled;
+export const authEnabled = authSessionEnabled;
 
 export const publicOrigin = publicBaseUrl;
 export const googleRedirectUri = googleAuthStatus.redirectUri;
@@ -102,5 +104,9 @@ export const authOptions = {
 } satisfies NextAuthOptions;
 
 export function auth() {
+  if (!authSessionEnabled) {
+    return Promise.resolve(null);
+  }
+
   return getServerSession(authOptions);
 }

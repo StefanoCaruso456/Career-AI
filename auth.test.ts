@@ -117,6 +117,7 @@ describe("auth module readiness", () => {
   it("disables Google OAuth when required config is missing", async () => {
     const authModule = await loadAuthModule();
 
+    expect(authModule.authEnabled).toBe(false);
     expect(authModule.googleOAuthEnabled).toBe(false);
     expect(authModule.googleOAuthMissingRequirements).toEqual([
       "GOOGLE_CLIENT_ID or GOOGLE_ID",
@@ -124,6 +125,7 @@ describe("auth module readiness", () => {
       "NEXTAUTH_URL, AUTH_URL, or RAILWAY_PUBLIC_DOMAIN",
       "NEXTAUTH_SECRET or AUTH_SECRET",
     ]);
+    await expect(authModule.auth()).resolves.toBeNull();
   });
 
   it("enables Google OAuth when all required config is present", async () => {
@@ -134,6 +136,7 @@ describe("auth module readiness", () => {
 
     const authModule = await loadAuthModule();
 
+    expect(authModule.authEnabled).toBe(true);
     expect(authModule.googleOAuthEnabled).toBe(true);
     expect(authModule.googleOAuthMissingRequirements).toEqual([]);
     expect(authModule.googleOAuthDisabledMessage).toBe("");
