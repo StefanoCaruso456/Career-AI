@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, LoaderCircle, LogOut } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { AuthModalTrigger } from "./auth-modal";
@@ -30,7 +31,9 @@ function getInitials(name: string | null | undefined, email: string | null | und
 }
 
 export function HeaderAuthControls() {
+  const pathname = usePathname();
   const { data: session, status } = useSession();
+  const isAccountPage = pathname === "/account" || pathname.startsWith("/account/");
 
   if (status === "loading") {
     return (
@@ -60,7 +63,15 @@ export function HeaderAuthControls() {
 
   return (
     <div className={styles.actions}>
-      <Link className={styles.accountAction} href="/account">
+      <Link
+        aria-current={isAccountPage ? "page" : undefined}
+        className={
+          isAccountPage
+            ? `${styles.accountAction} ${styles.accountActionCurrent}`
+            : styles.accountAction
+        }
+        href="/account"
+      >
         <span className={styles.accountAvatar} aria-hidden="true">
           {initials}
         </span>

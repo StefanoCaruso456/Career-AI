@@ -96,7 +96,8 @@
 }
 
 .navTabCurrent,
-.homeActionCurrent {
+.homeActionCurrent,
+.accountActionCurrent {
   border-color: var(--header-accent-line-strong);
   background:
     radial-gradient(circle at 50% 0%, rgba(141, 127, 255, 0.18), transparent 62%),
