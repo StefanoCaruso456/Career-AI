@@ -250,7 +250,7 @@ export function HeroComposer() {
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(true);
   const [chatsOpen, setChatsOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
