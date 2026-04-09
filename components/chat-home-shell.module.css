@@ -199,7 +199,7 @@
 }
 
 .heroInner {
-  width: min(980px, calc(100% - 2rem));
+  width: min(1540px, calc(100% - 2rem));
   min-height: calc(100vh - 82px);
   margin: 0 auto;
   padding-top: max(calc(var(--site-header-clearance) + 1.85rem), clamp(5.6rem, 14vh, 8.1rem));
@@ -225,7 +225,7 @@
 
 .chatStage {
   position: relative;
-  width: min(100%, 860px);
+  width: 100%;
   min-height: clamp(34rem, 74vh, 50rem);
   margin-top: 0.8rem;
   padding: 1.5rem 1.4rem 10.75rem;
