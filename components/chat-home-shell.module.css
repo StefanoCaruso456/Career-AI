@@ -264,7 +264,7 @@
 .chatStageConversation {
   display: flex;
   flex-direction: column;
-  min-height: clamp(24rem, 54vh, 30rem);
+  min-height: clamp(28rem, 62vh, 36rem);
   padding-bottom: 1rem;
 }
 
@@ -985,7 +985,7 @@
 }
 
 .chatTranscriptConversation {
-  max-height: calc(clamp(24rem, 54vh, 30rem) - 5.4rem);
+  max-height: calc(clamp(28rem, 62vh, 36rem) - 5.4rem);
   padding-bottom: var(--chat-composer-clearance);
   scroll-padding-bottom: var(--chat-composer-clearance);
 }
@@ -2849,12 +2849,12 @@
   }
 
   .chatStageConversation {
-    min-height: 23rem;
+    min-height: 26rem;
     padding-bottom: 0.9rem;
   }
 
   .chatTranscriptConversation {
-    max-height: calc(23rem - 4.8rem);
+    max-height: calc(26rem - 4.8rem);
   }
 
   .chatTranscript {
@@ -2967,12 +2967,12 @@
   }
 
   .chatStageConversation {
-    min-height: 27rem;
+    min-height: 29rem;
     padding-bottom: 0.85rem;
   }
 
   .chatTranscriptConversation {
-    max-height: calc(27rem - 7.4rem);
+    max-height: calc(29rem - 7.4rem);
   }
 
   .chatSidebarReveal {
@@ -3160,12 +3160,12 @@
   }
 
   .chatStageConversation {
-    min-height: 25.5rem;
+    min-height: 27rem;
     padding-bottom: 0.8rem;
   }
 
   .chatTranscriptConversation {
-    max-height: calc(25.5rem - 7.2rem);
+    max-height: calc(27rem - 7.2rem);
   }
 
   .projectHomeTitle h2 {
