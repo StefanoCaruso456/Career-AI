@@ -903,15 +903,6 @@
   letter-spacing: -0.03em;
 }
 
-.projectHomeComposer {
-  position: relative;
-  bottom: auto;
-  left: auto;
-  width: 100%;
-  margin-top: 0.15rem;
-  transform: none;
-}
-
 .projectHomeTabs {
   display: inline-flex;
   align-items: center;
@@ -1187,6 +1178,16 @@
   transform: translateX(-50%);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+}
+
+.composerDock.projectHomeComposer {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  z-index: 1;
+  width: 100%;
+  margin-top: 0.15rem;
+  transform: none;
 }
 
 .composerTop {
