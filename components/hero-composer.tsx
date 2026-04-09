@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ArrowUp,
   ChevronDown,
@@ -30,11 +31,12 @@ type TranscriptEntry = {
   role: "assistant" | "user";
 };
 
-const starterQuestions = [
-  "What does the agent actually do?",
-  "How is this different from a resume builder?",
-  "How does the agent help me get hired faster?",
-];
+const starterActions = [
+  { kind: "prompt", label: "What does the agent actually do?" },
+  { kind: "prompt", label: "How is this different from a resume builder?" },
+  { kind: "prompt", label: "How does the agent help me get hired faster?" },
+  { kind: "link", href: "/agent-build", label: "Start Building My Agent ID" },
+] as const;
 
 const projectCollections = [
   "Verified profile",
@@ -314,16 +316,22 @@ export function HeroComposer() {
                   Tap a prompt to start the conversation instantly, or type your own question below.
                 </p>
                 <div className={styles.starterQuestionStack}>
-                  {starterQuestions.map((question) => (
-                    <button
-                      className={styles.starterQuestionPill}
-                      key={question}
-                      onClick={() => handleStarterQuestion(question)}
-                      type="button"
-                    >
-                      {question}
-                    </button>
-                  ))}
+                  {starterActions.map((action) =>
+                    action.kind === "prompt" ? (
+                      <button
+                        className={styles.starterQuestionPill}
+                        key={action.label}
+                        onClick={() => handleStarterQuestion(action.label)}
+                        type="button"
+                      >
+                        {action.label}
+                      </button>
+                    ) : (
+                      <Link className={styles.starterQuestionPill} href={action.href} key={action.label}>
+                        {action.label}
+                      </Link>
+                    ),
+                  )}
                 </div>
               </div>
             </div>
