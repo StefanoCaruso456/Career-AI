@@ -1,6 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getAuthSecret,
+  getGoogleAuthDisabledMessage,
   getGoogleClientId,
   getGoogleClientSecret,
   getGoogleRedirectUri,
@@ -25,6 +26,8 @@ const trackedKeys = [
 const originalEnv = Object.fromEntries(trackedKeys.map((key) => [key, process.env[key]]));
 
 afterEach(() => {
+  vi.resetModules();
+
   for (const key of trackedKeys) {
     const originalValue = originalEnv[key];
 
@@ -36,6 +39,11 @@ afterEach(() => {
     process.env[key] = originalValue;
   }
 });
+
+async function loadAuthModule() {
+  vi.resetModules();
+  return import("@/auth");
+}
 
 describe("auth config helpers", () => {
   it("accepts standard Auth.js aliases for Google credentials", () => {
@@ -78,5 +86,44 @@ describe("auth config helpers", () => {
 
     expect(getPublicBaseUrl()).toBe("");
     expect(getGoogleRedirectUri()).toBe("");
+  });
+
+  it("explains exactly which Google auth requirements are missing", () => {
+    process.env.GOOGLE_CLIENT_ID = "project-client-id";
+    process.env.AUTH_URL = "https://career-ai.example.com";
+
+    expect(getGoogleAuthDisabledMessage()).toBe(
+      "Google sign-in is disabled until GOOGLE_CLIENT_SECRET or GOOGLE_SECRET and NEXTAUTH_SECRET or AUTH_SECRET are configured.",
+    );
+  });
+});
+
+describe("auth module readiness", () => {
+  it("disables Google OAuth when required config is missing", async () => {
+    const authModule = await loadAuthModule();
+
+    expect(authModule.googleOAuthEnabled).toBe(false);
+    expect(authModule.googleOAuthMissingRequirements).toEqual([
+      "GOOGLE_CLIENT_ID or GOOGLE_ID",
+      "GOOGLE_CLIENT_SECRET or GOOGLE_SECRET",
+      "NEXTAUTH_URL, AUTH_URL, or RAILWAY_PUBLIC_DOMAIN",
+      "NEXTAUTH_SECRET or AUTH_SECRET",
+    ]);
+  });
+
+  it("enables Google OAuth when all required config is present", async () => {
+    process.env.GOOGLE_CLIENT_ID = "project-client-id";
+    process.env.GOOGLE_CLIENT_SECRET = "project-client-secret";
+    process.env.AUTH_URL = "https://career-ai.example.com";
+    process.env.AUTH_SECRET = "super-secret";
+
+    const authModule = await loadAuthModule();
+
+    expect(authModule.googleOAuthEnabled).toBe(true);
+    expect(authModule.googleOAuthMissingRequirements).toEqual([]);
+    expect(authModule.googleOAuthDisabledMessage).toBe("");
+    expect(authModule.googleRedirectUri).toBe(
+      "https://career-ai.example.com/api/auth/callback/google",
+    );
   });
 });
