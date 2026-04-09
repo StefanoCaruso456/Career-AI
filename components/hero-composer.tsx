@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
-  Clock3,
   Ellipsis,
   Folder,
   FolderOpen,
@@ -24,6 +23,7 @@ import {
 } from "lucide-react";
 import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
 import {
+  type ChangeEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
@@ -38,10 +38,22 @@ import { createPortal } from "react-dom";
 import styles from "./chat-home-shell.module.css";
 
 type TranscriptEntry = {
+  attachments?: AttachmentSummary[];
   content: string;
   error?: boolean;
   id: string;
   role: "assistant" | "user";
+};
+
+type AttachmentSummary = {
+  id: string;
+  mimeType: string;
+  name: string;
+  size: number;
+};
+
+type PendingAttachment = AttachmentSummary & {
+  file: File;
 };
 
 type ProjectEntry = {
@@ -171,6 +183,7 @@ const preferredRecorderMimeTypes = [
 ] as const;
 
 const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
+const attachmentMimeTypeFallback = "application/octet-stream";
 
 function mergeVoiceDraft(base: string, incoming: string) {
   const normalizedIncoming = incoming.replace(/\s+/g, " ").trim();
@@ -271,6 +284,47 @@ function formatThreadLabel(content: string) {
   return `${normalized.slice(0, 35)}...`;
 }
 
+function formatAttachmentSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function buildAttachmentSummary(file: File): AttachmentSummary {
+  return {
+    id: createEntityId("attachment"),
+    mimeType: file.type || attachmentMimeTypeFallback,
+    name: file.name,
+    size: file.size,
+  };
+}
+
+function getAttachmentFingerprint(file: File) {
+  return [file.name, file.size, file.lastModified, file.type].join(":");
+}
+
+function buildTranscriptEntrySummary(entry: TranscriptEntry) {
+  const normalizedContent = entry.content.replace(/\s+/g, " ").trim();
+
+  if (normalizedContent) {
+    return normalizedContent;
+  }
+
+  if (entry.attachments?.length) {
+    return entry.attachments.length === 1
+      ? `Attachment: ${entry.attachments[0].name}`
+      : `Attachments: ${entry.attachments[0].name} +${entry.attachments.length - 1} more`;
+  }
+
+  return "";
+}
+
 function createEntityId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -290,7 +344,7 @@ function buildThreadLabel(transcript: TranscriptEntry[]) {
     return "New chat";
   }
 
-  return formatThreadLabel(firstUserEntry.content);
+  return formatThreadLabel(buildTranscriptEntrySummary(firstUserEntry) || "New chat");
 }
 
 function buildProjectLabel(projects: ProjectEntry[]) {
@@ -310,7 +364,10 @@ function buildProjectLabel(projects: ProjectEntry[]) {
 function buildThreadPreview(thread: ChatThread) {
   const firstNarrativeEntry = thread.transcript.find((entry) => entry.role === "user");
   const fallbackEntry = thread.transcript[thread.transcript.length - 1];
-  const previewSource = firstNarrativeEntry?.content ?? fallbackEntry?.content ?? "Start a new chat in this project.";
+  const previewSource =
+    (firstNarrativeEntry ? buildTranscriptEntrySummary(firstNarrativeEntry) : "") ||
+    (fallbackEntry ? buildTranscriptEntrySummary(fallbackEntry) : "") ||
+    "Start a new chat in this project.";
   const normalizedPreview = previewSource.replace(/\s+/g, " ").trim();
 
   if (normalizedPreview.length <= 96) {
@@ -338,6 +395,7 @@ export function HeroComposer() {
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -347,6 +405,7 @@ export function HeroComposer() {
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
@@ -362,7 +421,11 @@ export function HeroComposer() {
 
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
-  const canSubmit = message.trim().length > 0 && !isSubmitting && !isRecording && !isTranscribing;
+  const canSubmit =
+    (message.trim().length > 0 || pendingAttachments.length > 0) &&
+    !isSubmitting &&
+    !isRecording &&
+    !isTranscribing;
   const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
@@ -866,6 +929,7 @@ export function HeroComposer() {
     setCurrentThreadId(thread.id);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript(thread.transcript);
+    setPendingAttachments([]);
     setMessage("");
     setSidebarOpen(true);
   }
@@ -878,6 +942,7 @@ export function HeroComposer() {
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
+    setPendingAttachments([]);
     setMessage("");
     setSidebarOpen(true);
     focusComposer();
@@ -904,6 +969,7 @@ export function HeroComposer() {
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
+    setPendingAttachments([]);
     setMessage("");
     focusComposer();
   }
@@ -924,14 +990,16 @@ export function HeroComposer() {
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
+    setPendingAttachments([]);
     setMessage("");
     focusComposer();
   }
 
   async function submitMessage(nextMessage?: string) {
     const prompt = (nextMessage ?? message).trim();
+    const attachmentSummaries = pendingAttachments.map(({ file: _file, ...attachment }) => attachment);
 
-    if (!prompt || isSubmitting) {
+    if ((!prompt && attachmentSummaries.length === 0) || isSubmitting) {
       return;
     }
 
@@ -940,11 +1008,17 @@ export function HeroComposer() {
     const projectId = activeProjectId;
     const nextUserTranscript = [
       ...transcript,
-      { content: prompt, id: `${requestId}-user`, role: "user" as const },
+      {
+        attachments: attachmentSummaries,
+        content: prompt,
+        id: `${requestId}-user`,
+        role: "user" as const,
+      },
     ];
 
     setIsSubmitting(true);
     setMessage("");
+    setPendingAttachments([]);
     setProjectHomeProjectId(null);
     setCurrentThreadId(threadId);
     transcriptScrollIntentRef.current = { mode: "bottom" };
@@ -957,7 +1031,7 @@ export function HeroComposer() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: prompt }),
+        body: JSON.stringify({ attachments: attachmentSummaries, message: prompt }),
       });
 
       const payload = (await reply.json()) as { error?: string; output?: string };
@@ -984,7 +1058,7 @@ export function HeroComposer() {
         upsertThread(threadId, projectId, nextAssistantTranscript);
       });
     } catch (requestError) {
-      const fallbackReply = getFallbackHomepageReply(prompt);
+      const fallbackReply = getFallbackHomepageReply(prompt, attachmentSummaries);
       const recoveredMessage =
         requestError instanceof Error
           ? ["Failed to fetch", "The assistant could not respond.", "The assistant could not generate a reply right now."].includes(
@@ -1035,6 +1109,45 @@ export function HeroComposer() {
     if (voiceNotice?.tone === "error") {
       setVoiceNotice(null);
     }
+  }
+
+  function handleAttachmentSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+
+    if (files.length === 0) {
+      return;
+    }
+
+    setPendingAttachments((currentAttachments) => {
+      const existingFingerprints = new Set(
+        currentAttachments.map((attachment) => getAttachmentFingerprint(attachment.file)),
+      );
+      const nextAttachments = [...currentAttachments];
+
+      files.forEach((file) => {
+        const fingerprint = getAttachmentFingerprint(file);
+
+        if (existingFingerprints.has(fingerprint)) {
+          return;
+        }
+
+        existingFingerprints.add(fingerprint);
+        nextAttachments.push({
+          ...buildAttachmentSummary(file),
+          file,
+        });
+      });
+
+      return nextAttachments;
+    });
+
+    event.target.value = "";
+  }
+
+  function handleAttachmentRemove(attachmentId: string) {
+    setPendingAttachments((currentAttachments) =>
+      currentAttachments.filter((attachment) => attachment.id !== attachmentId),
+    );
   }
 
   function handleStarterQuestion(question: string) {
@@ -1213,6 +1326,7 @@ export function HeroComposer() {
       setCurrentThreadId(null);
       transcriptScrollIntentRef.current = { mode: "top" };
       setTranscript([]);
+      setPendingAttachments([]);
       setMessage("");
     }
 
@@ -1243,6 +1357,7 @@ export function HeroComposer() {
       setCurrentThreadId(null);
       transcriptScrollIntentRef.current = { mode: "top" };
       setTranscript([]);
+      setPendingAttachments([]);
       setMessage("");
     }
 
@@ -1312,6 +1427,14 @@ export function HeroComposer() {
         className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
         onSubmit={handleSubmit}
       >
+        <input
+          className={styles.hiddenAttachmentInput}
+          multiple
+          onChange={handleAttachmentSelection}
+          ref={attachmentInputRef}
+          tabIndex={-1}
+          type="file"
+        />
         <div className={styles.composerTop}>
           <textarea
             aria-label="Message composer"
@@ -1354,16 +1477,38 @@ export function HeroComposer() {
           </div>
         ) : null}
 
+        {pendingAttachments.length > 0 ? (
+          <div className={styles.composerAttachmentStrip}>
+            {pendingAttachments.map((attachment) => (
+              <div className={styles.attachmentChip} key={attachment.id}>
+                <div className={styles.attachmentChipCopy}>
+                  <span className={styles.attachmentChipName}>{attachment.name}</span>
+                  <span className={styles.attachmentChipMeta}>
+                    {formatAttachmentSize(attachment.size)}
+                  </span>
+                </div>
+                <button
+                  aria-label={`Remove ${attachment.name}`}
+                  className={styles.attachmentChipRemove}
+                  onClick={() => handleAttachmentRemove(attachment.id)}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={12} strokeWidth={2.2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
         <div className={styles.composerFooter}>
           <div className={styles.composerStart}>
-            <button aria-label="Add attachment" className={styles.iconCircle} type="button">
+            <button
+              aria-label="Add attachment"
+              className={styles.iconCircle}
+              onClick={() => attachmentInputRef.current?.click()}
+              type="button"
+            >
               <Plus size={18} strokeWidth={2.1} />
-            </button>
-
-            <button className={styles.modePill} type="button">
-              <Clock3 aria-hidden="true" size={16} strokeWidth={1.9} />
-              <span>Thinking</span>
-              <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
             </button>
           </div>
 
@@ -1865,7 +2010,21 @@ export function HeroComposer() {
                       .filter(Boolean)
                       .join(" ")}
                   >
-                    <p>{entry.content}</p>
+                    {entry.attachments?.length ? (
+                      <div className={styles.transcriptAttachmentStrip}>
+                        {entry.attachments.map((attachment) => (
+                          <div className={styles.attachmentChip} key={attachment.id}>
+                            <div className={styles.attachmentChipCopy}>
+                              <span className={styles.attachmentChipName}>{attachment.name}</span>
+                              <span className={styles.attachmentChipMeta}>
+                                {formatAttachmentSize(attachment.size)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {entry.content.trim() ? <p>{entry.content}</p> : null}
                   </article>
                 </div>
               ))
