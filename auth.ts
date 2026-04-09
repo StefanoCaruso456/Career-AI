@@ -1,7 +1,15 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import { getAuthSecret, getGoogleClientId, getGoogleClientSecret, getGoogleRedirectUri, getPublicBaseUrl } from "@/auth-config";
+import {
+  getAuthSecret,
+  getGoogleAuthDisabledMessage,
+  getGoogleAuthMissingRequirements,
+  getGoogleClientId,
+  getGoogleClientSecret,
+  getGoogleRedirectUri,
+  getPublicBaseUrl,
+} from "@/auth-config";
 
 const googleClientId = getGoogleClientId();
 const googleClientSecret = getGoogleClientSecret();
@@ -22,6 +30,8 @@ export const googleOAuthEnabled = Boolean(
 
 export const publicOrigin = publicBaseUrl;
 export const googleRedirectUri = getGoogleRedirectUri();
+export const googleOAuthMissingRequirements = getGoogleAuthMissingRequirements();
+export const googleOAuthDisabledMessage = getGoogleAuthDisabledMessage();
 
 export const authOptions = {
   secret: authSecret || undefined,

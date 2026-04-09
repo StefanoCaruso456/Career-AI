@@ -2,6 +2,7 @@
 
 import { ShieldCheck, Sparkles, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { googleOAuthDisabledMessage } from "@/auth";
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import styles from "./auth-modal.module.css";
@@ -143,8 +144,6 @@ export function AuthModalTrigger({
   }
 
   const modeCopy = getModeCopy(mode);
-  const googleDisabledMessage =
-    "Google sign-in is disabled here until GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET are configured.";
   const modal =
     isMounted && isOpen
       ? createPortal(
@@ -280,12 +279,12 @@ export function AuthModalTrigger({
                   callbackUrl={callbackUrl}
                   disabled={!googleOAuthEnabled}
                   disabledLabel="Google sign-in unavailable"
-                  disabledTitle={googleOAuthEnabled ? undefined : googleDisabledMessage}
+                  disabledTitle={googleOAuthEnabled ? undefined : googleOAuthDisabledMessage}
                   label={modeCopy.buttonLabel}
                 />
                 {!googleOAuthEnabled ? (
                   <p className={styles.googleStatusNote} role="status">
-                    {googleDisabledMessage}
+                    {googleOAuthDisabledMessage}
                   </p>
                 ) : null}
                 <div className={styles.trustRow}>

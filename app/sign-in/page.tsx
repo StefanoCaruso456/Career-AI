@@ -1,10 +1,7 @@
 import { redirect } from "next/navigation";
-import { googleOAuthEnabled, auth } from "@/auth";
+import { auth, googleOAuthDisabledMessage, googleOAuthEnabled } from "@/auth";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import styles from "./page.module.css";
-
-const googleDisabledMessage =
-  "Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, NEXTAUTH_URL, and NEXTAUTH_SECRET to enable Google sign-in.";
 
 export default async function SignInPage() {
   const session = await auth();
@@ -30,7 +27,7 @@ export default async function SignInPage() {
           disabledTitle={
             googleOAuthEnabled
               ? undefined
-              : googleDisabledMessage
+              : googleOAuthDisabledMessage
           }
           label="Sign in with Google"
         />
@@ -44,7 +41,7 @@ export default async function SignInPage() {
           <p>
             {googleOAuthEnabled
               ? "After authentication, you will land in your account workspace at /account."
-              : `${googleDisabledMessage} The Google client secret stays on the server.`}
+              : `${googleOAuthDisabledMessage} The Google client secret stays on the server.`}
           </p>
         </div>
       </section>
