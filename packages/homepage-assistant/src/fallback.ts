@@ -1,3 +1,9 @@
+type HomepageAssistantAttachment = {
+  mimeType: string;
+  name: string;
+  size: number;
+};
+
 const homepageFallbackReplies = [
   {
     matches: ["what does the agent actually do", "what does the agent do"],
@@ -21,15 +27,46 @@ const homepageFallbackReplies = [
   },
 ];
 
-export function getFallbackHomepageReply(message: string) {
+function formatAttachmentSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(size < 10 * 1024 ? 1 : 0)} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(size < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function buildAttachmentSuffix(attachments: HomepageAssistantAttachment[]) {
+  if (attachments.length === 0) {
+    return "";
+  }
+
+  const attachmentList = attachments
+    .map((attachment) => `${attachment.name} (${formatAttachmentSize(attachment.size)})`)
+    .join(", ");
+
+  return `\n\nAttached files: ${attachmentList}.`;
+}
+
+export function getFallbackHomepageReply(
+  message: string,
+  attachments: HomepageAssistantAttachment[] = [],
+) {
   const normalizedMessage = message.trim().toLowerCase();
   const matchedFallback = homepageFallbackReplies.find(({ matches }) =>
     matches.some((match) => normalizedMessage.includes(match)),
   );
 
   if (matchedFallback) {
-    return matchedFallback.output;
+    return `${matchedFallback.output}${buildAttachmentSuffix(attachments)}`;
   }
 
-  return "Career AI is a verified career identity platform for job seekers. It helps candidates turn claims into evidence-backed credibility so employers can trust them faster and make hiring decisions with less uncertainty.";
+  if (attachments.length > 0 && !normalizedMessage) {
+    return `I can see your attached files.${buildAttachmentSuffix(attachments)} Add a question about what you want reviewed, compared, or summarized and I can help from there.`;
+  }
+
+  return `Career AI is a verified career identity platform for job seekers. It helps candidates turn claims into evidence-backed credibility so employers can trust them faster and make hiring decisions with less uncertainty.${buildAttachmentSuffix(attachments)}`;
 }

@@ -1414,6 +1414,83 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
+.hiddenAttachmentInput {
+  display: none;
+}
+
+.composerAttachmentStrip,
+.transcriptAttachmentStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.composerAttachmentStrip {
+  margin-top: 0.85rem;
+}
+
+.transcriptAttachmentStrip {
+  margin-bottom: 0.8rem;
+}
+
+.attachmentChip {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(100%, 19rem);
+  padding: 0.52rem 0.6rem 0.52rem 0.78rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.attachmentChipCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.attachmentChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.attachmentChipMeta {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 0.72rem;
+}
+
+.attachmentChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.76);
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.attachmentChipRemove:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
 .composerFooter {
   margin-top: 0.9rem;
   display: flex;
@@ -1431,8 +1508,7 @@
 
 .iconCircle,
 .iconGhost,
-.voiceButton,
-.modePill {
+.voiceButton {
   border: 0;
   cursor: pointer;
 }
@@ -1446,18 +1522,6 @@
   border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
-}
-
-.modePill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.7rem 0.92rem;
-  border-radius: 999px;
-  background: transparent;
-  color: #8bb2ff;
-  font-size: 0.95rem;
-  font-weight: 600;
 }
 
 .iconGhost {
@@ -2811,7 +2875,6 @@
 .inlineLink:hover,
 .starterQuestionPill:hover,
 .iconCircle:hover,
-.modePill:hover,
 .iconGhost:hover,
 .voiceButton:hover {
   transform: translateY(-1px);
@@ -2837,7 +2900,7 @@
 .sidebarDeleteDialogCancel:focus-visible,
 .sidebarDeleteDialogConfirm:focus-visible,
 .iconCircle:focus-visible,
-.modePill:focus-visible,
+.attachmentChipRemove:focus-visible,
 .iconGhost:focus-visible,
 .voiceButton:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 78%, white 22%);
@@ -3297,7 +3360,6 @@
   .inlineLink:hover,
   .starterQuestionPill:hover,
   .iconCircle:hover,
-  .modePill:hover,
   .iconGhost:hover,
   .voiceButton:hover {
     transform: none;
