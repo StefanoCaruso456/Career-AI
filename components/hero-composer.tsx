@@ -1649,7 +1649,11 @@ export function HeroComposer() {
   return (
     <>
       <section
-        className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
+        className={[
+          styles.chatStage,
+          workspaceVisible ? styles.chatStageActive : "",
+          hasActiveConversation ? styles.chatStageConversation : "",
+        ]
           .filter(Boolean)
           .join(" ")}
       >

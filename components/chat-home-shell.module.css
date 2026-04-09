@@ -261,6 +261,25 @@
   inset: auto 20% 7.25rem;
 }
 
+.chatStageConversation {
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(24rem, 54vh, 30rem);
+  padding-bottom: 1rem;
+}
+
+.chatStageConversation::before {
+  inset: auto 18% 1.8rem;
+}
+
+.chatStageConversation .chatStageMain {
+  flex: 1;
+}
+
+.chatStageConversation .composerDock {
+  bottom: 0.45rem;
+}
+
 .chatSidebarReveal {
   position: absolute;
   top: 1.2rem;
@@ -966,6 +985,7 @@
 }
 
 .chatTranscriptConversation {
+  max-height: calc(clamp(24rem, 54vh, 30rem) - 5.4rem);
   padding-bottom: var(--chat-composer-clearance);
   scroll-padding-bottom: var(--chat-composer-clearance);
 }
@@ -2828,6 +2848,15 @@
     padding-bottom: 9.8rem;
   }
 
+  .chatStageConversation {
+    min-height: 23rem;
+    padding-bottom: 0.9rem;
+  }
+
+  .chatTranscriptConversation {
+    max-height: calc(23rem - 4.8rem);
+  }
+
   .chatTranscript {
     max-height: calc(31rem - 9.6rem);
   }
@@ -2935,6 +2964,15 @@
     min-height: 31rem;
     padding: 1rem 0.9rem 9.7rem;
     border-radius: 1.8rem;
+  }
+
+  .chatStageConversation {
+    min-height: 27rem;
+    padding-bottom: 0.85rem;
+  }
+
+  .chatTranscriptConversation {
+    max-height: calc(27rem - 7.4rem);
   }
 
   .chatSidebarReveal {
@@ -3119,6 +3157,15 @@
   .chatStage {
     min-height: 29rem;
     padding-bottom: 10.2rem;
+  }
+
+  .chatStageConversation {
+    min-height: 25.5rem;
+    padding-bottom: 0.8rem;
+  }
+
+  .chatTranscriptConversation {
+    max-height: calc(25.5rem - 7.2rem);
   }
 
   .projectHomeTitle h2 {
