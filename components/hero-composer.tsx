@@ -415,7 +415,7 @@ export function HeroComposer() {
 
     transcriptNode.scrollTo({
       behavior: "auto",
-      top: Math.max(anchoredEntry.offsetTop - 4, 0),
+      top: Math.max(anchoredEntry.offsetTop - 24, 0),
     });
     transcriptScrollIntentRef.current = null;
   }, [transcript]);
@@ -1830,10 +1830,11 @@ export function HeroComposer() {
                 </div>
               </div>
             ) : (
-              transcript.map((entry) => (
+              transcript.map((entry, index) => (
                 <div
                   className={[
                     styles.transcriptRow,
+                    hasActiveConversation && index === 0 ? styles.transcriptRowConversationStart : "",
                     entry.role === "user"
                       ? styles.transcriptRowUser
                       : styles.transcriptRowAssistant,
