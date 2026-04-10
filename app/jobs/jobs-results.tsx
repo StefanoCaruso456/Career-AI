@@ -17,9 +17,224 @@ type JobsResultsProps = {
   loadMoreCount?: number;
 };
 
-type SourceFilter = "all" | "ats_direct" | "aggregator";
 type WorkplaceFilter = "all" | "remote" | "hybrid" | "onsite";
 type DateFilter = "all" | "1d" | "7d" | "30d";
+const ROLE_TYPE_OPTIONS = [
+  "ai-ml-engineering",
+  "software-engineering",
+  "frontend-engineering",
+  "backend-engineering",
+  "full-stack-engineering",
+  "data-engineering",
+  "data-science",
+  "product-management",
+  "product-design",
+  "devops-sre",
+  "cloud-platform",
+  "security-engineering",
+  "qa-automation",
+  "mobile-engineering",
+  "solutions-architecture",
+] as const;
+type RoleTypeFilter = (typeof ROLE_TYPE_OPTIONS)[number];
+
+const ROLE_TYPE_LABELS: Record<RoleTypeFilter, string> = {
+  "ai-ml-engineering": "AI / ML Engineering",
+  "software-engineering": "Software Engineering",
+  "frontend-engineering": "Frontend Engineering",
+  "backend-engineering": "Backend Engineering",
+  "full-stack-engineering": "Full-Stack Engineering",
+  "data-engineering": "Data Engineering",
+  "data-science": "Data Science",
+  "product-management": "Product Management",
+  "product-design": "Product Design",
+  "devops-sre": "DevOps / SRE",
+  "cloud-platform": "Cloud / Platform",
+  "security-engineering": "Security Engineering",
+  "qa-automation": "QA / Automation",
+  "mobile-engineering": "Mobile Engineering",
+  "solutions-architecture": "Solutions Architecture",
+};
+
+const ROLE_TYPE_KEYWORDS: Array<{
+  roleType: RoleTypeFilter;
+  keywords: string[];
+}> = [
+  {
+    roleType: "solutions-architecture",
+    keywords: [
+      "solutions architect",
+      "solution architect",
+      "enterprise architect",
+      "technical architect",
+    ],
+  },
+  {
+    roleType: "mobile-engineering",
+    keywords: [
+      "ios engineer",
+      "ios developer",
+      "android engineer",
+      "android developer",
+      "mobile engineer",
+      "mobile developer",
+      "react native",
+      "swift engineer",
+      "kotlin engineer",
+    ],
+  },
+  {
+    roleType: "qa-automation",
+    keywords: [
+      "qa engineer",
+      "quality assurance",
+      "test engineer",
+      "automation engineer",
+      "software engineer in test",
+      "sdet",
+    ],
+  },
+  {
+    roleType: "security-engineering",
+    keywords: [
+      "security engineer",
+      "security analyst",
+      "application security",
+      "product security",
+      "cloud security",
+      "threat detection",
+      "security operations",
+    ],
+  },
+  {
+    roleType: "devops-sre",
+    keywords: [
+      "site reliability",
+      "sre",
+      "devops",
+      "release engineer",
+      "build engineer",
+      "platform reliability",
+    ],
+  },
+  {
+    roleType: "cloud-platform",
+    keywords: [
+      "platform engineer",
+      "cloud engineer",
+      "cloud infrastructure",
+      "infrastructure engineer",
+      "distributed systems",
+      "systems engineer",
+      "kubernetes",
+    ],
+  },
+  {
+    roleType: "data-engineering",
+    keywords: [
+      "data engineer",
+      "analytics engineer",
+      "etl engineer",
+      "data platform",
+      "data warehouse",
+    ],
+  },
+  {
+    roleType: "data-science",
+    keywords: [
+      "data scientist",
+      "research scientist",
+      "decision scientist",
+      "quantitative analyst",
+      "applied scientist",
+      "ml scientist",
+    ],
+  },
+  {
+    roleType: "ai-ml-engineering",
+    keywords: [
+      "ai engineer",
+      "ml engineer",
+      "machine learning engineer",
+      "machine learning",
+      "computer vision",
+      "nlp engineer",
+      "large language model",
+      "llm",
+      "generative ai",
+      "gen ai",
+      "prompt engineer",
+      "applied ai",
+    ],
+  },
+  {
+    roleType: "frontend-engineering",
+    keywords: [
+      "frontend engineer",
+      "front-end engineer",
+      "front end engineer",
+      "frontend developer",
+      "front-end developer",
+      "ui engineer",
+      "web engineer",
+      "design engineer",
+    ],
+  },
+  {
+    roleType: "backend-engineering",
+    keywords: [
+      "backend engineer",
+      "back-end engineer",
+      "back end engineer",
+      "backend developer",
+      "back-end developer",
+      "api engineer",
+      "server engineer",
+    ],
+  },
+  {
+    roleType: "full-stack-engineering",
+    keywords: [
+      "full-stack engineer",
+      "full stack engineer",
+      "fullstack engineer",
+      "full-stack developer",
+      "full stack developer",
+      "fullstack developer",
+    ],
+  },
+  {
+    roleType: "product-management",
+    keywords: [
+      "product manager",
+      "product lead",
+      "group product manager",
+      "technical product manager",
+    ],
+  },
+  {
+    roleType: "product-design",
+    keywords: [
+      "product designer",
+      "ux designer",
+      "ui designer",
+      "ux/ui",
+      "design systems",
+    ],
+  },
+  {
+    roleType: "software-engineering",
+    keywords: [
+      "software engineer",
+      "software developer",
+      "application engineer",
+      "developer experience",
+      "member of technical staff",
+      "staff engineer",
+      "principal engineer",
+    ],
+  },
+];
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -35,6 +250,10 @@ function formatTimestamp(value: string | null) {
 
 function formatQualityLabel(value: "high_signal" | "coverage") {
   return value === "high_signal" ? "High-signal" : "Coverage";
+}
+
+function formatRoleTypeLabel(value: RoleTypeFilter) {
+  return ROLE_TYPE_LABELS[value];
 }
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
@@ -159,6 +378,21 @@ function matchesKeyword(job: JobPostingDto, keyword: string) {
   return haystack.includes(keyword);
 }
 
+function inferRoleType(job: JobPostingDto): RoleTypeFilter | "other" {
+  const searchText = [job.normalizedTitle, job.title, job.department]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  for (const rule of ROLE_TYPE_KEYWORDS) {
+    if (rule.keywords.some((keyword) => searchText.includes(keyword))) {
+      return rule.roleType;
+    }
+  }
+
+  return "other";
+}
+
 export function JobsResults({
   jobs,
   initialCount = 24,
@@ -170,7 +404,7 @@ export function JobsResults({
   const [totalAvailableCount, setTotalAvailableCount] = useState(initialTotalAvailableCount);
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
-  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
+  const [roleTypeFilter, setRoleTypeFilter] = useState<"all" | RoleTypeFilter>("all");
   const [companyFilter, setCompanyFilter] = useState("all");
   const [workplaceFilter, setWorkplaceFilter] = useState<WorkplaceFilter>("all");
   const [commitmentFilter, setCommitmentFilter] = useState("all");
@@ -190,7 +424,7 @@ export function JobsResults({
     ),
   ).sort((left, right) => left.localeCompare(right));
   const filteredJobs = loadedJobs.filter((job) => {
-    const matchesSource = sourceFilter === "all" || job.sourceLane === sourceFilter;
+    const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
     const matchesCompany = companyFilter === "all" || job.companyName === companyFilter;
     const matchesWorkplace =
       workplaceFilter === "all" || inferWorkplaceMode(job.location) === workplaceFilter;
@@ -198,7 +432,7 @@ export function JobsResults({
       commitmentFilter === "all" || normalizeCommitment(job.commitment) === commitmentFilter;
 
     return (
-      matchesSource &&
+      matchesRoleType &&
       matchesCompany &&
       matchesWorkplace &&
       matchesCommitment &&
@@ -211,7 +445,7 @@ export function JobsResults({
   const canRevealLoadedJobs = remainingCount > 0;
   const hasActiveFilters =
     keyword.length > 0 ||
-    sourceFilter !== "all" ||
+    roleTypeFilter !== "all" ||
     companyFilter !== "all" ||
     workplaceFilter !== "all" ||
     commitmentFilter !== "all" ||
@@ -226,7 +460,7 @@ export function JobsResults({
     dateFilter,
     deferredKeyword,
     initialCount,
-    sourceFilter,
+    roleTypeFilter,
     workplaceFilter,
   ]);
 
@@ -298,18 +532,21 @@ export function JobsResults({
 
         <div className={styles.filterRow}>
           <label className={styles.filterControl}>
-            <span className={styles.filterLabel}>Source</span>
+            <span className={styles.filterLabel}>Role type</span>
             <select
-              aria-label="Source"
+              aria-label="Role type"
               className={styles.filterSelect}
               onChange={(event) => {
-                setSourceFilter(event.target.value as SourceFilter);
+                setRoleTypeFilter(event.target.value as "all" | RoleTypeFilter);
               }}
-              value={sourceFilter}
+              value={roleTypeFilter}
             >
-              <option value="all">All sources</option>
-              <option value="ats_direct">ATS direct</option>
-              <option value="aggregator">Coverage</option>
+              <option value="all">All role types</option>
+              {ROLE_TYPE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {formatRoleTypeLabel(option)}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -392,7 +629,7 @@ export function JobsResults({
               className={styles.clearFiltersButton}
               onClick={() => {
                 setKeyword("");
-                setSourceFilter("all");
+                setRoleTypeFilter("all");
                 setCompanyFilter("all");
                 setWorkplaceFilter("all");
                 setCommitmentFilter("all");
@@ -458,7 +695,7 @@ export function JobsResults({
             className={styles.clearFiltersButton}
             onClick={() => {
               setKeyword("");
-              setSourceFilter("all");
+              setRoleTypeFilter("all");
               setCompanyFilter("all");
               setWorkplaceFilter("all");
               setCommitmentFilter("all");
