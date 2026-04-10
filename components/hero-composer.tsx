@@ -2059,6 +2059,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
           {!isProjectHomeVisible
             ? renderComposer(
                 "Ask about verification workflows, recruiter trust views, or candidate proof.",
+                styles.composerDockLanding,
               )
             : null}
         </div>

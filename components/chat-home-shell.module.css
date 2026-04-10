@@ -1379,6 +1379,10 @@
   transform: none;
 }
 
+.composerDockLanding {
+  bottom: -0.95rem;
+}
+
 .composerTop {
   display: flex;
   flex-direction: column;
@@ -3172,6 +3176,10 @@
     right: auto;
     bottom: auto;
     left: auto;
+  }
+
+  .composerDockLanding {
+    bottom: -0.55rem;
   }
 
   .starterQuestionStack {
