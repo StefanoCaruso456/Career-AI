@@ -26,6 +26,7 @@ function createJob(index: number): JobPostingDto {
 describe("JobsResults", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("shows 24 roles first and reveals 29 more when requested", () => {
@@ -45,8 +46,35 @@ describe("JobsResults", () => {
     expect(screen.queryByRole("button", { name: "More..." })).not.toBeInTheDocument();
   });
 
+  it("shows company options from the full available snapshot, not just the loaded window", () => {
+    const jobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Cisco",
+      sourceLabel: "Cisco",
+    }));
+
+    render(
+      <JobsResults
+        initialCompanyOptions={["Cisco", "Figma", "Stripe"]}
+        initialTotalAvailableCount={1689}
+        jobs={jobs}
+      />,
+    );
+
+    const companySelect = screen.getByLabelText("Company");
+
+    expect(companySelect).toHaveTextContent("All companies");
+    expect(companySelect).toHaveTextContent("Cisco");
+    expect(companySelect).toHaveTextContent("Figma");
+    expect(companySelect).toHaveTextContent("Stripe");
+  });
+
   it("loads a larger jobs window from the API when more roles have not been fetched yet", async () => {
-    const initialJobs = Array.from({ length: 24 }, (_, index) => createJob(index + 1));
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Cisco",
+      sourceLabel: "Cisco",
+    }));
     const expandedJobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
 
     vi.stubGlobal(
@@ -62,12 +90,23 @@ describe("JobsResults", () => {
             jobs: expandedJobs,
             sources: [
               {
+                key: "greenhouse:cisco",
+                label: "Cisco",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: 600,
+                endpointLabel: "jobs.cisco.com",
+                lastSyncedAt: "2026-04-10T12:45:00.000Z",
+                message: "Cisco public jobs synced and ready to persist.",
+              },
+              {
                 key: "greenhouse:figma",
                 label: "Figma",
                 lane: "ats_direct",
                 quality: "high_signal",
                 status: "connected",
-                jobCount: 1045,
+                jobCount: 445,
                 endpointLabel: "boards-api.greenhouse.io/figma",
                 lastSyncedAt: "2026-04-10T12:45:00.000Z",
                 message: "Greenhouse public jobs synced and ready to persist.",
@@ -108,6 +147,8 @@ describe("JobsResults", () => {
     });
     expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
     expect(screen.getByText("Role 53")).toBeInTheDocument();
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Cisco");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
   });
 
   it("filters roles by keyword and manual facets, then clears back to the loaded window", () => {

@@ -46,6 +46,17 @@ function createSnapshot(): JobsFeedResponseDto {
         message: "Greenhouse public jobs synced and ready to persist.",
       },
       {
+        key: "greenhouse:second-feed",
+        label: "Second Feed",
+        lane: "ats_direct",
+        quality: "high_signal",
+        status: "connected",
+        jobCount: 644,
+        endpointLabel: "boards-api.greenhouse.io/second-feed",
+        lastSyncedAt: "2026-04-10T12:45:00.000Z",
+        message: "Second feed synced and ready to persist.",
+      },
+      {
         key: "lever:broken-feed",
         label: "Broken Feed",
         lane: "ats_direct",
@@ -61,9 +72,9 @@ function createSnapshot(): JobsFeedResponseDto {
       totalJobs: 1,
       directAtsJobs: 1,
       aggregatorJobs: 0,
-      sourceCount: 2,
-      connectedSourceCount: 1,
-      highSignalSourceCount: 2,
+      sourceCount: 3,
+      connectedSourceCount: 2,
+      highSignalSourceCount: 3,
       coverageSourceCount: 0,
     },
     storage: {
@@ -90,9 +101,12 @@ describe("JobsPage", () => {
       limit: 24,
     });
     expect(screen.getByText("Feed details")).toBeInTheDocument();
-    expect(screen.getByText("1 active source")).toBeInTheDocument();
-    expect(screen.getByText("Connected Feed")).toBeInTheDocument();
-    expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
+    expect(screen.getByText("2 active sources")).toBeInTheDocument();
+    expect(screen.getAllByText("Connected Feed")).toHaveLength(2);
+    expect(screen.getAllByText("Second Feed")).toHaveLength(2);
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Connected Feed");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Second Feed");
+    expect(screen.getByText("1,689 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Broken Feed")).not.toBeInTheDocument();
   });
 });

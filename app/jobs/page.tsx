@@ -43,6 +43,9 @@ export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: INITIAL_REQUEST_LIMIT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
+  const companyOptions = Array.from(new Set(visibleSources.map((source) => source.label))).sort(
+    (left, right) => left.localeCompare(right),
+  );
   const totalAvailableCount = visibleSources.reduce((sum, source) => sum + source.jobCount, 0);
 
   return (
@@ -64,6 +67,7 @@ export default async function JobsPage() {
           {snapshot.jobs.length > 0 ? (
             <JobsResults
               initialCount={INITIAL_ROLE_COUNT}
+              initialCompanyOptions={companyOptions}
               initialRequestLimit={INITIAL_REQUEST_LIMIT}
               initialTotalAvailableCount={totalAvailableCount}
               jobs={snapshot.jobs}
