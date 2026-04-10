@@ -33,6 +33,7 @@ import {
   supportedChatAttachmentTypes,
 } from "@/packages/contracts/src";
 import {
+  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -147,6 +148,11 @@ type VoiceEnabledWindow = Window &
     SpeechRecognition?: BrowserSpeechRecognitionConstructor;
     webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
   };
+
+type ConversationComposerStyle = CSSProperties & {
+  "--chat-composer-clearance": string;
+  "--chat-conversation-composer-offset": string;
+};
 
 const starterActions = [
   { kind: "prompt", label: "What does the agent actually do?" },
@@ -342,6 +348,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     selectionError,
   } = useChatAttachmentDrafts();
   const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const composerDockRef = useRef<HTMLFormElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
@@ -378,6 +385,8 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     projectHomeProjectId === activeProject.id;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
+  const [conversationComposerStyle, setConversationComposerStyle] =
+    useState<ConversationComposerStyle | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -431,6 +440,55 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     });
     transcriptScrollIntentRef.current = null;
   }, [transcript]);
+
+  useLayoutEffect(() => {
+    if (!hasActiveConversation) {
+      setConversationComposerStyle(null);
+      return;
+    }
+
+    const composerDockNode = composerDockRef.current;
+
+    if (!composerDockNode) {
+      return;
+    }
+
+    const updateConversationComposerStyle = () => {
+      const composerHeight = composerDockNode.getBoundingClientRect().height;
+      const nextClearance = `${Math.ceil(composerHeight + 28)}px`;
+      const nextStyle: ConversationComposerStyle = {
+        "--chat-composer-clearance": nextClearance,
+        "--chat-conversation-composer-offset": "0px",
+      };
+
+      setConversationComposerStyle((currentStyle) => {
+        const currentClearance = currentStyle?.["--chat-composer-clearance"];
+        const currentOffset = currentStyle?.["--chat-conversation-composer-offset"];
+
+        if (currentClearance === nextClearance && currentOffset === "0px") {
+          return currentStyle;
+        }
+
+        return nextStyle;
+      });
+    };
+
+    updateConversationComposerStyle();
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateConversationComposerStyle();
+    });
+
+    resizeObserver.observe(composerDockNode);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [hasActiveConversation]);
 
   useEffect(() => {
     return () => {
@@ -1551,6 +1609,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
         <form
           className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
           onSubmit={handleSubmit}
+          ref={composerDockRef}
         >
           <input
             accept={attachmentInputAccept}
@@ -2002,6 +2061,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
           ]
             .filter(Boolean)
             .join(" ")}
+          style={conversationComposerStyle ?? undefined}
         >
           <div
             aria-live="polite"
