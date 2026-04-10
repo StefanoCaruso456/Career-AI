@@ -1,6 +1,6 @@
 .page {
   padding:
-    1.15rem
+    calc(var(--site-header-clearance) + 1.15rem)
     clamp(1.25rem, 2.5vw, 2.5rem)
     clamp(2.5rem, 4vw, 3.5rem);
 }
@@ -123,7 +123,7 @@
 @media (max-width: 720px) {
   .page {
     padding:
-      1rem
+      calc(var(--site-header-clearance) + 1rem)
       1rem
       2.5rem;
   }
