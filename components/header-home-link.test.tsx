@@ -60,6 +60,27 @@ describe("HeaderHomeLink", () => {
     expect(link).not.toHaveClass(styles.homeActionCurrent);
   });
 
+  it("routes employer client pages back to the employer overview", () => {
+    mockUsePathname.mockReturnValue("/employer/agent-sorcerer");
+
+    render(<HeaderHomeLink />);
+
+    const link = screen.getByRole("link", { name: "Career AI home" });
+    expect(link).toHaveAttribute("href", "/employer");
+    expect(link).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks the employer overview as current when already in the employer home", () => {
+    mockUsePathname.mockReturnValue("/employer");
+
+    render(<HeaderHomeLink />);
+
+    const link = screen.getByRole("link", { name: "Career AI home" });
+    expect(link).toHaveAttribute("href", "/employer");
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveClass(styles.homeActionCurrent);
+  });
+
   it("uses the replacement header logo asset", () => {
     mockUsePathname.mockReturnValue("/");
 

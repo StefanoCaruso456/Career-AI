@@ -3,18 +3,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getPersonaFromRoute, getPostAuthRoute } from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
 
 export function HeaderHomeLink() {
   const pathname = usePathname();
-  const isHome = pathname === "/";
+  const activePersona = getPersonaFromRoute(pathname);
+  const homeHref = activePersona ? getPostAuthRoute(activePersona) : "/";
+  const isHome = pathname === homeHref;
 
   return (
     <Link
       aria-current={isHome ? "page" : undefined}
       aria-label="Career AI home"
       className={isHome ? `${styles.homeAction} ${styles.homeActionCurrent}` : styles.homeAction}
-      href="/"
+      href={homeHref}
     >
       <span className={styles.homeMarkShell} aria-hidden="true">
         <Image
