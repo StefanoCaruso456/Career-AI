@@ -13,9 +13,9 @@ import {
   persistSourcedJobs,
 } from "@/packages/persistence/src";
 
-const JOBS_PER_SOURCE = 40;
+const JOBS_PER_SOURCE = 60;
 const DEFAULT_RESPONSE_LIMIT = 18;
-const MAX_RESPONSE_LIMIT = 120;
+const MAX_RESPONSE_LIMIT = 180;
 const FETCH_TIMEOUT_MS = 4_500;
 
 type NamedSpec = {
@@ -126,6 +126,11 @@ const JOBS_ENVIRONMENT_GUIDE = [
   {
     key: "ASHBY_JOB_BOARDS",
     example: "Linear=linear,Notion=notion",
+  },
+  {
+    key: "JOBS_AGGREGATOR_FEEDS",
+    example:
+      "Google Careers=https://jobs.example.com/google,Meta Careers=https://jobs.example.com/meta",
   },
   {
     key: "JOBS_AGGREGATOR_FEED_URL",
@@ -333,22 +338,44 @@ function getDirectSourceSpecs() {
   };
 }
 
-function getAggregatorSpec() {
-  const feedUrl = process.env.JOBS_AGGREGATOR_FEED_URL?.trim();
+function getAggregatorSpecs() {
+  const apiKey = process.env.JOBS_AGGREGATOR_API_KEY?.trim();
+  const namedFeeds = parseNamedSpecs(process.env.JOBS_AGGREGATOR_FEEDS).map(
+    ({ label, value }) =>
+      ({
+        key: `aggregator:${slugify(label || value)}`,
+        label,
+        lane: "aggregator",
+        quality: "coverage",
+        endpointLabel: value,
+        apiKey,
+        feedUrl: value,
+      }) as AggregatorSourceSpec & { feedUrl: string },
+  );
+  const legacyFeedUrl = process.env.JOBS_AGGREGATOR_FEED_URL?.trim();
+  const legacyFeeds = legacyFeedUrl
+    ? [
+        {
+          key: "aggregator:primary",
+          label: process.env.JOBS_AGGREGATOR_LABEL?.trim() || "Coverage Aggregator",
+          lane: "aggregator",
+          quality: "coverage",
+          endpointLabel: legacyFeedUrl,
+          apiKey,
+          feedUrl: legacyFeedUrl,
+        } satisfies AggregatorSourceSpec & { feedUrl: string },
+      ]
+    : [];
+  const seenFeedUrls = new Set<string>();
 
-  if (!feedUrl) {
-    return null;
-  }
+  return [...namedFeeds, ...legacyFeeds].filter((spec) => {
+    if (seenFeedUrls.has(spec.feedUrl)) {
+      return false;
+    }
 
-  return {
-    key: "aggregator:primary",
-    label: process.env.JOBS_AGGREGATOR_LABEL?.trim() || "Coverage Aggregator",
-    lane: "aggregator",
-    quality: "coverage",
-    endpointLabel: feedUrl,
-    apiKey: process.env.JOBS_AGGREGATOR_API_KEY?.trim(),
-    feedUrl,
-  } satisfies AggregatorSourceSpec & { feedUrl: string };
+    seenFeedUrls.add(spec.feedUrl);
+    return true;
+  });
 }
 
 function getWorkableXmlFeedSpec() {
@@ -371,7 +398,7 @@ function getWorkableXmlFeedSpec() {
 function createNotConfiguredSources() {
   const fallbackSources: JobSourceSnapshotDto[] = [];
   const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
-  const aggregatorSpec = getAggregatorSpec();
+  const aggregatorSpecs = getAggregatorSpecs();
   const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
   if (greenhouseBoards.length === 0) {
@@ -423,7 +450,7 @@ function createNotConfiguredSources() {
     );
   }
 
-  if (!aggregatorSpec) {
+  if (aggregatorSpecs.length === 0) {
     fallbackSources.push(
       createSourceSnapshot({
         key: "aggregator:unconfigured",
@@ -434,7 +461,8 @@ function createNotConfiguredSources() {
         jobCount: 0,
         endpointLabel: null,
         lastSyncedAt: null,
-        message: "Add JOBS_AGGREGATOR_FEED_URL to layer in immediate job-volume coverage.",
+        message:
+          "Add JOBS_AGGREGATOR_FEEDS or JOBS_AGGREGATOR_FEED_URL to layer in immediate job-volume coverage.",
       }),
     );
   }
@@ -1186,14 +1214,14 @@ function buildJobsFeedResponse(args: {
 
 async function collectLiveSourceCollections() {
   const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
-  const aggregatorSpec = getAggregatorSpec();
+  const aggregatorSpecs = getAggregatorSpecs();
   const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
   return Promise.all([
     ...greenhouseBoards.map((source) => collectGreenhouseJobs(source)),
     ...leverSites.map((source) => collectLeverJobs(source)),
     ...ashbyBoards.map((source) => collectAshbyJobs(source)),
-    ...(aggregatorSpec ? [collectAggregatorJobs(aggregatorSpec)] : []),
+    ...aggregatorSpecs.map((source) => collectAggregatorJobs(source)),
     ...(workableXmlFeedSpec ? [collectWorkableXmlJobs(workableXmlFeedSpec)] : []),
   ]);
 }

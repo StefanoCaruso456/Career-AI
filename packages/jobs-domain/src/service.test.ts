@@ -17,6 +17,7 @@ describe("jobs feed service", () => {
   const originalGreenhouseBoards = process.env.GREENHOUSE_BOARD_TOKENS;
   const originalLeverSites = process.env.LEVER_SITE_NAMES;
   const originalAshbyBoards = process.env.ASHBY_JOB_BOARDS;
+  const originalAggregatorFeeds = process.env.JOBS_AGGREGATOR_FEEDS;
   const originalAggregatorFeedUrl = process.env.JOBS_AGGREGATOR_FEED_URL;
   const originalAggregatorApiKey = process.env.JOBS_AGGREGATOR_API_KEY;
   const originalAggregatorLabel = process.env.JOBS_AGGREGATOR_LABEL;
@@ -29,6 +30,7 @@ describe("jobs feed service", () => {
     delete process.env.GREENHOUSE_BOARD_TOKENS;
     delete process.env.LEVER_SITE_NAMES;
     delete process.env.ASHBY_JOB_BOARDS;
+    delete process.env.JOBS_AGGREGATOR_FEEDS;
     delete process.env.JOBS_AGGREGATOR_FEED_URL;
     delete process.env.JOBS_AGGREGATOR_API_KEY;
     delete process.env.JOBS_AGGREGATOR_LABEL;
@@ -63,6 +65,12 @@ describe("jobs feed service", () => {
       delete process.env.ASHBY_JOB_BOARDS;
     } else {
       process.env.ASHBY_JOB_BOARDS = originalAshbyBoards;
+    }
+
+    if (originalAggregatorFeeds === undefined) {
+      delete process.env.JOBS_AGGREGATOR_FEEDS;
+    } else {
+      process.env.JOBS_AGGREGATOR_FEEDS = originalAggregatorFeeds;
     }
 
     if (originalAggregatorFeedUrl === undefined) {
@@ -112,6 +120,7 @@ describe("jobs feed service", () => {
       "GREENHOUSE_BOARD",
       "LEVER_SITE_NAMES",
       "ASHBY_JOB_BOARDS",
+      "JOBS_AGGREGATOR_FEEDS",
       "JOBS_AGGREGATOR_FEED_URL",
       "JOBS_AGGREGATOR_API_KEY",
       "WORKABLE_XML_FEED_URL",
@@ -317,7 +326,7 @@ describe("jobs feed service", () => {
         });
       }
 
-      if (url === "https://api.lever.co/v0/postings/orbit?mode=json&limit=40") {
+      if (url === "https://api.lever.co/v0/postings/orbit?mode=json&limit=60") {
         return createJsonResponse([
           {
             id: "lever-1",
@@ -385,6 +394,70 @@ describe("jobs feed service", () => {
       "not_configured",
     ]);
     expect(snapshot.storage.mode).toBe("ephemeral");
+  });
+
+  it("ingests multiple named aggregator feeds with one shared API key", async () => {
+    process.env.JOBS_AGGREGATOR_FEEDS =
+      "Google Careers=https://jobs.example.com/google,Meta Careers=https://jobs.example.com/meta";
+    process.env.JOBS_AGGREGATOR_API_KEY = "coverage-secret";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const authorization = new Headers(init?.headers).get("Authorization");
+
+      if (url === "https://jobs.example.com/google") {
+        expect(authorization).toBe("Bearer coverage-secret");
+
+        return createJsonResponse({
+          jobs: [
+            {
+              id: "google-1",
+              title: "Applied AI Engineer",
+              companyName: "Google",
+              location: "Mountain View, CA",
+              applyUrl: "https://careers.google.com/jobs/results/google-1",
+              postedAt: "2026-04-10T01:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      if (url === "https://jobs.example.com/meta") {
+        expect(authorization).toBe("Bearer coverage-secret");
+
+        return createJsonResponse({
+          jobs: [
+            {
+              id: "meta-1",
+              title: "Research Engineer, AI",
+              companyName: "Meta",
+              location: "Menlo Park, CA",
+              applyUrl: "https://www.metacareers.com/jobs/meta-1",
+              postedAt: "2026-04-10T02:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(snapshot.summary.connectedSourceCount).toBe(2);
+    expect(snapshot.summary.aggregatorJobs).toBe(2);
+    expect(snapshot.sources.map((source) => source.key)).toEqual([
+      "aggregator:google-careers",
+      "aggregator:meta-careers",
+      "greenhouse:unconfigured",
+      "lever:unconfigured",
+      "ashby:unconfigured",
+      "workable:unconfigured",
+    ]);
+    expect(snapshot.jobs.map((job) => job.companyName)).toEqual(["Meta", "Google"]);
   });
 
   it("persists Greenhouse jobs to Postgres when the database is configured", async () => {
