@@ -51,8 +51,6 @@
 .metaLine,
 .metaNote,
 .subtitle,
-.jobCopy p,
-.jobSnippet,
 .emptyState p,
 .envCard span,
 .feedItem p {
@@ -118,7 +116,6 @@
   gap: 1.1rem;
 }
 
-.jobCard,
 .emptyState,
 .envCard,
 .feedItem {
@@ -132,9 +129,18 @@
 }
 
 .jobCard {
-  gap: 0.95rem;
-  padding: 1.1rem;
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  padding: 1.15rem;
   border-radius: 1.45rem;
+  border: 1px solid rgba(239, 230, 214, 0.78);
+  background:
+    linear-gradient(180deg, rgba(245, 239, 229, 0.98), rgba(230, 223, 211, 0.96)),
+    #ebe4d8;
+  box-shadow:
+    0 20px 42px rgba(0, 0, 0, 0.2),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .badgeRow,
@@ -161,17 +167,17 @@
 }
 
 .laneBadge {
-  background: rgba(255, 255, 255, 0.06);
-  color: #f6f8fd;
+  background: rgba(22, 33, 49, 0.08);
+  color: #25364b;
 }
 
 .qualityBadge {
-  background: rgba(146, 182, 255, 0.12);
-  color: #e2ecff;
+  background: rgba(71, 108, 178, 0.12);
+  color: #325188;
 }
 
 .cardEyebrow {
-  color: rgba(160, 186, 255, 0.88);
+  color: #6d7d90;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -190,12 +196,13 @@
 }
 
 .jobCopy h3 {
-  font-size: 1.22rem;
+  color: #172233;
+  font-size: 1.2rem;
   line-height: 1.18;
   letter-spacing: -0.03em;
 }
 
-.jobCopy p,
+.jobMeta,
 .jobSnippet,
 .emptyState p,
 .envCard span,
@@ -203,9 +210,33 @@
   line-height: 1.7;
 }
 
+.jobMeta {
+  margin: 0;
+  color: #607083;
+  font-size: 0.95rem;
+}
+
+.jobSnippet {
+  margin: 0;
+  color: #263446;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.95rem;
+  line-height: 1.58;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .jobFooter {
-  color: var(--text-tertiary);
-  font-size: 0.88rem;
+  color: #7a8897;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.jobLink {
+  color: #182232;
+  font-weight: 700;
+  justify-self: start;
 }
 
 .emptyState {
