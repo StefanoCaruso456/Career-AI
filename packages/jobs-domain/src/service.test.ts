@@ -711,6 +711,44 @@ describe("jobs feed service", () => {
     expect(Number(counts.rows[0]?.source_count ?? 0)).toBe(1);
   });
 
+  it("serves the persisted snapshot without re-syncing while the jobs cache is still fresh", async () => {
+    await installTestDatabase();
+    process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
+    process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 101,
+              title: "Senior Product Designer",
+              absolute_url: "https://jobs.acme.com/designer",
+              content: "<p>Lead product design across the entire workflow.</p>",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Design" }],
+              updated_at: "2026-04-09T18:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getJobsFeedSnapshot({ limit: 10, forceRefresh: true });
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.storage.mode).toBe("database");
+    expect(snapshot.jobs).toHaveLength(1);
+    expect(snapshot.sources[0]?.status).toBe("connected");
+  });
+
   it("continues showing persisted jobs when a later Greenhouse sync degrades", async () => {
     await installTestDatabase();
     process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
@@ -745,7 +783,7 @@ describe("jobs feed service", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await getJobsFeedSnapshot({ limit: 10 });
-    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+    const snapshot = await getJobsFeedSnapshot({ limit: 10, forceRefresh: true });
 
     expect(snapshot.storage.mode).toBe("database");
     expect(snapshot.jobs).toHaveLength(1);

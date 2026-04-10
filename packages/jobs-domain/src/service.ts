@@ -16,6 +16,7 @@ import {
 const DEFAULT_RESPONSE_LIMIT = 18;
 const MAX_RESPONSE_LIMIT = 5_000;
 const FETCH_TIMEOUT_MS = 4_500;
+const JOBS_SNAPSHOT_STALE_MS = 10 * 60 * 1000;
 const DEFAULT_WINDOW_DAYS = 7;
 const LEVER_PAGE_SIZE = 100;
 const MAX_LEVER_PAGE_COUNT = 100;
@@ -29,6 +30,8 @@ const RESERVED_PLACEHOLDER_HOST_SUFFIXES = [
   "test",
   "invalid",
 ] as const;
+
+const jobsRefreshPromises = new Map<string, Promise<void>>();
 
 type NamedSpec = {
   label: string;
@@ -347,6 +350,20 @@ function normalizeWindowDays(value: number | undefined) {
   }
 
   return Math.max(1, Math.min(Math.floor(value as number), 30));
+}
+
+function isSnapshotFresh(lastSyncAt: string | null) {
+  if (!lastSyncAt) {
+    return false;
+  }
+
+  const timestamp = Date.parse(lastSyncAt);
+
+  if (Number.isNaN(timestamp)) {
+    return false;
+  }
+
+  return Date.now() - timestamp <= JOBS_SNAPSHOT_STALE_MS;
 }
 
 function formatWindowLabel(windowDays: number | null) {
@@ -1706,6 +1723,60 @@ async function collectLiveSourceCollections(windowDays: number | null) {
   ]);
 }
 
+async function getLiveJobsFeedPreview(args: {
+  generatedAt: string;
+  limit: number;
+  windowDays: number | null;
+}) {
+  const liveCollections = await collectLiveSourceCollections(args.windowDays);
+
+  return {
+    collections: liveCollections,
+    response: buildJobsFeedResponse({
+      generatedAt: args.generatedAt,
+      jobs: dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, args.limit),
+      sources: [...liveCollections.map((collection) => collection.source), ...createNotConfiguredSources()],
+      storage: {
+        mode: "ephemeral",
+        persistedJobs: 0,
+        persistedSources: 0,
+        lastSyncAt: null,
+      },
+    }),
+  };
+}
+
+async function syncJobsFeedToDatabase(windowDays: number | null, syncedAt: string) {
+  const liveCollections = await collectLiveSourceCollections(windowDays);
+
+  await persistSourcedJobs({
+    sources: liveCollections.map((collection) => collection.source),
+    jobs: liveCollections.flatMap((collection) => collection.persistedJobs),
+    syncedAt,
+  });
+}
+
+function getJobsRefreshKey(windowDays: number | null) {
+  return windowDays ? `window:${windowDays}` : "window:all";
+}
+
+async function refreshJobsFeed(windowDays: number | null, syncedAt = new Date().toISOString()) {
+  const refreshKey = getJobsRefreshKey(windowDays);
+  const existingRefresh = jobsRefreshPromises.get(refreshKey);
+
+  if (existingRefresh) {
+    return existingRefresh;
+  }
+
+  const refreshPromise = syncJobsFeedToDatabase(windowDays, syncedAt).finally(() => {
+    jobsRefreshPromises.delete(refreshKey);
+  });
+
+  jobsRefreshPromises.set(refreshKey, refreshPromise);
+
+  return refreshPromise;
+}
+
 export function getJobsEnvironmentGuide() {
   return JOBS_ENVIRONMENT_GUIDE;
 }
@@ -1713,60 +1784,54 @@ export function getJobsEnvironmentGuide() {
 export async function getJobsFeedSnapshot(args?: {
   limit?: number;
   windowDays?: number;
+  forceRefresh?: boolean;
 }): Promise<JobsFeedResponseDto> {
   const limit = Math.max(1, Math.min(args?.limit ?? DEFAULT_RESPONSE_LIMIT, MAX_RESPONSE_LIMIT));
   const windowDays = normalizeWindowDays(args?.windowDays);
   const generatedAt = new Date().toISOString();
-  const liveCollections = await collectLiveSourceCollections(windowDays);
-  const liveJobs = dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, limit);
-  const liveSources = liveCollections.map((collection) => collection.source);
-  const staticSources = createNotConfiguredSources();
 
   if (!isDatabaseConfigured()) {
-    return buildJobsFeedResponse({
-      generatedAt,
-      jobs: liveJobs,
-      sources: [...liveSources, ...staticSources],
-      storage: {
-        mode: "ephemeral",
-        persistedJobs: 0,
-        persistedSources: 0,
-        lastSyncAt: null,
-      },
-    });
+    return (await getLiveJobsFeedPreview({ generatedAt, limit, windowDays })).response;
   }
 
   try {
-    await persistSourcedJobs({
-      sources: liveSources,
-      jobs: liveCollections.flatMap((collection) => collection.persistedJobs),
-      syncedAt: generatedAt,
-    });
+    const persisted = await getPersistedJobsFeedSnapshot({ limit, windowDays: windowDays ?? undefined });
+    const hasPersistedSnapshot =
+      persisted.jobs.length > 0 ||
+      persisted.sources.length > 0 ||
+      persisted.storage.lastSyncAt !== null;
 
-    const persisted = await getPersistedJobsFeedSnapshot({
+    if (!args?.forceRefresh && hasPersistedSnapshot) {
+      if (!isSnapshotFresh(persisted.storage.lastSyncAt)) {
+        void refreshJobsFeed(windowDays).catch((error) => {
+          console.error("Jobs background refresh failed; serving cached snapshot instead.", error);
+        });
+      }
+
+      return buildJobsFeedResponse({
+        generatedAt,
+        jobs: persisted.jobs,
+        sources: [...persisted.sources, ...createNotConfiguredSources()],
+        storage: persisted.storage,
+      });
+    }
+
+    await refreshJobsFeed(windowDays, generatedAt);
+
+    const refreshed = await getPersistedJobsFeedSnapshot({
       limit,
       windowDays: windowDays ?? undefined,
     });
 
     return buildJobsFeedResponse({
       generatedAt,
-      jobs: persisted.jobs,
-      sources: [...persisted.sources, ...staticSources],
-      storage: persisted.storage,
+      jobs: refreshed.jobs,
+      sources: [...refreshed.sources, ...createNotConfiguredSources()],
+      storage: refreshed.storage,
     });
   } catch (error) {
     console.error("Jobs persistence failed; falling back to live feed preview.", error);
 
-    return buildJobsFeedResponse({
-      generatedAt,
-      jobs: liveJobs,
-      sources: [...liveSources, ...staticSources],
-      storage: {
-        mode: "ephemeral",
-        persistedJobs: 0,
-        persistedSources: 0,
-        lastSyncAt: null,
-      },
-    });
+    return (await getLiveJobsFeedPreview({ generatedAt, limit, windowDays })).response;
   }
 }

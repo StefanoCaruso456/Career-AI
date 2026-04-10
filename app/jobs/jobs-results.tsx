@@ -2,12 +2,13 @@
 
 import { useDeferredValue, useEffect, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
-import type { JobPostingDto } from "@/packages/contracts/src";
+import { jobsFeedResponseSchema, type JobPostingDto } from "@/packages/contracts/src";
 import styles from "./page.module.css";
 
 type JobsResultsProps = {
   jobs: JobPostingDto[];
   initialCount?: number;
+  initialRequestLimit?: number;
   loadMoreCount?: number;
 };
 
@@ -146,8 +147,10 @@ function matchesKeyword(job: JobPostingDto, keyword: string) {
 export function JobsResults({
   jobs,
   initialCount = 24,
+  initialRequestLimit = Number.MAX_SAFE_INTEGER,
   loadMoreCount = 29,
 }: JobsResultsProps) {
+  const [loadedJobs, setLoadedJobs] = useState(jobs);
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
@@ -156,17 +159,20 @@ export function JobsResults({
   const [commitmentFilter, setCommitmentFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [visibleCount, setVisibleCount] = useState(() => Math.min(initialCount, jobs.length));
-  const companyOptions = Array.from(new Set(jobs.map((job) => job.companyName))).sort((left, right) =>
-    left.localeCompare(right),
+  const [hasMoreAvailable, setHasMoreAvailable] = useState(jobs.length >= initialRequestLimit);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const companyOptions = Array.from(new Set(loadedJobs.map((job) => job.companyName))).sort(
+    (left, right) => left.localeCompare(right),
   );
   const commitmentOptions = Array.from(
     new Set(
-      jobs
+      loadedJobs
         .map((job) => normalizeCommitment(job.commitment))
         .filter((value) => value !== "unknown"),
     ),
   ).sort((left, right) => left.localeCompare(right));
-  const filteredJobs = jobs.filter((job) => {
+  const filteredJobs = loadedJobs.filter((job) => {
     const matchesSource = sourceFilter === "all" || job.sourceLane === sourceFilter;
     const matchesCompany = companyFilter === "all" || job.companyName === companyFilter;
     const matchesWorkplace =
@@ -185,7 +191,8 @@ export function JobsResults({
   });
   const visibleJobs = filteredJobs.slice(0, visibleCount);
   const remainingCount = Math.max(filteredJobs.length - visibleCount, 0);
-  const nextRevealCount = Math.min(loadMoreCount, remainingCount);
+  const canRevealLoadedJobs = remainingCount > 0;
+  const nextRevealCount = canRevealLoadedJobs ? Math.min(loadMoreCount, remainingCount) : loadMoreCount;
   const hasActiveFilters =
     keyword.length > 0 ||
     sourceFilter !== "all" ||
@@ -193,6 +200,7 @@ export function JobsResults({
     workplaceFilter !== "all" ||
     commitmentFilter !== "all" ||
     dateFilter !== "all";
+  const showLoadMore = canRevealLoadedJobs || hasMoreAvailable;
 
   useEffect(() => {
     setVisibleCount(Math.min(initialCount, filteredJobs.length || initialCount));
@@ -201,11 +209,57 @@ export function JobsResults({
     commitmentFilter,
     dateFilter,
     deferredKeyword,
-    filteredJobs.length,
     initialCount,
     sourceFilter,
     workplaceFilter,
   ]);
+
+  useEffect(() => {
+    setLoadedJobs(jobs);
+    setHasMoreAvailable(jobs.length >= initialRequestLimit);
+    setLoadMoreError(null);
+    setVisibleCount(Math.min(initialCount, jobs.length));
+  }, [initialRequestLimit, jobs]);
+
+  async function handleLoadMore() {
+    if (canRevealLoadedJobs) {
+      setVisibleCount((current) => Math.min(current + loadMoreCount, filteredJobs.length));
+      return;
+    }
+
+    if (!hasMoreAvailable || isLoadingMore) {
+      return;
+    }
+
+    const nextLimit = loadedJobs.length + loadMoreCount;
+
+    setIsLoadingMore(true);
+    setLoadMoreError(null);
+
+    try {
+      const response = await fetch(`/api/v1/jobs?limit=${nextLimit}`, {
+        cache: "no-store",
+        method: "GET",
+      });
+      const payload = (await response.json()) as { error?: string; message?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error || payload.message || "More jobs could not be loaded right now.");
+      }
+
+      const snapshot = jobsFeedResponseSchema.parse(payload);
+
+      setLoadedJobs(snapshot.jobs);
+      setVisibleCount((current) => Math.min(Math.max(current, loadedJobs.length) + loadMoreCount, snapshot.jobs.length));
+      setHasMoreAvailable(snapshot.jobs.length >= nextLimit);
+    } catch (error) {
+      setLoadMoreError(
+        error instanceof Error ? error.message : "More jobs could not be loaded right now.",
+      );
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
 
   return (
     <div className={styles.jobsResults}>
@@ -340,7 +394,7 @@ export function JobsResults({
       <div className={styles.resultsHeader}>
         <p className={styles.resultsSummary}>
           Showing {visibleJobs.length} of {filteredJobs.length} matching{" "}
-          {pluralize(filteredJobs.length, "role")} from {jobs.length} loaded.
+          {pluralize(filteredJobs.length, "role")} from {loadedJobs.length} loaded.
         </p>
       </div>
 
@@ -396,20 +450,23 @@ export function JobsResults({
         </article>
       )}
 
-      {filteredJobs.length > 0 && remainingCount > 0 ? (
+      {filteredJobs.length > 0 && showLoadMore ? (
         <div className={styles.loadMoreRow}>
           <button
             className={styles.loadMoreButton}
+            disabled={isLoadingMore}
             onClick={() => {
-              setVisibleCount((current) => Math.min(current + loadMoreCount, jobs.length));
+              void handleLoadMore();
             }}
             type="button"
           >
-            More...
+            {isLoadingMore ? "Loading..." : "More..."}
           </button>
           <p className={styles.loadMoreNote}>
-            Reveal {nextRevealCount} more {pluralize(nextRevealCount, "role")}.
+            {canRevealLoadedJobs ? "Reveal" : "Load"} {nextRevealCount} more{" "}
+            {pluralize(nextRevealCount, "role")}.
           </p>
+          {loadMoreError ? <p className={styles.loadMoreNote}>{loadMoreError}</p> : null}
         </div>
       ) : null}
     </div>
