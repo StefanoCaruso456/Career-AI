@@ -1,12 +1,5 @@
 import type { Metadata } from "next";
-import {
-  ArrowUpRight,
-  BriefcaseBusiness,
-  Compass,
-  Radar,
-  Sparkles,
-  TowerControl,
-} from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
 import styles from "./page.module.css";
@@ -51,206 +44,59 @@ function formatStorageLabel(value: "database" | "ephemeral") {
   return value === "database" ? "Saved in Postgres" : "Preview only";
 }
 
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return count === 1 ? singular : plural;
+}
+
 export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: 9 });
   const environmentGuide = getJobsEnvironmentGuide();
-  const directSources = snapshot.sources.filter((source) => source.lane === "ats_direct");
-  const coverageSources = snapshot.sources.filter((source) => source.lane === "aggregator");
+  const visibleSources = snapshot.sources.filter((source) => source.status !== "not_configured");
+  const degradedSources = visibleSources.filter((source) => source.status === "degraded");
+  const summaryTimestamp = snapshot.storage.lastSyncAt || snapshot.generatedAt;
 
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
-        <section className={styles.hero}>
-          <div className={styles.heroCopy}>
-            <span className={styles.eyebrow}>Hybrid Job Intake</span>
-            <h1 className={styles.title}>
-              ATS-direct quality plus aggregator volume, merged into one hiring surface.
-            </h1>
-            <p className={styles.subtitle}>
-              Career AI now treats job sourcing like a two-lane system: direct ATS feeds for
-              cleaner, recruiter-grade openings and an aggregator feed for immediate market
-              coverage. The stack below shows what is connected, what is live, and what has been
-              saved into the app&apos;s Postgres-backed jobs layer.
+        <section className={styles.intro}>
+          <div className={styles.introCopy}>
+            <h1 className={styles.title}>Search results</h1>
+            <p className={styles.metaLine}>
+              <span>
+                {snapshot.jobs.length} {pluralize(snapshot.jobs.length, "role")} shown
+              </span>
+              <span>
+                {snapshot.summary.connectedSourceCount} live{" "}
+                {pluralize(snapshot.summary.connectedSourceCount, "source")}
+              </span>
+              <span>{formatStorageLabel(snapshot.storage.mode)}</span>
+              <span>Updated {formatTimestamp(summaryTimestamp)}</span>
             </p>
-
-            <div className={styles.statusRow}>
-              <div className={styles.statusPill}>
-                <TowerControl aria-hidden="true" size={18} strokeWidth={2} />
-                <span>{snapshot.summary.connectedSourceCount} live sources</span>
-              </div>
-              <div className={styles.statusPill}>
-                <Compass aria-hidden="true" size={18} strokeWidth={2} />
-                <span>{snapshot.summary.directAtsJobs} ATS-direct jobs in view</span>
-              </div>
-              <div className={styles.statusPill}>
-                <Radar aria-hidden="true" size={18} strokeWidth={2} />
-                <span>{snapshot.summary.aggregatorJobs} coverage jobs in view</span>
-              </div>
-              <div className={styles.statusPill}>
-                <Sparkles aria-hidden="true" size={18} strokeWidth={2} />
-                <span>{formatStorageLabel(snapshot.storage.mode)}</span>
-              </div>
-            </div>
+            {snapshot.summary.totalJobs === 0 ? (
+              <p className={styles.subtitle}>
+                Connect at least one live source and Career AI will sync the feed here
+                automatically.
+              </p>
+            ) : null}
           </div>
 
-          <aside className={styles.heroPanel}>
-            <div className={styles.panelBadge}>
-              <BriefcaseBusiness aria-hidden="true" size={18} strokeWidth={2} />
-              <span>Pipeline mix</span>
-            </div>
-            <h2>
-              {snapshot.summary.totalJobs} deduped jobs{" "}
-              {snapshot.storage.mode === "database"
-                ? "are available from the persisted jobs layer."
-                : "are in the current merged window."}
-            </h2>
-            <p>
-              Direct ATS lanes stay closest to the source, while the coverage lane makes the page
-              useful immediately. As more feeds are connected, this becomes the matching cockpit
-              for verified candidates and role pipelines.
-            </p>
-            <div className={styles.storageNote}>
-              <strong>{formatStorageLabel(snapshot.storage.mode)}</strong>
-              <span>
-                {snapshot.storage.mode === "database"
-                  ? snapshot.storage.lastSyncAt
-                    ? `Last persisted sync ${formatTimestamp(snapshot.storage.lastSyncAt)}.`
-                    : "Database is connected and ready for the first jobs sync."
-                  : "The current response is a live preview because database persistence is unavailable."}
-              </span>
-            </div>
+          <div className={styles.metaBlock}>
+            {degradedSources.length > 0 ? (
+              <p className={styles.metaNote}>
+                {degradedSources.length} {pluralize(degradedSources.length, "source")} need
+                attention.
+              </p>
+            ) : visibleSources.length > 0 ? (
+              <p className={styles.metaNote}>Feed details are available below when you need them.</p>
+            ) : null}
             <Link className={styles.inlineLink} href="/agent-build">
               Open Agent Builder
               <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
             </Link>
-          </aside>
-        </section>
-
-        <section className={styles.metricGrid}>
-          <article className={styles.metricCard}>
-            <span className={styles.cardEyebrow}>Source count</span>
-            <strong>{snapshot.summary.sourceCount}</strong>
-            <p>Configured and pending sources across direct ATS and aggregator lanes.</p>
-          </article>
-          <article className={styles.metricCard}>
-            <span className={styles.cardEyebrow}>High-signal lane</span>
-            <strong>{snapshot.summary.highSignalSourceCount}</strong>
-            <p>Direct ATS sources built for cleaner, higher-trust openings.</p>
-          </article>
-          <article className={styles.metricCard}>
-            <span className={styles.cardEyebrow}>Coverage lane</span>
-            <strong>{snapshot.summary.coverageSourceCount}</strong>
-            <p>Aggregator capacity that expands job volume without blocking the rollout.</p>
-          </article>
-        </section>
-
-        <section className={styles.pipelineGrid}>
-          <article className={styles.pipelinePanel}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <span className={styles.eyebrow}>Lane one</span>
-                <h2>ATS direct feeds</h2>
-              </div>
-              <span className={styles.sectionCount}>{directSources.length} sources</span>
-            </div>
-            <div className={styles.sourceList}>
-              {directSources.map((source) => (
-                <article className={styles.sourceCard} key={source.key}>
-                  <div className={styles.sourceHeader}>
-                    <div>
-                      <h3>{source.label}</h3>
-                      <p>{source.endpointLabel ?? "Awaiting provider config"}</p>
-                    </div>
-                    <div className={styles.badgeRow}>
-                      <span className={styles.qualityBadge}>{formatQualityLabel(source.quality)}</span>
-                      <span
-                        className={`${styles.statusBadge} ${
-                          source.status === "connected"
-                            ? styles.statusConnected
-                            : source.status === "degraded"
-                              ? styles.statusDegraded
-                              : styles.statusPending
-                        }`}
-                      >
-                        {formatStatusLabel(source.status)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={styles.sourceMetaRow}>
-                    <span>{source.jobCount} jobs surfaced</span>
-                    <span>{formatLaneLabel(source.lane)}</span>
-                    <span>
-                      {source.lastSyncedAt
-                        ? `Saved ${formatTimestamp(source.lastSyncedAt)}`
-                        : "Awaiting first sync"}
-                    </span>
-                  </div>
-                  <p className={styles.sourceMessage}>{source.message}</p>
-                </article>
-              ))}
-            </div>
-          </article>
-
-          <article className={styles.pipelinePanel}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <span className={styles.eyebrow}>Lane two</span>
-                <h2>Coverage aggregator</h2>
-              </div>
-              <span className={styles.sectionCount}>{coverageSources.length} sources</span>
-            </div>
-            <div className={styles.sourceList}>
-              {coverageSources.map((source) => (
-                <article className={styles.sourceCard} key={source.key}>
-                  <div className={styles.sourceHeader}>
-                    <div>
-                      <h3>{source.label}</h3>
-                      <p>{source.endpointLabel ?? "Awaiting provider config"}</p>
-                    </div>
-                    <div className={styles.badgeRow}>
-                      <span className={styles.qualityBadge}>{formatQualityLabel(source.quality)}</span>
-                      <span
-                        className={`${styles.statusBadge} ${
-                          source.status === "connected"
-                            ? styles.statusConnected
-                            : source.status === "degraded"
-                              ? styles.statusDegraded
-                              : styles.statusPending
-                        }`}
-                      >
-                        {formatStatusLabel(source.status)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={styles.sourceMetaRow}>
-                    <span>{source.jobCount} jobs surfaced</span>
-                    <span>{formatLaneLabel(source.lane)}</span>
-                    <span>
-                      {source.lastSyncedAt
-                        ? `Saved ${formatTimestamp(source.lastSyncedAt)}`
-                        : "Awaiting first sync"}
-                    </span>
-                  </div>
-                  <p className={styles.sourceMessage}>{source.message}</p>
-                </article>
-              ))}
-            </div>
-          </article>
+          </div>
         </section>
 
         <section className={styles.jobsPanel}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <span className={styles.eyebrow}>Merged feed window</span>
-              <h2>
-                {snapshot.storage.mode === "database"
-                  ? "Persisted roles in the intake stack"
-                  : "Live roles in the intake stack"}
-              </h2>
-            </div>
-            <span className={styles.sectionCount}>{snapshot.jobs.length} roles shown</span>
-          </div>
-
           {snapshot.jobs.length > 0 ? (
             <div className={styles.jobsGrid}>
               {snapshot.jobs.map((job) => (
@@ -290,10 +136,6 @@ export default async function JobsPage() {
             </div>
           ) : (
             <article className={styles.emptyState}>
-              <div className={styles.emptyBadge}>
-                <Sparkles aria-hidden="true" size={18} strokeWidth={2} />
-                <span>Next connection steps</span>
-              </div>
               <h3>No job feeds are connected yet.</h3>
               <p>
                 The hybrid intake layer is live, but it needs at least one ATS feed or one
@@ -311,6 +153,49 @@ export default async function JobsPage() {
             </article>
           )}
         </section>
+
+        {visibleSources.length > 0 ? (
+          <details className={styles.feedDetails}>
+            <summary className={styles.feedSummary}>
+              <span>Feed details</span>
+              <span>
+                {visibleSources.length} active {pluralize(visibleSources.length, "source")}
+              </span>
+            </summary>
+            <div className={styles.feedList}>
+              {visibleSources.map((source) => (
+                <article className={styles.feedItem} key={source.key}>
+                  <div className={styles.feedItemTop}>
+                    <div>
+                      <h3>{source.label}</h3>
+                      <p>{source.endpointLabel ?? "Awaiting provider config"}</p>
+                    </div>
+                    <div className={styles.feedItemMeta}>
+                      <span>{formatLaneLabel(source.lane)}</span>
+                      <span>{source.jobCount} {pluralize(source.jobCount, "role")}</span>
+                      <span
+                        className={`${styles.feedStatus} ${
+                          source.status === "connected"
+                            ? styles.feedStatusConnected
+                            : source.status === "degraded"
+                              ? styles.feedStatusDegraded
+                              : styles.feedStatusPending
+                        }`}
+                      >
+                        {formatStatusLabel(source.status)}
+                      </span>
+                    </div>
+                  </div>
+                  <p className={styles.feedItemMessage}>
+                    {source.lastSyncedAt
+                      ? `Updated ${formatTimestamp(source.lastSyncedAt)}. ${source.message}`
+                      : source.message}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </details>
+        ) : null}
       </div>
     </main>
   );
