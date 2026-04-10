@@ -156,12 +156,28 @@ const BUILTIN_WORKDAY_COMPANY_FEEDS =
     ? []
     : ([
         {
+          label: "Accenture",
+          feedUrl: "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
+        },
+        {
           label: "Adobe",
           feedUrl: "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
         },
         {
           label: "Cisco",
           feedUrl: "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
+        },
+        {
+          label: "CrowdStrike",
+          feedUrl: "https://crowdstrike.wd5.myworkdayjobs.com/wday/cxs/crowdstrike/crowdstrikecareers/jobs",
+        },
+        {
+          label: "NVIDIA",
+          feedUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/nvidiaexternalcareersite/jobs",
+        },
+        {
+          label: "Salesforce",
+          feedUrl: "https://salesforce.wd12.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs",
         },
       ] as const);
 
