@@ -20,6 +20,14 @@ type JobsResultsProps = {
 
 type WorkplaceFilter = "all" | "remote" | "hybrid" | "onsite";
 type DateFilter = "all" | "1d" | "7d" | "30d";
+const SALARY_RANGE_OPTIONS = [
+  "under-100k",
+  "100k-150k",
+  "150k-200k",
+  "200k-250k",
+  "250k-plus",
+] as const;
+type SalaryRangeFilter = "all" | (typeof SALARY_RANGE_OPTIONS)[number];
 const EMPTY_COMPANY_OPTIONS: string[] = [];
 const ROLE_TYPE_OPTIONS = [
   "ai-ml-engineering",
@@ -56,6 +64,14 @@ const ROLE_TYPE_LABELS: Record<RoleTypeFilter, string> = {
   "qa-automation": "QA / Automation",
   "mobile-engineering": "Mobile Engineering",
   "solutions-architecture": "Solutions Architecture",
+};
+
+const SALARY_RANGE_LABELS: Record<Exclude<SalaryRangeFilter, "all">, string> = {
+  "under-100k": "Under $100k",
+  "100k-150k": "$100k - $150k",
+  "150k-200k": "$150k - $200k",
+  "200k-250k": "$200k - $250k",
+  "250k-plus": "$250k+",
 };
 
 const ROLE_TYPE_KEYWORDS: Array<{
@@ -258,6 +274,10 @@ function formatRoleTypeLabel(value: RoleTypeFilter) {
   return ROLE_TYPE_LABELS[value];
 }
 
+function formatSalaryRangeLabel(value: Exclude<SalaryRangeFilter, "all">) {
+  return SALARY_RANGE_LABELS[value];
+}
+
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return count === 1 ? singular : plural;
 }
@@ -288,41 +308,108 @@ function getCompanyOptions(
   ).sort((left, right) => left.localeCompare(right));
 }
 
-function normalizeCommitment(value: string | null) {
-  if (!value) {
-    return "unknown";
+function parseCompensationAmount(amount: string, suffix?: string) {
+  const numeric = Number(amount.replaceAll(",", ""));
+
+  if (Number.isNaN(numeric)) {
+    return null;
   }
 
-  const normalized = value.trim().toLowerCase();
+  const normalizedSuffix = suffix?.trim().toLowerCase();
 
-  if (normalized.includes("full")) {
-    return "full-time";
+  if (normalizedSuffix === "k") {
+    return numeric * 1_000;
   }
 
-  if (normalized.includes("part")) {
-    return "part-time";
+  if (normalizedSuffix === "m") {
+    return numeric * 1_000_000;
   }
 
-  if (normalized.includes("contract")) {
-    return "contract";
-  }
-
-  if (normalized.includes("intern")) {
-    return "internship";
-  }
-
-  if (normalized.includes("temp")) {
-    return "temporary";
-  }
-
-  return normalized.replace(/\s+/g, "-");
+  return numeric;
 }
 
-function formatCommitmentLabel(value: string) {
-  return value
-    .split("-")
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(" ");
+function getAnnualizationMultiplier(salaryText: string) {
+  const normalized = salaryText.toLowerCase();
+
+  if (
+    normalized.includes("/hour") ||
+    normalized.includes("per hour") ||
+    normalized.includes("hourly") ||
+    /\bhr\b/.test(normalized)
+  ) {
+    return 2080;
+  }
+
+  if (normalized.includes("/day") || normalized.includes("per day") || normalized.includes("daily")) {
+    return 260;
+  }
+
+  if (normalized.includes("/week") || normalized.includes("per week") || normalized.includes("weekly")) {
+    return 52;
+  }
+
+  if (
+    normalized.includes("/month") ||
+    normalized.includes("per month") ||
+    normalized.includes("monthly")
+  ) {
+    return 12;
+  }
+
+  return 1;
+}
+
+function inferAnnualSalary(job: JobPostingDto) {
+  if (!job.salaryText) {
+    return null;
+  }
+
+  const matches = Array.from(
+    job.salaryText.matchAll(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*([kKmM]))?/g),
+  );
+  const parsedValues = matches
+    .map((match) => parseCompensationAmount(match[1], match[2]))
+    .filter((value): value is number => value !== null)
+    .slice(0, 2);
+
+  if (parsedValues.length === 0) {
+    return null;
+  }
+
+  const representativeValue =
+    parsedValues.length === 1 ? parsedValues[0] : (parsedValues[0] + parsedValues[1]) / 2;
+
+  return representativeValue * getAnnualizationMultiplier(job.salaryText);
+}
+
+function matchesSalaryRange(job: JobPostingDto, salaryRangeFilter: SalaryRangeFilter) {
+  if (salaryRangeFilter === "all") {
+    return true;
+  }
+
+  const annualSalary = inferAnnualSalary(job);
+
+  if (annualSalary === null) {
+    return false;
+  }
+
+  if (salaryRangeFilter === "under-100k") {
+    return annualSalary < 100_000;
+  }
+
+  if (salaryRangeFilter === "100k-150k") {
+    return annualSalary >= 100_000 && annualSalary < 150_000;
+  }
+
+  if (salaryRangeFilter === "150k-200k") {
+    return annualSalary >= 150_000 && annualSalary < 200_000;
+  }
+
+  if (salaryRangeFilter === "200k-250k") {
+    return annualSalary >= 200_000 && annualSalary < 250_000;
+  }
+
+  return annualSalary >= 250_000;
 }
 
 function inferWorkplaceMode(location: string | null): WorkplaceFilter {
@@ -429,32 +516,24 @@ export function JobsResults({
   const [roleTypeFilter, setRoleTypeFilter] = useState<"all" | RoleTypeFilter>("all");
   const [companyFilter, setCompanyFilter] = useState("all");
   const [workplaceFilter, setWorkplaceFilter] = useState<WorkplaceFilter>("all");
-  const [commitmentFilter, setCommitmentFilter] = useState("all");
+  const [salaryRangeFilter, setSalaryRangeFilter] = useState<SalaryRangeFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [visibleCount, setVisibleCount] = useState(() => Math.min(initialCount, jobs.length));
   const [hasMoreAvailable, setHasMoreAvailable] = useState(jobs.length >= initialRequestLimit);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
-  const commitmentOptions = Array.from(
-    new Set(
-      loadedJobs
-        .map((job) => normalizeCommitment(job.commitment))
-        .filter((value) => value !== "unknown"),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
   const filteredJobs = loadedJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
     const matchesCompany = companyFilter === "all" || job.companyName === companyFilter;
     const matchesWorkplace =
       workplaceFilter === "all" || inferWorkplaceMode(job.location) === workplaceFilter;
-    const matchesCommitment =
-      commitmentFilter === "all" || normalizeCommitment(job.commitment) === commitmentFilter;
+    const matchesSalary = matchesSalaryRange(job, salaryRangeFilter);
 
     return (
       matchesRoleType &&
       matchesCompany &&
       matchesWorkplace &&
-      matchesCommitment &&
+      matchesSalary &&
       matchesRecencyFilter(job, dateFilter) &&
       matchesKeyword(job, deferredKeyword)
     );
@@ -467,7 +546,7 @@ export function JobsResults({
     roleTypeFilter !== "all" ||
     companyFilter !== "all" ||
     workplaceFilter !== "all" ||
-    commitmentFilter !== "all" ||
+    salaryRangeFilter !== "all" ||
     dateFilter !== "all";
   const showLoadMore = canRevealLoadedJobs || hasMoreAvailable;
 
@@ -475,11 +554,11 @@ export function JobsResults({
     setVisibleCount(Math.min(initialCount, filteredJobs.length || initialCount));
   }, [
     companyFilter,
-    commitmentFilter,
     dateFilter,
     deferredKeyword,
     initialCount,
     roleTypeFilter,
+    salaryRangeFilter,
     workplaceFilter,
   ]);
 
@@ -606,19 +685,19 @@ export function JobsResults({
           </label>
 
           <label className={styles.filterControl}>
-            <span className={styles.filterLabel}>Employment type</span>
+            <span className={styles.filterLabel}>Salary range</span>
             <select
-              aria-label="Employment type"
+              aria-label="Salary range"
               className={styles.filterSelect}
               onChange={(event) => {
-                setCommitmentFilter(event.target.value);
+                setSalaryRangeFilter(event.target.value as SalaryRangeFilter);
               }}
-              value={commitmentFilter}
+              value={salaryRangeFilter}
             >
-              <option value="all">Any type</option>
-              {commitmentOptions.map((option) => (
+              <option value="all">Any salary</option>
+              {SALARY_RANGE_OPTIONS.map((option) => (
                 <option key={option} value={option}>
-                  {formatCommitmentLabel(option)}
+                  {formatSalaryRangeLabel(option)}
                 </option>
               ))}
             </select>
@@ -653,7 +732,7 @@ export function JobsResults({
                 setRoleTypeFilter("all");
                 setCompanyFilter("all");
                 setWorkplaceFilter("all");
-                setCommitmentFilter("all");
+                setSalaryRangeFilter("all");
                 setDateFilter("all");
               }}
               type="button"
@@ -719,7 +798,7 @@ export function JobsResults({
               setRoleTypeFilter("all");
               setCompanyFilter("all");
               setWorkplaceFilter("all");
-              setCommitmentFilter("all");
+              setSalaryRangeFilter("all");
               setDateFilter("all");
             }}
             type="button"
