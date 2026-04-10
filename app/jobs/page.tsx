@@ -42,7 +42,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: PREFETCH_ROLE_COUNT });
   const environmentGuide = getJobsEnvironmentGuide();
-  const visibleSources = snapshot.sources.filter((source) => source.status !== "not_configured");
+  const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
 
   return (
     <main className={styles.page}>
