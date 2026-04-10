@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HeaderAuthControls } from "@/components/header-auth-controls";
 
 const mockUseSession = vi.fn();
@@ -19,14 +19,21 @@ vi.mock("@/components/auth-modal", () => ({
 }));
 
 describe("HeaderAuthControls", () => {
-  it("links authenticated employer users back to the employer workspace", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it("opens a settings menu with the current workspace and profile link", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
-    mockUsePathname.mockReturnValue("/");
+    mockUsePathname.mockReturnValue("/employer");
     mockUseSession.mockReturnValue({
       data: {
         user: {
           email: "alex@company.com",
           name: "Alex Rivera",
+          onboardingStatus: "completed",
+          roleType: "recruiter",
         },
       },
       status: "authenticated",
@@ -36,10 +43,8 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /settings/i }));
 
-    expect(screen.getByRole("menuitem", { name: /employer workspace/i })).toHaveAttribute(
-      "href",
-      "/employer",
-    );
-    expect(screen.getAllByText("Employer workspace")).toHaveLength(2);
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("menuitem", { name: /open workspace/i })).toHaveAttribute("href", "/employer");
+    expect(screen.getByText("Employer")).toBeInTheDocument();
   });
 });

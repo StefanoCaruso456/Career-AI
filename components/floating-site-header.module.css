@@ -261,7 +261,7 @@
 }
 
 .settingsTrigger {
-  min-width: 13.5rem;
+  min-width: 15.5rem;
   padding: 0.62rem 0.78rem 0.62rem 0.72rem;
   border: 1px solid transparent;
   border-radius: 1.2rem;
@@ -353,8 +353,8 @@
   position: absolute;
   top: calc(100% + 0.7rem);
   right: 0;
-  min-width: 14.75rem;
-  padding: 0.7rem;
+  min-width: 23rem;
+  padding: 0.95rem;
   border-radius: 1.35rem;
   border: 1px solid rgba(141, 127, 255, 0.24);
   background:
@@ -366,30 +366,92 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   backdrop-filter: blur(18px) saturate(150%);
-}
-
-.settingsPanelHeader {
   display: grid;
-  gap: 0.18rem;
-  padding: 0.35rem 0.35rem 0.6rem;
+  gap: 0.75rem;
 }
 
-.settingsPanelTitle {
-  color: #f7f7f7;
+.settingsPanelProfile {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.2rem 0.2rem 0.1rem;
+}
+
+.settingsPanelIdentity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settingsPanelAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.92rem;
+  background: linear-gradient(135deg, var(--header-accent) 0%, var(--header-accent-strong) 100%);
+  color: #ffffff;
   font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
-.settingsPanelMeta {
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.72rem;
+.settingsPanelIdentityCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.settingsPanelIdentityCopy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f7f7f7;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.settingsPanelIdentityCopy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.78rem;
+}
+
+.settingsPanelBadge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 0.42rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 127, 255, 0.26);
+  background: rgba(141, 127, 255, 0.12);
+  color: #f3f0ff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settingsPanelDescription {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.settingsPanelDivider {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(141, 127, 255, 0.22), rgba(255, 255, 255, 0.04));
 }
 
 .settingsItem {
   width: 100%;
+  align-items: flex-start;
   justify-content: flex-start;
-  gap: 0.68rem;
+  gap: 0.72rem;
   padding: 0.88rem 0.92rem;
   border: 1px solid transparent;
   border-radius: 1rem;
@@ -398,6 +460,24 @@
   font-size: 0.86rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.settingsItemCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.14rem;
+}
+
+.settingsItemCopy strong {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.settingsItemCopy small {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .settingsItemCurrent {
@@ -409,6 +489,23 @@
   box-shadow:
     0 14px 24px rgba(19, 15, 46, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.settingsHint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.15rem;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.settingsItemDanger:hover {
+  border-color: rgba(255, 140, 140, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(46, 18, 26, 0.72);
 }
 
 .loadingAction {
@@ -557,7 +654,7 @@
 
   .settingsPanel {
     min-width: 0;
-    width: 100%;
+    width: min(100vw - 1.5rem, 23rem);
   }
 
   .accountAction {
