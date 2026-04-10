@@ -24,7 +24,7 @@ export async function GET(
     }
 
     if (action === "session") {
-      return NextResponse.json(null);
+      return NextResponse.json({});
     }
 
     return NextResponse.json(
@@ -40,7 +40,14 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ nextauth?: string[] }> | { nextauth?: string[] } },
 ) {
+  const params = await context.params;
+  const action = params.nextauth?.[0];
+
   if (!authEnabled) {
+    if (action === "_log") {
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json(
       { message: getAuthUnavailableMessage() },
       { status: 503 },
