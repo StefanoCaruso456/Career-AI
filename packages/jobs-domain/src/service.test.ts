@@ -22,6 +22,7 @@ describe("jobs feed service", () => {
   const originalAggregatorApiKey = process.env.JOBS_AGGREGATOR_API_KEY;
   const originalAggregatorLabel = process.env.JOBS_AGGREGATOR_LABEL;
   const originalWorkableXmlFeedUrl = process.env.WORKABLE_XML_FEED_URL;
+  const originalWorkdayJobSources = process.env.WORKDAY_JOB_SOURCES;
   const originalDatabaseUrl = process.env.DATABASE_URL;
 
   beforeEach(() => {
@@ -35,6 +36,7 @@ describe("jobs feed service", () => {
     delete process.env.JOBS_AGGREGATOR_API_KEY;
     delete process.env.JOBS_AGGREGATOR_LABEL;
     delete process.env.WORKABLE_XML_FEED_URL;
+    delete process.env.WORKDAY_JOB_SOURCES;
     delete process.env.DATABASE_URL;
   });
 
@@ -97,6 +99,12 @@ describe("jobs feed service", () => {
       process.env.WORKABLE_XML_FEED_URL = originalWorkableXmlFeedUrl;
     }
 
+    if (originalWorkdayJobSources === undefined) {
+      delete process.env.WORKDAY_JOB_SOURCES;
+    } else {
+      process.env.WORKDAY_JOB_SOURCES = originalWorkdayJobSources;
+    }
+
     if (originalDatabaseUrl === undefined) {
       delete process.env.DATABASE_URL;
     } else {
@@ -115,6 +123,7 @@ describe("jobs feed service", () => {
       "not_configured",
       "not_configured",
       "not_configured",
+      "not_configured",
     ]);
     expect(getJobsEnvironmentGuide().map((item) => item.key)).toEqual([
       "GREENHOUSE_BOARD",
@@ -124,6 +133,7 @@ describe("jobs feed service", () => {
       "JOBS_AGGREGATOR_FEED_URL",
       "JOBS_AGGREGATOR_API_KEY",
       "WORKABLE_XML_FEED_URL",
+      "WORKDAY_JOB_SOURCES",
     ]);
   });
 
@@ -300,6 +310,62 @@ describe("jobs feed service", () => {
     expect(snapshot.jobs[0]?.location).toBe("Remote");
   });
 
+  it("ingests Workday job feeds for directly sourced company roles", async () => {
+    process.env.WORKDAY_JOB_SOURCES =
+      "Adobe=https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+
+      if (url === "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs") {
+        expect(body).toEqual({
+          limit: 100,
+          offset: 0,
+          searchText: "",
+          appliedFacets: {},
+        });
+
+        return createJsonResponse({
+          total: 2,
+          jobPostings: [
+            {
+              title: "Principal AI Technologist",
+              externalPath: "/job/Remote-California/Principal-AI-Technologist_R162555",
+              locationsText: "7 Locations",
+              postedOn: "Posted Today",
+              timeType: "Full time",
+              bulletFields: ["R162555"],
+            },
+            {
+              title: "Sourcing Manager",
+              externalPath: "/job/San-Jose/Sourcing-Manager_R162000",
+              locationsText: "San Jose, California",
+              postedOn: "Posted 3 Days Ago",
+              timeType: "Full time",
+              bulletFields: ["R162000"],
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.summary.directAtsJobs).toBe(2);
+    expect(snapshot.sources[0]?.key).toBe("workday:adobe");
+    expect(snapshot.sources[0]?.status).toBe("connected");
+    expect(snapshot.jobs[0]?.companyName).toBe("Adobe");
+    expect(snapshot.jobs[0]?.applyUrl).toBe(
+      "https://adobe.wd5.myworkdayjobs.com/en-US/external_experienced/job/Remote-California/Principal-AI-Technologist_R162555",
+    );
+  });
+
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {
     process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
     process.env.LEVER_SITE_NAMES = "Orbit=orbit";
@@ -392,6 +458,7 @@ describe("jobs feed service", () => {
       "connected",
       "not_configured",
       "not_configured",
+      "not_configured",
     ]);
     expect(snapshot.storage.mode).toBe("ephemeral");
   });
@@ -455,6 +522,7 @@ describe("jobs feed service", () => {
       "greenhouse:unconfigured",
       "lever:unconfigured",
       "ashby:unconfigured",
+      "workday:unconfigured",
       "workable:unconfigured",
     ]);
     expect(snapshot.jobs.map((job) => job.companyName)).toEqual(["Meta", "Google"]);
@@ -541,6 +609,7 @@ describe("jobs feed service", () => {
       "greenhouse:unconfigured",
       "lever:unconfigured",
       "ashby:unconfigured",
+      "workday:unconfigured",
       "aggregator:unconfigured",
       "workable:unconfigured",
     ]);
