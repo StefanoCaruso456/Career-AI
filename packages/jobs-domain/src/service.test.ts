@@ -320,7 +320,7 @@ describe("jobs feed service", () => {
 
       if (url === "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs") {
         expect(body).toEqual({
-          limit: 100,
+          limit: 20,
           offset: 0,
           searchText: "",
           appliedFacets: {},
