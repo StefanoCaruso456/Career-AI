@@ -317,7 +317,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
@@ -2060,7 +2060,6 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
           {!isProjectHomeVisible
             ? renderComposer(
                 "Ask about verification workflows, recruiter trust views, or candidate proof.",
-                transcript.length === 0 ? styles.composerDockLanding : undefined,
               )
             : null}
         </div>
