@@ -35,12 +35,12 @@ describe("HeaderCenterTab", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders the Agent Sorcerer label for the agent-build tab", () => {
+  it("renders the Career ID label for the agent-build tab", () => {
     mockUsePathname.mockReturnValue("/agent-build");
 
     render(<HeaderCenterTab />);
 
-    const link = screen.getByRole("link", { name: "Agent Sorcerer" });
+    const link = screen.getByRole("link", { name: "Career ID" });
     expect(link).toHaveAttribute("href", "/agent-build");
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.navTabCurrent);
