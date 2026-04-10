@@ -42,7 +42,7 @@ describe("HeaderHomeLink", () => {
     const link = screen.getByRole("link", { name: "Career AI home" });
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.homeAction);
-    expect(link).not.toHaveClass(styles.homeActionCurrent);
+    expect(link).toHaveClass(styles.homeActionCurrent);
   });
 
   it("does not mark the home link as current away from home", () => {

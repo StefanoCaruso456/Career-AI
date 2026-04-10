@@ -13,7 +13,7 @@ export function HeaderHomeLink() {
     <Link
       aria-current={isHome ? "page" : undefined}
       aria-label="Career AI home"
-      className={styles.homeAction}
+      className={isHome ? `${styles.homeAction} ${styles.homeActionCurrent}` : styles.homeAction}
       href="/"
     >
       <span className={styles.homeMarkShell} aria-hidden="true">
