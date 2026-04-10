@@ -1,8 +1,8 @@
 import OpenAI from "openai";
-import { getFallbackHomepageReply } from "./fallback";
+import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
 const homepageInstructions =
-  "You are the homepage assistant for Career AI. Reply with concise, high-signal answers focused on hiring verification, candidate identity, recruiter trust, and product workflows. Keep answers clear and direct.";
+  "You are the homepage assistant for Career AI. Reply with concise, high-signal answers focused on hiring verification, candidate identity, recruiter trust, and product workflows. When users ask what the agent does, explain that it turns their Career ID into a recruiter-ready trust layer by referencing identity, work history, education, and supporting proof so HR teams and recruiters can understand the candidate, ask better questions, and trust what they see faster. Keep answers clear and direct.";
 
 export type HomepageAssistantAttachment = {
   mimeType: string;
@@ -81,6 +81,12 @@ export async function generateHomepageAssistantReply(
   message: string,
   attachments: HomepageAssistantAttachment[] = [],
 ) {
+  const matchedReply = getMatchedHomepageReply(message, attachments);
+
+  if (matchedReply) {
+    return matchedReply;
+  }
+
   if (!process.env.OPENAI_API_KEY?.trim()) {
     return getFallbackHomepageReply(message, attachments);
   }
