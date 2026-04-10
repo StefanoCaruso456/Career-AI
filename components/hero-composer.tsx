@@ -432,6 +432,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
+  const isComposerInputDisabled = isWorkspaceLoading || isRecording || isTranscribing;
   const hasBlockedAttachments = pendingAttachments.some((attachment) =>
     ["failed", "pending", "uploading"].includes(attachment.uploadStatus),
   );
@@ -1444,10 +1445,16 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   }
 
   async function handleKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      await submitMessage();
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
     }
+
+    if (isSubmitting || isComposerInputDisabled) {
+      return;
+    }
+
+    event.preventDefault();
+    await submitMessage();
   }
 
   function handleMessageChange(nextMessage: string) {
@@ -1766,7 +1773,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
               aria-label="Message composer"
               aria-describedby={activeComposerNotice ? "hero-composer-status" : undefined}
               className={styles.composerInput}
-              disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
+              disabled={isComposerInputDisabled}
               onChange={(event) => handleMessageChange(event.target.value)}
               onKeyDown={(event) => {
                 void handleKeyDown(event);

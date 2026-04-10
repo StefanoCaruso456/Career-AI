@@ -88,6 +88,15 @@ function createJsonResponse(body: unknown, init?: { ok?: boolean; status?: numbe
   };
 }
 
+function createDeferredValue<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+
+  return { promise, resolve };
+}
+
 describe("HeroComposer", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -185,5 +194,75 @@ describe("HeroComposer", () => {
     expect(secondSendBody.projectId).toBe("project_fresh");
     expect(await screen.findByText("Most candidates finish the first pass in a few minutes.")).toBeInTheDocument();
     expect(screen.queryByText("Project was not found.")).not.toBeInTheDocument();
+  });
+
+  it("keeps the composer editable while a reply is pending without allowing a second send", async () => {
+    const project = createProject("project_verified_profile", "Verified profile");
+    const firstConversation = createConversation("conversation_123", project.id, [
+      createMessage("message_user_123", "user", "How does the agent help me get hired faster?"),
+      createMessage(
+        "message_assistant_123",
+        "assistant",
+        "You can keep drafting while I finish this answer.",
+      ),
+    ]);
+    const pendingReply = createDeferredValue<
+      ReturnType<typeof createJsonResponse>
+    >();
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(createJsonResponse(createWorkspaceSnapshot([project])))
+      .mockImplementationOnce(() => pendingReply.promise);
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    await waitFor(() => {
+      expect(composer).not.toBeDisabled();
+    });
+
+    fireEvent.change(composer, {
+      target: {
+        value: "How does the agent help me get hired faster?",
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByRole("button", { name: "Generating reply" })).toBeDisabled();
+    expect(composer).not.toBeDisabled();
+    expect(composer).toHaveValue("");
+
+    fireEvent.change(composer, {
+      target: {
+        value: "Can it help me prioritize what to verify next?",
+      },
+    });
+
+    expect(composer).toHaveValue("Can it help me prioritize what to verify next?");
+
+    fireEvent.keyDown(composer, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    pendingReply.resolve(
+      createJsonResponse({
+        assistantMessage: firstConversation.messages[1],
+        conversation: firstConversation,
+        userMessage: firstConversation.messages[0],
+      }),
+    );
+
+    expect(
+      await screen.findByText("You can keep drafting while I finish this answer."),
+    ).toBeInTheDocument();
+    expect(composer).toHaveValue("Can it help me prioritize what to verify next?");
+    expect(await screen.findByRole("button", { name: "Send message" })).not.toBeDisabled();
   });
 });
