@@ -21,8 +21,11 @@ describe("persona helpers", () => {
 
   it("infers a persona from its landing route", () => {
     expect(getPersonaFromRoute("/account")).toBe("job_seeker");
+    expect(getPersonaFromRoute("/account/settings")).toBe("job_seeker");
     expect(getPersonaFromRoute("/employer?tab=overview")).toBe("employer");
+    expect(getPersonaFromRoute("/employer/candidates")).toBe("employer");
     expect(getPersonaFromRoute("/agent-build")).toBeNull();
+    expect(getPersonaFromRoute("/accounting")).toBeNull();
   });
 
   it("keeps safe internal callback urls and falls back to the persona route", () => {

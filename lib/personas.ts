@@ -52,7 +52,16 @@ export function getPersonaFromRoute(route: string | null | undefined): Persona |
     const normalizedUrl = new URL(route, "https://career-ai.local");
     const normalizedPathname = normalizedUrl.pathname.replace(/\/+$/, "") || "/";
 
-    return personas.find((persona) => personaConfigs[persona].landingRoute === normalizedPathname) ?? null;
+    return (
+      personas.find((persona) => {
+        const landingRoute = personaConfigs[persona].landingRoute;
+
+        return (
+          normalizedPathname === landingRoute ||
+          normalizedPathname.startsWith(`${landingRoute}/`)
+        );
+      }) ?? null
+    );
   } catch {
     return null;
   }

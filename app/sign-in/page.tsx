@@ -24,10 +24,7 @@ export default async function SignInPage({
   searchParams?: Promise<{
     callbackUrl?: string | string[];
     persona?: string | string[];
-  }> | {
-    callbackUrl?: string | string[];
-    persona?: string | string[];
-  };
+  }>;
 }) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const requestedCallbackUrl = readQueryValue(resolvedSearchParams?.callbackUrl);

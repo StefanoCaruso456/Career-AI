@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import { landingContentByPersona, type SolutionVariant, type StoryTheme } from "./chat-home-shell-content";
+import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-shell-content";
 import { ChatHomeHero } from "./chat-home-hero";
 import styles from "./chat-home-shell.module.css";
-import type { Persona } from "@/lib/personas";
 
 function StoryVisual({ theme }: { theme: StoryTheme }) {
   return (
@@ -204,7 +203,7 @@ function SolutionCard({
   size,
   title,
   variant,
-}: (typeof landingContentByPersona)["job_seeker"]["solutions"][number]) {
+}: LandingContent["solutions"][number]) {
   return (
     <article
       className={[
@@ -236,12 +235,10 @@ function SolutionCard({
   );
 }
 
-export function ChatHomeShell({ persona = "job_seeker" }: { persona?: Persona }) {
-  const content = landingContentByPersona[persona];
-
+export function ChatHomeShell({ content }: { content: LandingContent }) {
   return (
     <div className={styles.page}>
-      <ChatHomeHero persona={persona} />
+      <ChatHomeHero heroComposer={content.heroComposer} heroTitle={content.heroTitle} />
 
       <section className={styles.introSection} id="platform">
         <div className={[styles.sectionShell, styles.introShell].join(" ")}>

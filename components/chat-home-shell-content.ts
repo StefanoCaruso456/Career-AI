@@ -75,7 +75,7 @@ type LandingFooterColumn = {
   title: string;
 };
 
-type LandingContent = {
+export type LandingContent = {
   footerColumns: LandingFooterColumn[];
   footerCtaLabel: string;
   footerEyebrow: string;
