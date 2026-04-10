@@ -209,7 +209,6 @@ export function JobsResults({
   const visibleJobs = filteredJobs.slice(0, visibleCount);
   const remainingCount = Math.max(filteredJobs.length - visibleCount, 0);
   const canRevealLoadedJobs = remainingCount > 0;
-  const nextRevealCount = canRevealLoadedJobs ? Math.min(loadMoreCount, remainingCount) : loadMoreCount;
   const hasActiveFilters =
     keyword.length > 0 ||
     sourceFilter !== "all" ||
@@ -484,10 +483,6 @@ export function JobsResults({
           >
             {isLoadingMore ? "Loading..." : "More..."}
           </button>
-          <p className={styles.loadMoreNote}>
-            {canRevealLoadedJobs ? "Reveal" : "Load"} {nextRevealCount} more{" "}
-            {pluralize(nextRevealCount, "role")}.
-          </p>
           {loadMoreError ? <p className={styles.loadMoreNote}>{loadMoreError}</p> : null}
         </div>
       ) : null}
