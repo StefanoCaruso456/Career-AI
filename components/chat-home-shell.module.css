@@ -1054,9 +1054,10 @@
 }
 
 .chatEmptyStateLanding {
-  min-height: clamp(12rem, 28vh, 18rem);
-  padding-top: 1rem;
-  padding-bottom: clamp(11.5rem, 22vh, 13.5rem);
+  align-content: center;
+  min-height: clamp(18rem, 42vh, 24rem);
+  padding-top: clamp(1rem, 3vh, 1.8rem);
+  padding-bottom: 1.2rem;
 }
 
 .projectHome {
@@ -1376,10 +1377,6 @@
   width: 100%;
   margin-top: 0.15rem;
   transform: none;
-}
-
-.composerDock.composerDockLanding {
-  bottom: clamp(12rem, 24vh, 14rem);
 }
 
 .composerTop {
@@ -2957,11 +2954,9 @@
   }
 
   .chatEmptyStateLanding {
-    padding-bottom: 15rem;
-  }
-
-  .composerDock.composerDockLanding {
-    bottom: 15.5rem;
+    min-height: clamp(15rem, 34vh, 19rem);
+    padding-top: 0.9rem;
+    padding-bottom: 0.9rem;
   }
 }
 
@@ -3120,8 +3115,9 @@
   }
 
   .chatEmptyStateLanding {
-    min-height: 9rem;
-    padding-bottom: 8.75rem;
+    min-height: 12rem;
+    padding-top: 0.8rem;
+    padding-bottom: 0.75rem;
   }
 
   .projectHome {
@@ -3176,10 +3172,6 @@
     right: auto;
     bottom: auto;
     left: auto;
-  }
-
-  .composerDockLanding {
-    bottom: 8.35rem;
   }
 
   .starterQuestionStack {
