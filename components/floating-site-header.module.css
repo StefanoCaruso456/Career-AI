@@ -22,7 +22,7 @@
   align-items: center;
   gap: 1rem;
   padding: 0.78rem 0.9rem;
-  border-radius: 0;
+  border-radius: 1.9rem;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
@@ -98,6 +98,7 @@
 }
 
 .navTabCurrent,
+.homeActionCurrent,
 .accountActionCurrent {
   border-color: var(--header-accent-line-strong);
   background:
@@ -111,6 +112,10 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   backdrop-filter: blur(18px) saturate(150%);
+}
+
+.homeActionCurrent .homeBrandWordmark {
+  color: #f7fbff;
 }
 
 .homeMarkShell {
@@ -162,6 +167,7 @@
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   pointer-events: none;
 }
 
@@ -474,7 +480,7 @@
 @media (max-width: 760px) {
   .shell {
     padding: 0.72rem 0.78rem;
-    border-radius: 0;
+    border-radius: 1.6rem;
   }
 
   .homeAction {
