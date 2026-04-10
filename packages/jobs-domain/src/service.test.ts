@@ -195,7 +195,7 @@ describe("jobs feed service", () => {
         });
       }
 
-      if (url === "https://api.lever.co/v0/postings/orbit?mode=json&limit=12") {
+      if (url === "https://api.lever.co/v0/postings/orbit?mode=json&limit=40") {
         return createJsonResponse([
           {
             id: "lever-1",

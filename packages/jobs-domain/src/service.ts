@@ -13,8 +13,9 @@ import {
   persistSourcedJobs,
 } from "@/packages/persistence/src";
 
-const JOBS_PER_SOURCE = 12;
+const JOBS_PER_SOURCE = 40;
 const DEFAULT_RESPONSE_LIMIT = 18;
+const MAX_RESPONSE_LIMIT = 120;
 const FETCH_TIMEOUT_MS = 4_500;
 
 type NamedSpec = {
@@ -836,7 +837,7 @@ export function getJobsEnvironmentGuide() {
 export async function getJobsFeedSnapshot(args?: {
   limit?: number;
 }): Promise<JobsFeedResponseDto> {
-  const limit = Math.max(1, Math.min(args?.limit ?? DEFAULT_RESPONSE_LIMIT, 30));
+  const limit = Math.max(1, Math.min(args?.limit ?? DEFAULT_RESPONSE_LIMIT, MAX_RESPONSE_LIMIT));
   const generatedAt = new Date().toISOString();
   const liveCollections = await collectLiveSourceCollections();
   const liveJobs = dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, limit);

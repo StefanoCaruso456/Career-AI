@@ -321,7 +321,7 @@ export async function persistSourcedJobs(args: {
 export async function getPersistedJobsFeedSnapshot(args?: {
   limit?: number;
 }): Promise<PersistedJobsFeedSnapshot> {
-  const limit = Math.max(1, Math.min(args?.limit ?? 18, 30));
+  const limit = Math.max(1, Math.min(args?.limit ?? 18, 120));
   const pool = getDatabasePool();
   const [sourcesResult, jobsResult, lastSyncRow] = await Promise.all([
     pool.query<JobSourceRow>(

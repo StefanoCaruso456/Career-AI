@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
+import { JobsResults } from "./jobs-results";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -11,6 +12,10 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+const INITIAL_ROLE_COUNT = 24;
+const LOAD_MORE_INCREMENT = 29;
+const PREFETCH_ROLE_COUNT = INITIAL_ROLE_COUNT + LOAD_MORE_INCREMENT;
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -26,10 +31,6 @@ function formatTimestamp(value: string | null) {
 
 function formatLaneLabel(value: "ats_direct" | "aggregator") {
   return value === "ats_direct" ? "ATS direct" : "Aggregator";
-}
-
-function formatQualityLabel(value: "high_signal" | "coverage") {
-  return value === "high_signal" ? "High-signal" : "Coverage";
 }
 
 function formatStatusLabel(value: "connected" | "degraded" | "not_configured") {
@@ -49,7 +50,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 }
 
 export default async function JobsPage() {
-  const snapshot = await getJobsFeedSnapshot({ limit: 9 });
+  const snapshot = await getJobsFeedSnapshot({ limit: PREFETCH_ROLE_COUNT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status !== "not_configured");
   const degradedSources = visibleSources.filter((source) => source.status === "degraded");
@@ -63,7 +64,8 @@ export default async function JobsPage() {
             <h1 className={styles.title}>Search results</h1>
             <p className={styles.metaLine}>
               <span>
-                {snapshot.jobs.length} {pluralize(snapshot.jobs.length, "role")} shown
+                {snapshot.jobs.length} {pluralize(snapshot.jobs.length, "role")} loaded for this
+                window
               </span>
               <span>
                 {snapshot.summary.connectedSourceCount} live{" "}
@@ -98,40 +100,11 @@ export default async function JobsPage() {
 
         <section className={styles.jobsPanel}>
           {snapshot.jobs.length > 0 ? (
-            <div className={styles.jobsGrid}>
-              {snapshot.jobs.map((job) => (
-                <article className={styles.jobCard} key={job.id}>
-                  <div className={styles.badgeRow}>
-                    <span className={styles.laneBadge}>{formatLaneLabel(job.sourceLane)}</span>
-                    <span className={styles.qualityBadge}>
-                      {formatQualityLabel(job.sourceQuality)}
-                    </span>
-                  </div>
-                  <div className={styles.jobCopy}>
-                    <div>
-                      <span className={styles.cardEyebrow}>{job.companyName}</span>
-                      <h3>{job.title}</h3>
-                    </div>
-                    <p className={styles.jobMeta}>
-                      {[job.location, job.department, job.commitment].filter(Boolean).join(" • ") ||
-                        "Details are still coming in from the source."}
-                    </p>
-                  </div>
-                  <div className={styles.jobFooter}>
-                    <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
-                  </div>
-                  <a
-                    className={styles.jobLink}
-                    href={job.applyUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Open posting
-                    <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-                  </a>
-                </article>
-              ))}
-            </div>
+            <JobsResults
+              initialCount={INITIAL_ROLE_COUNT}
+              jobs={snapshot.jobs}
+              loadMoreCount={LOAD_MORE_INCREMENT}
+            />
           ) : (
             <article className={styles.emptyState}>
               <h3>No job feeds are connected yet.</h3>
