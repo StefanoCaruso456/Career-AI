@@ -13,6 +13,7 @@ function createJsonResponse(body: unknown) {
 }
 
 describe("jobs feed service", () => {
+  const originalGreenhouseBoard = process.env.GREENHOUSE_BOARD;
   const originalGreenhouseBoards = process.env.GREENHOUSE_BOARD_TOKENS;
   const originalLeverSites = process.env.LEVER_SITE_NAMES;
   const originalAggregatorFeedUrl = process.env.JOBS_AGGREGATOR_FEED_URL;
@@ -22,6 +23,7 @@ describe("jobs feed service", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete process.env.GREENHOUSE_BOARD;
     delete process.env.GREENHOUSE_BOARD_TOKENS;
     delete process.env.LEVER_SITE_NAMES;
     delete process.env.JOBS_AGGREGATOR_FEED_URL;
@@ -35,6 +37,12 @@ describe("jobs feed service", () => {
   });
 
   afterAll(() => {
+    if (originalGreenhouseBoard === undefined) {
+      delete process.env.GREENHOUSE_BOARD;
+    } else {
+      process.env.GREENHOUSE_BOARD = originalGreenhouseBoard;
+    }
+
     if (originalGreenhouseBoards === undefined) {
       delete process.env.GREENHOUSE_BOARD_TOKENS;
     } else {
@@ -83,11 +91,47 @@ describe("jobs feed service", () => {
       "not_configured",
     ]);
     expect(getJobsEnvironmentGuide().map((item) => item.key)).toEqual([
-      "GREENHOUSE_BOARD_TOKENS",
+      "GREENHOUSE_BOARD",
       "LEVER_SITE_NAMES",
       "JOBS_AGGREGATOR_FEED_URL",
       "JOBS_AGGREGATOR_API_KEY",
     ]);
+  });
+
+  it("accepts GREENHOUSE_BOARD as the primary Greenhouse environment key", async () => {
+    process.env.GREENHOUSE_BOARD = "Figma=figma";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://boards-api.greenhouse.io/v1/boards/figma/jobs?content=true") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 5426468004,
+              title: "Product Designer",
+              absolute_url: "https://boards.greenhouse.io/figma/jobs/5426468004?gh_jid=5426468004",
+              content: "<p>Shape the future of collaborative design.</p>",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Design" }],
+              updated_at: "2026-04-09T18:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.summary.directAtsJobs).toBe(1);
+    expect(snapshot.sources[0]?.key).toBe("greenhouse:figma");
+    expect(snapshot.sources[0]?.status).toBe("connected");
+    expect(snapshot.jobs[0]?.title).toBe("Product Designer");
   });
 
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {

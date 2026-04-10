@@ -50,12 +50,13 @@ Required server-side environment variables:
 - `GOOGLE_CLIENT_ID` or `GOOGLE_ID`
 - `GOOGLE_CLIENT_SECRET` or `GOOGLE_SECRET`
 - `DATABASE_URL`
-- `GREENHOUSE_BOARD_TOKENS` for public Greenhouse job boards you want to ingest
+- `GREENHOUSE_BOARD` for public Greenhouse job boards you want to ingest
 
 The auth flow also accepts legacy aliases if you already created them that way:
 
 - `CLIENT_ID` as an alias for `GOOGLE_CLIENT_ID`
 - `CLIENT_SECRET` as an alias for `GOOGLE_CLIENT_SECRET`
+- `GREENHOUSE_BOARD_TOKENS` as a legacy alias for `GREENHOUSE_BOARD`
 
 If Railway injects `RAILWAY_PUBLIC_DOMAIN`, the app can derive `NEXTAUTH_URL` automatically when it is missing.
 
@@ -93,7 +94,7 @@ After configuration:
 
 Jobs feed examples:
 
-- `GREENHOUSE_BOARD_TOKENS=Acme=acme,Globex=globex`
+- `GREENHOUSE_BOARD=Acme=acme,Globex=globex`
 - `LEVER_SITE_NAMES=Orbit=orbit`
 - `JOBS_AGGREGATOR_FEED_URL=https://jobs.example.com/api/v1/open-roles`
 
