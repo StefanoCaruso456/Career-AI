@@ -1038,6 +1038,14 @@
   padding-right: 0.35rem;
 }
 
+.chatStageLanding .chatTranscript:not(.chatTranscriptConversation) {
+  justify-content: flex-end;
+  padding-bottom: calc(var(--chat-landing-composer-clearance) + env(safe-area-inset-bottom, 0px));
+  scroll-padding-bottom: calc(
+    var(--chat-landing-composer-clearance) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
 .chatTranscriptConversation {
   max-height: calc(var(--chat-stage-shell-height) - 5.4rem);
   padding-bottom: var(--chat-composer-clearance);
