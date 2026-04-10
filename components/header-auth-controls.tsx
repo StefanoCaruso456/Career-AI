@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, LayoutDashboard, LoaderCircle, LogOut, Settings2 } from "lucide-react";
+import {
+  ChevronDown,
+  LayoutDashboard,
+  LoaderCircle,
+  LogOut,
+  Settings2,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { AuthModalTrigger } from "./auth-modal";
@@ -37,6 +45,37 @@ function getInitials(name: string | null | undefined, email: string | null | und
   }
 
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
+
+function getAccountTypeCopy(roleType: string | null | undefined, preferredPersona: Persona) {
+  if (roleType === "candidate") {
+    return {
+      description:
+        "This user signed up as a job seeker and will see the candidate-side Career AI experience.",
+      label: "Job seeker",
+    };
+  }
+
+  if (roleType === "recruiter") {
+    return {
+      description:
+        "This user signed up as an employer-side recruiter and will land in the hiring workspace.",
+      label: "Employer",
+    };
+  }
+
+  if (roleType === "hiring_manager") {
+    return {
+      description:
+        "This user signed up as an employer-side hiring manager and will land in the hiring workspace.",
+      label: "Employer",
+    };
+  }
+
+  return {
+    description: personaConfigs[preferredPersona].description,
+    label: personaConfigs[preferredPersona].shortLabel,
+  };
 }
 
 export function HeaderAuthControls() {
@@ -116,19 +155,31 @@ export function HeaderAuthControls() {
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
+  const settingsHref = "/settings";
+  const isSettingsPage = pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
+  const workspaceHref = getPostAuthRoute(preferredPersona);
+  const workspaceLabel = personaConfigs[preferredPersona].workspaceLabel;
+  const accountTypeCopy = getAccountTypeCopy(session.user.roleType, preferredPersona);
   const accountLabel = shouldResumeOnboarding ? "Finish onboarding" : displayName;
   const accountMeta = shouldResumeOnboarding
     ? session.user.currentStep
       ? `Step ${session.user.currentStep} of 4`
       : "Resume setup"
-    : preferredPersona === "employer"
-      ? personaConfigs.employer.workspaceLabel
-      : session.user.talentAgentId ?? "Google connected";
-  const accountMenuLabel = shouldResumeOnboarding
-    ? "Finish onboarding"
-    : preferredPersona === "employer"
-      ? personaConfigs.employer.workspaceLabel
-      : "Profile";
+    : workspaceLabel;
+  const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
+  const isPrimaryMenuPage =
+    primaryMenuHref === "/onboarding"
+      ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
+      : pathname === primaryMenuHref || pathname.startsWith(`${primaryMenuHref}/`);
+  const primaryMenuCopy = shouldResumeOnboarding
+    ? {
+        description: accountMeta,
+        label: "Finish onboarding",
+      }
+    : {
+        description: `Return to the ${workspaceLabel.toLowerCase()} selected for this account.`,
+        label: "Open workspace",
+      };
 
   return (
     <div className={styles.actions}>
@@ -165,30 +216,73 @@ export function HeaderAuthControls() {
 
         {menuOpen ? (
           <div className={styles.settingsPanel} role="menu">
-            <div className={styles.settingsPanelHeader}>
-              <span className={styles.settingsPanelTitle}>{accountLabel}</span>
-              <span className={styles.settingsPanelMeta}>{accountMeta}</span>
+            <div className={styles.settingsPanelProfile}>
+              <div className={styles.settingsPanelIdentity}>
+                <span className={styles.settingsPanelAvatar} aria-hidden="true">
+                  {initials}
+                </span>
+                <div className={styles.settingsPanelIdentityCopy}>
+                  <strong>{displayName}</strong>
+                  <span>{session.user.email ?? "Google account email unavailable"}</span>
+                </div>
+              </div>
+              <span className={styles.settingsPanelBadge}>{accountTypeCopy.label}</span>
+              <p className={styles.settingsPanelDescription}>
+                {shouldResumeOnboarding
+                  ? `Finish setup to unlock the full ${workspaceLabel.toLowerCase()} and profile settings experience.`
+                  : accountTypeCopy.description}
+              </p>
             </div>
 
             <Link
-              aria-current={isAccountPage ? "page" : undefined}
+              aria-current={isPrimaryMenuPage ? "page" : undefined}
               className={
-                isAccountPage
+                isPrimaryMenuPage
                   ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
                   : styles.settingsItem
               }
-              href={accountHref}
+              href={primaryMenuHref}
               onClick={() => {
                 setMenuOpen(false);
               }}
               role="menuitem"
             >
               <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
-              <span>{accountMenuLabel}</span>
+              <span className={styles.settingsItemCopy}>
+                <strong>{primaryMenuCopy.label}</strong>
+                <small>{primaryMenuCopy.description}</small>
+              </span>
             </Link>
 
+            <div className={styles.settingsPanelDivider} />
+
+            <Link
+              aria-current={isSettingsPage ? "page" : undefined}
+              className={
+                isSettingsPage
+                  ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                  : styles.settingsItem
+              }
+              href={settingsHref}
+              onClick={() => {
+                setMenuOpen(false);
+              }}
+              role="menuitem"
+            >
+              <UserRound aria-hidden="true" size={16} strokeWidth={2} />
+              <span className={styles.settingsItemCopy}>
+                <strong>Profile & account</strong>
+                <small>Review name, email, password guidance, and account type.</small>
+              </span>
+            </Link>
+
+            <div className={styles.settingsHint}>
+              <ShieldCheck aria-hidden="true" size={15} strokeWidth={2} />
+              <span>Google currently manages the verified email and password for this account.</span>
+            </div>
+
             <button
-              className={styles.settingsItem}
+              className={`${styles.settingsItem} ${styles.settingsItemDanger}`}
               onClick={() => {
                 setMenuOpen(false);
                 void signOut({ callbackUrl: "/" });
@@ -197,7 +291,10 @@ export function HeaderAuthControls() {
               type="button"
             >
               <LogOut aria-hidden="true" size={16} strokeWidth={2} />
-              <span>Sign out</span>
+              <span className={styles.settingsItemCopy}>
+                <strong>Sign out</strong>
+                <small>End this session and return to the public Career AI homepage.</small>
+              </span>
             </button>
           </div>
         ) : null}
