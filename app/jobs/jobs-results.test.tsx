@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsResults } from "@/app/jobs/jobs-results";
 import type { JobPostingDto } from "@/packages/contracts/src";
 
@@ -24,6 +24,10 @@ function createJob(index: number): JobPostingDto {
 }
 
 describe("JobsResults", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("shows 24 roles first and reveals 29 more when requested", () => {
     const jobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
 
@@ -39,6 +43,58 @@ describe("JobsResults", () => {
     expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     expect(screen.getByText("Role 53")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More..." })).not.toBeInTheDocument();
+  });
+
+  it("loads a larger jobs window from the API when more roles have not been fetched yet", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => createJob(index + 1));
+    const expandedJobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        expect(url).toBe("/api/v1/jobs?limit=53");
+
+        return new Response(
+          JSON.stringify({
+            generatedAt: "2026-04-10T12:45:00.000Z",
+            jobs: expandedJobs,
+            sources: [],
+            summary: {
+              totalJobs: expandedJobs.length,
+              directAtsJobs: expandedJobs.length,
+              aggregatorJobs: 0,
+              sourceCount: 0,
+              connectedSourceCount: 0,
+              highSignalSourceCount: 0,
+              coverageSourceCount: 0,
+            },
+            storage: {
+              mode: "database",
+              persistedJobs: expandedJobs.length,
+              persistedSources: 0,
+              lastSyncAt: "2026-04-10T12:45:00.000Z",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    render(
+      <JobsResults initialRequestLimit={24} jobs={initialJobs} />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "More..." }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Role 53")).toBeInTheDocument();
   });
 
   it("filters roles by keyword and manual facets, then clears back to the loaded window", () => {

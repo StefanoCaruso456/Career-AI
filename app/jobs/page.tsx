@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const INITIAL_ROLE_COUNT = 24;
 const LOAD_MORE_INCREMENT = 29;
-const PREFETCH_ROLE_COUNT = 5_000;
+const INITIAL_REQUEST_LIMIT = INITIAL_ROLE_COUNT;
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -40,7 +40,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 }
 
 export default async function JobsPage() {
-  const snapshot = await getJobsFeedSnapshot({ limit: PREFETCH_ROLE_COUNT });
+  const snapshot = await getJobsFeedSnapshot({ limit: INITIAL_REQUEST_LIMIT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
 
@@ -63,6 +63,7 @@ export default async function JobsPage() {
           {snapshot.jobs.length > 0 ? (
             <JobsResults
               initialCount={INITIAL_ROLE_COUNT}
+              initialRequestLimit={INITIAL_REQUEST_LIMIT}
               jobs={snapshot.jobs}
               loadMoreCount={LOAD_MORE_INCREMENT}
             />
