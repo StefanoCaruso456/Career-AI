@@ -1,3 +1,5 @@
+"use client";
+
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import { JobListItem } from "@/components/jobs/job-list-item";
 import styles from "./jobs-side-panel.module.css";
@@ -6,6 +8,7 @@ type JobsSidePanelProps = {
   errorMessage?: string | null;
   isLoading?: boolean;
   jobs: JobListing[];
+  onApply?: (job: JobListing) => void;
   onRefresh?: () => void;
 };
 
@@ -13,6 +16,7 @@ export function JobsSidePanel({
   errorMessage = null,
   isLoading = false,
   jobs,
+  onApply,
   onRefresh,
 }: JobsSidePanelProps) {
   return (
@@ -46,7 +50,7 @@ export function JobsSidePanel({
         {jobs.length > 0 ? (
           <ul className={styles.jobsRailList}>
             {jobs.map((job) => (
-              <JobListItem job={job} key={job.id} />
+              <JobListItem job={job} key={job.id} onApply={onApply} />
             ))}
           </ul>
         ) : null}

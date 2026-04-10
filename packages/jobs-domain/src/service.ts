@@ -12,6 +12,7 @@ import {
   isDatabaseConfigured,
   persistSourcedJobs,
 } from "@/packages/persistence/src";
+import { createEnrichedJobPosting } from "./metadata";
 
 const DEFAULT_RESPONSE_LIMIT = 18;
 const MAX_RESPONSE_LIMIT = 5_000;
@@ -867,23 +868,25 @@ function mapGreenhouseJobs(source: DirectSourceSpec, payload: unknown): JobPosti
       const externalId = String(job.id ?? job.internal_job_id ?? applyUrl);
       const descriptionSnippet = trimSnippet(extractTextSnippet(job.content));
 
-      return {
-        id: createJobId(source.key, externalId),
-        externalId,
-        title,
-        companyName: source.label,
-        location,
-        department,
+      return createEnrichedJobPosting({
+        applyUrl,
+        canonicalJobUrl: applyUrl,
         commitment,
+        companyName: source.label,
+        department,
+        descriptionSnippet,
+        externalId,
+        id: createJobId(source.key, externalId),
+        location,
+        postedAt: null,
+        rawPayload: job,
         sourceKey: source.key,
         sourceLabel: source.label,
         sourceLane: source.lane,
         sourceQuality: source.quality,
-        applyUrl,
-        postedAt: null,
+        title,
         updatedAt: toIsoDate(job.updated_at),
-        descriptionSnippet,
-      } satisfies JobPostingDto;
+      });
     })
     .filter(isPresent) as JobPostingDto[];
 
@@ -910,23 +913,28 @@ function mapLeverJobs(source: DirectSourceSpec, payload: unknown): JobPostingDto
 
       const externalId = job.id || applyUrl;
 
-      return {
-        id: createJobId(source.key, externalId),
-        externalId,
-        title,
-        companyName: source.label,
-        location: job.categories?.location?.trim() || null,
-        department: job.categories?.team?.trim() || job.categories?.department?.trim() || null,
+      return createEnrichedJobPosting({
+        applyUrl,
+        canonicalJobUrl:
+          (typeof job.hostedUrl === "string" && job.hostedUrl.trim()) ||
+          (typeof job.applyUrl === "string" && job.applyUrl.trim()) ||
+          null,
         commitment: job.categories?.commitment?.trim() || null,
+        companyName: source.label,
+        department: job.categories?.team?.trim() || job.categories?.department?.trim() || null,
+        descriptionSnippet: trimSnippet(extractTextSnippet(job.descriptionPlain?.trim() || null)),
+        externalId,
+        id: createJobId(source.key, externalId),
+        location: job.categories?.location?.trim() || null,
+        postedAt: toIsoDate(job.createdAt),
+        rawPayload: job,
         sourceKey: source.key,
         sourceLabel: source.label,
         sourceLane: source.lane,
         sourceQuality: source.quality,
-        applyUrl,
-        postedAt: toIsoDate(job.createdAt),
+        title,
         updatedAt: toIsoDate(job.updatedAt),
-        descriptionSnippet: trimSnippet(extractTextSnippet(job.descriptionPlain?.trim() || null)),
-      } satisfies JobPostingDto;
+      });
     })
     .filter(isPresent) as JobPostingDto[];
 
@@ -975,28 +983,33 @@ function mapAshbyJobs(
             : null;
       const externalId = job.id || applyUrl;
 
-      return {
-        id: createJobId(source.key, externalId),
-        externalId,
-        title,
+      return createEnrichedJobPosting({
+        applyUrl,
+        canonicalJobUrl:
+          (typeof job.jobUrl === "string" && job.jobUrl.trim()) ||
+          (typeof job.applyUrl === "string" && job.applyUrl.trim()) ||
+          null,
+        commitment: formatAshbyEmploymentType(job.employmentType),
         companyName: source.label,
-        location,
         department:
           (typeof job.team === "string" && job.team.trim()) ||
           (typeof job.department === "string" && job.department.trim()) ||
           null,
-        commitment: formatAshbyEmploymentType(job.employmentType),
+        descriptionSnippet: trimSnippet(
+          extractTextSnippet(job.descriptionPlain?.trim() || job.descriptionHtml),
+        ),
+        externalId,
+        id: createJobId(source.key, externalId),
+        location,
+        postedAt: toIsoDate(job.publishedAt),
+        rawPayload: job,
         sourceKey: source.key,
         sourceLabel: source.label,
         sourceLane: source.lane,
         sourceQuality: source.quality,
-        applyUrl,
-        postedAt: toIsoDate(job.publishedAt),
+        title,
         updatedAt: toIsoDate(job.updatedAt),
-        descriptionSnippet: trimSnippet(
-          extractTextSnippet(job.descriptionPlain?.trim() || job.descriptionHtml),
-        ),
-      } satisfies JobPostingDto;
+      });
     })
     .filter(isPresent) as JobPostingDto[];
 
@@ -1069,32 +1082,21 @@ function mapAggregatorJobs(source: AggregatorSourceSpec, payload: unknown): JobP
           "employer_name",
         ]) || source.label;
 
-      return {
-        id: createJobId(source.key, externalId),
-        externalId,
-        title,
-        companyName,
-        location:
-          getStringField(item, [
-            "location",
-            "location_name",
-            "formattedLocation",
-            "formatted_location",
-            "city",
-          ]) || null,
-        department: getStringField(item, ["department", "team", "function"]) || null,
+      return createEnrichedJobPosting({
+        applyUrl,
+        canonicalJobUrl: getStringField(item, [
+          "jobUrl",
+          "job_url",
+          "url",
+          "hostedUrl",
+          "hosted_url",
+          "absolute_url",
+        ]),
         commitment:
           getStringField(item, ["commitment", "employmentType", "employment_type", "type"]) ||
           null,
-        sourceKey: source.key,
-        sourceLabel: source.label,
-        sourceLane: source.lane,
-        sourceQuality: source.quality,
-        applyUrl,
-        postedAt: toIsoDate(
-          item.postedAt ?? item.posted_at ?? item.createdAt ?? item.created_at ?? item.publishedAt,
-        ),
-        updatedAt: toIsoDate(item.updatedAt ?? item.updated_at ?? item.modifiedAt ?? item.modified_at),
+        companyName,
+        department: getStringField(item, ["department", "team", "function"]) || null,
         descriptionSnippet: trimSnippet(
           extractTextSnippet(
             getStringField(item, [
@@ -1106,7 +1108,27 @@ function mapAggregatorJobs(source: AggregatorSourceSpec, payload: unknown): JobP
             ]),
           ),
         ),
-      } satisfies JobPostingDto;
+        externalId,
+        id: createJobId(source.key, externalId),
+        location:
+          getStringField(item, [
+            "location",
+            "location_name",
+            "formattedLocation",
+            "formatted_location",
+            "city",
+          ]) || null,
+        postedAt: toIsoDate(
+          item.postedAt ?? item.posted_at ?? item.createdAt ?? item.created_at ?? item.publishedAt,
+        ),
+        rawPayload: item,
+        sourceKey: source.key,
+        sourceLabel: source.label,
+        sourceLane: source.lane,
+        sourceQuality: source.quality,
+        title,
+        updatedAt: toIsoDate(item.updatedAt ?? item.updated_at ?? item.modifiedAt ?? item.modified_at),
+      });
     })
     .filter(isPresent) as JobPostingDto[];
 
@@ -1160,28 +1182,34 @@ function mapWorkableXmlJobs(source: WorkableXmlSourceSpec, xml: string): JobPost
     const externalId = extractXmlTagValue(section, "referencenumber") || applyUrl;
     const companyName = extractXmlTagValue(section, "company") || source.label;
 
-    mappedJobs.push({
-      id: createJobId(source.key, externalId),
-      externalId,
-      title,
+    mappedJobs.push(createEnrichedJobPosting({
+      applyUrl,
+      canonicalJobUrl: applyUrl,
+      commitment: extractXmlTagValue(section, "jobtype"),
       companyName,
+      department: extractXmlTagValue(section, "category"),
+      descriptionSnippet: trimSnippet(extractTextSnippet(extractXmlTagValue(section, "description"))),
+      externalId,
+      id: createJobId(source.key, externalId),
       location: formatWorkableLocation({
         city: extractXmlTagValue(section, "city"),
         state: extractXmlTagValue(section, "state"),
         country: extractXmlTagValue(section, "country"),
         remote: extractXmlTagValue(section, "remote"),
       }),
-      department: extractXmlTagValue(section, "category"),
-      commitment: extractXmlTagValue(section, "jobtype"),
+      postedAt: toIsoDate(extractXmlTagValue(section, "date")),
+      rawPayload: {
+        company: companyName,
+        section,
+        source: source.feedUrl,
+      },
       sourceKey: source.key,
       sourceLabel: source.label,
       sourceLane: source.lane,
       sourceQuality: source.quality,
-      applyUrl,
-      postedAt: toIsoDate(extractXmlTagValue(section, "date")),
+      title,
       updatedAt: null,
-      descriptionSnippet: trimSnippet(extractTextSnippet(extractXmlTagValue(section, "description"))),
-    });
+    }));
 
   }
 
@@ -1249,23 +1277,25 @@ function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPosting
       const externalId = job.bulletFields?.find(Boolean)?.trim() || externalPath;
       const applyUrl = `${sourceOrigin}${source.jobBoardPath}${externalPath}`;
 
-      return {
-        id: createJobId(source.key, externalId),
-        externalId,
-        title,
-        companyName: source.label,
-        location: typeof job.locationsText === "string" ? job.locationsText.trim() : null,
-        department: null,
+      return createEnrichedJobPosting({
+        applyUrl,
+        canonicalJobUrl: applyUrl,
         commitment: typeof job.timeType === "string" ? job.timeType.trim() : null,
+        companyName: source.label,
+        department: null,
+        descriptionSnippet: null,
+        externalId,
+        id: createJobId(source.key, externalId),
+        location: typeof job.locationsText === "string" ? job.locationsText.trim() : null,
+        postedAt: parseWorkdayPostedOn(job.postedOn),
+        rawPayload: job,
         sourceKey: source.key,
         sourceLabel: source.label,
         sourceLane: source.lane,
         sourceQuality: source.quality,
-        applyUrl,
-        postedAt: parseWorkdayPostedOn(job.postedOn),
+        title,
         updatedAt: null,
-        descriptionSnippet: null,
-      } satisfies JobPostingDto;
+      });
     })
     .filter(isPresent) as JobPostingDto[];
 

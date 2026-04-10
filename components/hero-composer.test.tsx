@@ -8,6 +8,7 @@ import type {
   ChatProject,
   ChatWorkspaceSnapshot,
   JobPostingDto,
+  JobsPanelResponseDto,
 } from "@/packages/contracts/src";
 
 const useChatAttachmentDraftsMock = vi.fn();
@@ -123,26 +124,37 @@ function createJobPosting(id: string, companyName: string, title: string): JobPo
   };
 }
 
-function createJobsFeedResponse(jobs: JobPostingDto[]) {
+function createJobsPanelResponse(prompt: string, jobs: JobPostingDto[]): JobsPanelResponseDto {
   return {
+    assistantMessage: "Here are a few live roles worth reviewing.",
+    diagnostics: {
+      duplicateCount: 0,
+      filteredOutCount: 0,
+      invalidCount: 0,
+      searchLatencyMs: 24,
+      sourceCount: 1,
+      staleCount: 0,
+    },
     generatedAt: "2026-04-10T00:00:00.000Z",
     jobs,
-    sources: [],
-    storage: {
-      lastSyncAt: "2026-04-10T00:00:00.000Z",
-      mode: "ephemeral" as const,
-      persistedJobs: jobs.length,
-      persistedSources: 0,
+    panelCount: jobs.length,
+    query: {
+      careerIdSignals: [],
+      filters: {
+        companies: [],
+        industries: [],
+        keywords: [],
+        location: null,
+        postedWithinDays: null,
+        role: null,
+        seniority: null,
+        workplaceType: null,
+      },
+      normalizedPrompt: prompt.toLowerCase(),
+      prompt,
+      usedCareerIdDefaults: false,
     },
-    summary: {
-      aggregatorJobs: 0,
-      connectedSourceCount: 1,
-      coverageSourceCount: 0,
-      directAtsJobs: jobs.length,
-      highSignalSourceCount: 1,
-      sourceCount: 1,
-      totalJobs: jobs.length,
-    },
+    totalMatches: jobs.length,
   };
 }
 
@@ -357,8 +369,8 @@ describe("HeroComposer", () => {
         });
       }
 
-      if (url.startsWith("/api/v1/jobs?")) {
-        return createJsonResponse(createJobsFeedResponse(jobs));
+      if (url === "/api/v1/jobs/search") {
+        return createJsonResponse(createJobsPanelResponse("Find new jobs for me.", jobs));
       }
 
       throw new Error(`Unexpected fetch request: ${url}`);
@@ -382,7 +394,7 @@ describe("HeroComposer", () => {
     expect(await screen.findAllByRole("button", { name: "Find NEW Jobs" })).toHaveLength(1);
     expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).startsWith("/api/v1/jobs?"))).toBe(
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(
       true,
     );
   });
@@ -413,8 +425,8 @@ describe("HeroComposer", () => {
         });
       }
 
-      if (url.startsWith("/api/v1/jobs?")) {
-        return createJsonResponse(createJobsFeedResponse(jobs));
+      if (url === "/api/v1/jobs/search") {
+        return createJsonResponse(createJobsPanelResponse("Find jobs for AI product designers", jobs));
       }
 
       throw new Error(`Unexpected fetch request: ${url}`);
@@ -438,7 +450,7 @@ describe("HeroComposer", () => {
     expect(await screen.findByText("Figma")).toBeInTheDocument();
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
 
-    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).startsWith("/api/v1/jobs?"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(true);
   });
 
   it("does not show the jobs side panel for non-job prompts", async () => {
@@ -481,6 +493,6 @@ describe("HeroComposer", () => {
 
     expect(await screen.findByText("It helps candidates build a verifiable Career ID.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Find NEW Jobs" })).not.toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).startsWith("/api/v1/jobs?"))).toBe(false);
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(false);
   });
 });

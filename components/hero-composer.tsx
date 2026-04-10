@@ -29,6 +29,7 @@ import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts
 import { landingContentByPersona, type HeroComposerContent } from "@/components/chat-home-shell-content";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import { loadJobListings } from "@/lib/jobs/load-job-listings";
+import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import {
   type ChatConversation,
@@ -36,6 +37,7 @@ import {
   type ChatProjectPersistence,
   type ChatMessage,
   type ChatProject,
+  type JobsPanelResponseDto,
   type ChatWorkspacePersistence,
   type ChatWorkspaceSnapshot,
   emptyChatWorkspacePersistence,
@@ -386,11 +388,11 @@ function buildThreadPreview(thread: ChatThread) {
   return `${normalizedPreview.slice(0, 93)}...`;
 }
 
-function getLatestUserPrompt(entries: TranscriptEntry[]) {
+function getLatestJobPrompt(entries: TranscriptEntry[]) {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index];
 
-    if (entry.role === "user" && entry.content.trim()) {
+    if (entry.role === "user" && entry.content.trim() && isJobIntent(entry.content)) {
       return entry.content.trim();
     }
   }
@@ -470,6 +472,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
   const [jobsAssistListings, setJobsAssistListings] = useState<JobListing[]>([]);
   const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
+  const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
   const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
   const [projectActivityState, setProjectActivityState] = useState<ProjectActivityState>({
     error: null,
@@ -531,12 +534,9 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
-  const latestUserPrompt = getLatestUserPrompt(transcript);
-  const jobsAssistPrompt =
-    !isProjectHomeVisible && latestUserPrompt && isJobIntent(latestUserPrompt)
-      ? latestUserPrompt
-      : null;
-  const isJobsAssistVisible = Boolean(jobsAssistPrompt);
+  const latestJobPrompt = !isProjectHomeVisible ? getLatestJobPrompt(transcript) : null;
+  const jobsAssistRequestKey = latestJobPrompt ? `${latestJobPrompt}::${jobsAssistRefreshKey}` : null;
+  const isJobsAssistVisible = Boolean(latestJobPrompt);
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
   const [conversationComposerStyle, setConversationComposerStyle] =
@@ -551,9 +551,15 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
   }, [hasActiveConversation, onConversationStateChange]);
 
   useEffect(() => {
-    if (!jobsAssistPrompt) {
+    if (!latestJobPrompt) {
       setIsJobsAssistLoading(false);
       setJobsAssistError(null);
+      setJobsAssistListings([]);
+      setJobsAssistLoadedRequestKey(null);
+      return;
+    }
+
+    if (jobsAssistLoadedRequestKey === jobsAssistRequestKey) {
       return;
     }
 
@@ -563,13 +569,17 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
     setJobsAssistError(null);
 
     void loadJobListings({
+      conversationId: currentThreadId,
       limit: 6,
+      prompt: latestJobPrompt,
+      refresh: jobsAssistRefreshKey > 0,
       signal: abortController.signal,
     })
-      .then((listings) => {
+      .then((result) => {
         startTransition(() => {
-          setJobsAssistListings(listings);
+          setJobsAssistListings(result.listings);
           setJobsAssistError(null);
+          setJobsAssistLoadedRequestKey(jobsAssistRequestKey);
           setIsJobsAssistLoading(false);
         });
       })
@@ -587,7 +597,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
     return () => {
       abortController.abort();
     };
-  }, [jobsAssistPrompt, jobsAssistRefreshKey]);
+  }, [currentThreadId, jobsAssistLoadedRequestKey, jobsAssistRequestKey, jobsAssistRefreshKey, latestJobPrompt]);
 
   useLayoutEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -1026,6 +1036,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       conversation?: ChatConversation;
       error?: string;
       errorCode?: string;
+      jobsPanel?: JobsPanelResponseDto | null;
       userMessage?: ChatMessage;
       workspace?: ChatWorkspaceSnapshot;
     };
@@ -1035,6 +1046,17 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       payload,
       status: response.status,
     };
+  }
+
+  function applyJobsAssistResponse(jobsPanel: JobsPanelResponseDto | null | undefined) {
+    if (!jobsPanel) {
+      return;
+    }
+
+    setJobsAssistListings(mapJobsToListings(jobsPanel.jobs));
+    setJobsAssistLoadedRequestKey(`${jobsPanel.query.prompt}::${jobsAssistRefreshKey}`);
+    setJobsAssistError(null);
+    setIsJobsAssistLoading(false);
   }
 
   useEffect(() => {
@@ -1547,6 +1569,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       const { conversation, userMessage } = payload;
 
       releaseDetachedAttachments(detachedAttachments);
+      applyJobsAssistResponse(payload.jobsPanel);
 
       startTransition(() => {
         transcriptScrollIntentRef.current = {
@@ -1617,6 +1640,41 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
 
   function handleStarterQuestion(question: string) {
     void submitMessage(question);
+  }
+
+  async function handleApplyJob(job: JobListing) {
+    try {
+      const response = await fetch("/api/v1/jobs/apply-click", {
+        body: JSON.stringify({
+          canonicalApplyUrl: job.canonicalApplyUrl,
+          conversationId: currentThreadId,
+          jobId: job.id,
+          metadata: {
+            isOrchestrationReady: job.isOrchestrationReady,
+            sourceLabel: job.sourceLabel,
+            validationStatus: job.validationStatus ?? null,
+          },
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        applyUrl?: string | null;
+        error?: string;
+      };
+
+      if (!response.ok || !payload.applyUrl) {
+        throw new Error(payload.error || "The application link could not be opened.");
+      }
+
+      window.open(payload.applyUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      showComposerError(
+        error instanceof Error ? error.message : "The application link could not be opened.",
+      );
+    }
   }
 
   async function handleSaveCheckpoint() {
@@ -2712,6 +2770,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
                 errorMessage={jobsAssistError}
                 isLoading={isJobsAssistLoading}
                 jobs={jobsAssistListings}
+                onApply={handleApplyJob}
                 onRefresh={() => {
                   setJobsAssistRefreshKey((currentKey) => currentKey + 1);
                 }}
