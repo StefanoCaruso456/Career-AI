@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import {
   jobsFeedResponseSchema,
@@ -520,8 +520,15 @@ export function JobsResults({
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [visibleCount, setVisibleCount] = useState(() => Math.min(initialCount, jobs.length));
   const [hasMoreAvailable, setHasMoreAvailable] = useState(jobs.length >= initialRequestLimit);
+  const [hasHydratedFullWindow, setHasHydratedFullWindow] = useState(
+    () =>
+      initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
+  );
+  const [isHydratingFullWindow, setIsHydratingFullWindow] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const fullWindowHydrationInFlight = useRef(false);
+  const fullJobsWindowLimit = Math.max(totalAvailableCount, loadedJobs.length);
   const filteredJobs = loadedJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
     const matchesCompany = companyFilter === "all" || job.companyName === companyFilter;
@@ -548,6 +555,11 @@ export function JobsResults({
     workplaceFilter !== "all" ||
     salaryRangeFilter !== "all" ||
     dateFilter !== "all";
+  const canHydrateFullWindow =
+    initialRequestLimit !== Number.MAX_SAFE_INTEGER &&
+    !hasHydratedFullWindow &&
+    fullJobsWindowLimit > loadedJobs.length;
+  const isSearchingAllJobs = hasActiveFilters && canHydrateFullWindow;
   const showLoadMore = canRevealLoadedJobs || hasMoreAvailable;
 
   useEffect(() => {
@@ -566,10 +578,100 @@ export function JobsResults({
     setLoadedJobs(jobs);
     setCompanyOptions(getCompanyOptions(jobs, [], initialCompanyOptions));
     setHasMoreAvailable(jobs.length >= initialRequestLimit);
+    setHasHydratedFullWindow(
+      initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
+    );
+    setIsHydratingFullWindow(false);
+    fullWindowHydrationInFlight.current = false;
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
   }, [initialCompanyOptions, initialRequestLimit, initialTotalAvailableCount, jobs]);
+
+  async function fetchJobsWindow(limit: number) {
+    const response = await fetch(`/api/v1/jobs?limit=${limit}`, {
+      cache: "no-store",
+      method: "GET",
+    });
+    const payload = (await response.json()) as { error?: string; message?: string };
+
+    if (!response.ok) {
+      throw new Error(payload.error || payload.message || "Jobs could not be loaded right now.");
+    }
+
+    return jobsFeedResponseSchema.parse(payload);
+  }
+
+  function applySnapshot(
+    snapshot: Awaited<ReturnType<typeof fetchJobsWindow>>,
+    options?: {
+      hasHydratedFullWindow?: boolean;
+      hasMoreAvailable?: boolean;
+    },
+  ) {
+    startTransition(() => {
+      setLoadedJobs(snapshot.jobs);
+      setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources));
+      setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
+
+      if (typeof options?.hasHydratedFullWindow === "boolean") {
+        setHasHydratedFullWindow(options.hasHydratedFullWindow);
+      }
+
+      if (typeof options?.hasMoreAvailable === "boolean") {
+        setHasMoreAvailable(options.hasMoreAvailable);
+      }
+    });
+  }
+
+  async function hydrateFullJobsWindow(requestedLimit = fullJobsWindowLimit) {
+    if (
+      requestedLimit <= loadedJobs.length ||
+      hasHydratedFullWindow ||
+      fullWindowHydrationInFlight.current
+    ) {
+      return;
+    }
+
+    fullWindowHydrationInFlight.current = true;
+    setIsHydratingFullWindow(true);
+
+    try {
+      const snapshot = await fetchJobsWindow(requestedLimit);
+
+      applySnapshot(snapshot, {
+        hasHydratedFullWindow: true,
+        hasMoreAvailable: false,
+      });
+    } catch (error) {
+      console.error("Jobs full-window hydration failed.", error);
+    } finally {
+      fullWindowHydrationInFlight.current = false;
+      setIsHydratingFullWindow(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!canHydrateFullWindow || isHydratingFullWindow) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void hydrateFullJobsWindow(fullJobsWindowLimit);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [canHydrateFullWindow, fullJobsWindowLimit, isHydratingFullWindow]);
+
+  useEffect(() => {
+    if (!hasActiveFilters || !canHydrateFullWindow || isHydratingFullWindow) {
+      return;
+    }
+
+    void hydrateFullJobsWindow(fullJobsWindowLimit);
+  }, [canHydrateFullWindow, fullJobsWindowLimit, hasActiveFilters, isHydratingFullWindow]);
 
   async function handleLoadMore() {
     if (canRevealLoadedJobs) {
@@ -577,7 +679,7 @@ export function JobsResults({
       return;
     }
 
-    if (!hasMoreAvailable || isLoadingMore) {
+    if (!hasMoreAvailable || isLoadingMore || isHydratingFullWindow) {
       return;
     }
 
@@ -587,21 +689,9 @@ export function JobsResults({
     setLoadMoreError(null);
 
     try {
-      const response = await fetch(`/api/v1/jobs?limit=${nextLimit}`, {
-        cache: "no-store",
-        method: "GET",
-      });
-      const payload = (await response.json()) as { error?: string; message?: string };
+      const snapshot = await fetchJobsWindow(nextLimit);
 
-      if (!response.ok) {
-        throw new Error(payload.error || payload.message || "More jobs could not be loaded right now.");
-      }
-
-      const snapshot = jobsFeedResponseSchema.parse(payload);
-
-      setLoadedJobs(snapshot.jobs);
-      setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources));
-      setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
+      applySnapshot(snapshot);
       setVisibleCount((current) => Math.min(Math.max(current, loadedJobs.length) + loadMoreCount, snapshot.jobs.length));
       setHasMoreAvailable(snapshot.jobs.length >= nextLimit);
     } catch (error) {
@@ -740,7 +830,9 @@ export function JobsResults({
               Clear filters
             </button>
             <p className={styles.filterHint}>
-              Manual filters only affect the currently loaded jobs window.
+              {isSearchingAllJobs
+                ? `Checking all ${formatCount(totalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
+                : `Filters automatically expand to all ${formatCount(totalAvailableCount)} available jobs.`}
             </p>
           </div>
         ) : null}
@@ -748,8 +840,9 @@ export function JobsResults({
 
       <div className={styles.resultsHeader}>
         <p className={styles.resultsSummary}>
-          Showing {visibleJobs.length} of {filteredJobs.length} matching{" "}
-          {pluralize(filteredJobs.length, "role")} from {loadedJobs.length} loaded.
+          {isSearchingAllJobs
+            ? `Checking all ${formatCount(totalAvailableCount)} available jobs for matches...`
+            : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${loadedJobs.length} loaded.`}
         </p>
         <p className={styles.resultsTotal}>
           {formatCount(totalAvailableCount)} jobs available
@@ -783,13 +876,37 @@ export function JobsResults({
             </article>
           ))}
         </div>
+      ) : isSearchingAllJobs ? (
+        <article className={styles.noResultsState}>
+          <p className={styles.filterEyebrow}>Searching all jobs</p>
+          <h3>Checking all {formatCount(totalAvailableCount)} available jobs for matches.</h3>
+          <p>
+            The first {formatCount(loadedJobs.length)} roles loaded instantly. Career AI is
+            expanding the rest of the jobs snapshot in the background so your filters can search
+            the full jobs pool.
+          </p>
+          <button
+            className={styles.clearFiltersButton}
+            onClick={() => {
+              setKeyword("");
+              setRoleTypeFilter("all");
+              setCompanyFilter("all");
+              setWorkplaceFilter("all");
+              setSalaryRangeFilter("all");
+              setDateFilter("all");
+            }}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </article>
       ) : (
         <article className={styles.noResultsState}>
           <p className={styles.filterEyebrow}>No matches</p>
           <h3>No roles match the current filters.</h3>
           <p>
             Try a broader keyword, remove a manual filter, or clear everything to return to the
-            full loaded jobs window.
+            full jobs window.
           </p>
           <button
             className={styles.clearFiltersButton}
