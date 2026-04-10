@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
     const parsedWindowDays = rawWindowDays ? Number.parseInt(rawWindowDays, 10) : undefined;
     const limit = Number.isFinite(parsedLimit) ? parsedLimit : undefined;
-    const windowDays = Number.isFinite(parsedWindowDays) ? parsedWindowDays : 7;
+    const windowDays = Number.isFinite(parsedWindowDays) ? parsedWindowDays : undefined;
     const snapshot = await getJobsFeedSnapshot({ limit, windowDays });
 
     return successResponse(snapshot, correlationId);

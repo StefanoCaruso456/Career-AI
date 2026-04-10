@@ -14,7 +14,6 @@ export const dynamic = "force-dynamic";
 const INITIAL_ROLE_COUNT = 24;
 const LOAD_MORE_INCREMENT = 29;
 const PREFETCH_ROLE_COUNT = 5_000;
-const DEFAULT_WINDOW_DAYS = 7;
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -41,10 +40,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 }
 
 export default async function JobsPage() {
-  const snapshot = await getJobsFeedSnapshot({
-    limit: PREFETCH_ROLE_COUNT,
-    windowDays: DEFAULT_WINDOW_DAYS,
-  });
+  const snapshot = await getJobsFeedSnapshot({ limit: PREFETCH_ROLE_COUNT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
 

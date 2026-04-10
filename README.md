@@ -94,7 +94,7 @@ After configuration:
 - first-time users are routed into the resumable `/onboarding` flow
 - returning users resume onboarding until completed
 - `/account` reads the persistent Postgres-backed user and identity records after onboarding is complete
-- `/jobs` syncs configured public job feeds, keeps the jobs surface focused on the last 7 days by default, and stores synced jobs in Postgres before rendering the jobs tab
+- `/jobs` syncs configured public job feeds, shows the full active synced jobs set by default, and stores synced jobs in Postgres before rendering the jobs tab
 
 Jobs feed examples:
 
