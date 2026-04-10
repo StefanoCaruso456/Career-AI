@@ -592,7 +592,7 @@
 
 .evidenceGrid {
   display: grid;
-  gap: clamp(2.5rem, 5vw, 4rem);
+  gap: clamp(5rem, 10vw, 8rem);
 }
 
 .evidenceCard {
