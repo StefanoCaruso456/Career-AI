@@ -93,6 +93,58 @@
   z-index: 1;
 }
 
+.visualContextRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.visualContextWord,
+.visualContextConnector {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0.48rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 177, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(8, 17, 31, 0.32);
+  color: rgba(240, 247, 255, 0.92);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 28px rgba(4, 9, 20, 0.14);
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  backdrop-filter: blur(14px) saturate(145%);
+}
+
+.visualContextWord::before,
+.visualContextConnector::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(120, 192, 255, 0.12), transparent 65%);
+  pointer-events: none;
+}
+
+.visualContextConnector {
+  min-width: 3rem;
+  padding-inline: 0.9rem;
+  color: #d8eeff;
+  letter-spacing: 0.18em;
+}
+
 .visualFrame {
   position: relative;
   aspect-ratio: 3 / 2;
@@ -271,6 +323,19 @@
   .headline {
     font-size: clamp(1.86rem, 8vw, 2.42rem);
     line-height: 1;
+  }
+
+  .visualContextRow {
+    gap: 0.45rem;
+    margin-bottom: 0.7rem;
+  }
+
+  .visualContextWord,
+  .visualContextConnector {
+    min-height: 2rem;
+    padding: 0.42rem 0.72rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
   }
 
   .cardsGrid {
