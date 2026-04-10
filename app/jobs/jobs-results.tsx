@@ -11,6 +11,7 @@ import styles from "./page.module.css";
 
 type JobsResultsProps = {
   jobs: JobPostingDto[];
+  initialCompanyOptions?: string[];
   initialCount?: number;
   initialRequestLimit?: number;
   initialTotalAvailableCount?: number;
@@ -19,6 +20,7 @@ type JobsResultsProps = {
 
 type WorkplaceFilter = "all" | "remote" | "hybrid" | "onsite";
 type DateFilter = "all" | "1d" | "7d" | "30d";
+const EMPTY_COMPANY_OPTIONS: string[] = [];
 const ROLE_TYPE_OPTIONS = [
   "ai-ml-engineering",
   "software-engineering",
@@ -270,6 +272,22 @@ function getTotalAvailableCount(sources: JobSourceSnapshotDto[]) {
     .reduce((sum, source) => sum + source.jobCount, 0);
 }
 
+function getCompanyOptions(
+  jobs: JobPostingDto[],
+  sources: JobSourceSnapshotDto[] = [],
+  seededCompanies: string[] = [],
+) {
+  return Array.from(
+    new Set([
+      ...seededCompanies,
+      ...jobs.map((job) => job.companyName),
+      ...sources
+        .filter((source) => source.status === "connected")
+        .map((source) => source.label),
+    ]),
+  ).sort((left, right) => left.localeCompare(right));
+}
+
 function normalizeCommitment(value: string | null) {
   if (!value) {
     return "unknown";
@@ -395,12 +413,16 @@ function inferRoleType(job: JobPostingDto): RoleTypeFilter | "other" {
 
 export function JobsResults({
   jobs,
+  initialCompanyOptions = EMPTY_COMPANY_OPTIONS,
   initialCount = 24,
   initialRequestLimit = Number.MAX_SAFE_INTEGER,
   initialTotalAvailableCount = jobs.length,
   loadMoreCount = 29,
 }: JobsResultsProps) {
   const [loadedJobs, setLoadedJobs] = useState(jobs);
+  const [companyOptions, setCompanyOptions] = useState(() =>
+    getCompanyOptions(jobs, [], initialCompanyOptions),
+  );
   const [totalAvailableCount, setTotalAvailableCount] = useState(initialTotalAvailableCount);
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
@@ -413,9 +435,6 @@ export function JobsResults({
   const [hasMoreAvailable, setHasMoreAvailable] = useState(jobs.length >= initialRequestLimit);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
-  const companyOptions = Array.from(new Set(loadedJobs.map((job) => job.companyName))).sort(
-    (left, right) => left.localeCompare(right),
-  );
   const commitmentOptions = Array.from(
     new Set(
       loadedJobs
@@ -466,11 +485,12 @@ export function JobsResults({
 
   useEffect(() => {
     setLoadedJobs(jobs);
+    setCompanyOptions(getCompanyOptions(jobs, [], initialCompanyOptions));
     setHasMoreAvailable(jobs.length >= initialRequestLimit);
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
-  }, [initialRequestLimit, initialTotalAvailableCount, jobs]);
+  }, [initialCompanyOptions, initialRequestLimit, initialTotalAvailableCount, jobs]);
 
   async function handleLoadMore() {
     if (canRevealLoadedJobs) {
@@ -501,6 +521,7 @@ export function JobsResults({
       const snapshot = jobsFeedResponseSchema.parse(payload);
 
       setLoadedJobs(snapshot.jobs);
+      setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources));
       setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
       setVisibleCount((current) => Math.min(Math.max(current, loadedJobs.length) + loadMoreCount, snapshot.jobs.length));
       setHasMoreAvailable(snapshot.jobs.length >= nextLimit);
