@@ -307,7 +307,7 @@
 }
 
 .chatStageConversation .composerDock {
-  bottom: 0.45rem;
+  bottom: var(--chat-conversation-composer-offset);
 }
 
 .heroInnerConversation {
@@ -1001,6 +1001,7 @@
 .chatStageMain {
   --chat-conversation-width: 47rem;
   --chat-composer-clearance: 10.5rem;
+  --chat-conversation-composer-offset: 0.45rem;
   position: relative;
   min-width: 0;
   min-height: inherit;
@@ -3142,6 +3143,7 @@
 
   .chatStageMain {
     --chat-composer-clearance: 8.6rem;
+    --chat-conversation-composer-offset: 0.35rem;
     min-height: 0;
   }
 
