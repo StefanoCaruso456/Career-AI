@@ -1054,10 +1054,10 @@
 }
 
 .chatEmptyStateLanding {
-  align-content: center;
-  min-height: clamp(18rem, 42vh, 24rem);
-  padding-top: clamp(1rem, 3vh, 1.8rem);
-  padding-bottom: 1.2rem;
+  align-content: start;
+  min-height: clamp(14rem, 30vh, 18rem);
+  padding-top: clamp(0.75rem, 2.5vh, 1.4rem);
+  padding-bottom: 0.55rem;
 }
 
 .projectHome {
@@ -2954,9 +2954,9 @@
   }
 
   .chatEmptyStateLanding {
-    min-height: clamp(15rem, 34vh, 19rem);
-    padding-top: 0.9rem;
-    padding-bottom: 0.9rem;
+    min-height: clamp(12rem, 26vh, 15rem);
+    padding-top: 0.6rem;
+    padding-bottom: 0.55rem;
   }
 }
 
@@ -3115,9 +3115,9 @@
   }
 
   .chatEmptyStateLanding {
-    min-height: 12rem;
-    padding-top: 0.8rem;
-    padding-bottom: 0.75rem;
+    min-height: 10.5rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.55rem;
   }
 
   .projectHome {
