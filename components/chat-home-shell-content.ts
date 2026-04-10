@@ -409,8 +409,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       ],
       typingLabel: "Thinking through your verification workflow...",
     },
-    heroTitle:
-      "Career AI is a trusted identity platform that helps job seekers get hired faster.",
+    heroTitle: "A trusted identity platform that gets candidates hired faster.",
     introPrimaryCta: "Explore the platform",
     introRailEyebrow: "How Career AI works",
     introRailItems: [

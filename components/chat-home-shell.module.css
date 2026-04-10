@@ -228,7 +228,7 @@
   max-height: 14rem;
   color: var(--hero-text);
   font-family: var(--font-display), sans-serif;
-  max-width: 32ch;
+  max-width: 42ch;
   font-size: clamp(1.52rem, 2.85vw, 2.5rem);
   font-weight: 600;
   line-height: 1.08;
