@@ -1,0 +1,113 @@
+.section {
+  padding:
+    calc(var(--site-header-clearance) + 0.9rem)
+    clamp(1.25rem, 2.5vw, 2.5rem)
+    0;
+}
+
+.shell {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 0.95rem;
+}
+
+.copyBlock {
+  display: grid;
+  gap: 0.38rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(146, 182, 255, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(24, 30, 43, 0.96), rgba(14, 18, 28, 0.98));
+  box-shadow:
+    0 24px 54px rgba(4, 8, 18, 0.26),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.eyebrow {
+  color: rgba(167, 197, 255, 0.88);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.summary {
+  margin: 0;
+  max-width: 64rem;
+  color: rgba(224, 232, 246, 0.82);
+  line-height: 1.65;
+}
+
+.tabBar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(14, 18, 28, 0.88);
+  box-shadow:
+    0 16px 36px rgba(3, 6, 14, 0.22),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  padding: 0.72rem 1.1rem;
+  border-radius: 999px;
+  color: rgba(228, 234, 244, 0.78);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.tab:hover {
+  color: #f5f8ff;
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.tabCurrent {
+  color: #10151f;
+  background:
+    linear-gradient(135deg, rgba(255, 245, 232, 0.98), rgba(236, 228, 216, 0.96)),
+    #f2ece4;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 720px) {
+  .section {
+    padding:
+      calc(var(--site-header-clearance) + 0.75rem)
+      1rem
+      0;
+  }
+
+  .copyBlock {
+    border-radius: 1.35rem;
+  }
+
+  .tabBar {
+    border-radius: 1.4rem;
+  }
+
+  .tab {
+    flex: 1 1 calc(50% - 0.35rem);
+    min-width: 9rem;
+  }
+}

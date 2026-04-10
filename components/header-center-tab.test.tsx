@@ -27,6 +27,14 @@ describe("HeaderCenterTab", () => {
     mockUsePathname.mockReset();
   });
 
+  it("hides the public center tabs inside route-scoped clients", () => {
+    mockUsePathname.mockReturnValue("/account/settings");
+
+    const { container } = render(<HeaderCenterTab />);
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("renders the Career ID label for the agent-build tab", () => {
     mockUsePathname.mockReturnValue("/agent-build");
 

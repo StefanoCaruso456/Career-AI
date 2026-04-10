@@ -1,13 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { landingContentByPersona } from "./chat-home-shell-content";
+import type { HeroComposerContent } from "./chat-home-shell-content";
 import { HeroComposer } from "./hero-composer";
 import styles from "./chat-home-shell.module.css";
-import type { Persona } from "@/lib/personas";
 
-export function ChatHomeHero({ persona = "job_seeker" }: { persona?: Persona }) {
-  const content = landingContentByPersona[persona];
+export function ChatHomeHero({
+  heroComposer,
+  heroTitle,
+}: {
+  heroComposer: HeroComposerContent;
+  heroTitle: string;
+}) {
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
 
   return (
@@ -30,11 +34,11 @@ export function ChatHomeHero({ persona = "job_seeker" }: { persona?: Persona }) 
             .join(" ")}
         >
           <span className={styles.heroTitleLine}>
-            {content.heroTitle}
+            {heroTitle}
           </span>
         </h1>
 
-        <HeroComposer content={content.heroComposer} onConversationStateChange={setHasActiveConversation} />
+        <HeroComposer content={heroComposer} onConversationStateChange={setHasActiveConversation} />
       </div>
     </section>
   );

@@ -4,6 +4,10 @@ import { authEnabled, authOptions, googleOAuthDisabledMessage } from "@/auth";
 
 const handler = NextAuth(authOptions);
 
+type RouteContext = {
+  params: Promise<{ nextauth?: string[] }>;
+};
+
 function getAuthUnavailableMessage() {
   return (
     googleOAuthDisabledMessage ||
@@ -13,7 +17,7 @@ function getAuthUnavailableMessage() {
 
 export async function GET(
   request: Request,
-  context: { params: Promise<{ nextauth?: string[] }> | { nextauth?: string[] } },
+  context: RouteContext,
 ) {
   const params = await context.params;
   const action = params.nextauth?.[0];
@@ -38,7 +42,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  context: { params: Promise<{ nextauth?: string[] }> | { nextauth?: string[] } },
+  context: RouteContext,
 ) {
   const params = await context.params;
   const action = params.nextauth?.[0];

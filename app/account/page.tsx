@@ -4,10 +4,9 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, CheckCircle2, ShieldCheck, UserRound } from "lucide-react";
 import { auth } from "@/auth";
 import {
-  ensurePersistentCareerIdentityForSessionUser,
+  getPersistentCareerIdentityForSessionUser,
   getDisplayNameForContext,
 } from "@/auth-identity";
-import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
 import { getPersonaSignInRoute } from "@/lib/personas";
 import styles from "./page.module.css";
 
@@ -21,7 +20,7 @@ function formatTimestamp(value: string) {
 export default async function AccountPage() {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session?.user?.email) {
     redirect(
       getPersonaSignInRoute({
         callbackUrl: "/account",
@@ -30,7 +29,7 @@ export default async function AccountPage() {
     );
   }
 
-  const { context } = await ensurePersistentCareerIdentityForSessionUser({
+  const context = await getPersistentCareerIdentityForSessionUser({
     user: {
       appUserId: session.user.appUserId,
       authProvider: session.user.authProvider,
@@ -42,15 +41,10 @@ export default async function AccountPage() {
     correlationId: `account_page_${session.user.appUserId ?? session.user.email ?? "unknown"}`,
   });
 
-  if (context.onboarding.status !== "completed") {
-    redirect("/onboarding");
-  }
-
   const displayName = getDisplayNameForContext(context);
 
   return (
     <main className={styles.page}>
-      <PersonaPreferenceSync persona="job_seeker" />
       <div className={styles.shell}>
         <section className={styles.hero}>
           <div className={styles.identityBlock}>
