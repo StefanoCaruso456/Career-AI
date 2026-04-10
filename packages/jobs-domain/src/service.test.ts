@@ -303,7 +303,7 @@ describe("jobs feed service", () => {
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {
     process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
     process.env.LEVER_SITE_NAMES = "Orbit=orbit";
-    process.env.JOBS_AGGREGATOR_FEED_URL = "https://coverage.example.com/jobs";
+    process.env.JOBS_AGGREGATOR_FEED_URL = "https://feeds.careerai.dev/jobs";
     process.env.JOBS_AGGREGATOR_API_KEY = "coverage-secret";
     process.env.JOBS_AGGREGATOR_LABEL = "Coverage API";
 
@@ -344,7 +344,7 @@ describe("jobs feed service", () => {
         ]);
       }
 
-      if (url === "https://coverage.example.com/jobs") {
+      if (url === "https://feeds.careerai.dev/jobs") {
         return createJsonResponse({
           jobs: [
             {
@@ -398,14 +398,14 @@ describe("jobs feed service", () => {
 
   it("ingests multiple named aggregator feeds with one shared API key", async () => {
     process.env.JOBS_AGGREGATOR_FEEDS =
-      "Google Careers=https://jobs.example.com/google,Meta Careers=https://jobs.example.com/meta";
+      "Google Careers=https://feeds.careerai.dev/google,Meta Careers=https://feeds.careerai.dev/meta";
     process.env.JOBS_AGGREGATOR_API_KEY = "coverage-secret";
 
     const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const authorization = new Headers(init?.headers).get("Authorization");
 
-      if (url === "https://jobs.example.com/google") {
+      if (url === "https://feeds.careerai.dev/google") {
         expect(authorization).toBe("Bearer coverage-secret");
 
         return createJsonResponse({
@@ -422,7 +422,7 @@ describe("jobs feed service", () => {
         });
       }
 
-      if (url === "https://jobs.example.com/meta") {
+      if (url === "https://feeds.careerai.dev/meta") {
         expect(authorization).toBe("Bearer coverage-secret");
 
         return createJsonResponse({
@@ -458,6 +458,30 @@ describe("jobs feed service", () => {
       "workable:unconfigured",
     ]);
     expect(snapshot.jobs.map((job) => job.companyName)).toEqual(["Meta", "Google"]);
+  });
+
+  it("ignores reserved placeholder feed URLs in environment config", async () => {
+    process.env.JOBS_AGGREGATOR_FEEDS =
+      "Coverage Feed=https://jobs.example.com/google,Partner Feed=https://feeds.example.org/open-roles";
+    process.env.JOBS_AGGREGATOR_FEED_URL = "https://jobs.example.net/api/v1/open-roles";
+    process.env.WORKABLE_XML_FEED_URL = "https://boards.example.com/workable.xml";
+
+    const fetchMock = vi.fn();
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(snapshot.jobs).toHaveLength(0);
+    expect(snapshot.summary.connectedSourceCount).toBe(0);
+    expect(snapshot.sources.map((source) => source.key)).toEqual([
+      "greenhouse:unconfigured",
+      "lever:unconfigured",
+      "ashby:unconfigured",
+      "aggregator:unconfigured",
+      "workable:unconfigured",
+    ]);
   });
 
   it("persists Greenhouse jobs to Postgres when the database is configured", async () => {

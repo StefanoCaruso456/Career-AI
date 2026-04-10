@@ -17,6 +17,14 @@ const JOBS_PER_SOURCE = 60;
 const DEFAULT_RESPONSE_LIMIT = 18;
 const MAX_RESPONSE_LIMIT = 180;
 const FETCH_TIMEOUT_MS = 4_500;
+const RESERVED_PLACEHOLDER_HOST_SUFFIXES = [
+  "example.com",
+  "example.org",
+  "example.net",
+  "localhost",
+  "test",
+  "invalid",
+] as const;
 
 type NamedSpec = {
   label: string;
@@ -117,24 +125,23 @@ type AshbyJob = {
 const JOBS_ENVIRONMENT_GUIDE = [
   {
     key: "GREENHOUSE_BOARD",
-    example: "Acme=acme,Globex=globex",
+    example: "Company Name=greenhouse-board-token",
   },
   {
     key: "LEVER_SITE_NAMES",
-    example: "Acme=acme,Globex=globex",
+    example: "Company Name=lever-site-name",
   },
   {
     key: "ASHBY_JOB_BOARDS",
-    example: "Linear=linear,Notion=notion",
+    example: "Company Name=ashby-job-board",
   },
   {
     key: "JOBS_AGGREGATOR_FEEDS",
-    example:
-      "Google Careers=https://jobs.example.com/google,Meta Careers=https://jobs.example.com/meta",
+    example: "Partner Feed=https://<your-feed-host>/jobs",
   },
   {
     key: "JOBS_AGGREGATOR_FEED_URL",
-    example: "https://jobs.example.com/api/v1/open-roles",
+    example: "https://<your-feed-host>/api/v1/open-roles",
   },
   {
     key: "JOBS_AGGREGATOR_API_KEY",
@@ -142,7 +149,7 @@ const JOBS_ENVIRONMENT_GUIDE = [
   },
   {
     key: "WORKABLE_XML_FEED_URL",
-    example: "https://www.workable.com/boards/workable.xml",
+    example: "https://<your-workable-feed>/workable.xml",
   },
 ] as const;
 
@@ -160,6 +167,34 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+function isReservedPlaceholderHostname(hostname: string) {
+  const normalizedHostname = hostname.trim().toLowerCase();
+
+  return RESERVED_PLACEHOLDER_HOST_SUFFIXES.some((suffix) => {
+    return normalizedHostname === suffix || normalizedHostname.endsWith(`.${suffix}`);
+  });
+}
+
+function sanitizeConfiguredFeedUrl(value: string | undefined | null) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmedValue);
+
+    if (isReservedPlaceholderHostname(parsed.hostname)) {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return trimmedValue;
+  }
 }
 
 function parseNamedSpecs(raw: string | undefined): NamedSpec[] {
@@ -340,19 +375,28 @@ function getDirectSourceSpecs() {
 
 function getAggregatorSpecs() {
   const apiKey = process.env.JOBS_AGGREGATOR_API_KEY?.trim();
-  const namedFeeds = parseNamedSpecs(process.env.JOBS_AGGREGATOR_FEEDS).map(
-    ({ label, value }) =>
-      ({
-        key: `aggregator:${slugify(label || value)}`,
-        label,
-        lane: "aggregator",
-        quality: "coverage",
-        endpointLabel: value,
-        apiKey,
-        feedUrl: value,
-      }) as AggregatorSourceSpec & { feedUrl: string },
+  const namedFeeds = parseNamedSpecs(process.env.JOBS_AGGREGATOR_FEEDS).flatMap(
+    ({ label, value }) => {
+      const feedUrl = sanitizeConfiguredFeedUrl(value);
+
+      if (!feedUrl) {
+        return [];
+      }
+
+      return [
+        {
+          key: `aggregator:${slugify(label || feedUrl)}`,
+          label,
+          lane: "aggregator",
+          quality: "coverage",
+          endpointLabel: feedUrl,
+          apiKey,
+          feedUrl,
+        } satisfies AggregatorSourceSpec & { feedUrl: string },
+      ];
+    },
   );
-  const legacyFeedUrl = process.env.JOBS_AGGREGATOR_FEED_URL?.trim();
+  const legacyFeedUrl = sanitizeConfiguredFeedUrl(process.env.JOBS_AGGREGATOR_FEED_URL);
   const legacyFeeds = legacyFeedUrl
     ? [
         {
@@ -379,7 +423,7 @@ function getAggregatorSpecs() {
 }
 
 function getWorkableXmlFeedSpec() {
-  const feedUrl = process.env.WORKABLE_XML_FEED_URL?.trim();
+  const feedUrl = sanitizeConfiguredFeedUrl(process.env.WORKABLE_XML_FEED_URL);
 
   if (!feedUrl) {
     return null;

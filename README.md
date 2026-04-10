@@ -98,12 +98,14 @@ After configuration:
 
 Jobs feed examples:
 
-- `GREENHOUSE_BOARD=Acme=acme,Globex=globex`
-- `LEVER_SITE_NAMES=Orbit=orbit`
-- `ASHBY_JOB_BOARDS=Linear=linear,Notion=notion`
-- `JOBS_AGGREGATOR_FEEDS=Google Careers=https://jobs.example.com/google,Meta Careers=https://jobs.example.com/meta`
-- `JOBS_AGGREGATOR_FEED_URL=https://jobs.example.com/api/v1/open-roles`
-- `WORKABLE_XML_FEED_URL=https://www.workable.com/boards/workable.xml`
+- `GREENHOUSE_BOARD=Company Name=greenhouse-board-token`
+- `LEVER_SITE_NAMES=Company Name=lever-site-name`
+- `ASHBY_JOB_BOARDS=Company Name=ashby-job-board`
+- `JOBS_AGGREGATOR_FEEDS=Partner Feed=https://<your-feed-host>/jobs`
+- `JOBS_AGGREGATOR_FEED_URL=https://<your-feed-host>/api/v1/open-roles`
+- `WORKABLE_XML_FEED_URL=https://<your-workable-feed>/workable.xml`
+
+Reserved placeholder domains such as `example.com` are ignored by the jobs service so accidental sample values do not show up as production sources.
 
 ## Deployment
 
