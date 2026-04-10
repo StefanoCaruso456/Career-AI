@@ -23,7 +23,7 @@ export function HeaderCenterTab() {
         className={isAgentBuild ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
         href="/agent-build"
       >
-        Career ID
+        Agent Sorcerer
       </Link>
       <Link
         aria-current={isJobs ? "page" : undefined}
