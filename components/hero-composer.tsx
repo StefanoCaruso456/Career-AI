@@ -548,6 +548,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   function applyWorkspaceSnapshot(
     snapshot: ChatWorkspaceSnapshot,
     options?: {
+      idleView?: "neutral" | "preserve" | "project-home";
       preferredConversationId?: string | null;
       preferredProjectId?: string | null;
     },
@@ -577,8 +578,20 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       return;
     }
 
+    const idleView = options?.idleView ?? "preserve";
+    const preservedProjectHomeId =
+      projectHomeProjectId && nextProjects.some((project) => project.id === projectHomeProjectId)
+        ? projectHomeProjectId
+        : null;
+    const nextProjectHomeId =
+      idleView === "project-home"
+        ? nextProjectId
+        : idleView === "preserve"
+          ? preservedProjectHomeId
+          : null;
+
     setCurrentThreadId(null);
-    setProjectHomeProjectId(nextProjectId);
+    setProjectHomeProjectId(nextProjectHomeId);
     setTranscript([]);
   }
 
@@ -594,6 +607,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   }
 
   async function loadWorkspaceSnapshot(options?: {
+    idleView?: "neutral" | "preserve" | "project-home";
     preferredConversationId?: string | null;
     preferredProjectId?: string | null;
   }) {
@@ -622,7 +636,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
     void (async () => {
       try {
-        await loadWorkspaceSnapshot();
+        await loadWorkspaceSnapshot({ idleView: "neutral" });
       } catch (error) {
         if (!isCancelled) {
           setSidebarNotice({
