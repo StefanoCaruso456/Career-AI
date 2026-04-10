@@ -329,8 +329,10 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     attachments: pendingAttachments,
     clearAttachments,
     clearSelectionError,
+    detachAttachments,
     removeAttachment,
-    resetAttachments,
+    releaseDetachedAttachments,
+    restoreAttachments,
     retryAttachment,
     selectionError,
   } = useChatAttachmentDrafts();
@@ -1060,6 +1062,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     const previousTranscript = transcript;
     const previousProjectHomeProjectId = projectHomeProjectId;
     const previousCurrentThreadId = currentThreadId;
+    const detachedAttachments = detachAttachments();
     const optimisticUserMessage: TranscriptEntry = {
       attachments: readyAttachments.map((attachment) => ({
         createdAt: new Date().toISOString(),
@@ -1086,6 +1089,8 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setProjectHomeProjectId(null);
     transcriptScrollIntentRef.current = { mode: "bottom" };
     setTranscript([...transcript, optimisticUserMessage]);
+    clearSelectionError();
+    setMessage("");
 
     try {
       const reply = await fetch("/api/chat", {
@@ -1116,9 +1121,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
       const { conversation, userMessage } = payload;
 
-      resetAttachments();
-      clearSelectionError();
-      setMessage("");
+      releaseDetachedAttachments(detachedAttachments);
 
       startTransition(() => {
         transcriptScrollIntentRef.current = {
@@ -1131,6 +1134,8 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       setTranscript(previousTranscript);
       setProjectHomeProjectId(previousProjectHomeProjectId);
       setCurrentThreadId(previousCurrentThreadId);
+      restoreAttachments(detachedAttachments);
+      setMessage(prompt);
       setSidebarNotice({
         message:
           requestError instanceof Error

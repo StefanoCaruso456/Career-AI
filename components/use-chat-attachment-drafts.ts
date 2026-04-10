@@ -249,6 +249,31 @@ export function useChatAttachmentDrafts() {
     void uploadDraft({ localId });
   }
 
+  function detachAttachments() {
+    const detachedAttachments = [...attachmentStateRef.current];
+
+    setAttachments([]);
+    setSelectionError(null);
+
+    return detachedAttachments;
+  }
+
+  function restoreAttachments(nextAttachments: ComposerAttachmentDraft[]) {
+    setAttachments(nextAttachments);
+    setSelectionError(null);
+  }
+
+  function releaseDetachedAttachments(detachedAttachments: ComposerAttachmentDraft[]) {
+    detachedAttachments.forEach((attachment) => {
+      uploadControllersRef.current.get(attachment.localId)?.abort();
+      uploadControllersRef.current.delete(attachment.localId);
+
+      if (attachment.previewUrl) {
+        URL.revokeObjectURL(attachment.previewUrl);
+      }
+    });
+  }
+
   async function clearAttachments() {
     const attachmentsToClear = [...attachmentStateRef.current];
 
@@ -300,8 +325,11 @@ export function useChatAttachmentDrafts() {
     attachments,
     clearAttachments,
     clearSelectionError,
+    detachAttachments,
     removeAttachment,
+    releaseDetachedAttachments,
     resetAttachments,
+    restoreAttachments,
     retryAttachment,
     selectionError,
   };
