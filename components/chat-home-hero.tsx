@@ -26,9 +26,10 @@ export function ChatHomeHero() {
             .filter(Boolean)
             .join(" ")}
         >
-          <span className={styles.heroTitleLine}>Career AI is a verified career identity platform</span>
-          <span className={styles.heroTitleLine}>for job seekers that helps them build trust,</span>
-          <span className={styles.heroTitleLine}>stand out to employers, and get hired faster.</span>
+          <span className={styles.heroTitleLine}>
+            Career AI is a trusted identity platform that helps job seekers stand out to employers
+            and get hired faster.
+          </span>
         </h1>
 
         <HeroComposer onConversationStateChange={setHasActiveConversation} />
