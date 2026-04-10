@@ -11,7 +11,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-const MINIMAL_SNIPPET_LENGTH = 116;
 
 function formatTimestamp(value: string | null) {
   if (!value) {
@@ -47,37 +46,6 @@ function formatStorageLabel(value: "database" | "ephemeral") {
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return count === 1 ? singular : plural;
-}
-
-function decodeHtmlEntities(value: string) {
-  return value
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&#39;|&#x27;/gi, "'")
-    .replace(/&quot;/gi, '"')
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
-}
-
-function formatMinimalSnippet(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const normalized = decodeHtmlEntities(value).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-
-  if (!normalized) {
-    return null;
-  }
-
-  const [firstSentence] = normalized.split(/(?<=[.!?])\s+/);
-  const preview = firstSentence && firstSentence.length >= 48 ? firstSentence : normalized;
-
-  if (preview.length <= MINIMAL_SNIPPET_LENGTH) {
-    return preview;
-  }
-
-  return `${preview.slice(0, MINIMAL_SNIPPET_LENGTH - 1).trimEnd()}…`;
 }
 
 export default async function JobsPage() {
@@ -131,43 +99,38 @@ export default async function JobsPage() {
         <section className={styles.jobsPanel}>
           {snapshot.jobs.length > 0 ? (
             <div className={styles.jobsGrid}>
-              {snapshot.jobs.map((job) => {
-                const preview = formatMinimalSnippet(job.descriptionSnippet);
-
-                return (
-                  <article className={styles.jobCard} key={job.id}>
-                    <div className={styles.badgeRow}>
-                      <span className={styles.laneBadge}>{formatLaneLabel(job.sourceLane)}</span>
-                      <span className={styles.qualityBadge}>
-                        {formatQualityLabel(job.sourceQuality)}
-                      </span>
+              {snapshot.jobs.map((job) => (
+                <article className={styles.jobCard} key={job.id}>
+                  <div className={styles.badgeRow}>
+                    <span className={styles.laneBadge}>{formatLaneLabel(job.sourceLane)}</span>
+                    <span className={styles.qualityBadge}>
+                      {formatQualityLabel(job.sourceQuality)}
+                    </span>
+                  </div>
+                  <div className={styles.jobCopy}>
+                    <div>
+                      <span className={styles.cardEyebrow}>{job.companyName}</span>
+                      <h3>{job.title}</h3>
                     </div>
-                    <div className={styles.jobCopy}>
-                      <div>
-                        <span className={styles.cardEyebrow}>{job.companyName}</span>
-                        <h3>{job.title}</h3>
-                      </div>
-                      <p className={styles.jobMeta}>
-                        {[job.location, job.department, job.commitment].filter(Boolean).join(" • ") ||
-                          "Details are still coming in from the source."}
-                      </p>
-                    </div>
-                    {preview ? <p className={styles.jobSnippet}>{preview}</p> : null}
-                    <div className={styles.jobFooter}>
-                      <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
-                    </div>
-                    <a
-                      className={styles.jobLink}
-                      href={job.applyUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      Open posting
-                      <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-                    </a>
-                  </article>
-                );
-              })}
+                    <p className={styles.jobMeta}>
+                      {[job.location, job.department, job.commitment].filter(Boolean).join(" • ") ||
+                        "Details are still coming in from the source."}
+                    </p>
+                  </div>
+                  <div className={styles.jobFooter}>
+                    <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
+                  </div>
+                  <a
+                    className={styles.jobLink}
+                    href={job.applyUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open posting
+                    <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
+                  </a>
+                </article>
+              ))}
             </div>
           ) : (
             <article className={styles.emptyState}>
