@@ -34,7 +34,7 @@ describe("JobsResults", () => {
     render(<JobsResults initialTotalAvailableCount={1045} jobs={jobs} />);
 
     expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
-    expect(screen.getByText("1,045 total available")).toBeInTheDocument();
+    expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
     expect(screen.getByText("Role 24")).toBeInTheDocument();
     expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
     expect(screen.getByText("Reveal 29 more roles.")).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe("JobsResults", () => {
     await waitFor(() => {
       expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     });
-    expect(screen.getByText("1,045 total available")).toBeInTheDocument();
+    expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
     expect(screen.getByText("Role 53")).toBeInTheDocument();
   });
 
