@@ -23,8 +23,12 @@ import {
 import { AttachmentButton } from "@/components/attachment-button";
 import { ChatMessageAttachments } from "@/components/chat-message-attachments";
 import { FileUploadDropzone } from "@/components/file-upload-dropzone";
+import { JobsSidePanel } from "@/components/jobs/jobs-side-panel";
 import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
 import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
+import { isJobIntent } from "@/lib/jobs/is-job-intent";
+import { loadJobListings } from "@/lib/jobs/load-job-listings";
+import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import {
   type ChatConversation,
   type ChatMessage,
@@ -374,6 +378,18 @@ function buildThreadPreview(thread: ChatThread) {
   return `${normalizedPreview.slice(0, 93)}...`;
 }
 
+function getLatestUserPrompt(entries: TranscriptEntry[]) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+
+    if (entry.role === "user" && entry.content.trim()) {
+      return entry.content.trim();
+    }
+  }
+
+  return null;
+}
+
 function formatThreadUpdatedAt(updatedAt: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
@@ -403,6 +419,10 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
+  const [jobsAssistListings, setJobsAssistListings] = useState<JobListing[]>([]);
+  const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
+  const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
+  const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
   const {
     addFiles,
     attachments: pendingAttachments,
@@ -452,6 +472,12 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
+  const latestUserPrompt = getLatestUserPrompt(transcript);
+  const jobsAssistPrompt =
+    !isProjectHomeVisible && latestUserPrompt && isJobIntent(latestUserPrompt)
+      ? latestUserPrompt
+      : null;
+  const isJobsAssistVisible = Boolean(jobsAssistPrompt);
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
   const [conversationComposerStyle, setConversationComposerStyle] =
@@ -464,6 +490,45 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   useEffect(() => {
     onConversationStateChange?.(hasActiveConversation);
   }, [hasActiveConversation, onConversationStateChange]);
+
+  useEffect(() => {
+    if (!jobsAssistPrompt) {
+      setIsJobsAssistLoading(false);
+      setJobsAssistError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    setIsJobsAssistLoading(true);
+    setJobsAssistError(null);
+
+    void loadJobListings({
+      limit: 6,
+      signal: abortController.signal,
+    })
+      .then((listings) => {
+        startTransition(() => {
+          setJobsAssistListings(listings);
+          setJobsAssistError(null);
+          setIsJobsAssistLoading(false);
+        });
+      })
+      .catch((error) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setJobsAssistError(
+          error instanceof Error ? error.message : "Jobs could not be loaded right now.",
+        );
+        setIsJobsAssistLoading(false);
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [jobsAssistPrompt, jobsAssistRefreshKey]);
 
   useLayoutEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -2204,6 +2269,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
         <div
           className={[
             styles.chatStageMain,
+            isJobsAssistVisible ? styles.chatStageMainWithJobs : "",
             workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
             workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
           ]
@@ -2212,158 +2278,180 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
           style={conversationComposerStyle ?? undefined}
         >
           <div
-            aria-live="polite"
             className={[
-              styles.chatTranscript,
-              hasActiveConversation ? styles.chatTranscriptConversation : "",
+              styles.chatStagePrimary,
+              isJobsAssistVisible ? styles.chatStagePrimaryWithJobs : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            ref={transcriptRef}
           >
-            {isProjectHomeVisible && activeProject ? (
-              <section className={styles.projectHome}>
-                <header className={styles.projectHomeHeader}>
-                  <div className={styles.projectHomeTitle}>
-                    <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
-                    <h2>{activeProject.label}</h2>
+            <div
+              aria-live="polite"
+              className={[
+                styles.chatTranscript,
+                hasActiveConversation ? styles.chatTranscriptConversation : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              ref={transcriptRef}
+            >
+              {isProjectHomeVisible && activeProject ? (
+                <section className={styles.projectHome}>
+                  <header className={styles.projectHomeHeader}>
+                    <div className={styles.projectHomeTitle}>
+                      <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
+                      <h2>{activeProject.label}</h2>
+                    </div>
+                  </header>
+
+                  {renderComposer(`New chat in ${activeProject.label}`, styles.projectHomeComposer)}
+
+                  <div className={styles.projectHomeTabs}>
+                    <button
+                      className={[styles.projectHomeTab, styles.projectHomeTabActive]
+                        .filter(Boolean)
+                        .join(" ")}
+                      type="button"
+                    >
+                      Chats
+                    </button>
+                    <button className={styles.projectHomeTab} type="button">
+                      Sources
+                    </button>
                   </div>
-                </header>
 
-                {renderComposer(`New chat in ${activeProject.label}`, styles.projectHomeComposer)}
-
-                <div className={styles.projectHomeTabs}>
-                  <button
-                    className={[styles.projectHomeTab, styles.projectHomeTabActive]
-                      .filter(Boolean)
-                      .join(" ")}
-                    type="button"
-                  >
-                    Chats
-                  </button>
-                  <button className={styles.projectHomeTab} type="button">
-                    Sources
-                  </button>
-                </div>
-
-                <div className={styles.projectHomeList}>
-                  {activeProjectThreads.length > 0 ? (
-                    activeProjectThreads.map((thread) => (
-                      <button
-                        className={styles.projectHomeThreadRow}
-                        key={thread.id}
-                        onClick={() => openThread(thread)}
-                        type="button"
-                      >
-                        <div className={styles.projectHomeThreadHeader}>
-                          <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
-                          <span className={styles.projectHomeThreadDate}>
-                            {formatThreadUpdatedAt(thread.updatedAt)}
-                          </span>
-                        </div>
-                        <p className={styles.projectHomeThreadPreview}>
-                          {buildThreadPreview(thread)}
-                        </p>
-                      </button>
-                    ))
-                  ) : (
-                    <p className={styles.projectHomeEmpty}>
-                      Start a new chat in this project and it will appear here.
-                    </p>
-                  )}
-                </div>
-              </section>
-            ) : transcript.length === 0 ? (
-              <div
-                className={[styles.chatEmptyState, styles.chatEmptyStateLanding]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                <div className={styles.chatStarterGroup}>
-                  <div className={styles.starterQuestionStack}>
-                    {starterActions.map((action) =>
-                      action.kind === "prompt" ? (
+                  <div className={styles.projectHomeList}>
+                    {activeProjectThreads.length > 0 ? (
+                      activeProjectThreads.map((thread) => (
                         <button
-                          className={styles.starterQuestionPill}
-                          key={action.label}
-                          onClick={() => handleStarterQuestion(action.label)}
+                          className={styles.projectHomeThreadRow}
+                          key={thread.id}
+                          onClick={() => openThread(thread)}
                           type="button"
                         >
-                          {action.label}
+                          <div className={styles.projectHomeThreadHeader}>
+                            <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
+                            <span className={styles.projectHomeThreadDate}>
+                              {formatThreadUpdatedAt(thread.updatedAt)}
+                            </span>
+                          </div>
+                          <p className={styles.projectHomeThreadPreview}>
+                            {buildThreadPreview(thread)}
+                          </p>
                         </button>
-                      ) : (
-                        <Link
-                          className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
-                            .filter(Boolean)
-                            .join(" ")}
-                          href={action.href}
-                          key={action.label}
-                        >
-                          {action.label}
-                        </Link>
-                      ),
+                      ))
+                    ) : (
+                      <p className={styles.projectHomeEmpty}>
+                        Start a new chat in this project and it will appear here.
+                      </p>
                     )}
                   </div>
-                </div>
-              </div>
-            ) : (
-              transcript.map((entry, index) => (
+                </section>
+              ) : transcript.length === 0 ? (
                 <div
-                  className={[
-                    styles.transcriptRow,
-                    hasActiveConversation && index === 0 ? styles.transcriptRowConversationStart : "",
-                    entry.role === "user"
-                      ? styles.transcriptRowUser
-                      : styles.transcriptRowAssistant,
-                  ].join(" ")}
-                  data-transcript-entry-id={entry.id}
-                  key={entry.id}
+                  className={[styles.chatEmptyState, styles.chatEmptyStateLanding]
+                    .filter(Boolean)
+                    .join(" ")}
                 >
-                  <article
+                  <div className={styles.chatStarterGroup}>
+                    <div className={styles.starterQuestionStack}>
+                      {starterActions.map((action) =>
+                        action.kind === "prompt" ? (
+                          <button
+                            className={styles.starterQuestionPill}
+                            key={action.label}
+                            onClick={() => handleStarterQuestion(action.label)}
+                            type="button"
+                          >
+                            {action.label}
+                          </button>
+                        ) : (
+                          <Link
+                            className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
+                              .filter(Boolean)
+                              .join(" ")}
+                            href={action.href}
+                            key={action.label}
+                          >
+                            {action.label}
+                          </Link>
+                        ),
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                transcript.map((entry, index) => (
+                  <div
                     className={[
-                      styles.transcriptBubble,
+                      styles.transcriptRow,
+                      hasActiveConversation && index === 0 ? styles.transcriptRowConversationStart : "",
                       entry.role === "user"
-                        ? styles.transcriptBubbleUser
-                        : styles.transcriptBubbleAssistant,
-                      entry.error ? styles.transcriptBubbleError : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
+                        ? styles.transcriptRowUser
+                        : styles.transcriptRowAssistant,
+                    ].join(" ")}
+                    data-transcript-entry-id={entry.id}
+                    key={entry.id}
                   >
-                    {entry.attachments?.length ? (
-                      <ChatMessageAttachments attachments={entry.attachments} />
-                    ) : null}
-                    {entry.content.trim() ? <p>{entry.content}</p> : null}
+                    <article
+                      className={[
+                        styles.transcriptBubble,
+                        entry.role === "user"
+                          ? styles.transcriptBubbleUser
+                          : styles.transcriptBubbleAssistant,
+                        entry.error ? styles.transcriptBubbleError : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      {entry.attachments?.length ? (
+                        <ChatMessageAttachments attachments={entry.attachments} />
+                      ) : null}
+                      {entry.content.trim() ? <p>{entry.content}</p> : null}
+                    </article>
+                  </div>
+                ))
+              )}
+
+              {isSubmitting ? (
+                <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
+                  <article
+                    className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
+                  >
+                    <div className={styles.transcriptTyping}>
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className={styles.spinner}
+                        size={18}
+                        strokeWidth={2}
+                      />
+                      <span>Thinking through your verification workflow...</span>
+                    </div>
                   </article>
                 </div>
-              ))
-            )}
+              ) : null}
+            </div>
 
-            {isSubmitting ? (
-              <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
-                <article
-                  className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
-                >
-                  <div className={styles.transcriptTyping}>
-                    <LoaderCircle
-                      aria-hidden="true"
-                      className={styles.spinner}
-                      size={18}
-                      strokeWidth={2}
-                    />
-                    <span>Thinking through your verification workflow...</span>
-                  </div>
-                </article>
-              </div>
-            ) : null}
+            {!isProjectHomeVisible
+              ? renderComposer(
+                  "Ask about verification workflows, recruiter trust views, or candidate proof.",
+                  styles.composerDockLanding,
+                )
+              : null}
           </div>
 
-          {!isProjectHomeVisible
-            ? renderComposer(
-                "Ask about verification workflows, recruiter trust views, or candidate proof.",
-                styles.composerDockLanding,
-              )
-            : null}
+          {isJobsAssistVisible ? (
+            <div className={styles.chatStageJobsRail}>
+              <JobsSidePanel
+                errorMessage={jobsAssistError}
+                isLoading={isJobsAssistLoading}
+                jobs={jobsAssistListings}
+                onRefresh={() => {
+                  setJobsAssistRefreshKey((currentKey) => currentKey + 1);
+                }}
+              />
+            </div>
+          ) : null}
         </div>
       </section>
 

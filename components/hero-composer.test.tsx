@@ -2,7 +2,13 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HeroComposer } from "@/components/hero-composer";
-import type { ChatConversation, ChatMessage, ChatProject, ChatWorkspaceSnapshot } from "@/packages/contracts/src";
+import type {
+  ChatConversation,
+  ChatMessage,
+  ChatProject,
+  ChatWorkspaceSnapshot,
+  JobPostingDto,
+} from "@/packages/contracts/src";
 
 const useChatAttachmentDraftsMock = vi.fn();
 
@@ -95,6 +101,61 @@ function createDeferredValue<T>() {
   });
 
   return { promise, resolve };
+}
+
+function createJobPosting(id: string, companyName: string, title: string): JobPostingDto {
+  return {
+    applyUrl: `https://jobs.example.com/${id}`,
+    commitment: "Full Time",
+    companyName,
+    department: "Engineering",
+    descriptionSnippet: `${title} at ${companyName}`,
+    externalId: id,
+    id,
+    location: "Remote",
+    postedAt: "2026-04-10T00:00:00.000Z",
+    sourceKey: "greenhouse:example",
+    sourceLabel: "Example jobs",
+    sourceLane: "ats_direct",
+    sourceQuality: "high_signal",
+    title,
+    updatedAt: "2026-04-10T00:00:00.000Z",
+  };
+}
+
+function createJobsFeedResponse(jobs: JobPostingDto[]) {
+  return {
+    generatedAt: "2026-04-10T00:00:00.000Z",
+    jobs,
+    sources: [],
+    storage: {
+      lastSyncAt: "2026-04-10T00:00:00.000Z",
+      mode: "ephemeral" as const,
+      persistedJobs: jobs.length,
+      persistedSources: 0,
+    },
+    summary: {
+      aggregatorJobs: 0,
+      connectedSourceCount: 1,
+      coverageSourceCount: 0,
+      directAtsJobs: jobs.length,
+      highSignalSourceCount: 1,
+      sourceCount: 1,
+      totalJobs: jobs.length,
+    },
+  };
+}
+
+function getRequestUrl(input: string | URL | Request) {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  if (input instanceof URL) {
+    return input.toString();
+  }
+
+  return input.url;
 }
 
 describe("HeroComposer", () => {
@@ -214,7 +275,7 @@ describe("HeroComposer", () => {
       .fn()
       .mockResolvedValueOnce(createJsonResponse(createWorkspaceSnapshot([project])))
       .mockImplementationOnce(() => pendingReply.promise);
-
+ 
     vi.stubGlobal("fetch", fetchMock);
 
     render(<HeroComposer />);
@@ -264,5 +325,102 @@ describe("HeroComposer", () => {
     ).toBeInTheDocument();
     expect(composer).toHaveValue("Can it help me prioritize what to verify next?");
     expect(await screen.findByRole("button", { name: "Send message" })).not.toBeDisabled();
+  });
+
+  it("shows the jobs side panel for job-related prompts and renders live listings", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
+    const conversation = createConversation("conversation_jobs", "project_jobs", [
+      createMessage("message_user_jobs", "user", "Find jobs for AI product designers"),
+      createMessage("message_assistant_jobs", "assistant", "Here are a few live roles worth reviewing."),
+    ]);
+    const jobs = [
+      createJobPosting("job_1", "Figma", "Business Recruiter"),
+      createJobPosting("job_2", "OpenAI", "Product Designer"),
+    ];
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          conversation,
+          userMessage: conversation.messages[0],
+        });
+      }
+
+      if (url.startsWith("/api/v1/jobs?")) {
+        return createJsonResponse(createJobsFeedResponse(jobs));
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    fireEvent.change(composer, {
+      target: {
+        value: "Find jobs for AI product designers",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByRole("button", { name: "Find NEW Jobs" })).toBeInTheDocument();
+    expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
+    expect(await screen.findByText("Figma")).toBeInTheDocument();
+    expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
+
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).startsWith("/api/v1/jobs?"))).toBe(true);
+  });
+
+  it("does not show the jobs side panel for non-job prompts", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_general", "Verified profile")]);
+    const conversation = createConversation("conversation_general", "project_general", [
+      createMessage("message_user_general", "user", "What does the agent actually do?"),
+      createMessage("message_assistant_general", "assistant", "It helps candidates build a verifiable Career ID."),
+    ]);
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          conversation,
+          userMessage: conversation.messages[0],
+        });
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    fireEvent.change(composer, {
+      target: {
+        value: "What does the agent actually do?",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText("It helps candidates build a verifiable Career ID.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Find NEW Jobs" })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).startsWith("/api/v1/jobs?"))).toBe(false);
   });
 });
