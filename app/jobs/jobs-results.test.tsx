@@ -31,9 +31,10 @@ describe("JobsResults", () => {
   it("shows 24 roles first and reveals 29 more when requested", () => {
     const jobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
 
-    render(<JobsResults jobs={jobs} />);
+    render(<JobsResults initialTotalAvailableCount={1045} jobs={jobs} />);
 
     expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("1,045 total available")).toBeInTheDocument();
     expect(screen.getByText("Role 24")).toBeInTheDocument();
     expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
     expect(screen.getByText("Reveal 29 more roles.")).toBeInTheDocument();
@@ -60,7 +61,19 @@ describe("JobsResults", () => {
           JSON.stringify({
             generatedAt: "2026-04-10T12:45:00.000Z",
             jobs: expandedJobs,
-            sources: [],
+            sources: [
+              {
+                key: "greenhouse:figma",
+                label: "Figma",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: 1045,
+                endpointLabel: "boards-api.greenhouse.io/figma",
+                lastSyncedAt: "2026-04-10T12:45:00.000Z",
+                message: "Greenhouse public jobs synced and ready to persist.",
+              },
+            ],
             summary: {
               totalJobs: expandedJobs.length,
               directAtsJobs: expandedJobs.length,
@@ -86,7 +99,7 @@ describe("JobsResults", () => {
     );
 
     render(
-      <JobsResults initialRequestLimit={24} jobs={initialJobs} />,
+      <JobsResults initialRequestLimit={24} initialTotalAvailableCount={1045} jobs={initialJobs} />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "More..." }));
@@ -94,6 +107,7 @@ describe("JobsResults", () => {
     await waitFor(() => {
       expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     });
+    expect(screen.getByText("1,045 total available")).toBeInTheDocument();
     expect(screen.getByText("Role 53")).toBeInTheDocument();
   });
 
