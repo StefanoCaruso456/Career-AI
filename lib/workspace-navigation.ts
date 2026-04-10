@@ -16,10 +16,11 @@ export const workspaceShellByPersona: Record<Persona, WorkspaceShellConfig> = {
   employer: {
     eyebrow: "Employer client",
     summary:
-      "Keep hiring review, role planning, and employer settings in a dedicated workspace under /employer/*.",
+      "Keep hiring review, agent orchestration, role planning, and employer settings in a dedicated workspace under /employer/*.",
     tabs: [
       { href: "/employer", label: "Overview" },
       { href: "/employer/candidates", label: "Candidates" },
+      { href: "/employer/agent-sorcerer", label: "Agent Sorcerer" },
       { href: "/employer/roles", label: "Roles" },
       { href: "/employer/settings", label: "Settings" },
     ],
