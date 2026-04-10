@@ -16,9 +16,11 @@ describe("jobs feed service", () => {
   const originalGreenhouseBoard = process.env.GREENHOUSE_BOARD;
   const originalGreenhouseBoards = process.env.GREENHOUSE_BOARD_TOKENS;
   const originalLeverSites = process.env.LEVER_SITE_NAMES;
+  const originalAshbyBoards = process.env.ASHBY_JOB_BOARDS;
   const originalAggregatorFeedUrl = process.env.JOBS_AGGREGATOR_FEED_URL;
   const originalAggregatorApiKey = process.env.JOBS_AGGREGATOR_API_KEY;
   const originalAggregatorLabel = process.env.JOBS_AGGREGATOR_LABEL;
+  const originalWorkableXmlFeedUrl = process.env.WORKABLE_XML_FEED_URL;
   const originalDatabaseUrl = process.env.DATABASE_URL;
 
   beforeEach(() => {
@@ -26,9 +28,11 @@ describe("jobs feed service", () => {
     delete process.env.GREENHOUSE_BOARD;
     delete process.env.GREENHOUSE_BOARD_TOKENS;
     delete process.env.LEVER_SITE_NAMES;
+    delete process.env.ASHBY_JOB_BOARDS;
     delete process.env.JOBS_AGGREGATOR_FEED_URL;
     delete process.env.JOBS_AGGREGATOR_API_KEY;
     delete process.env.JOBS_AGGREGATOR_LABEL;
+    delete process.env.WORKABLE_XML_FEED_URL;
     delete process.env.DATABASE_URL;
   });
 
@@ -55,6 +59,12 @@ describe("jobs feed service", () => {
       process.env.LEVER_SITE_NAMES = originalLeverSites;
     }
 
+    if (originalAshbyBoards === undefined) {
+      delete process.env.ASHBY_JOB_BOARDS;
+    } else {
+      process.env.ASHBY_JOB_BOARDS = originalAshbyBoards;
+    }
+
     if (originalAggregatorFeedUrl === undefined) {
       delete process.env.JOBS_AGGREGATOR_FEED_URL;
     } else {
@@ -73,6 +83,12 @@ describe("jobs feed service", () => {
       process.env.JOBS_AGGREGATOR_LABEL = originalAggregatorLabel;
     }
 
+    if (originalWorkableXmlFeedUrl === undefined) {
+      delete process.env.WORKABLE_XML_FEED_URL;
+    } else {
+      process.env.WORKABLE_XML_FEED_URL = originalWorkableXmlFeedUrl;
+    }
+
     if (originalDatabaseUrl === undefined) {
       delete process.env.DATABASE_URL;
     } else {
@@ -89,12 +105,16 @@ describe("jobs feed service", () => {
       "not_configured",
       "not_configured",
       "not_configured",
+      "not_configured",
+      "not_configured",
     ]);
     expect(getJobsEnvironmentGuide().map((item) => item.key)).toEqual([
       "GREENHOUSE_BOARD",
       "LEVER_SITE_NAMES",
+      "ASHBY_JOB_BOARDS",
       "JOBS_AGGREGATOR_FEED_URL",
       "JOBS_AGGREGATOR_API_KEY",
+      "WORKABLE_XML_FEED_URL",
     ]);
   });
 
@@ -167,6 +187,108 @@ describe("jobs feed service", () => {
     expect(snapshot.jobs[0]?.descriptionSnippet).toBe(
       "Stripe is a financial infrastructure platform for businesses.",
     );
+  });
+
+  it("ingests Ashby job boards as ATS-direct sources", async () => {
+    process.env.ASHBY_JOB_BOARDS = "Linear=linear";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://api.ashbyhq.com/posting-api/job-board/linear") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: "ashby-1",
+              title: "Machine Learning Engineer",
+              jobUrl: "https://jobs.ashbyhq.com/linear/job/ashby-1",
+              location: "Remote",
+              team: "Engineering",
+              employmentType: "FullTime",
+              descriptionHtml: "<p>Build trustworthy AI systems.</p>",
+              publishedAt: "2026-04-10T01:00:00.000Z",
+              updatedAt: "2026-04-10T02:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.summary.directAtsJobs).toBe(1);
+    expect(snapshot.sources[0]?.key).toBe("ashby:linear");
+    expect(snapshot.sources[0]?.status).toBe("connected");
+    expect(snapshot.jobs[0]?.title).toBe("Machine Learning Engineer");
+    expect(snapshot.jobs[0]?.commitment).toBe("Full Time");
+  });
+
+  it("ingests the Workable XML network feed as coverage", async () => {
+    process.env.WORKABLE_XML_FEED_URL = "https://www.workable.com/boards/workable.xml";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://www.workable.com/boards/workable.xml") {
+        return new Response(
+          `<?xml version="1.0" encoding="utf-8"?>
+          <source>
+            <job>
+              <title><![CDATA[AI Product Designer]]></title>
+              <date><![CDATA[Thu, 10 Apr 2026 04:02:25 UTC]]></date>
+              <referencenumber><![CDATA[WB-1]]></referencenumber>
+              <url><![CDATA[https://apply.workable.com/j/WB-1]]></url>
+              <company><![CDATA[ProgressSoft]]></company>
+              <city><![CDATA[Amman]]></city>
+              <state><![CDATA[]]></state>
+              <country><![CDATA[JO]]></country>
+              <remote><![CDATA[false]]></remote>
+              <description><![CDATA[<p>Create AI-native product experiences.</p>]]></description>
+              <jobtype><![CDATA[Full-time]]></jobtype>
+              <category><![CDATA[Product]]></category>
+            </job>
+            <job>
+              <title><![CDATA[Remote LLM Engineer]]></title>
+              <date><![CDATA[Thu, 10 Apr 2026 05:02:25 UTC]]></date>
+              <referencenumber><![CDATA[WB-2]]></referencenumber>
+              <url><![CDATA[https://apply.workable.com/j/WB-2]]></url>
+              <company><![CDATA[Northstar]]></company>
+              <city><![CDATA[]]></city>
+              <state><![CDATA[]]></state>
+              <country><![CDATA[US]]></country>
+              <remote><![CDATA[true]]></remote>
+              <description><![CDATA[<p>Ship applied LLM infrastructure.</p>]]></description>
+              <jobtype><![CDATA[Contract]]></jobtype>
+              <category><![CDATA[Engineering]]></category>
+            </job>
+          </source>`,
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/xml",
+            },
+          },
+        );
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.summary.aggregatorJobs).toBe(2);
+    expect(snapshot.sources[0]?.key).toBe("workable:network");
+    expect(snapshot.sources[0]?.status).toBe("connected");
+    expect(snapshot.jobs.map((job) => job.companyName)).toEqual(["Northstar", "ProgressSoft"]);
+    expect(snapshot.jobs[0]?.location).toBe("Remote");
   });
 
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {
@@ -259,6 +381,8 @@ describe("jobs feed service", () => {
       "connected",
       "connected",
       "connected",
+      "not_configured",
+      "not_configured",
     ]);
     expect(snapshot.storage.mode).toBe("ephemeral");
   });

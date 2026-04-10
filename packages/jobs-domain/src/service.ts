@@ -40,6 +40,15 @@ type AggregatorSourceSpec = {
   apiKey?: string;
 };
 
+type WorkableXmlSourceSpec = {
+  key: string;
+  label: string;
+  lane: "aggregator";
+  quality: "coverage";
+  endpointLabel: string;
+  feedUrl: string;
+};
+
 type SourceCollection = {
   jobs: JobPostingDto[];
   source: JobSourceSnapshotDto;
@@ -84,6 +93,27 @@ type LeverJob = {
   updatedAt?: number;
 };
 
+type AshbyJobBoardResponse = {
+  jobs?: AshbyJob[];
+};
+
+type AshbyJob = {
+  applyUrl?: string;
+  descriptionHtml?: string;
+  descriptionPlain?: string;
+  department?: string;
+  employmentType?: string;
+  id?: string;
+  isRemote?: boolean;
+  jobUrl?: string;
+  location?: string;
+  publishedAt?: string;
+  team?: string;
+  title?: string;
+  updatedAt?: string;
+  workplaceType?: string;
+};
+
 const JOBS_ENVIRONMENT_GUIDE = [
   {
     key: "GREENHOUSE_BOARD",
@@ -94,12 +124,20 @@ const JOBS_ENVIRONMENT_GUIDE = [
     example: "Acme=acme,Globex=globex",
   },
   {
+    key: "ASHBY_JOB_BOARDS",
+    example: "Linear=linear,Notion=notion",
+  },
+  {
     key: "JOBS_AGGREGATOR_FEED_URL",
     example: "https://jobs.example.com/api/v1/open-roles",
   },
   {
     key: "JOBS_AGGREGATOR_API_KEY",
     example: "Optional bearer token for the aggregator feed",
+  },
+  {
+    key: "WORKABLE_XML_FEED_URL",
+    example: "https://www.workable.com/boards/workable.xml",
   },
 ] as const;
 
@@ -151,6 +189,10 @@ function parseNamedSpecs(raw: string | undefined): NamedSpec[] {
 
 function getGreenhouseBoardsRaw() {
   return process.env.GREENHOUSE_BOARD?.trim() || process.env.GREENHOUSE_BOARD_TOKENS?.trim();
+}
+
+function getAshbyBoardsRaw() {
+  return process.env.ASHBY_JOB_BOARDS?.trim();
 }
 
 function toIsoDate(value: unknown) {
@@ -272,9 +314,22 @@ function getDirectSourceSpecs() {
       }) as DirectSourceSpec & { site: string },
   );
 
+  const ashbyBoards = parseNamedSpecs(getAshbyBoardsRaw()).map(
+    ({ label, value }) =>
+      ({
+        key: `ashby:${slugify(value)}`,
+        label,
+        lane: "ats_direct",
+        quality: "high_signal",
+        endpointLabel: `api.ashbyhq.com/posting-api/job-board/${value}`,
+        boardName: value,
+      }) as DirectSourceSpec & { boardName: string },
+  );
+
   return {
     greenhouseBoards,
     leverSites,
+    ashbyBoards,
   };
 }
 
@@ -296,10 +351,28 @@ function getAggregatorSpec() {
   } satisfies AggregatorSourceSpec & { feedUrl: string };
 }
 
+function getWorkableXmlFeedSpec() {
+  const feedUrl = process.env.WORKABLE_XML_FEED_URL?.trim();
+
+  if (!feedUrl) {
+    return null;
+  }
+
+  return {
+    key: "workable:network",
+    label: "Workable Network",
+    lane: "aggregator",
+    quality: "coverage",
+    endpointLabel: feedUrl,
+    feedUrl,
+  } satisfies WorkableXmlSourceSpec;
+}
+
 function createNotConfiguredSources() {
   const fallbackSources: JobSourceSnapshotDto[] = [];
-  const { greenhouseBoards, leverSites } = getDirectSourceSpecs();
+  const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
   const aggregatorSpec = getAggregatorSpec();
+  const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
   if (greenhouseBoards.length === 0) {
     fallbackSources.push(
@@ -334,6 +407,22 @@ function createNotConfiguredSources() {
     );
   }
 
+  if (ashbyBoards.length === 0) {
+    fallbackSources.push(
+      createSourceSnapshot({
+        key: "ashby:unconfigured",
+        label: "Ashby job boards",
+        lane: "ats_direct",
+        quality: "high_signal",
+        status: "not_configured",
+        jobCount: 0,
+        endpointLabel: null,
+        lastSyncedAt: null,
+        message: "Add ASHBY_JOB_BOARDS to pull direct ATS jobs from Ashby.",
+      }),
+    );
+  }
+
   if (!aggregatorSpec) {
     fallbackSources.push(
       createSourceSnapshot({
@@ -346,6 +435,23 @@ function createNotConfiguredSources() {
         endpointLabel: null,
         lastSyncedAt: null,
         message: "Add JOBS_AGGREGATOR_FEED_URL to layer in immediate job-volume coverage.",
+      }),
+    );
+  }
+
+  if (!workableXmlFeedSpec) {
+    fallbackSources.push(
+      createSourceSnapshot({
+        key: "workable:unconfigured",
+        label: "Workable Network",
+        lane: "aggregator",
+        quality: "coverage",
+        status: "not_configured",
+        jobCount: 0,
+        endpointLabel: null,
+        lastSyncedAt: null,
+        message:
+          "Add WORKABLE_XML_FEED_URL to ingest public Jobs by Workable postings across many employers.",
       }),
     );
   }
@@ -436,6 +542,23 @@ async function fetchJson(url: string, apiKey?: string) {
   return response.json();
 }
 
+async function fetchText(url: string, apiKey?: string) {
+  const response = await fetch(url, {
+    headers: {
+      Accept: "application/xml,text/xml,text/plain,*/*",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    },
+    cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Feed returned ${response.status}`);
+  }
+
+  return response.text();
+}
+
 function mapGreenhouseJobs(source: DirectSourceSpec, payload: unknown): JobPostingDto[] {
   const jobs = isRecord(payload) && Array.isArray(payload.jobs) ? payload.jobs : null;
 
@@ -524,6 +647,76 @@ function mapLeverJobs(source: DirectSourceSpec, payload: unknown): JobPostingDto
         postedAt: toIsoDate(job.createdAt),
         updatedAt: toIsoDate(job.updatedAt),
         descriptionSnippet: trimSnippet(extractTextSnippet(job.descriptionPlain?.trim() || null)),
+      } satisfies JobPostingDto;
+    })
+    .filter(isPresent) as JobPostingDto[];
+
+  return mappedJobs.slice(0, JOBS_PER_SOURCE);
+}
+
+function formatAshbyEmploymentType(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mapAshbyJobs(
+  source: DirectSourceSpec & { boardName: string },
+  payload: unknown,
+): JobPostingDto[] {
+  const jobs = isRecord(payload) && Array.isArray(payload.jobs) ? payload.jobs : null;
+
+  if (!jobs) {
+    throw new Error("Ashby payload did not include a jobs array.");
+  }
+
+  const mappedJobs = jobs
+    .map((item) => {
+      const job = item as AshbyJob;
+      const applyUrl =
+        (typeof job.applyUrl === "string" && job.applyUrl.trim()) ||
+        (typeof job.jobUrl === "string" && job.jobUrl.trim()) ||
+        null;
+      const title = typeof job.title === "string" ? job.title.trim() : "";
+
+      if (!applyUrl || !title) {
+        return null;
+      }
+
+      const location =
+        typeof job.location === "string" && job.location.trim().length > 0
+          ? job.location.trim()
+          : job.isRemote || job.workplaceType === "Remote"
+            ? "Remote"
+            : null;
+      const externalId = job.id || applyUrl;
+
+      return {
+        id: createJobId(source.key, externalId),
+        externalId,
+        title,
+        companyName: source.label,
+        location,
+        department:
+          (typeof job.team === "string" && job.team.trim()) ||
+          (typeof job.department === "string" && job.department.trim()) ||
+          null,
+        commitment: formatAshbyEmploymentType(job.employmentType),
+        sourceKey: source.key,
+        sourceLabel: source.label,
+        sourceLane: source.lane,
+        sourceQuality: source.quality,
+        applyUrl,
+        postedAt: toIsoDate(job.publishedAt),
+        updatedAt: toIsoDate(job.updatedAt),
+        descriptionSnippet: trimSnippet(
+          extractTextSnippet(job.descriptionPlain?.trim() || job.descriptionHtml),
+        ),
       } satisfies JobPostingDto;
     })
     .filter(isPresent) as JobPostingDto[];
@@ -641,6 +834,84 @@ function mapAggregatorJobs(source: AggregatorSourceSpec, payload: unknown): JobP
   return mappedJobs.slice(0, JOBS_PER_SOURCE);
 }
 
+function extractXmlTagValue(fragment: string, tag: string) {
+  const match = fragment.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i"));
+
+  if (!match) {
+    return null;
+  }
+
+  const rawValue = match[1]
+    .replace(/^<!\[CDATA\[/i, "")
+    .replace(/\]\]>$/i, "")
+    .trim();
+
+  return rawValue.length > 0 ? rawValue : null;
+}
+
+function formatWorkableLocation(args: {
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  remote: string | null;
+}) {
+  if (args.remote?.toLowerCase() === "true") {
+    return "Remote";
+  }
+
+  const parts = [args.city, args.state, args.country].filter(
+    (value): value is string => Boolean(value && value.trim().length > 0),
+  );
+
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+function mapWorkableXmlJobs(source: WorkableXmlSourceSpec, xml: string): JobPostingDto[] {
+  const sections = xml.match(/<job>([\s\S]*?)<\/job>/gi) ?? [];
+  const mappedJobs: JobPostingDto[] = [];
+
+  for (const section of sections) {
+    const applyUrl = extractXmlTagValue(section, "url");
+    const title = extractXmlTagValue(section, "title");
+
+    if (!applyUrl || !title) {
+      continue;
+    }
+
+    const externalId = extractXmlTagValue(section, "referencenumber") || applyUrl;
+    const companyName = extractXmlTagValue(section, "company") || source.label;
+
+    mappedJobs.push({
+      id: createJobId(source.key, externalId),
+      externalId,
+      title,
+      companyName,
+      location: formatWorkableLocation({
+        city: extractXmlTagValue(section, "city"),
+        state: extractXmlTagValue(section, "state"),
+        country: extractXmlTagValue(section, "country"),
+        remote: extractXmlTagValue(section, "remote"),
+      }),
+      department: extractXmlTagValue(section, "category"),
+      commitment: extractXmlTagValue(section, "jobtype"),
+      sourceKey: source.key,
+      sourceLabel: source.label,
+      sourceLane: source.lane,
+      sourceQuality: source.quality,
+      applyUrl,
+      postedAt: toIsoDate(extractXmlTagValue(section, "date")),
+      updatedAt: null,
+      descriptionSnippet: trimSnippet(extractTextSnippet(extractXmlTagValue(section, "description"))),
+    });
+
+    if (mappedJobs.length >= JOBS_PER_SOURCE) {
+      break;
+    }
+  }
+
+  return mappedJobs;
+}
+
 async function collectGreenhouseJobs(
   source: DirectSourceSpec & { token: string },
 ): Promise<SourceCollection> {
@@ -739,6 +1010,55 @@ async function collectLeverJobs(
   }
 }
 
+async function collectAshbyJobs(
+  source: DirectSourceSpec & { boardName: string },
+): Promise<SourceCollection> {
+  const syncedAt = new Date().toISOString();
+
+  try {
+    const payload = (await fetchJson(
+      `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(source.boardName)}`,
+    )) as AshbyJobBoardResponse;
+    const jobs = mapAshbyJobs(source, payload);
+
+    return {
+      jobs,
+      source: createSourceSnapshot({
+        key: source.key,
+        label: source.label,
+        lane: source.lane,
+        quality: source.quality,
+        status: "connected",
+        jobCount: jobs.length,
+        endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
+        message:
+          jobs.length > 0
+            ? "Direct ATS jobs are flowing from Ashby."
+            : "Ashby is connected but did not return any published jobs.",
+      }),
+    };
+  } catch (error) {
+    return {
+      jobs: [],
+      source: createSourceSnapshot({
+        key: source.key,
+        label: source.label,
+        lane: source.lane,
+        quality: source.quality,
+        status: "degraded",
+        jobCount: 0,
+        endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
+        message:
+          error instanceof Error
+            ? `Ashby feed could not be loaded: ${error.message}`
+            : "Ashby feed could not be loaded.",
+      }),
+    };
+  }
+}
+
 async function collectAggregatorJobs(
   source: AggregatorSourceSpec & { feedUrl: string },
 ): Promise<SourceCollection> {
@@ -786,6 +1106,51 @@ async function collectAggregatorJobs(
   }
 }
 
+async function collectWorkableXmlJobs(source: WorkableXmlSourceSpec): Promise<SourceCollection> {
+  const syncedAt = new Date().toISOString();
+
+  try {
+    const xml = await fetchText(source.feedUrl);
+    const jobs = mapWorkableXmlJobs(source, xml);
+
+    return {
+      jobs,
+      source: createSourceSnapshot({
+        key: source.key,
+        label: source.label,
+        lane: source.lane,
+        quality: source.quality,
+        status: "connected",
+        jobCount: jobs.length,
+        endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
+        message:
+          jobs.length > 0
+            ? "Workable network feed is connected and broadening employer coverage."
+            : "Workable network feed is connected but did not return any published jobs.",
+      }),
+    };
+  } catch (error) {
+    return {
+      jobs: [],
+      source: createSourceSnapshot({
+        key: source.key,
+        label: source.label,
+        lane: source.lane,
+        quality: source.quality,
+        status: "degraded",
+        jobCount: 0,
+        endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
+        message:
+          error instanceof Error
+            ? `Workable XML feed could not be loaded: ${error.message}`
+            : "Workable XML feed could not be loaded.",
+      }),
+    };
+  }
+}
+
 function buildSummary(args: {
   jobs: JobPostingDto[];
   sources: JobSourceSnapshotDto[];
@@ -820,13 +1185,16 @@ function buildJobsFeedResponse(args: {
 }
 
 async function collectLiveSourceCollections() {
-  const { greenhouseBoards, leverSites } = getDirectSourceSpecs();
+  const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
   const aggregatorSpec = getAggregatorSpec();
+  const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
   return Promise.all([
     ...greenhouseBoards.map((source) => collectGreenhouseJobs(source)),
     ...leverSites.map((source) => collectLeverJobs(source)),
+    ...ashbyBoards.map((source) => collectAshbyJobs(source)),
     ...(aggregatorSpec ? [collectAggregatorJobs(aggregatorSpec)] : []),
+    ...(workableXmlFeedSpec ? [collectWorkableXmlJobs(workableXmlFeedSpec)] : []),
   ]);
 }
 

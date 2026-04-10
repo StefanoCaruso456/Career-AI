@@ -51,6 +51,9 @@ Required server-side environment variables:
 - `GOOGLE_CLIENT_SECRET` or `GOOGLE_SECRET`
 - `DATABASE_URL`
 - `GREENHOUSE_BOARD` for public Greenhouse job boards you want to ingest
+- `LEVER_SITE_NAMES` for public Lever job sites you want to ingest
+- `ASHBY_JOB_BOARDS` for public Ashby job boards you want to ingest
+- `WORKABLE_XML_FEED_URL` if you want to ingest the official Workable network XML feed for broader coverage
 
 The auth flow also accepts legacy aliases if you already created them that way:
 
@@ -96,7 +99,9 @@ Jobs feed examples:
 
 - `GREENHOUSE_BOARD=Acme=acme,Globex=globex`
 - `LEVER_SITE_NAMES=Orbit=orbit`
+- `ASHBY_JOB_BOARDS=Linear=linear,Notion=notion`
 - `JOBS_AGGREGATOR_FEED_URL=https://jobs.example.com/api/v1/open-roles`
+- `WORKABLE_XML_FEED_URL=https://www.workable.com/boards/workable.xml`
 
 ## Deployment
 
