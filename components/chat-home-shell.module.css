@@ -1020,10 +1020,10 @@
 }
 
 .chatStageLanding .chatEmptyStateLanding {
-  align-content: end;
-  min-height: 100%;
-  padding-top: 0;
-  padding-bottom: var(--chat-landing-composer-clearance);
+  align-content: start;
+  min-height: auto;
+  padding-top: clamp(0.95rem, 2.8vh, 1.45rem);
+  padding-bottom: 0;
 }
 
 .chatTranscript {

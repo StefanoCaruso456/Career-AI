@@ -238,6 +238,10 @@ function getSpeechRecognitionErrorMessage(errorCode?: string) {
   }
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 function getMicrophoneErrorMessage(error: unknown) {
   if (error instanceof DOMException) {
     switch (error.name) {
@@ -320,6 +324,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
+  const [composerNotice, setComposerNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
@@ -362,6 +367,8 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     !isRecording &&
     !isTranscribing &&
     !hasBlockedAttachments;
+  const activeComposerNotice =
+    voiceNotice?.tone === "active" ? voiceNotice : composerNotice ?? voiceNotice;
   const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
@@ -573,6 +580,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setProjects(nextProjects);
     setThreads(nextThreads);
     setActiveProjectId(nextProjectId);
+    setComposerNotice(null);
 
     if (nextConversation) {
       setCurrentThreadId(nextConversation.id);
@@ -634,6 +642,84 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     return payload;
   }
 
+  function showComposerError(message: string) {
+    setComposerNotice({ message, tone: "error" });
+    setSidebarNotice({ message, tone: "error" });
+  }
+
+  async function ensureActiveProjectIdForSubmit() {
+    if (activeProjectId) {
+      return activeProjectId;
+    }
+
+    let latestErrorMessage: string | null = null;
+
+    try {
+      const snapshot = await requestWorkspaceSnapshot("/api/chat/state", {
+        method: "GET",
+      });
+      const recoveredConversation = currentThreadId
+        ? snapshot.conversations.find((thread) => thread.id === currentThreadId) ?? null
+        : null;
+      const recoveredProjectId =
+        recoveredConversation?.projectId ??
+        (projectHomeProjectId &&
+        snapshot.projects.some((project) => project.id === projectHomeProjectId)
+          ? projectHomeProjectId
+          : snapshot.projects[0]?.id ?? null);
+
+      applyWorkspaceSnapshot(snapshot, {
+        idleView: projectHomeProjectId ? "project-home" : "neutral",
+        preferredConversationId: currentThreadId,
+        preferredProjectId: recoveredProjectId,
+      });
+
+      if (recoveredProjectId) {
+        return recoveredProjectId;
+      }
+
+      latestErrorMessage = "Your chat workspace is still starting up. Try again.";
+    } catch (error) {
+      latestErrorMessage = getErrorMessage(
+        error,
+        "Chat history could not be loaded right now.",
+      );
+    }
+
+    try {
+      const snapshot = await requestWorkspaceSnapshot("/api/chat/projects", {
+        body: JSON.stringify({}),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const recoveredProjectId =
+        snapshot.projects[snapshot.projects.length - 1]?.id ?? snapshot.projects[0]?.id ?? null;
+
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: null,
+        preferredProjectId: recoveredProjectId,
+      });
+
+      if (recoveredProjectId) {
+        return recoveredProjectId;
+      }
+
+      latestErrorMessage = "Project could not be created right now.";
+    } catch (error) {
+      latestErrorMessage = getErrorMessage(
+        error,
+        "Project could not be created right now.",
+      );
+    }
+
+    showComposerError(
+      latestErrorMessage ?? "Your chat workspace is still starting up. Try again.",
+    );
+    return null;
+  }
+
   useEffect(() => {
     let isCancelled = false;
 
@@ -642,13 +728,9 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
         await loadWorkspaceSnapshot({ idleView: "neutral" });
       } catch (error) {
         if (!isCancelled) {
-          setSidebarNotice({
-            message:
-              error instanceof Error
-                ? error.message
-                : "Chat history could not be loaded right now.",
-            tone: "error",
-          });
+          showComposerError(
+            getErrorMessage(error, "Chat history could not be loaded right now."),
+          );
         }
       } finally {
         if (!isCancelled) {
@@ -1043,10 +1125,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       });
       focusComposer();
     } catch (error) {
-      setSidebarNotice({
-        message: error instanceof Error ? error.message : "Project could not be created right now.",
-        tone: "error",
-      });
+      showComposerError(getErrorMessage(error, "Project could not be created right now."));
     }
   }
 
@@ -1056,7 +1135,21 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       (attachment) => attachment.uploadStatus === "uploaded" && attachment.attachmentId,
     );
 
-    if ((!prompt && readyAttachments.length === 0) || isSubmitting || !activeProjectId || hasBlockedAttachments) {
+    if ((!prompt && readyAttachments.length === 0) || isSubmitting || hasBlockedAttachments) {
+      return;
+    }
+
+    setComposerNotice(null);
+    setIsSubmitting(true);
+
+    const resolvedProjectId = await ensureActiveProjectIdForSubmit();
+
+    if (!resolvedProjectId) {
+      if (nextMessage) {
+        setMessage(prompt);
+      }
+      focusComposer();
+      setIsSubmitting(false);
       return;
     }
 
@@ -1086,7 +1179,6 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       role: "user",
     };
 
-    setIsSubmitting(true);
     setProjectHomeProjectId(null);
     transcriptScrollIntentRef.current = { mode: "bottom" };
     setTranscript([...transcript, optimisticUserMessage]);
@@ -1105,7 +1197,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
             .filter((attachmentId): attachmentId is string => Boolean(attachmentId)),
           conversationId: currentThreadId,
           message: prompt,
-          projectId: activeProjectId,
+          projectId: resolvedProjectId,
         }),
       });
 
@@ -1137,13 +1229,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       setCurrentThreadId(previousCurrentThreadId);
       restoreAttachments(detachedAttachments);
       setMessage(prompt);
-      setSidebarNotice({
-        message:
-          requestError instanceof Error
-            ? requestError.message
-            : "The assistant could not respond.",
-        tone: "error",
-      });
+      showComposerError(getErrorMessage(requestError, "The assistant could not respond."));
 
       if (nextMessage) {
         setMessage(prompt);
@@ -1167,6 +1253,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
   function handleMessageChange(nextMessage: string) {
     setMessage(nextMessage);
+    setComposerNotice(null);
 
     if (voiceNotice?.tone === "error") {
       setVoiceNotice(null);
@@ -1477,7 +1564,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
           <div className={styles.composerTop}>
             <textarea
               aria-label="Message composer"
-              aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
+              aria-describedby={activeComposerNotice ? "hero-composer-status" : undefined}
               className={styles.composerInput}
               disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
               onChange={(event) => handleMessageChange(event.target.value)}
@@ -1499,21 +1586,21 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
             />
           </div>
 
-          {voiceNotice ? (
-            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
+          {activeComposerNotice ? (
+            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-status">
               <p
                 className={[
                   styles.composerStatus,
-                  voiceNotice.tone === "active"
+                  activeComposerNotice.tone === "active"
                     ? styles.composerStatusActive
-                    : voiceNotice.tone === "error"
+                    : activeComposerNotice.tone === "error"
                       ? styles.composerStatusError
                       : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
-                {voiceNotice.message}
+                {activeComposerNotice.message}
               </p>
             </div>
           ) : null}
