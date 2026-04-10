@@ -416,7 +416,7 @@ export function JobsResults({
           {pluralize(filteredJobs.length, "role")} from {loadedJobs.length} loaded.
         </p>
         <p className={styles.resultsTotal}>
-          {formatCount(totalAvailableCount)} total available
+          {formatCount(totalAvailableCount)} jobs available
         </p>
       </div>
 

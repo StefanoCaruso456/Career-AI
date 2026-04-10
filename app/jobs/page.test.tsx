@@ -92,7 +92,7 @@ describe("JobsPage", () => {
     expect(screen.getByText("Feed details")).toBeInTheDocument();
     expect(screen.getByText("1 active source")).toBeInTheDocument();
     expect(screen.getByText("Connected Feed")).toBeInTheDocument();
-    expect(screen.getByText("1,045 total available")).toBeInTheDocument();
+    expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Broken Feed")).not.toBeInTheDocument();
   });
 });
