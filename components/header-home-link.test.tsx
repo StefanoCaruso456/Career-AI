@@ -40,9 +40,13 @@ describe("HeaderHomeLink", () => {
     render(<HeaderHomeLink />);
 
     const link = screen.getByRole("link", { name: "Career AI home" });
+    const logo = link.querySelector("img");
+
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.homeAction);
     expect(link).toHaveClass(styles.homeActionCurrent);
+    expect(logo).not.toBeNull();
+    expect(logo).toHaveAttribute("src", "/career-ai-header-logo.png");
   });
 
   it("does not mark the home link as current away from home", () => {
@@ -54,5 +58,18 @@ describe("HeaderHomeLink", () => {
     expect(link).not.toHaveAttribute("aria-current");
     expect(link).toHaveClass(styles.homeAction);
     expect(link).not.toHaveClass(styles.homeActionCurrent);
+  });
+
+  it("uses the replacement header logo asset", () => {
+    mockUsePathname.mockReturnValue("/");
+
+    render(<HeaderHomeLink />);
+
+    const link = screen.getByRole("link", { name: "Career AI home" });
+    const logo = link.querySelector("img");
+
+    expect(logo).not.toBeNull();
+    expect(logo).toHaveAttribute("src", "/career-ai-header-logo.png");
+    expect(logo).not.toHaveAttribute("src", "/career-ai-home-mark.png");
   });
 });
