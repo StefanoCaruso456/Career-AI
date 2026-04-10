@@ -235,10 +235,20 @@ function SolutionCard({
   );
 }
 
-export function ChatHomeShell({ content }: { content: LandingContent }) {
+export function ChatHomeShell({
+  content,
+  embeddedInWorkspaceShell = false,
+}: {
+  content: LandingContent;
+  embeddedInWorkspaceShell?: boolean;
+}) {
   return (
     <div className={styles.page}>
-      <ChatHomeHero heroComposer={content.heroComposer} heroTitle={content.heroTitle} />
+      <ChatHomeHero
+        embeddedInWorkspaceShell={embeddedInWorkspaceShell}
+        heroComposer={content.heroComposer}
+        heroTitle={content.heroTitle}
+      />
 
       <section className={styles.introSection} id="platform">
         <div className={[styles.sectionShell, styles.introShell].join(" ")}>
