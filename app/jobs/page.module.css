@@ -157,19 +157,6 @@
   letter-spacing: -0.03em;
 }
 
-.filterBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid rgba(141, 127, 255, 0.22);
-  background: rgba(141, 127, 255, 0.1);
-  color: #eef4ff;
-  font-size: 0.84rem;
-  font-weight: 700;
-}
-
 .searchField {
   display: flex;
   align-items: center;
