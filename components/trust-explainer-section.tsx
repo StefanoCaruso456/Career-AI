@@ -17,6 +17,12 @@ export function TrustExplainerSection({ content }: { content: TrustExplainerCont
             </div>
 
             <div className={styles.visualColumn}>
+              <div className={styles.visualContextRow} aria-label="Agent 2 Agent">
+                <span className={styles.visualContextWord}>Agent</span>
+                <span className={styles.visualContextConnector}>2</span>
+                <span className={styles.visualContextWord}>Agent</span>
+              </div>
+
               <div className={styles.visualFrame}>
                 <Image
                   alt="Illustration of secure agent-to-agent communication around verified Career ID trust."
