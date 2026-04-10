@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 const INITIAL_ROLE_COUNT = 24;
 const LOAD_MORE_INCREMENT = 29;
-const PREFETCH_ROLE_COUNT = INITIAL_ROLE_COUNT + LOAD_MORE_INCREMENT;
+const PREFETCH_ROLE_COUNT = 120;
 
 function formatTimestamp(value: string | null) {
   if (!value) {

@@ -29,15 +29,67 @@ describe("JobsResults", () => {
 
     render(<JobsResults jobs={jobs} />);
 
-    expect(screen.getByText("Showing 24 of 53 roles currently loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     expect(screen.getByText("Role 24")).toBeInTheDocument();
     expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
     expect(screen.getByText("Reveal 29 more roles.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "More..." }));
 
-    expect(screen.getByText("Showing 53 of 53 roles currently loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     expect(screen.getByText("Role 53")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More..." })).not.toBeInTheDocument();
+  });
+
+  it("filters roles by keyword and manual facets, then clears back to the loaded window", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        title: "Software Engineer, AI Systems",
+        companyName: "Figma",
+        location: "Remote",
+        commitment: "Full-time",
+        sourceLane: "ats_direct",
+      },
+      {
+        ...createJob(2),
+        title: "Computer Vision Engineer",
+        companyName: "Stripe",
+        location: "New York, NY",
+        commitment: "Contract",
+        sourceLane: "aggregator",
+      },
+      {
+        ...createJob(3),
+        title: "Gen AI Product Manager",
+        companyName: "Anthropic",
+        location: "Hybrid - Chicago, IL",
+        commitment: "Full-time",
+        sourceLane: "ats_direct",
+      },
+    ];
+
+    render(<JobsResults jobs={jobs} />);
+
+    fireEvent.change(screen.getByLabelText("Keyword"), {
+      target: { value: "vision" },
+    });
+
+    expect(screen.getByText("Showing 1 of 1 matching role from 3 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Computer Vision Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Software Engineer, AI Systems")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Workplace"), {
+      target: { value: "remote" },
+    });
+
+    expect(screen.getByText("No roles match the current filters.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
+
+    expect(screen.getByText("Showing 3 of 3 matching roles from 3 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Software Engineer, AI Systems")).toBeInTheDocument();
+    expect(screen.getByText("Computer Vision Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Gen AI Product Manager")).toBeInTheDocument();
   });
 });

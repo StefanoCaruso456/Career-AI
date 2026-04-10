@@ -116,6 +116,156 @@
   gap: 1rem;
 }
 
+.filterPanel,
+.noResultsState {
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-radius: 1.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    rgba(14, 18, 29, 0.94);
+  box-shadow:
+    0 24px 52px rgba(0, 0, 0, 0.24),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.filterPanelHeader,
+.filterActions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filterEyebrow {
+  margin: 0 0 0.35rem;
+  color: rgba(160, 186, 255, 0.88);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.filterTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  letter-spacing: -0.03em;
+}
+
+.filterBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(141, 127, 255, 0.22);
+  background: rgba(141, 127, 255, 0.1);
+  color: #eef4ff;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.92rem 1rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #dfe8f7;
+}
+
+.searchInput,
+.filterSelect {
+  font: inherit;
+}
+
+.searchInput {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.searchInput::placeholder {
+  color: rgba(191, 205, 227, 0.7);
+}
+
+.searchInput:focus {
+  outline: none;
+}
+
+.filterRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.filterControl {
+  display: grid;
+  gap: 0.42rem;
+  padding: 0.8rem 0.88rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
+}
+
+.filterLabel {
+  color: rgba(208, 219, 235, 0.88);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.filterSelect {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 0;
+}
+
+.filterSelect:focus {
+  outline: none;
+}
+
+.clearFiltersButton {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.clearFiltersButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.clearFiltersButton:focus-visible,
+.filterSelect:focus-visible,
+.searchField:focus-within {
+  outline: 2px solid rgba(242, 246, 252, 0.95);
+  outline-offset: 3px;
+}
+
+.filterHint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
 .resultsHeader {
   display: flex;
   align-items: center;
@@ -300,6 +450,16 @@
   border-radius: 1.75rem;
 }
 
+.noResultsState h3,
+.noResultsState p {
+  margin: 0;
+}
+
+.noResultsState p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
 .envList {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
@@ -411,8 +571,14 @@
     grid-template-columns: 1fr;
   }
 
+  .filterRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .resultsHeader,
-  .loadMoreRow {
+  .loadMoreRow,
+  .filterPanelHeader,
+  .filterActions {
     align-items: flex-start;
   }
 }
@@ -428,7 +594,10 @@
   .jobCard,
   .emptyState,
   .envCard,
-  .feedItem {
+  .feedItem,
+  .filterPanel,
+  .noResultsState,
+  .filterControl {
     border-radius: 1.25rem;
   }
 
@@ -443,7 +612,12 @@
   .feedSummary,
   .feedItemTop,
   .feedItemMeta,
-  .jobFooter {
+  .jobFooter,
+  .filterRow {
     align-items: flex-start;
+  }
+
+  .filterRow {
+    grid-template-columns: 1fr;
   }
 }
