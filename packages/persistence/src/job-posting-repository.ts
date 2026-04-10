@@ -10,6 +10,8 @@ import {
   withDatabaseTransaction,
 } from "./client";
 
+const MAX_PERSISTED_RESPONSE_LIMIT = 5_000;
+
 type JobSourceRow = {
   source_key: string;
   source_label: string;
@@ -320,8 +322,15 @@ export async function persistSourcedJobs(args: {
 
 export async function getPersistedJobsFeedSnapshot(args?: {
   limit?: number;
+  windowDays?: number;
 }): Promise<PersistedJobsFeedSnapshot> {
-  const limit = Math.max(1, Math.min(args?.limit ?? 18, 120));
+  const limit = Math.max(1, Math.min(args?.limit ?? 18, MAX_PERSISTED_RESPONSE_LIMIT));
+  const windowDays = Number.isFinite(args?.windowDays)
+    ? Math.max(1, Math.min(Math.floor(args?.windowDays ?? 1), 30))
+    : null;
+  const cutoffIso = windowDays
+    ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
+    : null;
   const pool = getDatabasePool();
   const [sourcesResult, jobsResult, lastSyncRow] = await Promise.all([
     pool.query<JobSourceRow>(
@@ -363,13 +372,14 @@ export async function getPersistedJobsFeedSnapshot(args?: {
           description_snippet
         FROM job_postings
         WHERE is_active = true
+          AND ($2::timestamptz IS NULL OR COALESCE(updated_at, posted_at, persisted_at) >= $2)
         ORDER BY
           CASE source_quality WHEN 'high_signal' THEN 0 ELSE 1 END,
           COALESCE(updated_at, posted_at, persisted_at) DESC,
           title ASC
         LIMIT $1
       `,
-      [Math.max(limit * 6, limit)],
+      [Math.min(Math.max(limit * 6, limit), 30_000), cutoffIso],
     ),
     queryOptional<{ last_synced_at: Date | string }>(
       pool,

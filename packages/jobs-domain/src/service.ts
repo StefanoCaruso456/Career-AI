@@ -13,10 +13,12 @@ import {
   persistSourcedJobs,
 } from "@/packages/persistence/src";
 
-const JOBS_PER_SOURCE = 60;
 const DEFAULT_RESPONSE_LIMIT = 18;
-const MAX_RESPONSE_LIMIT = 180;
+const MAX_RESPONSE_LIMIT = 5_000;
 const FETCH_TIMEOUT_MS = 4_500;
+const DEFAULT_WINDOW_DAYS = 7;
+const LEVER_PAGE_SIZE = 100;
+const MAX_LEVER_PAGE_COUNT = 100;
 const RESERVED_PLACEHOLDER_HOST_SUFFIXES = [
   "example.com",
   "example.org",
@@ -59,6 +61,7 @@ type WorkableXmlSourceSpec = {
 
 type SourceCollection = {
   jobs: JobPostingDto[];
+  persistedJobs: JobPostingDto[];
   source: JobSourceSnapshotDto;
 };
 
@@ -251,6 +254,53 @@ function toIsoDate(value: unknown) {
   }
 
   return candidate.toISOString();
+}
+
+function normalizeWindowDays(value: number | undefined) {
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.max(1, Math.min(Math.floor(value as number), 30));
+}
+
+function formatWindowLabel(windowDays: number | null) {
+  if (!windowDays) {
+    return "recent jobs";
+  }
+
+  return windowDays === 1 ? "the last 24 hours" : `the last ${windowDays} days`;
+}
+
+function getJobTimestamp(job: Pick<JobPostingDto, "postedAt" | "updatedAt">) {
+  const value = job.updatedAt || job.postedAt;
+
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function filterJobsWithinWindow(jobs: JobPostingDto[], windowDays: number | null) {
+  if (!windowDays) {
+    return jobs;
+  }
+
+  const thresholdMs = windowDays * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  return jobs.filter((job) => {
+    const timestamp = getJobTimestamp(job);
+
+    if (timestamp === null) {
+      return false;
+    }
+
+    return now - timestamp <= thresholdMs;
+  });
 }
 
 function decodeHtmlEntities(value: string) {
@@ -680,7 +730,7 @@ function mapGreenhouseJobs(source: DirectSourceSpec, payload: unknown): JobPosti
     })
     .filter(isPresent) as JobPostingDto[];
 
-  return mappedJobs.slice(0, JOBS_PER_SOURCE);
+  return mappedJobs;
 }
 
 function mapLeverJobs(source: DirectSourceSpec, payload: unknown): JobPostingDto[] {
@@ -723,7 +773,7 @@ function mapLeverJobs(source: DirectSourceSpec, payload: unknown): JobPostingDto
     })
     .filter(isPresent) as JobPostingDto[];
 
-  return mappedJobs.slice(0, JOBS_PER_SOURCE);
+  return mappedJobs;
 }
 
 function formatAshbyEmploymentType(value: string | null | undefined) {
@@ -793,7 +843,7 @@ function mapAshbyJobs(
     })
     .filter(isPresent) as JobPostingDto[];
 
-  return mappedJobs.slice(0, JOBS_PER_SOURCE);
+  return mappedJobs;
 }
 
 function extractAggregatorJobs(payload: unknown) {
@@ -903,7 +953,7 @@ function mapAggregatorJobs(source: AggregatorSourceSpec, payload: unknown): JobP
     })
     .filter(isPresent) as JobPostingDto[];
 
-  return mappedJobs.slice(0, JOBS_PER_SOURCE);
+  return mappedJobs;
 }
 
 function extractXmlTagValue(fragment: string, tag: string) {
@@ -976,9 +1026,6 @@ function mapWorkableXmlJobs(source: WorkableXmlSourceSpec, xml: string): JobPost
       descriptionSnippet: trimSnippet(extractTextSnippet(extractXmlTagValue(section, "description"))),
     });
 
-    if (mappedJobs.length >= JOBS_PER_SOURCE) {
-      break;
-    }
   }
 
   return mappedJobs;
@@ -986,17 +1033,21 @@ function mapWorkableXmlJobs(source: WorkableXmlSourceSpec, xml: string): JobPost
 
 async function collectGreenhouseJobs(
   source: DirectSourceSpec & { token: string },
+  windowDays: number | null,
 ): Promise<SourceCollection> {
   const syncedAt = new Date().toISOString();
+  const windowLabel = formatWindowLabel(windowDays);
 
   try {
     const payload = await fetchJson(
       `https://boards-api.greenhouse.io/v1/boards/${source.token}/jobs?content=true`,
     );
-    const jobs = mapGreenhouseJobs(source, payload);
+    const persistedJobs = mapGreenhouseJobs(source, payload);
+    const jobs = filterJobsWithinWindow(persistedJobs, windowDays);
 
     return {
       jobs,
+      persistedJobs,
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1008,13 +1059,14 @@ async function collectGreenhouseJobs(
         lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
-            ? "Greenhouse public jobs synced and ready to persist."
-            : "Greenhouse is connected but did not return any published jobs.",
+            ? `Greenhouse public jobs from ${windowLabel} synced and ready to persist.`
+            : `Greenhouse is connected but did not return any published jobs from ${windowLabel}.`,
       }),
     };
   } catch (error) {
     return {
       jobs: [],
+      persistedJobs: [],
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1033,19 +1085,44 @@ async function collectGreenhouseJobs(
   }
 }
 
+async function fetchLeverPostings(site: string) {
+  const jobs: LeverJob[] = [];
+
+  for (let pageIndex = 0; pageIndex < MAX_LEVER_PAGE_COUNT; pageIndex += 1) {
+    const skip = pageIndex * LEVER_PAGE_SIZE;
+    const payload = await fetchJson(
+      `https://api.lever.co/v0/postings/${encodeURIComponent(site)}?mode=json&limit=${LEVER_PAGE_SIZE}&skip=${skip}`,
+    );
+
+    if (!Array.isArray(payload)) {
+      throw new Error("Lever payload was not an array.");
+    }
+
+    jobs.push(...(payload as LeverJob[]));
+
+    if (payload.length < LEVER_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return jobs;
+}
+
 async function collectLeverJobs(
   source: DirectSourceSpec & { site: string },
+  windowDays: number | null,
 ): Promise<SourceCollection> {
   const syncedAt = new Date().toISOString();
+  const windowLabel = formatWindowLabel(windowDays);
 
   try {
-    const payload = await fetchJson(
-      `https://api.lever.co/v0/postings/${source.site}?mode=json&limit=${JOBS_PER_SOURCE}`,
-    );
-    const jobs = mapLeverJobs(source, payload);
+    const payload = await fetchLeverPostings(source.site);
+    const persistedJobs = mapLeverJobs(source, payload);
+    const jobs = filterJobsWithinWindow(persistedJobs, windowDays);
 
     return {
       jobs,
+      persistedJobs,
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1057,13 +1134,14 @@ async function collectLeverJobs(
         lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
-            ? "Direct ATS jobs are flowing from Lever."
-            : "Lever is connected but did not return any published jobs.",
+            ? `Direct ATS jobs from ${windowLabel} are flowing from Lever.`
+            : `Lever is connected but did not return any published jobs from ${windowLabel}.`,
       }),
     };
   } catch (error) {
     return {
       jobs: [],
+      persistedJobs: [],
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1084,17 +1162,21 @@ async function collectLeverJobs(
 
 async function collectAshbyJobs(
   source: DirectSourceSpec & { boardName: string },
+  windowDays: number | null,
 ): Promise<SourceCollection> {
   const syncedAt = new Date().toISOString();
+  const windowLabel = formatWindowLabel(windowDays);
 
   try {
     const payload = (await fetchJson(
       `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(source.boardName)}`,
     )) as AshbyJobBoardResponse;
-    const jobs = mapAshbyJobs(source, payload);
+    const persistedJobs = mapAshbyJobs(source, payload);
+    const jobs = filterJobsWithinWindow(persistedJobs, windowDays);
 
     return {
       jobs,
+      persistedJobs,
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1106,13 +1188,14 @@ async function collectAshbyJobs(
         lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
-            ? "Direct ATS jobs are flowing from Ashby."
-            : "Ashby is connected but did not return any published jobs.",
+            ? `Direct ATS jobs from ${windowLabel} are flowing from Ashby.`
+            : `Ashby is connected but did not return any published jobs from ${windowLabel}.`,
       }),
     };
   } catch (error) {
     return {
       jobs: [],
+      persistedJobs: [],
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1133,15 +1216,19 @@ async function collectAshbyJobs(
 
 async function collectAggregatorJobs(
   source: AggregatorSourceSpec & { feedUrl: string },
+  windowDays: number | null,
 ): Promise<SourceCollection> {
   const syncedAt = new Date().toISOString();
+  const windowLabel = formatWindowLabel(windowDays);
 
   try {
     const payload = await fetchJson(source.feedUrl, source.apiKey);
-    const jobs = mapAggregatorJobs(source, payload);
+    const persistedJobs = mapAggregatorJobs(source, payload);
+    const jobs = filterJobsWithinWindow(persistedJobs, windowDays);
 
     return {
       jobs,
+      persistedJobs,
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1153,13 +1240,14 @@ async function collectAggregatorJobs(
         lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
-            ? "Aggregator coverage feed is connected and adding volume."
-            : "Aggregator feed is connected but did not return any jobs.",
+            ? `Aggregator coverage feed is connected and adding jobs from ${windowLabel}.`
+            : `Aggregator feed is connected but did not return any jobs from ${windowLabel}.`,
       }),
     };
   } catch (error) {
     return {
       jobs: [],
+      persistedJobs: [],
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1178,15 +1266,21 @@ async function collectAggregatorJobs(
   }
 }
 
-async function collectWorkableXmlJobs(source: WorkableXmlSourceSpec): Promise<SourceCollection> {
+async function collectWorkableXmlJobs(
+  source: WorkableXmlSourceSpec,
+  windowDays: number | null,
+): Promise<SourceCollection> {
   const syncedAt = new Date().toISOString();
+  const windowLabel = formatWindowLabel(windowDays);
 
   try {
     const xml = await fetchText(source.feedUrl);
-    const jobs = mapWorkableXmlJobs(source, xml);
+    const persistedJobs = mapWorkableXmlJobs(source, xml);
+    const jobs = filterJobsWithinWindow(persistedJobs, windowDays);
 
     return {
       jobs,
+      persistedJobs,
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1198,13 +1292,14 @@ async function collectWorkableXmlJobs(source: WorkableXmlSourceSpec): Promise<So
         lastSyncedAt: syncedAt,
         message:
           jobs.length > 0
-            ? "Workable network feed is connected and broadening employer coverage."
-            : "Workable network feed is connected but did not return any published jobs.",
+            ? `Workable network feed is connected and broadening employer coverage for ${windowLabel}.`
+            : `Workable network feed is connected but did not return any published jobs from ${windowLabel}.`,
       }),
     };
   } catch (error) {
     return {
       jobs: [],
+      persistedJobs: [],
       source: createSourceSnapshot({
         key: source.key,
         label: source.label,
@@ -1256,17 +1351,17 @@ function buildJobsFeedResponse(args: {
   });
 }
 
-async function collectLiveSourceCollections() {
+async function collectLiveSourceCollections(windowDays: number | null) {
   const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
   const aggregatorSpecs = getAggregatorSpecs();
   const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
   return Promise.all([
-    ...greenhouseBoards.map((source) => collectGreenhouseJobs(source)),
-    ...leverSites.map((source) => collectLeverJobs(source)),
-    ...ashbyBoards.map((source) => collectAshbyJobs(source)),
-    ...aggregatorSpecs.map((source) => collectAggregatorJobs(source)),
-    ...(workableXmlFeedSpec ? [collectWorkableXmlJobs(workableXmlFeedSpec)] : []),
+    ...greenhouseBoards.map((source) => collectGreenhouseJobs(source, windowDays)),
+    ...leverSites.map((source) => collectLeverJobs(source, windowDays)),
+    ...ashbyBoards.map((source) => collectAshbyJobs(source, windowDays)),
+    ...aggregatorSpecs.map((source) => collectAggregatorJobs(source, windowDays)),
+    ...(workableXmlFeedSpec ? [collectWorkableXmlJobs(workableXmlFeedSpec, windowDays)] : []),
   ]);
 }
 
@@ -1276,10 +1371,12 @@ export function getJobsEnvironmentGuide() {
 
 export async function getJobsFeedSnapshot(args?: {
   limit?: number;
+  windowDays?: number;
 }): Promise<JobsFeedResponseDto> {
   const limit = Math.max(1, Math.min(args?.limit ?? DEFAULT_RESPONSE_LIMIT, MAX_RESPONSE_LIMIT));
+  const windowDays = normalizeWindowDays(args?.windowDays);
   const generatedAt = new Date().toISOString();
-  const liveCollections = await collectLiveSourceCollections();
+  const liveCollections = await collectLiveSourceCollections(windowDays);
   const liveJobs = dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, limit);
   const liveSources = liveCollections.map((collection) => collection.source);
   const staticSources = createNotConfiguredSources();
@@ -1301,11 +1398,14 @@ export async function getJobsFeedSnapshot(args?: {
   try {
     await persistSourcedJobs({
       sources: liveSources,
-      jobs: liveCollections.flatMap((collection) => collection.jobs),
+      jobs: liveCollections.flatMap((collection) => collection.persistedJobs),
       syncedAt: generatedAt,
     });
 
-    const persisted = await getPersistedJobsFeedSnapshot({ limit });
+    const persisted = await getPersistedJobsFeedSnapshot({
+      limit,
+      windowDays: windowDays ?? undefined,
+    });
 
     return buildJobsFeedResponse({
       generatedAt,
