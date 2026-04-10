@@ -334,11 +334,7 @@ export function JobsResults({
               Manual filters only affect the currently loaded jobs window.
             </p>
           </div>
-        ) : (
-          <p className={styles.filterHint}>
-            Keyword search checks title, company, location, team, type, and description.
-          </p>
-        )}
+        ) : null}
       </section>
 
       <div className={styles.resultsHeader}>
