@@ -267,7 +267,8 @@
 }
 
 .chatStage.chatStageLanding {
-  padding-bottom: 1.1rem;
+  --chat-landing-composer-clearance: 12rem;
+  padding-bottom: 0.45rem;
 }
 
 .chatStage.chatStageLanding::before {
@@ -1022,7 +1023,7 @@
   align-content: end;
   min-height: 100%;
   padding-top: 0;
-  padding-bottom: 7.35rem;
+  padding-bottom: var(--chat-landing-composer-clearance);
 }
 
 .chatTranscript {
@@ -1407,7 +1408,7 @@
 }
 
 .chatStageLanding .composerDockLanding {
-  bottom: calc(0.08rem + env(safe-area-inset-bottom, 0px));
+  bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .composerTop {
@@ -3098,7 +3099,8 @@
   }
 
   .chatStage.chatStageLanding {
-    padding-bottom: 0.95rem;
+    --chat-landing-composer-clearance: 11rem;
+    padding-bottom: 0.4rem;
   }
 
   .chatStageConversation {
@@ -3151,10 +3153,6 @@
 
   .chatEmptyState {
     min-height: 12rem;
-  }
-
-  .chatStageLanding .chatEmptyStateLanding {
-    padding-bottom: 7rem;
   }
 
   .chatEmptyStateLanding {
@@ -3302,7 +3300,8 @@
   }
 
   .chatStage.chatStageLanding {
-    padding-bottom: 0.7rem;
+    --chat-landing-composer-clearance: 14rem;
+    padding-bottom: 0.35rem;
   }
 
   .chatStageConversation {
@@ -3313,10 +3312,6 @@
 
   .chatTranscriptConversation {
     max-height: calc(var(--chat-stage-shell-height) - 7.2rem);
-  }
-
-  .chatStageLanding .chatEmptyStateLanding {
-    padding-bottom: 6.6rem;
   }
 
   .projectHomeTitle h2 {
