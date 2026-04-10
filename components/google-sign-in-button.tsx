@@ -3,6 +3,8 @@
 import { LoaderCircle } from "lucide-react";
 import { getProviders, signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { persistPreferredPersona } from "@/lib/persona-preference";
+import type { Persona } from "@/lib/personas";
 import styles from "./google-sign-in-button.module.css";
 
 type GoogleProviderStatus = "checking" | "ready" | "unavailable";
@@ -36,12 +38,14 @@ export function GoogleSignInButton({
   disabledLabel = "Google sign-in unavailable",
   disabledTitle,
   label = "Continue with Google",
+  persona,
 }: {
   callbackUrl: string;
   disabled?: boolean;
   disabledLabel?: string;
   disabledTitle?: string;
   label?: string;
+  persona?: Persona;
 }) {
   const [isPending, setIsPending] = useState(false);
   const [providerStatus, setProviderStatus] = useState<GoogleProviderStatus>("checking");
@@ -101,6 +105,9 @@ export function GoogleSignInButton({
         }
 
         setIsPending(true);
+        if (persona) {
+          persistPreferredPersona(persona);
+        }
         void signIn("google", { callbackUrl }).catch(() => {
           setIsPending(false);
         });

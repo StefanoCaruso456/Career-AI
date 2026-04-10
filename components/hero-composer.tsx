@@ -26,6 +26,7 @@ import { FileUploadDropzone } from "@/components/file-upload-dropzone";
 import { JobsSidePanel } from "@/components/jobs/jobs-side-panel";
 import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
 import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
+import { landingContentByPersona, type HeroComposerContent } from "@/components/chat-home-shell-content";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import { loadJobListings } from "@/lib/jobs/load-job-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
@@ -144,6 +145,7 @@ type BrowserSpeechRecognition = {
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 type HeroComposerProps = {
+  content?: HeroComposerContent;
   onConversationStateChange?: (active: boolean) => void;
 };
 
@@ -162,33 +164,6 @@ type ConversationComposerStyle = CSSProperties & {
   "--chat-composer-clearance": string;
   "--chat-conversation-composer-offset": string;
 };
-
-type StarterAction =
-  | {
-      accent?: "jobs";
-      kind: "prompt";
-      label: string;
-      value?: string;
-    }
-  | {
-      accent?: "primary";
-      href: string;
-      kind: "link";
-      label: string;
-    };
-
-const starterActions: StarterAction[] = [
-  {
-    accent: "jobs",
-    kind: "prompt",
-    label: "Find NEW Jobs",
-    value: "Find new jobs for me.",
-  },
-  { kind: "prompt", label: "What does the agent actually do?" },
-  { kind: "prompt", label: "How is this different from a resume builder?" },
-  { kind: "prompt", label: "How does the agent help me get hired faster?" },
-  { accent: "primary", kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
-] as const;
 
 const preferredRecorderMimeTypes = [
   "audio/webm;codecs=opus",
@@ -417,7 +392,9 @@ function formatThreadUpdatedAt(updatedAt: string) {
   }).format(new Date(updatedAt));
 }
 
-export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
+export function HeroComposer({ content, onConversationStateChange }: HeroComposerProps) {
+  const composerContent = content ?? landingContentByPersona.job_seeker.heroComposer;
+  const starterActions = composerContent.starterActions;
   const sidebarId = useId();
   const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
   const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
@@ -2453,7 +2430,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
                         size={18}
                         strokeWidth={2}
                       />
-                      <span>Thinking through your verification workflow...</span>
+                      <span>{composerContent.typingLabel}</span>
                     </div>
                   </article>
                 </div>
@@ -2462,7 +2439,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
             {!isProjectHomeVisible
               ? renderComposer(
-                  "Ask about CareerID and how to find new jobs faster.",
+                  composerContent.composerPlaceholder,
                   styles.composerDockLanding,
                 )
               : null}

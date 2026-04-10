@@ -6,6 +6,14 @@ import { ChevronDown, LayoutDashboard, LoaderCircle, LogOut, Settings2 } from "l
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { AuthModalTrigger } from "./auth-modal";
+import { readPreferredPersona } from "@/lib/persona-preference";
+import {
+  defaultPersona,
+  getPersonaFromRoute,
+  getPostAuthRoute,
+  personaConfigs,
+  type Persona,
+} from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
 
 function getDisplayName(name: string | null | undefined, email: string | null | undefined) {
@@ -35,19 +43,24 @@ export function HeaderAuthControls() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [preferredPersona, setPreferredPersona] = useState<Persona>(defaultPersona);
   const menuRef = useRef<HTMLDivElement>(null);
   const shouldResumeOnboarding =
     session?.user?.onboardingStatus !== null &&
     session?.user?.onboardingStatus !== undefined &&
     session.user.onboardingStatus !== "completed";
-  const accountHref = shouldResumeOnboarding ? "/onboarding" : "/account";
+  const accountHref = shouldResumeOnboarding ? "/onboarding" : getPostAuthRoute(preferredPersona);
   const isAccountPage =
-    accountHref === "/account"
-      ? pathname === "/account" || pathname.startsWith("/account/")
-      : pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+    accountHref === "/onboarding"
+      ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
+      : pathname === accountHref || pathname.startsWith(`${accountHref}/`);
 
   useEffect(() => {
     setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    setPreferredPersona(getPersonaFromRoute(pathname) ?? readPreferredPersona());
   }, [pathname]);
 
   useEffect(() => {
@@ -108,8 +121,14 @@ export function HeaderAuthControls() {
     ? session.user.currentStep
       ? `Step ${session.user.currentStep} of 4`
       : "Resume setup"
-    : session.user.talentAgentId ?? "Google connected";
-  const accountMenuLabel = shouldResumeOnboarding ? "Finish onboarding" : "Profile";
+    : preferredPersona === "employer"
+      ? personaConfigs.employer.workspaceLabel
+      : session.user.talentAgentId ?? "Google connected";
+  const accountMenuLabel = shouldResumeOnboarding
+    ? "Finish onboarding"
+    : preferredPersona === "employer"
+      ? personaConfigs.employer.workspaceLabel
+      : "Profile";
 
   return (
     <div className={styles.actions}>

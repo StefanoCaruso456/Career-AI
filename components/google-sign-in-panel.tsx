@@ -3,8 +3,17 @@
 import styles from "@/app/sign-in/page.module.css";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { useGoogleAuthStatus } from "./use-google-auth-status";
+import type { Persona } from "@/lib/personas";
 
-export function GoogleSignInPanel() {
+export function GoogleSignInPanel({
+  callbackUrl,
+  note,
+  persona,
+}: {
+  callbackUrl: string;
+  note: string;
+  persona: Persona;
+}) {
   const { isLoading, status } = useGoogleAuthStatus();
   const isGoogleSignInUnavailable = isLoading || !status.enabled;
   const disabledLabel = isLoading ? "Checking Google sign-in..." : "Google sign-in unavailable";
@@ -15,11 +24,12 @@ export function GoogleSignInPanel() {
   return (
     <>
       <GoogleSignInButton
-        callbackUrl="/account"
+        callbackUrl={callbackUrl}
         disabled={isGoogleSignInUnavailable}
         disabledLabel={disabledLabel}
         disabledTitle={isGoogleSignInUnavailable ? disabledMessage : undefined}
         label="Sign in with Google"
+        persona={persona}
       />
 
       <div className={styles.noteCard}>
@@ -34,7 +44,7 @@ export function GoogleSignInPanel() {
           {isLoading
             ? "The button will enable automatically as soon as the server reports a ready OAuth configuration."
             : status.enabled
-              ? "After authentication, the app provisions your persistent user and identity records, then routes you into onboarding or your account based on saved progress."
+              ? note
               : `${disabledMessage} The Google client secret stays on the server.`}
         </p>
       </div>
