@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { ArrowUpRight } from "lucide-react";
-import Link from "next/link";
 import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
 import { JobsResults } from "./jobs-results";
 import styles from "./page.module.css";
@@ -37,10 +35,6 @@ function formatStatusLabel(value: "connected" | "degraded" | "not_configured") {
       : "Not configured";
 }
 
-function formatStorageLabel(value: "database" | "ephemeral") {
-  return value === "database" ? "Saved in Postgres" : "Preview only";
-}
-
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return count === 1 ? singular : plural;
 }
@@ -49,8 +43,6 @@ export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: PREFETCH_ROLE_COUNT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status !== "not_configured");
-  const degradedSources = visibleSources.filter((source) => source.status === "degraded");
-  const summaryTimestamp = snapshot.storage.lastSyncAt || snapshot.generatedAt;
 
   return (
     <main className={styles.page}>
@@ -58,39 +50,12 @@ export default async function JobsPage() {
         <section className={styles.intro}>
           <div className={styles.introCopy}>
             <h1 className={styles.title}>Search results</h1>
-            <p className={styles.metaLine}>
-              <span>
-                {snapshot.jobs.length} {pluralize(snapshot.jobs.length, "role")} loaded for this
-                window
-              </span>
-              <span>
-                {snapshot.summary.connectedSourceCount} live{" "}
-                {pluralize(snapshot.summary.connectedSourceCount, "source")}
-              </span>
-              <span>{formatStorageLabel(snapshot.storage.mode)}</span>
-              <span>Updated {formatTimestamp(summaryTimestamp)}</span>
-            </p>
             {snapshot.summary.totalJobs === 0 ? (
               <p className={styles.subtitle}>
                 Connect at least one live source and Career AI will sync the feed here
                 automatically.
               </p>
             ) : null}
-          </div>
-
-          <div className={styles.metaBlock}>
-            {degradedSources.length > 0 ? (
-              <p className={styles.metaNote}>
-                {degradedSources.length} {pluralize(degradedSources.length, "source")} need
-                attention.
-              </p>
-            ) : visibleSources.length > 0 ? (
-              <p className={styles.metaNote}>Feed details are available below when you need them.</p>
-            ) : null}
-            <Link className={styles.inlineLink} href="/agent-build">
-              Open Agent Builder
-              <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-            </Link>
           </div>
         </section>
 

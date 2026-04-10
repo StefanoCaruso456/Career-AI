@@ -14,16 +14,11 @@
 }
 
 .intro {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1.5rem;
   padding: 0.35rem 0 0.15rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .introCopy,
-.metaBlock,
 .jobsPanel,
 .jobsGrid,
 .jobCopy,
@@ -48,8 +43,6 @@
   color: var(--text-primary);
 }
 
-.metaLine,
-.metaNote,
 .subtitle,
 .emptyState p,
 .envCard span,
@@ -58,47 +51,11 @@
   color: var(--text-secondary);
 }
 
-.metaLine {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.85rem;
-  font-size: 0.94rem;
-  line-height: 1.6;
-}
-
-.metaLine span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.85rem;
-}
-
-.metaLine span + span::before {
-  content: "";
-  width: 0.24rem;
-  height: 0.24rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-}
-
 .subtitle {
   max-width: 42rem;
   line-height: 1.7;
 }
 
-.metaBlock {
-  gap: 0.55rem;
-  justify-items: end;
-  align-content: end;
-  padding-bottom: 0.1rem;
-}
-
-.metaNote {
-  font-size: 0.9rem;
-  line-height: 1.55;
-  text-align: right;
-}
-
-.inlineLink,
 .jobLink {
   display: inline-flex;
   align-items: center;
@@ -539,20 +496,6 @@
 }
 
 @media (max-width: 920px) {
-  .intro {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .metaBlock {
-    justify-items: start;
-    padding-bottom: 0;
-  }
-
-  .metaNote {
-    text-align: left;
-  }
-
   .jobsGrid,
   .envList {
     grid-template-columns: 1fr;
@@ -586,14 +529,6 @@
   .noResultsState,
   .filterControl {
     border-radius: 1.25rem;
-  }
-
-  .metaLine {
-    gap: 0.55rem;
-  }
-
-  .metaLine span {
-    gap: 0.55rem;
   }
 
   .feedSummary,
