@@ -53,6 +53,7 @@ Required server-side environment variables:
 - `GREENHOUSE_BOARD` for public Greenhouse job boards you want to ingest
 - `LEVER_SITE_NAMES` for public Lever job sites you want to ingest
 - `ASHBY_JOB_BOARDS` for public Ashby job boards you want to ingest
+- `WORKDAY_JOB_SOURCES` for public Workday JSON feeds you want to ingest directly
 - `JOBS_AGGREGATOR_FEEDS` for multiple named JSON coverage feeds when you want to layer in several employer-specific or partner feeds at once
 - `WORKABLE_XML_FEED_URL` if you want to ingest the official Workable network XML feed for broader coverage
 
@@ -101,11 +102,14 @@ Jobs feed examples:
 - `GREENHOUSE_BOARD=Company Name=greenhouse-board-token`
 - `LEVER_SITE_NAMES=Company Name=lever-site-name`
 - `ASHBY_JOB_BOARDS=Company Name=ashby-job-board`
+- `WORKDAY_JOB_SOURCES=Adobe=https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs`
 - `JOBS_AGGREGATOR_FEEDS=Partner Feed=https://<your-feed-host>/jobs`
 - `JOBS_AGGREGATOR_FEED_URL=https://<your-feed-host>/api/v1/open-roles`
 - `WORKABLE_XML_FEED_URL=https://<your-workable-feed>/workable.xml`
 
 Reserved placeholder domains such as `example.com` are ignored by the jobs service so accidental sample values do not show up as production sources.
+
+Career AI also seeds verified built-in Workday feeds for Adobe and Cisco outside the test environment so those company job pipelines can appear without extra setup.
 
 ## Deployment
 

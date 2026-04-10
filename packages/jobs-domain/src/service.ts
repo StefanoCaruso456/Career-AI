@@ -19,6 +19,8 @@ const FETCH_TIMEOUT_MS = 4_500;
 const DEFAULT_WINDOW_DAYS = 7;
 const LEVER_PAGE_SIZE = 100;
 const MAX_LEVER_PAGE_COUNT = 100;
+const WORKDAY_PAGE_SIZE = 100;
+const MAX_WORKDAY_PAGE_COUNT = 100;
 const RESERVED_PLACEHOLDER_HOST_SUFFIXES = [
   "example.com",
   "example.org",
@@ -57,6 +59,16 @@ type WorkableXmlSourceSpec = {
   quality: "coverage";
   endpointLabel: string;
   feedUrl: string;
+};
+
+type WorkdaySourceSpec = {
+  key: string;
+  label: string;
+  lane: "ats_direct";
+  quality: "high_signal";
+  endpointLabel: string;
+  feedUrl: string;
+  jobBoardPath: string;
 };
 
 type SourceCollection = {
@@ -125,6 +137,34 @@ type AshbyJob = {
   workplaceType?: string;
 };
 
+type WorkdayJobsResponse = {
+  total?: number;
+  jobPostings?: WorkdayJob[];
+};
+
+type WorkdayJob = {
+  title?: string;
+  externalPath?: string;
+  locationsText?: string;
+  timeType?: string;
+  postedOn?: string;
+  bulletFields?: string[];
+};
+
+const BUILTIN_WORKDAY_COMPANY_FEEDS =
+  process.env.NODE_ENV === "test"
+    ? []
+    : ([
+        {
+          label: "Adobe",
+          feedUrl: "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
+        },
+        {
+          label: "Cisco",
+          feedUrl: "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
+        },
+      ] as const);
+
 const JOBS_ENVIRONMENT_GUIDE = [
   {
     key: "GREENHOUSE_BOARD",
@@ -153,6 +193,10 @@ const JOBS_ENVIRONMENT_GUIDE = [
   {
     key: "WORKABLE_XML_FEED_URL",
     example: "https://<your-workable-feed>/workable.xml",
+  },
+  {
+    key: "WORKDAY_JOB_SOURCES",
+    example: "Adobe=https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
   },
 ] as const;
 
@@ -236,6 +280,31 @@ function getGreenhouseBoardsRaw() {
 
 function getAshbyBoardsRaw() {
   return process.env.ASHBY_JOB_BOARDS?.trim();
+}
+
+function parseWorkdayFeedUrl(feedUrl: string) {
+  const sanitizedFeedUrl = sanitizeConfiguredFeedUrl(feedUrl);
+
+  if (!sanitizedFeedUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(sanitizedFeedUrl);
+    const match = parsed.pathname.match(/^\/wday\/cxs\/[^/]+\/([^/]+)\/jobs\/?$/i);
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      feedUrl: parsed.toString(),
+      endpointLabel: `${parsed.host}${parsed.pathname.replace(/\/$/, "")}`,
+      jobBoardPath: `/en-US/${match[1]}`,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function toIsoDate(value: unknown) {
@@ -416,10 +485,61 @@ function getDirectSourceSpecs() {
       }) as DirectSourceSpec & { boardName: string },
   );
 
+  const configuredWorkdayFeeds = parseNamedSpecs(process.env.WORKDAY_JOB_SOURCES).flatMap(
+    ({ label, value }) => {
+      const parsedFeed = parseWorkdayFeedUrl(value);
+
+      if (!parsedFeed) {
+        return [];
+      }
+
+      return [
+        {
+          key: `workday:${slugify(label || parsedFeed.feedUrl)}`,
+          label,
+          lane: "ats_direct",
+          quality: "high_signal",
+          endpointLabel: parsedFeed.endpointLabel,
+          feedUrl: parsedFeed.feedUrl,
+          jobBoardPath: parsedFeed.jobBoardPath,
+        } satisfies WorkdaySourceSpec,
+      ];
+    },
+  );
+  const builtinWorkdayFeeds = BUILTIN_WORKDAY_COMPANY_FEEDS.flatMap(({ label, feedUrl }) => {
+    const parsedFeed = parseWorkdayFeedUrl(feedUrl);
+
+    if (!parsedFeed) {
+      return [];
+    }
+
+    return [
+      {
+        key: `workday:${slugify(label)}`,
+        label,
+        lane: "ats_direct",
+        quality: "high_signal",
+        endpointLabel: parsedFeed.endpointLabel,
+        feedUrl: parsedFeed.feedUrl,
+        jobBoardPath: parsedFeed.jobBoardPath,
+      } satisfies WorkdaySourceSpec,
+    ];
+  });
+  const seenWorkdayFeedUrls = new Set<string>();
+  const workdayBoards = [...builtinWorkdayFeeds, ...configuredWorkdayFeeds].filter((spec) => {
+    if (seenWorkdayFeedUrls.has(spec.feedUrl)) {
+      return false;
+    }
+
+    seenWorkdayFeedUrls.add(spec.feedUrl);
+    return true;
+  });
+
   return {
     greenhouseBoards,
     leverSites,
     ashbyBoards,
+    workdayBoards,
   };
 }
 
@@ -491,7 +611,7 @@ function getWorkableXmlFeedSpec() {
 
 function createNotConfiguredSources() {
   const fallbackSources: JobSourceSnapshotDto[] = [];
-  const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
+  const { greenhouseBoards, leverSites, ashbyBoards, workdayBoards } = getDirectSourceSpecs();
   const aggregatorSpecs = getAggregatorSpecs();
   const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
@@ -540,6 +660,23 @@ function createNotConfiguredSources() {
         endpointLabel: null,
         lastSyncedAt: null,
         message: "Add ASHBY_JOB_BOARDS to pull direct ATS jobs from Ashby.",
+      }),
+    );
+  }
+
+  if (workdayBoards.length === 0) {
+    fallbackSources.push(
+      createSourceSnapshot({
+        key: "workday:unconfigured",
+        label: "Workday job boards",
+        lane: "ats_direct",
+        quality: "high_signal",
+        status: "not_configured",
+        jobCount: 0,
+        endpointLabel: null,
+        lastSyncedAt: null,
+        message:
+          "Add WORKDAY_JOB_SOURCES to pull direct ATS jobs from Workday-powered company career sites.",
       }),
     );
   }
@@ -653,6 +790,26 @@ async function fetchJson(url: string, apiKey?: string) {
       Accept: "application/json",
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
+    cache: "no-store",
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Feed returned ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function postJson(url: string, body: unknown, apiKey?: string) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    },
+    body: JSON.stringify(body),
     cache: "no-store",
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
@@ -1031,6 +1188,90 @@ function mapWorkableXmlJobs(source: WorkableXmlSourceSpec, xml: string): JobPost
   return mappedJobs;
 }
 
+function parseWorkdayPostedOn(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  const now = new Date();
+
+  if (normalized === "posted today") {
+    return now.toISOString();
+  }
+
+  if (normalized === "posted yesterday") {
+    return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  }
+
+  const dayMatch = normalized.match(/^posted (\d+)\+? day[s]? ago$/i);
+
+  if (dayMatch) {
+    const daysAgo = Number.parseInt(dayMatch[1] ?? "0", 10);
+
+    if (Number.isFinite(daysAgo)) {
+      return new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+    }
+  }
+
+  const weekMatch = normalized.match(/^posted (\d+)\+? week[s]? ago$/i);
+
+  if (weekMatch) {
+    const weeksAgo = Number.parseInt(weekMatch[1] ?? "0", 10);
+
+    if (Number.isFinite(weeksAgo)) {
+      return new Date(now.getTime() - weeksAgo * 7 * 24 * 60 * 60 * 1000).toISOString();
+    }
+  }
+
+  return null;
+}
+
+function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPostingDto[] {
+  const jobs = isRecord(payload) && Array.isArray(payload.jobPostings) ? payload.jobPostings : null;
+
+  if (!jobs) {
+    throw new Error("Workday payload did not include a jobPostings array.");
+  }
+
+  const sourceOrigin = new URL(source.feedUrl).origin;
+
+  const mappedJobs = jobs
+    .map((item) => {
+      const job = item as WorkdayJob;
+      const title = typeof job.title === "string" ? job.title.trim() : "";
+      const externalPath = typeof job.externalPath === "string" ? job.externalPath.trim() : "";
+
+      if (!title || !externalPath) {
+        return null;
+      }
+
+      const externalId = job.bulletFields?.find(Boolean)?.trim() || externalPath;
+      const applyUrl = `${sourceOrigin}${source.jobBoardPath}${externalPath}`;
+
+      return {
+        id: createJobId(source.key, externalId),
+        externalId,
+        title,
+        companyName: source.label,
+        location: typeof job.locationsText === "string" ? job.locationsText.trim() : null,
+        department: null,
+        commitment: typeof job.timeType === "string" ? job.timeType.trim() : null,
+        sourceKey: source.key,
+        sourceLabel: source.label,
+        sourceLane: source.lane,
+        sourceQuality: source.quality,
+        applyUrl,
+        postedAt: parseWorkdayPostedOn(job.postedOn),
+        updatedAt: null,
+        descriptionSnippet: null,
+      } satisfies JobPostingDto;
+    })
+    .filter(isPresent) as JobPostingDto[];
+
+  return mappedJobs;
+}
+
 async function collectGreenhouseJobs(
   source: DirectSourceSpec & { token: string },
   windowDays: number | null,
@@ -1106,6 +1347,37 @@ async function fetchLeverPostings(site: string) {
   }
 
   return jobs;
+}
+
+async function fetchWorkdayPostings(source: WorkdaySourceSpec) {
+  const jobs: WorkdayJob[] = [];
+
+  for (let pageIndex = 0; pageIndex < MAX_WORKDAY_PAGE_COUNT; pageIndex += 1) {
+    const offset = pageIndex * WORKDAY_PAGE_SIZE;
+    const payload = (await postJson(source.feedUrl, {
+      limit: WORKDAY_PAGE_SIZE,
+      offset,
+      searchText: "",
+      appliedFacets: {},
+    })) as WorkdayJobsResponse;
+
+    if (!Array.isArray(payload.jobPostings)) {
+      throw new Error("Workday payload did not include a jobPostings array.");
+    }
+
+    jobs.push(...payload.jobPostings);
+
+    if (
+      payload.jobPostings.length < WORKDAY_PAGE_SIZE ||
+      (typeof payload.total === "number" && jobs.length >= payload.total)
+    ) {
+      break;
+    }
+  }
+
+  return {
+    jobPostings: jobs,
+  } satisfies WorkdayJobsResponse;
 }
 
 async function collectLeverJobs(
@@ -1209,6 +1481,58 @@ async function collectAshbyJobs(
           error instanceof Error
             ? `Ashby feed could not be loaded: ${error.message}`
             : "Ashby feed could not be loaded.",
+      }),
+    };
+  }
+}
+
+async function collectWorkdayJobs(
+  source: WorkdaySourceSpec,
+  windowDays: number | null,
+): Promise<SourceCollection> {
+  const syncedAt = new Date().toISOString();
+  const windowLabel = formatWindowLabel(windowDays);
+
+  try {
+    const payload = await fetchWorkdayPostings(source);
+    const persistedJobs = mapWorkdayJobs(source, payload);
+    const jobs = filterJobsWithinWindow(persistedJobs, windowDays);
+
+    return {
+      jobs,
+      persistedJobs,
+      source: createSourceSnapshot({
+        key: source.key,
+        label: source.label,
+        lane: source.lane,
+        quality: source.quality,
+        status: "connected",
+        jobCount: jobs.length,
+        endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
+        message:
+          jobs.length > 0
+            ? `Direct ATS jobs from ${windowLabel} are flowing from Workday.`
+            : `Workday is connected but did not return any published jobs from ${windowLabel}.`,
+      }),
+    };
+  } catch (error) {
+    return {
+      jobs: [],
+      persistedJobs: [],
+      source: createSourceSnapshot({
+        key: source.key,
+        label: source.label,
+        lane: source.lane,
+        quality: source.quality,
+        status: "degraded",
+        jobCount: 0,
+        endpointLabel: source.endpointLabel,
+        lastSyncedAt: syncedAt,
+        message:
+          error instanceof Error
+            ? `Workday feed could not be loaded: ${error.message}`
+            : "Workday feed could not be loaded.",
       }),
     };
   }
@@ -1352,7 +1676,7 @@ function buildJobsFeedResponse(args: {
 }
 
 async function collectLiveSourceCollections(windowDays: number | null) {
-  const { greenhouseBoards, leverSites, ashbyBoards } = getDirectSourceSpecs();
+  const { greenhouseBoards, leverSites, ashbyBoards, workdayBoards } = getDirectSourceSpecs();
   const aggregatorSpecs = getAggregatorSpecs();
   const workableXmlFeedSpec = getWorkableXmlFeedSpec();
 
@@ -1360,6 +1684,7 @@ async function collectLiveSourceCollections(windowDays: number | null) {
     ...greenhouseBoards.map((source) => collectGreenhouseJobs(source, windowDays)),
     ...leverSites.map((source) => collectLeverJobs(source, windowDays)),
     ...ashbyBoards.map((source) => collectAshbyJobs(source, windowDays)),
+    ...workdayBoards.map((source) => collectWorkdayJobs(source, windowDays)),
     ...aggregatorSpecs.map((source) => collectAggregatorJobs(source, windowDays)),
     ...(workableXmlFeedSpec ? [collectWorkableXmlJobs(workableXmlFeedSpec, windowDays)] : []),
   ]);
