@@ -85,7 +85,7 @@ type LeverJob = {
 
 const JOBS_ENVIRONMENT_GUIDE = [
   {
-    key: "GREENHOUSE_BOARD_TOKENS",
+    key: "GREENHOUSE_BOARD",
     example: "Acme=acme,Globex=globex",
   },
   {
@@ -146,6 +146,10 @@ function parseNamedSpecs(raw: string | undefined): NamedSpec[] {
       };
     })
     .filter((spec) => spec.value.length > 0);
+}
+
+function getGreenhouseBoardsRaw() {
+  return process.env.GREENHOUSE_BOARD?.trim() || process.env.GREENHOUSE_BOARD_TOKENS?.trim();
 }
 
 function toIsoDate(value: unknown) {
@@ -226,7 +230,7 @@ function createSourceSnapshot(args: {
 }
 
 function getDirectSourceSpecs() {
-  const greenhouseBoards = parseNamedSpecs(process.env.GREENHOUSE_BOARD_TOKENS).map(
+  const greenhouseBoards = parseNamedSpecs(getGreenhouseBoardsRaw()).map(
     ({ label, value }) =>
       ({
         key: `greenhouse:${slugify(value)}`,
@@ -290,7 +294,8 @@ function createNotConfiguredSources() {
         jobCount: 0,
         endpointLabel: null,
         lastSyncedAt: null,
-        message: "Add GREENHOUSE_BOARD_TOKENS to pull direct ATS jobs from Greenhouse.",
+        message:
+          "Add GREENHOUSE_BOARD to pull direct ATS jobs from Greenhouse. GREENHOUSE_BOARD_TOKENS still works as a legacy alias.",
       }),
     );
   }
