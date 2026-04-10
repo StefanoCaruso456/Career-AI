@@ -114,7 +114,7 @@ describe("JobsResults", () => {
     const jobs: JobPostingDto[] = [
       {
         ...createJob(1),
-        title: "Software Engineer, AI Systems",
+        title: "Machine Learning Engineer",
         companyName: "Figma",
         location: "Remote",
         commitment: "Full-time",
@@ -122,7 +122,7 @@ describe("JobsResults", () => {
       },
       {
         ...createJob(2),
-        title: "Computer Vision Engineer",
+        title: "Frontend Engineer",
         companyName: "Stripe",
         location: "New York, NY",
         commitment: "Contract",
@@ -130,7 +130,7 @@ describe("JobsResults", () => {
       },
       {
         ...createJob(3),
-        title: "Gen AI Product Manager",
+        title: "Product Manager, AI Platform",
         companyName: "Anthropic",
         location: "Hybrid - Chicago, IL",
         commitment: "Full-time",
@@ -140,16 +140,16 @@ describe("JobsResults", () => {
 
     render(<JobsResults jobs={jobs} />);
 
-    fireEvent.change(screen.getByLabelText("Keyword"), {
-      target: { value: "vision" },
+    fireEvent.change(screen.getByLabelText("Role type"), {
+      target: { value: "product-management" },
     });
 
     expect(screen.getByText("Showing 1 of 1 matching role from 3 loaded.")).toBeInTheDocument();
-    expect(screen.getByText("Computer Vision Engineer")).toBeInTheDocument();
-    expect(screen.queryByText("Software Engineer, AI Systems")).not.toBeInTheDocument();
+    expect(screen.getByText("Product Manager, AI Platform")).toBeInTheDocument();
+    expect(screen.queryByText("Machine Learning Engineer")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Workplace"), {
-      target: { value: "remote" },
+      target: { value: "onsite" },
     });
 
     expect(screen.getByText("No roles match the current filters.")).toBeInTheDocument();
@@ -157,8 +157,8 @@ describe("JobsResults", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
 
     expect(screen.getByText("Showing 3 of 3 matching roles from 3 loaded.")).toBeInTheDocument();
-    expect(screen.getByText("Software Engineer, AI Systems")).toBeInTheDocument();
-    expect(screen.getByText("Computer Vision Engineer")).toBeInTheDocument();
-    expect(screen.getByText("Gen AI Product Manager")).toBeInTheDocument();
+    expect(screen.getByText("Machine Learning Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Frontend Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Product Manager, AI Platform")).toBeInTheDocument();
   });
 });
