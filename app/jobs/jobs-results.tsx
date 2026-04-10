@@ -342,11 +342,6 @@ export function JobsResults({
           Showing {visibleJobs.length} of {filteredJobs.length} matching{" "}
           {pluralize(filteredJobs.length, "role")} from {jobs.length} loaded.
         </p>
-        {remainingCount > 0 ? (
-          <p className={styles.resultsNote}>
-            {remainingCount} more {pluralize(remainingCount, "role")} ready in this window.
-          </p>
-        ) : null}
       </div>
 
       {filteredJobs.length > 0 ? (
