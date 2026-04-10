@@ -9,9 +9,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const rawLimit = request.nextUrl.searchParams.get("limit");
+    const rawWindowDays = request.nextUrl.searchParams.get("windowDays");
     const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
+    const parsedWindowDays = rawWindowDays ? Number.parseInt(rawWindowDays, 10) : undefined;
     const limit = Number.isFinite(parsedLimit) ? parsedLimit : undefined;
-    const snapshot = await getJobsFeedSnapshot({ limit });
+    const windowDays = Number.isFinite(parsedWindowDays) ? parsedWindowDays : 7;
+    const snapshot = await getJobsFeedSnapshot({ limit, windowDays });
 
     return successResponse(snapshot, correlationId);
   } catch (error) {
