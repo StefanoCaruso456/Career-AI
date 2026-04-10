@@ -22,11 +22,24 @@ export async function POST(request: Request) {
     const payload = sendChatMessageInputSchema.parse(await request.json());
     const userMessageResult = await createUserChatMessage({
       attachmentIds: payload.attachmentIds,
+      clientRequestId: payload.clientRequestId,
       conversationId: payload.conversationId ?? null,
       message: payload.message,
       ownerId,
       projectId: payload.projectId,
     });
+
+    if (userMessageResult.assistantMessage) {
+      return jsonChatResponse(
+        {
+          assistantMessage: userMessageResult.assistantMessage,
+          conversation: userMessageResult.conversation,
+          userMessage: userMessageResult.userMessage,
+          workspace: userMessageResult.workspace,
+        },
+        actor,
+      );
+    }
 
     const attachmentSummaries = summarizeChatAttachmentsForAssistant(
       userMessageResult.userMessage.attachments,
@@ -47,6 +60,7 @@ export async function POST(request: Request) {
       conversationId: userMessageResult.conversation.id,
       error: assistantReplyError,
       ownerId,
+      replyToMessageId: userMessageResult.userMessage.id,
     });
 
     return jsonChatResponse(
@@ -54,6 +68,7 @@ export async function POST(request: Request) {
         assistantMessage: assistantMessageResult.assistantMessage,
         conversation: assistantMessageResult.conversation,
         userMessage: userMessageResult.userMessage,
+        workspace: assistantMessageResult.workspace ?? userMessageResult.workspace,
       },
       actor,
     );

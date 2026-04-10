@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   ApiError,
   chatAttachmentLimits,
+  emptyChatWorkspacePersistence,
   chatWorkspaceSnapshotSchema,
   formatChatAttachmentSize,
   type ChatAttachment,
@@ -11,6 +12,23 @@ import {
   type ChatWorkspaceSnapshot,
   validateChatAttachmentCandidate,
 } from "@/packages/contracts/src";
+import {
+  createManualChatCheckpoint,
+  createPersistentChatAttachmentRecord,
+  createPersistentChatProject,
+  createPersistentUserChatMessage,
+  createPersistentAssistantChatMessage,
+  deletePersistentChatConversation,
+  deletePersistentChatProject,
+  deletePersistentPendingChatAttachment,
+  getPersistentChatAttachmentRecord,
+  getPersistentChatProjectActivity,
+  getPersistentChatWorkspaceSnapshot,
+  isDatabaseConfigured,
+  renamePersistentChatConversation,
+  renamePersistentChatProject,
+  restorePersistentChatCheckpoint,
+} from "@/packages/persistence/src";
 import {
   localChatAttachmentStorage,
   readChatDatabase,
@@ -24,6 +42,10 @@ import type {
   ChatMessageRecord,
   ChatProjectRecord,
 } from "./schema";
+
+function isPersistentChatEnabled() {
+  return isDatabaseConfigured();
+}
 
 const seededProjectLabels = ["Verified profile", "Career story", "Hiring signals"] as const;
 
@@ -472,6 +494,20 @@ function buildWorkspaceSnapshot(args: {
         record: conversation,
       }),
     ),
+    persistence: emptyChatWorkspacePersistence,
+    projectPersistence: Object.fromEntries(
+      projects.map((project) => [
+        project.id,
+        {
+          checkpointCount: 0,
+          lastActivityAt: project.updatedAt,
+          lastCheckpointAt: null,
+          lastSavedAt: project.updatedAt,
+          pendingMemoryJobs: 0,
+          projectId: project.id,
+        },
+      ]),
+    ),
     projects: projects.map(mapProjectToDto),
   });
 }
@@ -506,6 +542,12 @@ export async function getChatWorkspaceSnapshot(args: {
   baseDir?: string;
   ownerId: string;
 }): Promise<ChatWorkspaceSnapshot> {
+  if (isPersistentChatEnabled()) {
+    return getPersistentChatWorkspaceSnapshot({
+      ownerId: args.ownerId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
 
@@ -521,6 +563,13 @@ export async function createChatProject(args: {
   label?: string;
   ownerId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    return createPersistentChatProject({
+      label: args.label,
+      ownerId: args.ownerId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     const ownerProjects = database.projects.filter((project) => project.ownerId === args.ownerId);
@@ -550,6 +599,14 @@ export async function renameChatProject(args: {
   ownerId: string;
   projectId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    return renamePersistentChatProject({
+      label: args.label,
+      ownerId: args.ownerId,
+      projectId: args.projectId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     const project = requireProject(database, args.ownerId, args.projectId);
@@ -572,6 +629,13 @@ export async function deleteChatProject(args: {
   ownerId: string;
   projectId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    return deletePersistentChatProject({
+      ownerId: args.ownerId,
+      projectId: args.projectId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     let database = await prepareDatabase(args);
     requireProject(database, args.ownerId, args.projectId);
@@ -635,6 +699,14 @@ export async function renameChatConversation(args: {
   label: string;
   ownerId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    return renamePersistentChatConversation({
+      conversationId: args.conversationId,
+      label: args.label,
+      ownerId: args.ownerId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     const conversation = requireConversation(database, args.ownerId, args.conversationId);
@@ -657,6 +729,13 @@ export async function deleteChatConversation(args: {
   conversationId: string;
   ownerId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    return deletePersistentChatConversation({
+      conversationId: args.conversationId,
+      ownerId: args.ownerId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     requireConversation(database, args.ownerId, args.conversationId);
@@ -701,46 +780,59 @@ export async function createChatAttachment(args: {
   file: File;
   ownerId: string;
 }) {
-  return withChatStorageLock(async () => {
-    assertChatUploadRateLimit(args.ownerId);
+  assertChatUploadRateLimit(args.ownerId);
 
-    const validation = validateChatAttachmentCandidate({
-      mimeType: args.file.type,
-      name: args.file.name,
-      sizeBytes: args.file.size,
+  const validation = validateChatAttachmentCandidate({
+    mimeType: args.file.type,
+    name: args.file.name,
+    sizeBytes: args.file.size,
+  });
+
+  if (!validation.ok) {
+    throw new ApiError({
+      correlationId: `chat_upload_${args.ownerId}`,
+      details: {
+        fileName: args.file.name,
+        sizeBytes: args.file.size,
+      },
+      errorCode: "VALIDATION_FAILED",
+      message: validation.message,
+      status: 400,
     });
+  }
 
-    if (!validation.ok) {
-      throw new ApiError({
-        correlationId: `chat_upload_${args.ownerId}`,
-        details: {
-          fileName: args.file.name,
-          sizeBytes: args.file.size,
-        },
-        errorCode: "VALIDATION_FAILED",
-        message: validation.message,
-        status: 400,
-      });
-    }
+  const buffer = await readFileBuffer(args.file);
+  const checksum = createHash("sha256").update(buffer).digest("hex");
+  const storageKey = `${checksum.slice(0, 12)}/${createEntityId("attachment")}.${validation.descriptor.extension}`;
 
-    const database = await prepareDatabase(args);
-    const attachmentId = createEntityId("attachment");
-    const timestamp = new Date().toISOString();
-    const buffer = await readFileBuffer(args.file);
-    const checksum = createHash("sha256").update(buffer).digest("hex");
-    const storageKey = `${checksum.slice(0, 12)}/${attachmentId}.${validation.descriptor.extension}`;
+  await localChatAttachmentStorage.write({
+    baseDir: args.baseDir,
+    buffer,
+    storageKey,
+  });
 
-    await localChatAttachmentStorage.write({
-      baseDir: args.baseDir,
-      buffer,
+  if (isPersistentChatEnabled()) {
+    const { attachment } = await createPersistentChatAttachmentRecord({
+      extension: validation.descriptor.extension,
+      mimeType: validation.descriptor.normalizedMimeType,
+      originalName: validation.sanitizedName,
+      ownerId: args.ownerId,
+      previewKind: validation.descriptor.previewKind,
+      sizeBytes: buffer.byteLength,
       storageKey,
     });
 
+    return attachment;
+  }
+
+  return withChatStorageLock(async () => {
+    const database = await prepareDatabase(args);
+    const timestamp = new Date().toISOString();
     const record: ChatAttachmentRecord = {
       conversationId: null,
       createdAt: timestamp,
       extension: validation.descriptor.extension,
-      id: attachmentId,
+      id: createEntityId("attachment"),
       messageId: null,
       mimeType: validation.descriptor.normalizedMimeType,
       originalName: validation.sanitizedName,
@@ -765,6 +857,16 @@ export async function deletePendingChatAttachment(args: {
   baseDir?: string;
   ownerId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    const storageKey = await deletePersistentPendingChatAttachment({
+      attachmentId: args.attachmentId,
+      ownerId: args.ownerId,
+    });
+
+    await localChatAttachmentStorage.delete(storageKey, args.baseDir);
+    return;
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     const attachment = findOwnerAttachment(database, args.ownerId, args.attachmentId);
@@ -799,11 +901,23 @@ export async function deletePendingChatAttachment(args: {
 export async function createUserChatMessage(args: {
   attachmentIds: string[];
   baseDir?: string;
+  clientRequestId?: string;
   conversationId?: string | null;
   message: string;
   ownerId: string;
   projectId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    return createPersistentUserChatMessage({
+      attachmentIds: args.attachmentIds,
+      clientRequestId: args.clientRequestId,
+      conversationId: args.conversationId,
+      message: args.message,
+      ownerId: args.ownerId,
+      projectId: args.projectId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     requireProject(database, args.ownerId, args.projectId);
@@ -871,6 +985,7 @@ export async function createUserChatMessage(args: {
     await writeChatDatabase(database, args.baseDir);
 
     return {
+      assistantMessage: null,
       conversation: buildConversationSnapshot({
         conversationId: conversation.id,
         database,
@@ -881,6 +996,10 @@ export async function createUserChatMessage(args: {
         database,
         ownerId: args.ownerId,
       }).messages.find((message) => message.id === messageRecord.id)!,
+      workspace: buildWorkspaceSnapshot({
+        database,
+        ownerId: args.ownerId,
+      }),
     };
   });
 }
@@ -891,7 +1010,18 @@ export async function createAssistantChatMessage(args: {
   conversationId: string;
   error?: boolean;
   ownerId: string;
+  replyToMessageId?: string | null;
 }) {
+  if (isPersistentChatEnabled()) {
+    return createPersistentAssistantChatMessage({
+      content: args.content,
+      conversationId: args.conversationId,
+      error: args.error,
+      ownerId: args.ownerId,
+      replyToMessageId: args.replyToMessageId,
+    });
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     const conversation = requireConversation(database, args.ownerId, args.conversationId);
@@ -922,6 +1052,10 @@ export async function createAssistantChatMessage(args: {
         database,
         ownerId: args.ownerId,
       }),
+      workspace: buildWorkspaceSnapshot({
+        database,
+        ownerId: args.ownerId,
+      }),
     };
   });
 }
@@ -931,6 +1065,19 @@ export async function getChatAttachmentContent(args: {
   baseDir?: string;
   ownerId: string;
 }) {
+  if (isPersistentChatEnabled()) {
+    const { attachment, storageKey } = await getPersistentChatAttachmentRecord({
+      attachmentId: args.attachmentId,
+      ownerId: args.ownerId,
+    });
+    const buffer = await localChatAttachmentStorage.read(storageKey, args.baseDir);
+
+    return {
+      attachment,
+      buffer,
+    };
+  }
+
   return withChatStorageLock(async () => {
     const database = await prepareDatabase(args);
     const attachment = findOwnerAttachment(database, args.ownerId, args.attachmentId);
@@ -952,6 +1099,65 @@ export async function getChatAttachmentContent(args: {
       buffer,
     };
   });
+}
+
+export async function createChatCheckpoint(args: {
+  conversationId?: string | null;
+  ownerId: string;
+  projectId: string;
+  title?: string;
+}) {
+  if (!isPersistentChatEnabled()) {
+    throw new ApiError({
+      correlationId: `chat_checkpoint_${args.projectId}`,
+      details: {
+        projectId: args.projectId,
+      },
+      errorCode: "DEPENDENCY_FAILURE",
+      message: "Checkpointing requires a configured database.",
+      status: 501,
+    });
+  }
+
+  return createManualChatCheckpoint(args);
+}
+
+export async function getChatProjectActivity(args: {
+  ownerId: string;
+  projectId: string;
+}) {
+  if (!isPersistentChatEnabled()) {
+    throw new ApiError({
+      correlationId: `chat_activity_${args.projectId}`,
+      details: {
+        projectId: args.projectId,
+      },
+      errorCode: "DEPENDENCY_FAILURE",
+      message: "Activity history requires a configured database.",
+      status: 501,
+    });
+  }
+
+  return getPersistentChatProjectActivity(args);
+}
+
+export async function restoreChatCheckpoint(args: {
+  checkpointId: string;
+  ownerId: string;
+}) {
+  if (!isPersistentChatEnabled()) {
+    throw new ApiError({
+      correlationId: `chat_restore_${args.checkpointId}`,
+      details: {
+        checkpointId: args.checkpointId,
+      },
+      errorCode: "DEPENDENCY_FAILURE",
+      message: "Checkpoint restore requires a configured database.",
+      status: 501,
+    });
+  }
+
+  return restorePersistentChatCheckpoint(args);
 }
 
 export function summarizeChatAttachmentsForAssistant(attachments: ChatAttachment[]) {
