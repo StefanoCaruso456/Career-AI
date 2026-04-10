@@ -1,0 +1,149 @@
+.jobsRail {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.75rem;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.04), transparent 42%),
+    linear-gradient(180deg, rgba(44, 44, 44, 0.96), rgba(28, 28, 28, 0.98)),
+    rgba(24, 24, 24, 0.96);
+  box-shadow:
+    0 26px 48px rgba(0, 0, 0, 0.28),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  backdrop-filter: blur(14px) saturate(150%);
+}
+
+.jobsRailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.jobsRailRefresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.4rem;
+  padding: 0.62rem 0.95rem;
+  border: 1px solid rgba(255, 124, 92, 0.45);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 131, 101, 0.14), rgba(255, 255, 255, 0.03)),
+    rgba(30, 24, 22, 0.9);
+  color: rgba(255, 202, 187, 0.96);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease;
+}
+
+.jobsRailRefresh:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 124, 92, 0.62);
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #ffe9e3;
+}
+
+.jobsRailRefresh:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+}
+
+.jobsRailBody {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.jobsRailList {
+  display: grid;
+  gap: 0.72rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jobsRailEmpty,
+.jobsRailError,
+.jobsRailLoading {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.jobsRailError {
+  color: #ff9f94;
+}
+
+.jobRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.jobApplyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  min-width: 3.55rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid rgba(255, 124, 92, 0.48);
+  border-radius: 0.82rem;
+  background: rgba(36, 24, 21, 0.84);
+  color: rgba(255, 166, 145, 0.96);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.jobApplyButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 124, 92, 0.65);
+  background: rgba(46, 28, 24, 0.92);
+  color: #ffd4c8;
+}
+
+.jobCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.18rem;
+}
+
+.jobCompany {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.jobTitle {
+  margin: 0;
+  color: rgba(255, 170, 149, 0.9);
+  font-size: 0.93rem;
+  line-height: 1.45;
+}
