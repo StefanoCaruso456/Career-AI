@@ -201,8 +201,8 @@ export function HeaderAuthControls() {
             {initials}
           </span>
           <span className={styles.settingsCopy}>
-            <strong>Settings</strong>
-            <small>{displayName}</small>
+            <strong>{accountLabel}</strong>
+            <small>{accountMeta}</small>
           </span>
           <span className={styles.settingsIcons} aria-hidden="true">
             <Settings2 size={16} strokeWidth={2} />
