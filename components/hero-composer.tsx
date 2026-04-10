@@ -143,6 +143,11 @@ type HeroComposerProps = {
   onConversationStateChange?: (active: boolean) => void;
 };
 
+type ChatSubmitTarget = {
+  conversationId: string | null;
+  projectId: string | null;
+};
+
 type VoiceEnabledWindow = Window &
   typeof globalThis & {
     SpeechRecognition?: BrowserSpeechRecognitionConstructor;
@@ -226,6 +231,69 @@ function getAudioExtension(type: string) {
   }
 
   return ".webm";
+}
+
+function resolveChatSubmitTarget(args: {
+  activeProjectId: string | null;
+  currentThreadId: string | null;
+  projectHomeProjectId: string | null;
+  projects: ProjectEntry[];
+  threads: ChatThread[];
+}): ChatSubmitTarget {
+  const currentThread = args.currentThreadId
+    ? args.threads.find((thread) => thread.id === args.currentThreadId) ?? null
+    : null;
+  const currentThreadProjectIsAvailable =
+    currentThread &&
+    args.projects.some((project) => project.id === currentThread.projectId);
+
+  if (currentThread && currentThreadProjectIsAvailable) {
+    return {
+      conversationId: currentThread.id,
+      projectId: currentThread.projectId,
+    };
+  }
+
+  if (
+    args.activeProjectId &&
+    args.projects.some((project) => project.id === args.activeProjectId)
+  ) {
+    return {
+      conversationId: null,
+      projectId: args.activeProjectId,
+    };
+  }
+
+  if (
+    args.projectHomeProjectId &&
+    args.projects.some((project) => project.id === args.projectHomeProjectId)
+  ) {
+    return {
+      conversationId: null,
+      projectId: args.projectHomeProjectId,
+    };
+  }
+
+  return {
+    conversationId: null,
+    projectId: null,
+  };
+}
+
+function isRecoverableSendFailure(args: {
+  errorCode?: string;
+  message?: string;
+  status: number;
+}) {
+  if (args.message === "Project was not found.") {
+    return args.status === 404 || args.errorCode === "NOT_FOUND";
+  }
+
+  if (args.message === "Conversation is linked to a different project.") {
+    return args.status === 409 || args.errorCode === "CONFLICT";
+  }
+
+  return false;
 }
 
 function getSpeechRecognitionErrorMessage(errorCode?: string) {
@@ -705,35 +773,56 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setSidebarNotice({ message, tone: "error" });
   }
 
-  async function ensureActiveProjectIdForSubmit() {
-    if (activeProjectId) {
-      return activeProjectId;
+  async function recoverSubmitTargetFromWorkspace(): Promise<ChatSubmitTarget> {
+    const snapshot = await requestWorkspaceSnapshot("/api/chat/state", {
+      method: "GET",
+    });
+    const recoveredConversation = currentThreadId
+      ? snapshot.conversations.find((thread) => thread.id === currentThreadId) ?? null
+      : null;
+    const recoveredProjectId =
+      recoveredConversation?.projectId ??
+      (projectHomeProjectId &&
+      snapshot.projects.some((project) => project.id === projectHomeProjectId)
+        ? projectHomeProjectId
+        : snapshot.projects[0]?.id ?? null);
+
+    applyWorkspaceSnapshot(snapshot, {
+      idleView: projectHomeProjectId ? "project-home" : "neutral",
+      preferredConversationId: recoveredConversation?.id ?? null,
+      preferredProjectId: recoveredProjectId,
+    });
+
+    return {
+      conversationId: recoveredConversation?.id ?? null,
+      projectId: recoveredProjectId,
+    };
+  }
+
+  async function ensureSubmitTargetForMessage(options?: {
+    forceRefresh?: boolean;
+  }): Promise<ChatSubmitTarget> {
+    if (!options?.forceRefresh) {
+      const localTarget = resolveChatSubmitTarget({
+        activeProjectId,
+        currentThreadId,
+        projectHomeProjectId,
+        projects,
+        threads,
+      });
+
+      if (localTarget.projectId) {
+        return localTarget;
+      }
     }
 
     let latestErrorMessage: string | null = null;
 
     try {
-      const snapshot = await requestWorkspaceSnapshot("/api/chat/state", {
-        method: "GET",
-      });
-      const recoveredConversation = currentThreadId
-        ? snapshot.conversations.find((thread) => thread.id === currentThreadId) ?? null
-        : null;
-      const recoveredProjectId =
-        recoveredConversation?.projectId ??
-        (projectHomeProjectId &&
-        snapshot.projects.some((project) => project.id === projectHomeProjectId)
-          ? projectHomeProjectId
-          : snapshot.projects[0]?.id ?? null);
+      const recoveredTarget = await recoverSubmitTargetFromWorkspace();
 
-      applyWorkspaceSnapshot(snapshot, {
-        idleView: projectHomeProjectId ? "project-home" : "neutral",
-        preferredConversationId: currentThreadId,
-        preferredProjectId: recoveredProjectId,
-      });
-
-      if (recoveredProjectId) {
-        return recoveredProjectId;
+      if (recoveredTarget.projectId) {
+        return recoveredTarget;
       }
 
       latestErrorMessage = "Your chat workspace is still starting up. Try again.";
@@ -761,7 +850,10 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
       });
 
       if (recoveredProjectId) {
-        return recoveredProjectId;
+        return {
+          conversationId: null,
+          projectId: recoveredProjectId,
+        };
       }
 
       latestErrorMessage = "Project could not be created right now.";
@@ -775,7 +867,44 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     showComposerError(
       latestErrorMessage ?? "Your chat workspace is still starting up. Try again.",
     );
-    return null;
+    return {
+      conversationId: null,
+      projectId: null,
+    };
+  }
+
+  async function requestChatReply(args: {
+    attachmentIds: string[];
+    conversationId: string | null;
+    message: string;
+    projectId: string;
+  }) {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        attachmentIds: args.attachmentIds,
+        conversationId: args.conversationId,
+        message: args.message,
+        projectId: args.projectId,
+      }),
+    });
+
+    const payload = (await response.json()) as {
+      assistantMessage?: ChatMessage;
+      conversation?: ChatConversation;
+      error?: string;
+      errorCode?: string;
+      userMessage?: ChatMessage;
+    };
+
+    return {
+      ok: response.ok && Boolean(payload.conversation) && Boolean(payload.userMessage),
+      payload,
+      status: response.status,
+    };
   }
 
   useEffect(() => {
@@ -1200,9 +1329,9 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setComposerNotice(null);
     setIsSubmitting(true);
 
-    const resolvedProjectId = await ensureActiveProjectIdForSubmit();
+    const submitTarget = await ensureSubmitTargetForMessage();
 
-    if (!resolvedProjectId) {
+    if (!submitTarget.projectId) {
       if (nextMessage) {
         setMessage(prompt);
       }
@@ -1244,27 +1373,39 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     setMessage("");
 
     try {
-      const reply = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          attachmentIds: readyAttachments
-            .map((attachment) => attachment.attachmentId)
-            .filter((attachmentId): attachmentId is string => Boolean(attachmentId)),
-          conversationId: currentThreadId,
-          message: prompt,
-          projectId: resolvedProjectId,
-        }),
+      const attachmentIds = readyAttachments
+        .map((attachment) => attachment.attachmentId)
+        .filter((attachmentId): attachmentId is string => Boolean(attachmentId));
+      let reply = await requestChatReply({
+        attachmentIds,
+        conversationId: submitTarget.conversationId,
+        message: prompt,
+        projectId: submitTarget.projectId,
       });
+      let payload = reply.payload;
 
-      const payload = (await reply.json()) as {
-        assistantMessage?: ChatMessage;
-        conversation?: ChatConversation;
-        error?: string;
-        userMessage?: ChatMessage;
-      };
+      if (
+        !reply.ok &&
+        isRecoverableSendFailure({
+          errorCode: payload.errorCode,
+          message: payload.error,
+          status: reply.status,
+        })
+      ) {
+        const recoveredSubmitTarget = await ensureSubmitTargetForMessage({
+          forceRefresh: true,
+        });
+
+        if (recoveredSubmitTarget.projectId) {
+          reply = await requestChatReply({
+            attachmentIds,
+            conversationId: recoveredSubmitTarget.conversationId,
+            message: prompt,
+            projectId: recoveredSubmitTarget.projectId,
+          });
+          payload = reply.payload;
+        }
+      }
 
       if (!reply.ok || !payload.conversation || !payload.userMessage) {
         throw new Error(payload.error || "The assistant could not respond.");
