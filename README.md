@@ -53,6 +53,7 @@ Required server-side environment variables:
 - `GREENHOUSE_BOARD` for public Greenhouse job boards you want to ingest
 - `LEVER_SITE_NAMES` for public Lever job sites you want to ingest
 - `ASHBY_JOB_BOARDS` for public Ashby job boards you want to ingest
+- `JOBS_AGGREGATOR_FEEDS` for multiple named JSON coverage feeds when you want to layer in several employer-specific or partner feeds at once
 - `WORKABLE_XML_FEED_URL` if you want to ingest the official Workable network XML feed for broader coverage
 
 The auth flow also accepts legacy aliases if you already created them that way:
@@ -100,6 +101,7 @@ Jobs feed examples:
 - `GREENHOUSE_BOARD=Acme=acme,Globex=globex`
 - `LEVER_SITE_NAMES=Orbit=orbit`
 - `ASHBY_JOB_BOARDS=Linear=linear,Notion=notion`
+- `JOBS_AGGREGATOR_FEEDS=Google Careers=https://jobs.example.com/google,Meta Careers=https://jobs.example.com/meta`
 - `JOBS_AGGREGATOR_FEED_URL=https://jobs.example.com/api/v1/open-roles`
 - `WORKABLE_XML_FEED_URL=https://www.workable.com/boards/workable.xml`
 
