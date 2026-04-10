@@ -12,6 +12,23 @@ export const chatAttachmentPreviewKindSchema = z.enum([
 export const chatAttachmentStatusSchema = z.enum(["attached", "uploaded"]);
 export const chatConversationLabelSourceSchema = z.enum(["auto", "manual"]);
 export const chatMessageRoleSchema = z.enum(["assistant", "user"]);
+export const chatMemoryScopeSchema = z.enum(["user", "project", "thread"]);
+export const chatMemoryTypeSchema = z.enum([
+  "preference",
+  "fact",
+  "goal",
+  "constraint",
+  "summary",
+  "task",
+]);
+export const chatMemoryVerificationStatusSchema = z.enum(["unverified", "verified"]);
+export const chatCheckpointTypeSchema = z.enum([
+  "auto",
+  "manual",
+  "milestone",
+  "pre_tool",
+  "post_tool",
+]);
 
 export const chatAttachmentLimits = {
   maxFileSizeBytes: 25 * 1024 * 1024,
@@ -121,6 +138,12 @@ export type ChatAttachmentPreviewKind = z.infer<typeof chatAttachmentPreviewKind
 export type ChatAttachmentStatus = z.infer<typeof chatAttachmentStatusSchema>;
 export type ChatConversationLabelSource = z.infer<typeof chatConversationLabelSourceSchema>;
 export type ChatMessageRole = z.infer<typeof chatMessageRoleSchema>;
+export type ChatMemoryScope = z.infer<typeof chatMemoryScopeSchema>;
+export type ChatMemoryType = z.infer<typeof chatMemoryTypeSchema>;
+export type ChatMemoryVerificationStatus = z.infer<
+  typeof chatMemoryVerificationStatusSchema
+>;
+export type ChatCheckpointType = z.infer<typeof chatCheckpointTypeSchema>;
 
 const chatAttachmentTypeByExtension = new Map<string, SupportedChatAttachmentType>(
   supportedChatAttachmentTypes.map((type) => [type.extension, type] satisfies [string, SupportedChatAttachmentType]),
@@ -149,6 +172,7 @@ export const renameChatConversationInputSchema = z.object({
 export const sendChatMessageInputSchema = z
   .object({
     attachmentIds: z.array(z.string().trim().min(1)).max(chatAttachmentLimits.maxFilesPerMessage).default([]),
+    clientRequestId: z.string().trim().min(1).max(120).optional(),
     conversationId: z.string().trim().min(1).nullable().optional(),
     message: z.string().trim().max(chatAttachmentLimits.maxMessageLength).default(""),
     projectId: z.string().trim().min(1),
@@ -205,8 +229,77 @@ export const chatProjectSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+export const emptyChatWorkspacePersistence = {
+  checkpointCount: 0,
+  lastCheckpointAt: null,
+  lastSavedAt: null,
+  pendingMemoryJobs: 0,
+} as const;
+
+export const chatWorkspacePersistenceSchema = z.object({
+  checkpointCount: z.number().int().nonnegative(),
+  lastCheckpointAt: z.string().datetime().nullable(),
+  lastSavedAt: z.string().datetime().nullable(),
+  pendingMemoryJobs: z.number().int().nonnegative(),
+});
+
+export const chatProjectPersistenceSchema = z.object({
+  checkpointCount: z.number().int().nonnegative(),
+  lastActivityAt: z.string().datetime().nullable(),
+  lastCheckpointAt: z.string().datetime().nullable(),
+  lastSavedAt: z.string().datetime().nullable(),
+  pendingMemoryJobs: z.number().int().nonnegative(),
+  projectId: z.string().trim().min(1),
+});
+
+export const chatMemoryRecordSchema = z.object({
+  confidence: z.number().min(0).max(1),
+  content: z.string().trim().min(1),
+  createdAt: z.string().datetime(),
+  id: z.string().trim().min(1),
+  memoryType: chatMemoryTypeSchema,
+  scope: chatMemoryScopeSchema,
+  scopeId: z.string().trim().min(1),
+  sourceMessageIds: z.array(z.string().trim().min(1)),
+  title: z.string().trim().min(1).max(120),
+  updatedAt: z.string().datetime(),
+  verificationStatus: chatMemoryVerificationStatusSchema,
+});
+
+export const chatCheckpointSchema = z.object({
+  checkpointType: chatCheckpointTypeSchema,
+  conversationId: z.string().trim().min(1).nullable(),
+  createdAt: z.string().datetime(),
+  createdBy: z.string().trim().min(1),
+  id: z.string().trim().min(1),
+  projectId: z.string().trim().min(1),
+  restoredAt: z.string().datetime().nullable(),
+  summary: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(120),
+});
+
+export const chatAuditActivityEventSchema = z.object({
+  actorId: z.string().trim().min(1),
+  createdAt: z.string().datetime(),
+  entityId: z.string().trim().min(1),
+  entityType: z.string().trim().min(1),
+  eventType: z.string().trim().min(1),
+  id: z.string().trim().min(1),
+  payloadJson: z.record(z.string(), z.unknown()),
+  summary: z.string().trim().min(1),
+});
+
+export const chatProjectActivitySnapshotSchema = z.object({
+  checkpoints: z.array(chatCheckpointSchema),
+  events: z.array(chatAuditActivityEventSchema),
+  memoryRecords: z.array(chatMemoryRecordSchema),
+  project: chatProjectSchema,
+});
+
 export const chatWorkspaceSnapshotSchema = z.object({
   conversations: z.array(chatConversationSchema),
+  persistence: chatWorkspacePersistenceSchema.default(emptyChatWorkspacePersistence),
+  projectPersistence: z.record(z.string(), chatProjectPersistenceSchema).default({}),
   projects: z.array(chatProjectSchema),
 });
 
@@ -214,6 +307,14 @@ export type ChatProject = z.infer<typeof chatProjectSchema>;
 export type ChatConversation = z.infer<typeof chatConversationSchema>;
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ChatAttachment = z.infer<typeof chatAttachmentSchema>;
+export type ChatWorkspacePersistence = z.infer<typeof chatWorkspacePersistenceSchema>;
+export type ChatProjectPersistence = z.infer<typeof chatProjectPersistenceSchema>;
+export type ChatMemoryRecord = z.infer<typeof chatMemoryRecordSchema>;
+export type ChatCheckpoint = z.infer<typeof chatCheckpointSchema>;
+export type ChatAuditActivityEvent = z.infer<typeof chatAuditActivityEventSchema>;
+export type ChatProjectActivitySnapshot = z.infer<
+  typeof chatProjectActivitySnapshotSchema
+>;
 export type ChatWorkspaceSnapshot = z.infer<typeof chatWorkspaceSnapshotSchema>;
 export type CreateChatProjectInput = z.infer<typeof createChatProjectInputSchema>;
 export type RenameChatProjectInput = z.infer<typeof renameChatProjectInputSchema>;

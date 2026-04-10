@@ -911,6 +911,113 @@
   padding: 1.75rem 1.75rem 0.5rem;
 }
 
+.activityHistoryDialog {
+  width: min(92vw, 54rem);
+  max-height: min(84vh, 48rem);
+  overflow: auto;
+  border-radius: 1.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(40, 40, 40, 0.99), rgba(28, 28, 28, 1)),
+    rgba(24, 24, 24, 0.98);
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.activityHistoryHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 1.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.activityHistoryTitle {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.1vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.activityHistoryMeta {
+  margin: 0.3rem 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.activityHistoryClose {
+  min-height: 2.3rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.activityHistoryBody {
+  display: grid;
+  gap: 1.2rem;
+  padding: 1.2rem 1.6rem 1.6rem;
+}
+
+.activityHistorySection {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.activityHistorySection h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.activityHistoryRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.activityHistoryRowCopy {
+  display: grid;
+  gap: 0.22rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.activityHistoryRowCopy strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.activityHistoryRowCopy span,
+.activityHistoryRowCopy small {
+  line-height: 1.5;
+}
+
+.activityHistoryRowCopy small {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.82rem;
+}
+
+.activityHistoryState,
+.activityHistoryEmpty {
+  margin: 0;
+  padding: 0 1.6rem 1.4rem;
+  color: rgba(255, 255, 255, 0.64);
+  line-height: 1.6;
+}
+
 .sidebarDeleteDialogTitle {
   margin: 0;
   color: #ffffff;
@@ -1419,6 +1526,78 @@
 
 .transcriptBubbleError {
   color: #ffc0c0;
+}
+
+.persistenceBar {
+  width: min(100%, var(--chat-conversation-width));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-inline: auto;
+  margin-bottom: 0.2rem;
+  padding: 0.78rem 0.95rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    rgba(22, 22, 22, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.persistenceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.persistenceChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.38rem 0.72rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.persistenceActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.persistenceAction {
+  min-height: 2.15rem;
+  padding: 0.48rem 0.86rem;
+  border: 1px solid rgba(139, 178, 255, 0.18);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(79, 96, 128, 0.28), rgba(40, 44, 56, 0.6)),
+    rgba(28, 30, 36, 0.94);
+  color: rgba(230, 238, 255, 0.92);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.persistenceAction:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(139, 178, 255, 0.34);
+}
+
+.persistenceAction:disabled {
+  opacity: 0.62;
+  cursor: wait;
 }
 
 .transcriptTyping {

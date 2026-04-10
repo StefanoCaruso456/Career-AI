@@ -32,9 +32,13 @@ import { loadJobListings } from "@/lib/jobs/load-job-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import {
   type ChatConversation,
+  type ChatProjectActivitySnapshot,
+  type ChatProjectPersistence,
   type ChatMessage,
   type ChatProject,
+  type ChatWorkspacePersistence,
   type ChatWorkspaceSnapshot,
+  emptyChatWorkspacePersistence,
   supportedChatAttachmentTypes,
 } from "@/packages/contracts/src";
 import {
@@ -56,6 +60,7 @@ import styles from "./chat-home-shell.module.css";
 type TranscriptEntry = ChatMessage;
 type ProjectEntry = ChatProject;
 type ChatThread = ChatConversation;
+type ChatProjectPersistenceMap = Record<string, ChatProjectPersistence>;
 
 type SidebarEntityType = "chat" | "project";
 
@@ -107,6 +112,14 @@ type ComposerNoticeTone = "active" | "default" | "error";
 type ComposerNotice = {
   message: string;
   tone: ComposerNoticeTone;
+};
+
+type ProjectActivityState = {
+  error: string | null;
+  isLoading: boolean;
+  payload: ChatProjectActivitySnapshot | null;
+  projectId: string | null;
+  restoringCheckpointId: string | null;
 };
 
 type VoiceInputState = "idle" | "recording" | "transcribing";
@@ -392,6 +405,40 @@ function formatThreadUpdatedAt(updatedAt: string) {
   }).format(new Date(updatedAt));
 }
 
+function createClientRequestId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `request_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatRelativeTimestamp(timestamp: string | null) {
+  if (!timestamp) {
+    return "Not saved yet";
+  }
+
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const safeDiffMs = Math.max(diffMs, 0);
+  const minutes = Math.floor(safeDiffMs / (60 * 1000));
+  const hours = Math.floor(safeDiffMs / (60 * 60 * 1000));
+  const days = Math.floor(safeDiffMs / (24 * 60 * 60 * 1000));
+
+  if (minutes <= 0) {
+    return "just now";
+  }
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  return `${days}d ago`;
+}
+
 export function HeroComposer({ content, onConversationStateChange }: HeroComposerProps) {
   const composerContent = content ?? landingContentByPersona.job_seeker.heroComposer;
   const starterActions = composerContent.starterActions;
@@ -405,6 +452,10 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [workspacePersistence, setWorkspacePersistence] =
+    useState<ChatWorkspacePersistence>(emptyChatWorkspacePersistence);
+  const [projectPersistence, setProjectPersistence] =
+    useState<ChatProjectPersistenceMap>({});
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
@@ -420,6 +471,14 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
   const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
   const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
+  const [projectActivityState, setProjectActivityState] = useState<ProjectActivityState>({
+    error: null,
+    isLoading: false,
+    payload: null,
+    projectId: null,
+    restoringCheckpointId: null,
+  });
+  const [isCheckpointSaving, setIsCheckpointSaving] = useState(false);
   const {
     addFiles,
     attachments: pendingAttachments,
@@ -464,6 +523,9 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
     voiceNotice?.tone === "active" ? voiceNotice : composerNotice ?? voiceNotice;
   const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
+  const activeProjectPersistence = activeProjectId
+    ? projectPersistence[activeProjectId] ?? null
+    : null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
   const isProjectHomeVisible =
     activeProject !== null &&
@@ -768,6 +830,8 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
 
     setProjects(nextProjects);
     setThreads(nextThreads);
+    setWorkspacePersistence(snapshot.persistence ?? emptyChatWorkspacePersistence);
+    setProjectPersistence(snapshot.projectPersistence ?? {});
     setActiveProjectId(nextProjectId);
     setComposerNotice(null);
 
@@ -938,6 +1002,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
 
   async function requestChatReply(args: {
     attachmentIds: string[];
+    clientRequestId: string;
     conversationId: string | null;
     message: string;
     projectId: string;
@@ -949,6 +1014,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       },
       body: JSON.stringify({
         attachmentIds: args.attachmentIds,
+        clientRequestId: args.clientRequestId,
         conversationId: args.conversationId,
         message: args.message,
         projectId: args.projectId,
@@ -961,6 +1027,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       error?: string;
       errorCode?: string;
       userMessage?: ChatMessage;
+      workspace?: ChatWorkspaceSnapshot;
     };
 
     return {
@@ -1439,8 +1506,10 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       const attachmentIds = readyAttachments
         .map((attachment) => attachment.attachmentId)
         .filter((attachmentId): attachmentId is string => Boolean(attachmentId));
+      const clientRequestId = createClientRequestId();
       let reply = await requestChatReply({
         attachmentIds,
+        clientRequestId,
         conversationId: submitTarget.conversationId,
         message: prompt,
         projectId: submitTarget.projectId,
@@ -1462,6 +1531,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
         if (recoveredSubmitTarget.projectId) {
           reply = await requestChatReply({
             attachmentIds,
+            clientRequestId,
             conversationId: recoveredSubmitTarget.conversationId,
             message: prompt,
             projectId: recoveredSubmitTarget.projectId,
@@ -1483,7 +1553,14 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
           entryId: userMessage.id,
           mode: "anchor-entry",
         };
-        replaceConversation(conversation);
+        if (payload.workspace) {
+          applyWorkspaceSnapshot(payload.workspace, {
+            preferredConversationId: conversation.id,
+            preferredProjectId: conversation.projectId,
+          });
+        } else {
+          replaceConversation(conversation);
+        }
       });
     } catch (requestError) {
       setTranscript(previousTranscript);
@@ -1540,6 +1617,142 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
 
   function handleStarterQuestion(question: string) {
     void submitMessage(question);
+  }
+
+  async function handleSaveCheckpoint() {
+    if (!activeProjectId || isCheckpointSaving) {
+      return;
+    }
+
+    setIsCheckpointSaving(true);
+    setComposerNotice(null);
+
+    try {
+      const response = await fetch(`/api/chat/projects/${activeProjectId}/checkpoints`, {
+        body: JSON.stringify({
+          conversationId: currentThreadId,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        workspace?: ChatWorkspaceSnapshot;
+      };
+
+      if (!response.ok || !payload.workspace) {
+        throw new Error(payload.error || "Checkpoint could not be saved right now.");
+      }
+
+      applyWorkspaceSnapshot(payload.workspace, {
+        preferredConversationId: currentThreadId,
+        preferredProjectId: activeProjectId,
+      });
+      setComposerNotice({
+        message: "Checkpoint saved.",
+        tone: "default",
+      });
+    } catch (error) {
+      showComposerError(getErrorMessage(error, "Checkpoint could not be saved right now."));
+    } finally {
+      setIsCheckpointSaving(false);
+    }
+  }
+
+  async function openProjectActivityHistory() {
+    if (!activeProjectId) {
+      return;
+    }
+
+    setProjectActivityState({
+      error: null,
+      isLoading: true,
+      payload: null,
+      projectId: activeProjectId,
+      restoringCheckpointId: null,
+    });
+
+    try {
+      const response = await fetch(`/api/chat/projects/${activeProjectId}/activity`, {
+        method: "GET",
+      });
+      const payload = (await response.json()) as ChatProjectActivitySnapshot & {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Project activity could not be loaded right now.");
+      }
+
+      setProjectActivityState({
+        error: null,
+        isLoading: false,
+        payload,
+        projectId: activeProjectId,
+        restoringCheckpointId: null,
+      });
+    } catch (error) {
+      setProjectActivityState({
+        error: getErrorMessage(error, "Project activity could not be loaded right now."),
+        isLoading: false,
+        payload: null,
+        projectId: activeProjectId,
+        restoringCheckpointId: null,
+      });
+    }
+  }
+
+  function closeProjectActivityHistory() {
+    setProjectActivityState({
+      error: null,
+      isLoading: false,
+      payload: null,
+      projectId: null,
+      restoringCheckpointId: null,
+    });
+  }
+
+  async function restoreCheckpointFromActivity(checkpointId: string) {
+    if (!projectActivityState.projectId) {
+      return;
+    }
+
+    setProjectActivityState((currentState) => ({
+      ...currentState,
+      restoringCheckpointId: checkpointId,
+    }));
+
+    try {
+      const response = await fetch(`/api/chat/checkpoints/${checkpointId}/restore`, {
+        method: "POST",
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        workspace?: ChatWorkspaceSnapshot;
+      };
+
+      if (!response.ok || !payload.workspace) {
+        throw new Error(payload.error || "Checkpoint could not be restored right now.");
+      }
+
+      applyWorkspaceSnapshot(payload.workspace, {
+        preferredConversationId: currentThreadId,
+        preferredProjectId: projectActivityState.projectId,
+      });
+      closeProjectActivityHistory();
+      setComposerNotice({
+        message: "Checkpoint restored.",
+        tone: "default",
+      });
+    } catch (error) {
+      setProjectActivityState((currentState) => ({
+        ...currentState,
+        error: getErrorMessage(error, "Checkpoint could not be restored right now."),
+        restoringCheckpointId: null,
+      }));
+    }
   }
 
   function toggleSidebarActionMenu(type: SidebarEntityType, id: string) {
@@ -1941,6 +2154,54 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
     );
   }
 
+  function renderPersistenceBar() {
+    if (
+      !activeProject ||
+      (workspacePersistence.lastSavedAt === null &&
+        workspacePersistence.checkpointCount === 0 &&
+        workspacePersistence.pendingMemoryJobs === 0)
+    ) {
+      return null;
+    }
+
+    const lastSavedLabel = formatRelativeTimestamp(
+      activeProjectPersistence?.lastSavedAt ?? workspacePersistence.lastSavedAt,
+    );
+    const lastCheckpointLabel = formatRelativeTimestamp(
+      activeProjectPersistence?.lastCheckpointAt ?? workspacePersistence.lastCheckpointAt,
+    );
+
+    return (
+      <div className={styles.persistenceBar}>
+        <div className={styles.persistenceMeta}>
+          <span className={styles.persistenceChip}>Saved {lastSavedLabel}</span>
+          <span className={styles.persistenceChip}>Last checkpoint {lastCheckpointLabel}</span>
+        </div>
+        <div className={styles.persistenceActions}>
+          <button
+            className={styles.persistenceAction}
+            disabled={isCheckpointSaving}
+            onClick={() => {
+              void handleSaveCheckpoint();
+            }}
+            type="button"
+          >
+            {isCheckpointSaving ? "Saving checkpoint..." : "Save checkpoint"}
+          </button>
+          <button
+            className={styles.persistenceAction}
+            onClick={() => {
+              void openProjectActivityHistory();
+            }}
+            type="button"
+          >
+            Activity history
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   function renderSidebarItemRow({
     itemClassName,
     labelClassName,
@@ -2292,6 +2553,9 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
                 .join(" ")}
               ref={transcriptRef}
             >
+              {(isProjectHomeVisible || hasActiveConversation) && activeProject
+                ? renderPersistenceBar()
+                : null}
               {isProjectHomeVisible && activeProject ? (
                 <section className={styles.projectHome}>
                   <header className={styles.projectHomeHeader}>
@@ -2459,6 +2723,123 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
           ) : null}
         </div>
       </section>
+
+      {isMounted && projectActivityState.projectId
+        ? createPortal(
+            <div
+              className={styles.sidebarDeleteOverlay}
+              onClick={closeProjectActivityHistory}
+              role="presentation"
+            >
+              <div
+                aria-modal="true"
+                className={styles.activityHistoryDialog}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+                role="dialog"
+              >
+                <div className={styles.activityHistoryHeader}>
+                  <div>
+                    <h2 className={styles.activityHistoryTitle}>Project activity history</h2>
+                    <p className={styles.activityHistoryMeta}>
+                      Review checkpoints, extracted memory, and recent saved events.
+                    </p>
+                  </div>
+                  <button
+                    className={styles.activityHistoryClose}
+                    onClick={closeProjectActivityHistory}
+                    type="button"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                {projectActivityState.isLoading ? (
+                  <p className={styles.activityHistoryState}>Loading activity...</p>
+                ) : projectActivityState.error ? (
+                  <p className={styles.activityHistoryState}>{projectActivityState.error}</p>
+                ) : projectActivityState.payload ? (
+                  <div className={styles.activityHistoryBody}>
+                    <section className={styles.activityHistorySection}>
+                      <h3>Checkpoints</h3>
+                      {projectActivityState.payload.checkpoints.length > 0 ? (
+                        projectActivityState.payload.checkpoints.map((checkpoint) => (
+                          <div className={styles.activityHistoryRow} key={checkpoint.id}>
+                            <div className={styles.activityHistoryRowCopy}>
+                              <strong>{checkpoint.title}</strong>
+                              <span>{checkpoint.summary}</span>
+                              <small>
+                                {checkpoint.checkpointType} checkpoint •{" "}
+                                {formatRelativeTimestamp(checkpoint.createdAt)}
+                              </small>
+                            </div>
+                            <button
+                              className={styles.persistenceAction}
+                              disabled={
+                                projectActivityState.restoringCheckpointId === checkpoint.id
+                              }
+                              onClick={() => {
+                                void restoreCheckpointFromActivity(checkpoint.id);
+                              }}
+                              type="button"
+                            >
+                              {projectActivityState.restoringCheckpointId === checkpoint.id
+                                ? "Restoring..."
+                                : "Restore"}
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className={styles.activityHistoryEmpty}>No checkpoints yet.</p>
+                      )}
+                    </section>
+
+                    <section className={styles.activityHistorySection}>
+                      <h3>Recent activity</h3>
+                      {projectActivityState.payload.events.length > 0 ? (
+                        projectActivityState.payload.events.map((event) => (
+                          <div className={styles.activityHistoryRow} key={event.id}>
+                            <div className={styles.activityHistoryRowCopy}>
+                              <strong>{event.summary}</strong>
+                              <small>
+                                {event.eventType} • {formatRelativeTimestamp(event.createdAt)}
+                              </small>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className={styles.activityHistoryEmpty}>No project activity recorded yet.</p>
+                      )}
+                    </section>
+
+                    <section className={styles.activityHistorySection}>
+                      <h3>Durable memory</h3>
+                      {projectActivityState.payload.memoryRecords.length > 0 ? (
+                        projectActivityState.payload.memoryRecords.map((memory) => (
+                          <div className={styles.activityHistoryRow} key={memory.id}>
+                            <div className={styles.activityHistoryRowCopy}>
+                              <strong>{memory.title}</strong>
+                              <span>{memory.content}</span>
+                              <small>
+                                {memory.memoryType} • {formatRelativeTimestamp(memory.updatedAt)}
+                              </small>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className={styles.activityHistoryEmpty}>
+                          No durable memory has been extracted yet.
+                        </p>
+                      )}
+                    </section>
+                  </div>
+                ) : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {isMounted && sidebarDeleteDraft
         ? createPortal(
