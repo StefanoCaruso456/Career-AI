@@ -23,7 +23,7 @@ export function HeaderHomeLink() {
           fill
           priority
           sizes="44px"
-          src="/career-ai-home-mark.png"
+          src="/career-ai-header-logo.png"
         />
       </span>
       <span className={styles.homeBrandCopy} aria-hidden="true">
