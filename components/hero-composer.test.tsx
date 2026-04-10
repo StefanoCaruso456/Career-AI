@@ -327,6 +327,66 @@ describe("HeroComposer", () => {
     expect(await screen.findByRole("button", { name: "Send message" })).not.toBeDisabled();
   });
 
+  it("shows Find NEW Jobs first in the landing pill stack and uses it to open jobs assist", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
+    const conversation = createConversation("conversation_jobs", "project_jobs", [
+      createMessage("message_user_jobs", "user", "Find new jobs for me."),
+      createMessage(
+        "message_assistant_jobs",
+        "assistant",
+        "Here are a few live roles worth reviewing.",
+      ),
+    ]);
+    const jobs = [
+      createJobPosting("job_1", "Figma", "Business Recruiter"),
+      createJobPosting("job_2", "OpenAI", "Product Designer"),
+    ];
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          conversation,
+          userMessage: conversation.messages[0],
+        });
+      }
+
+      if (url.startsWith("/api/v1/jobs?")) {
+        return createJsonResponse(createJobsFeedResponse(jobs));
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    const findJobsPill = await screen.findByRole("button", { name: "Find NEW Jobs" });
+    const firstQuestionPill = screen.getByRole("button", {
+      name: "What does the agent actually do?",
+    });
+
+    expect(
+      Boolean(findJobsPill.compareDocumentPosition(firstQuestionPill) & Node.DOCUMENT_POSITION_FOLLOWING),
+    ).toBe(true);
+
+    fireEvent.click(findJobsPill);
+
+    expect(await screen.findAllByRole("button", { name: "Find NEW Jobs" })).toHaveLength(1);
+    expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
+    expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input).startsWith("/api/v1/jobs?"))).toBe(
+      true,
+    );
+  });
+
   it("shows the jobs side panel for job-related prompts and renders live listings", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
     const conversation = createConversation("conversation_jobs", "project_jobs", [
@@ -373,7 +433,7 @@ describe("HeroComposer", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByRole("button", { name: "Find NEW Jobs" })).toBeInTheDocument();
+    expect(await screen.findByLabelText("Jobs assist panel")).toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
     expect(await screen.findByText("Figma")).toBeInTheDocument();
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();

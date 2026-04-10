@@ -163,11 +163,31 @@ type ConversationComposerStyle = CSSProperties & {
   "--chat-conversation-composer-offset": string;
 };
 
-const starterActions = [
+type StarterAction =
+  | {
+      accent?: "jobs";
+      kind: "prompt";
+      label: string;
+      value?: string;
+    }
+  | {
+      accent?: "primary";
+      href: string;
+      kind: "link";
+      label: string;
+    };
+
+const starterActions: StarterAction[] = [
+  {
+    accent: "jobs",
+    kind: "prompt",
+    label: "Find NEW Jobs",
+    value: "Find new jobs for me.",
+  },
   { kind: "prompt", label: "What does the agent actually do?" },
   { kind: "prompt", label: "How is this different from a resume builder?" },
   { kind: "prompt", label: "How does the agent help me get hired faster?" },
-  { kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
+  { accent: "primary", kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
 ] as const;
 
 const preferredRecorderMimeTypes = [
@@ -2358,16 +2378,24 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
                       {starterActions.map((action) =>
                         action.kind === "prompt" ? (
                           <button
-                            className={styles.starterQuestionPill}
+                            className={[
+                              styles.starterQuestionPill,
+                              action.accent === "jobs" ? styles.starterQuestionPillJobs : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
                             key={action.label}
-                            onClick={() => handleStarterQuestion(action.label)}
+                            onClick={() => handleStarterQuestion(action.value ?? action.label)}
                             type="button"
                           >
                             {action.label}
                           </button>
                         ) : (
                           <Link
-                            className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
+                            className={[
+                              styles.starterQuestionPill,
+                              action.accent === "primary" ? styles.starterQuestionPillPrimary : "",
+                            ]
                               .filter(Boolean)
                               .join(" ")}
                             href={action.href}
