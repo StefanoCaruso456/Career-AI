@@ -8,7 +8,7 @@ import styles from "./page.module.css";
 export const metadata: Metadata = {
   title: "Jobs | Career AI",
   description:
-    "Run ATS-direct job feeds and aggregator coverage together so Career AI can match verified candidates against real hiring pipelines.",
+    "Bring live job sources together so Career AI can match verified candidates against real hiring pipelines.",
 };
 
 export const dynamic = "force-dynamic";
@@ -27,10 +27,6 @@ function formatTimestamp(value: string | null) {
     day: "numeric",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function formatLaneLabel(value: "ats_direct" | "aggregator") {
-  return value === "ats_direct" ? "ATS direct" : "Aggregator";
 }
 
 function formatStatusLabel(value: "connected" | "degraded" | "not_configured") {
@@ -109,9 +105,9 @@ export default async function JobsPage() {
             <article className={styles.emptyState}>
               <h3>No job feeds are connected yet.</h3>
               <p>
-                The hybrid intake layer is live, but it needs at least one ATS feed or one
-                aggregator endpoint to start filling the jobs surface. Once a source is configured,
-                Career AI will sync the feed and save those jobs to Postgres automatically.
+                The intake layer is live, but it needs at least one job source to start filling the
+                jobs surface. Once a source is configured, Career AI will sync the feed and save
+                those jobs to Postgres automatically.
               </p>
               <div className={styles.envList}>
                 {environmentGuide.map((entry) => (
@@ -142,7 +138,6 @@ export default async function JobsPage() {
                       <p>{source.endpointLabel ?? "Awaiting provider config"}</p>
                     </div>
                     <div className={styles.feedItemMeta}>
-                      <span>{formatLaneLabel(source.lane)}</span>
                       <span>{source.jobCount} {pluralize(source.jobCount, "role")}</span>
                       <span
                         className={`${styles.feedStatus} ${
