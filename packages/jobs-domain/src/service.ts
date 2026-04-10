@@ -170,19 +170,36 @@ function toIsoDate(value: unknown) {
   return candidate.toISOString();
 }
 
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">");
+}
+
 function stripHtml(value: string | null | undefined) {
   if (!value) {
     return null;
   }
 
-  return value
+  return decodeHtmlEntities(value)
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractTextSnippet(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const decoded = decodeHtmlEntities(value);
+  const firstParagraph = stripHtml(decoded.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i)?.[1]);
+
+  return firstParagraph || stripHtml(decoded);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -445,7 +462,7 @@ function mapGreenhouseJobs(source: DirectSourceSpec, payload: unknown): JobPosti
           ?.find((entry) => entry.name?.toLowerCase() === "commitment")
           ?.value?.trim() || null;
       const externalId = String(job.id ?? job.internal_job_id ?? applyUrl);
-      const descriptionSnippet = trimSnippet(stripHtml(job.content));
+      const descriptionSnippet = trimSnippet(extractTextSnippet(job.content));
 
       return {
         id: createJobId(source.key, externalId),
@@ -505,7 +522,7 @@ function mapLeverJobs(source: DirectSourceSpec, payload: unknown): JobPostingDto
         applyUrl,
         postedAt: toIsoDate(job.createdAt),
         updatedAt: toIsoDate(job.updatedAt),
-        descriptionSnippet: trimSnippet(job.descriptionPlain?.trim() || null),
+        descriptionSnippet: trimSnippet(extractTextSnippet(job.descriptionPlain?.trim() || null)),
       } satisfies JobPostingDto;
     })
     .filter(isPresent) as JobPostingDto[];
@@ -606,13 +623,15 @@ function mapAggregatorJobs(source: AggregatorSourceSpec, payload: unknown): JobP
         ),
         updatedAt: toIsoDate(item.updatedAt ?? item.updated_at ?? item.modifiedAt ?? item.modified_at),
         descriptionSnippet: trimSnippet(
-          getStringField(item, [
-            "descriptionSnippet",
-            "description_snippet",
-            "summary",
-            "descriptionPlain",
-            "description_plain",
-          ]),
+          extractTextSnippet(
+            getStringField(item, [
+              "descriptionSnippet",
+              "description_snippet",
+              "summary",
+              "descriptionPlain",
+              "description_plain",
+            ]),
+          ),
         ),
       } satisfies JobPostingDto;
     })

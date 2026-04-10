@@ -134,6 +134,41 @@ describe("jobs feed service", () => {
     expect(snapshot.jobs[0]?.title).toBe("Product Designer");
   });
 
+  it("extracts a clean preview from encoded Greenhouse rich text", async () => {
+    process.env.GREENHOUSE_BOARD = "Stripe=stripe";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 4242,
+              title: "Account Executive",
+              absolute_url: "https://boards.greenhouse.io/stripe/jobs/4242",
+              content:
+                "&lt;h2&gt;Who we are&lt;/h2&gt;&lt;h3&gt;About Stripe&lt;/h3&gt;&lt;p&gt;Stripe is a financial infrastructure platform for businesses.&lt;/p&gt;",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Sales" }],
+              updated_at: "2026-04-09T18:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(snapshot.jobs[0]?.descriptionSnippet).toBe(
+      "Stripe is a financial infrastructure platform for businesses.",
+    );
+  });
+
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {
     process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
     process.env.LEVER_SITE_NAMES = "Orbit=orbit";
