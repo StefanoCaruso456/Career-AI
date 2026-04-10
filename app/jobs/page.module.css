@@ -203,7 +203,6 @@
 }
 
 .jobMeta,
-.jobSnippet,
 .emptyState p,
 .envCard span,
 .feedItem p {
@@ -214,17 +213,6 @@
   margin: 0;
   color: #607083;
   font-size: 0.95rem;
-}
-
-.jobSnippet {
-  margin: 0;
-  color: #263446;
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: 0.95rem;
-  line-height: 1.58;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .jobFooter {
