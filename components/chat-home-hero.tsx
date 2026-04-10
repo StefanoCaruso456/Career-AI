@@ -12,6 +12,7 @@ export function ChatHomeHero() {
       <div
         className={[
           styles.heroInner,
+          !hasActiveConversation ? styles.heroInnerLanding : "",
           hasActiveConversation ? styles.heroInnerConversation : "",
         ]
           .filter(Boolean)
