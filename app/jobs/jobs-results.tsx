@@ -27,10 +27,6 @@ function formatTimestamp(value: string | null) {
   }).format(new Date(value));
 }
 
-function formatLaneLabel(value: "ats_direct" | "aggregator") {
-  return value === "ats_direct" ? "ATS direct" : "Aggregator";
-}
-
 function formatQualityLabel(value: "high_signal" | "coverage") {
   return value === "high_signal" ? "High-signal" : "Coverage";
 }
@@ -373,7 +369,6 @@ export function JobsResults({
           {visibleJobs.map((job) => (
             <article className={styles.jobCard} key={job.id}>
               <div className={styles.badgeRow}>
-                <span className={styles.laneBadge}>{formatLaneLabel(job.sourceLane)}</span>
                 <span className={styles.qualityBadge}>{formatQualityLabel(job.sourceQuality)}</span>
               </div>
               <div className={styles.jobCopy}>
