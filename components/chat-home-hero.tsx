@@ -27,8 +27,7 @@ export function ChatHomeHero() {
             .join(" ")}
         >
           <span className={styles.heroTitleLine}>
-            Career AI is a trusted identity platform that helps job seekers stand out to employers
-            and get hired faster.
+            Career AI is a trusted identity platform that helps job seekers get hired faster.
           </span>
         </h1>
 
