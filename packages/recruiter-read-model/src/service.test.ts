@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   resetAuditStore,
 } from "@/packages/audit-security/src";
@@ -7,9 +7,9 @@ import { createEmploymentClaim, resetCredentialStore } from "@/packages/credenti
 import {
   createTalentIdentity,
   getTalentIdentity,
-  resetIdentityStore,
   updatePrivacySettings,
 } from "@/packages/identity-domain/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import {
   resetVerificationStore,
   transitionVerificationRecord,
@@ -22,8 +22,9 @@ import {
 } from "@/packages/recruiter-read-model/src";
 
 describe("recruiter read model service", () => {
-  beforeEach(() => {
-    resetIdentityStore();
+  beforeEach(async () => {
+    await resetTestDatabase();
+    await installTestDatabase();
     resetCredentialStore();
     resetVerificationStore();
     resetArtifactStore();
@@ -31,8 +32,12 @@ describe("recruiter read model service", () => {
     resetRecruiterReadModelStore();
   });
 
-  it("generates a recruiter-safe profile from visible records", () => {
-    const aggregate = createTalentIdentity({
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
+  it("generates a recruiter-safe profile from visible records", async () => {
+    const aggregate = await createTalentIdentity({
       input: {
         email: "share@example.com",
         firstName: "Nina",
@@ -44,7 +49,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-1",
     });
 
-    updatePrivacySettings({
+    await updatePrivacySettings({
       talentIdentityId: aggregate.talentIdentity.id,
       input: {
         showEmploymentRecords: true,
@@ -56,7 +61,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-2",
     });
 
-    createEmploymentClaim({
+    await createEmploymentClaim({
       input: {
         soulRecordId: aggregate.soulRecord.id,
         employerName: "Acme Inc",
@@ -69,7 +74,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-3",
     });
 
-    const profile = generateRecruiterTrustProfile({
+    const profile = await generateRecruiterTrustProfile({
       input: {
         talentIdentityId: aggregate.talentIdentity.id,
         baseUrlOptional: "https://talentagentid.test",
@@ -84,14 +89,14 @@ describe("recruiter read model service", () => {
     expect(profile.shareUrl).toContain("/share/");
     expect(profile.trustSummary.totalClaims).toBe(1);
 
-    const refreshed = getTalentIdentity({
+    const refreshed = await getTalentIdentity({
       talentIdentityId: aggregate.talentIdentity.id,
       correlationId: "corr-5",
     });
 
     expect(refreshed.soulRecord.default_share_profile_id).toBe(profile.id);
 
-    const qr = generateShareProfileQr({
+    const qr = await generateShareProfileQr({
       profileId: profile.id,
       input: {
         baseUrlOptional: "https://talentagentid.test",
@@ -105,8 +110,8 @@ describe("recruiter read model service", () => {
     expect(qr.qrPayload).toContain(profile.publicShareToken);
   });
 
-  it("blocks share profile generation when public links are disabled", () => {
-    const aggregate = createTalentIdentity({
+  it("blocks share profile generation when public links are disabled", async () => {
+    const aggregate = await createTalentIdentity({
       input: {
         email: "private@example.com",
         firstName: "Private",
@@ -118,7 +123,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-1",
     });
 
-    expect(() =>
+    await expect(
       generateRecruiterTrustProfile({
         input: {
           talentIdentityId: aggregate.talentIdentity.id,
@@ -127,11 +132,11 @@ describe("recruiter read model service", () => {
         actorId: aggregate.talentIdentity.id,
         correlationId: "corr-2",
       }),
-    ).toThrowError(/public share links are disabled/i);
+    ).rejects.toThrowError(/public share links are disabled/i);
   });
 
-  it("refreshes recruiter projections when verification state changes", () => {
-    const aggregate = createTalentIdentity({
+  it("refreshes recruiter projections when verification state changes", async () => {
+    const aggregate = await createTalentIdentity({
       input: {
         email: "refresh@example.com",
         firstName: "Refresh",
@@ -143,7 +148,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-1",
     });
 
-    updatePrivacySettings({
+    await updatePrivacySettings({
       talentIdentityId: aggregate.talentIdentity.id,
       input: {
         showEmploymentRecords: true,
@@ -154,7 +159,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-2",
     });
 
-    const created = createEmploymentClaim({
+    const created = await createEmploymentClaim({
       input: {
         soulRecordId: aggregate.soulRecord.id,
         employerName: "Orbit Works",
@@ -167,7 +172,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-3",
     });
 
-    const profile = generateRecruiterTrustProfile({
+    const profile = await generateRecruiterTrustProfile({
       input: {
         talentIdentityId: aggregate.talentIdentity.id,
       },
@@ -186,7 +191,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-5",
     });
 
-    const refreshed = getRecruiterTrustProfileByToken({
+    const refreshed = await getRecruiterTrustProfileByToken({
       token: profile.publicShareToken,
       actorType: "system_service",
       actorId: "public_request",

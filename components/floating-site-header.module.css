@@ -34,7 +34,7 @@
   -webkit-backdrop-filter: blur(26px) saturate(180%);
   backdrop-filter: blur(26px) saturate(180%);
   isolation: isolate;
-  overflow: hidden;
+  overflow: visible;
   animation: headerFloatIn 720ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -43,7 +43,9 @@
 .ghostAction,
 .primaryAction,
 .ghostButton,
-.accountAction {
+.accountAction,
+.settingsTrigger,
+.settingsItem {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -53,27 +55,22 @@
     transform 180ms ease,
     box-shadow 180ms ease,
     background 180ms ease,
-    border-color 180ms ease;
+    border-color 180ms ease,
+    color 180ms ease;
 }
 
 .homeAction {
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  width: 3.25rem;
-  height: 3.25rem;
-  padding: 0;
-  border-radius: 1.15rem;
-  border: 1px solid var(--header-accent-line);
-  background:
-    radial-gradient(circle at 36% 30%, rgba(141, 127, 255, 0.28), transparent 48%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)),
-    rgba(18, 18, 35, 0.86);
-  box-shadow:
-    0 20px 36px rgba(13, 10, 34, 0.34),
-    0 0 0 1px rgba(141, 127, 255, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 rgba(141, 127, 255, 0.08);
+  min-height: 3.05rem;
+  padding: 0.4rem 1.05rem 0.4rem 0.48rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  justify-content: flex-start;
+  gap: 0.72rem;
 }
 
 .centerNav {
@@ -89,23 +86,20 @@
   min-width: 10.5rem;
   padding: 0.8rem 1.35rem;
   border-radius: 999px;
-  border: 1px solid var(--header-accent-line);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
-    linear-gradient(180deg, var(--header-accent-softer), rgba(19, 19, 36, 0.78));
-  color: rgba(245, 244, 255, 0.92);
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(245, 244, 255, 0.76);
   font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 16px 28px rgba(16, 12, 42, 0.2),
-    0 0 0 1px rgba(141, 127, 255, 0.08);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
-.navTabCurrent {
+.navTabCurrent,
+.homeActionCurrent,
+.accountActionCurrent {
   border-color: var(--header-accent-line-strong);
   background:
     radial-gradient(circle at 50% 0%, rgba(141, 127, 255, 0.18), transparent 62%),
@@ -116,45 +110,40 @@
     0 20px 32px rgba(19, 15, 46, 0.28),
     0 0 0 1px rgba(141, 127, 255, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
-}
-
-.homeAction::before {
-  content: "";
-  position: absolute;
-  inset: -0.35rem;
-  z-index: -1;
-  border-radius: 1.35rem;
-  background:
-    radial-gradient(circle, rgba(141, 127, 255, 0.34), rgba(141, 127, 255, 0) 72%);
-  opacity: 0;
-  transition: opacity 180ms ease;
-}
-
-.homeActionCurrent {
-  border-color: var(--header-accent-line-strong);
-  box-shadow:
-    0 24px 42px rgba(17, 13, 42, 0.4),
-    0 0 0 1px rgba(141, 127, 255, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-
-.homeActionCurrent::before {
-  opacity: 1;
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
 }
 
 .homeMarkShell {
   position: relative;
-  width: 2.2rem;
-  height: 2.2rem;
-  border-radius: 0.9rem;
-  overflow: hidden;
+  width: 2.12rem;
+  height: 2.12rem;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.homeBrandCopy {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.homeBrandWordmark {
+  color: #f7f7f7;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.34rem;
+  font-weight: 700;
+  letter-spacing: -0.055em;
+  line-height: 0.92;
+  text-shadow: 0 10px 18px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
 }
 
 .homeMarkImage {
-  object-fit: cover;
+  object-fit: contain;
   mix-blend-mode: screen;
   filter: saturate(1.08) brightness(1.03);
-  transform: scale(1.16);
+  transform: scale(1.05);
 }
 
 .srOnly {
@@ -203,6 +192,10 @@
   align-items: center;
   gap: 0.75rem;
   justify-self: end;
+}
+
+.settingsMenu {
+  position: relative;
 }
 
 .ghostAction {
@@ -260,6 +253,33 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+.settingsTrigger {
+  min-width: 13.5rem;
+  padding: 0.62rem 0.78rem 0.62rem 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(16, 19, 29, 0.66);
+  color: #f7f7f7;
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.settingsTriggerOpen {
+  border-color: var(--header-accent-line-strong);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(141, 127, 255, 0.18), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
+    linear-gradient(180deg, rgba(119, 104, 255, 0.14), rgba(22, 20, 44, 0.84));
+  box-shadow:
+    0 20px 32px rgba(19, 15, 46, 0.28),
+    0 0 0 1px rgba(141, 127, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
 .accountAvatar {
   display: inline-flex;
   align-items: center;
@@ -280,6 +300,13 @@
   text-align: left;
 }
 
+.settingsCopy {
+  display: grid;
+  gap: 0.05rem;
+  flex: 1;
+  text-align: left;
+}
+
 .accountCopy strong {
   max-width: 9rem;
   overflow: hidden;
@@ -292,6 +319,93 @@
 .accountCopy small {
   color: rgba(255, 255, 255, 0.62);
   font-size: 0.72rem;
+}
+
+.settingsCopy strong {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.settingsCopy small {
+  max-width: 8.6rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.72rem;
+}
+
+.settingsIcons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.36rem;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.settingsCaretOpen {
+  transform: rotate(180deg);
+}
+
+.settingsPanel {
+  position: absolute;
+  top: calc(100% + 0.7rem);
+  right: 0;
+  min-width: 14.75rem;
+  padding: 0.7rem;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(141, 127, 255, 0.24);
+  background:
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.14), transparent 38%),
+    linear-gradient(180deg, rgba(43, 44, 57, 0.96), rgba(27, 28, 37, 0.98));
+  box-shadow:
+    0 22px 44px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(141, 127, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+.settingsPanelHeader {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.35rem 0.35rem 0.6rem;
+}
+
+.settingsPanelTitle {
+  color: #f7f7f7;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.settingsPanelMeta {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+}
+
+.settingsItem {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.68rem;
+  padding: 0.88rem 0.92rem;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  background: transparent;
+  color: rgba(247, 247, 247, 0.88);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settingsItemCurrent {
+  border-color: rgba(141, 127, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(141, 127, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(22, 20, 44, 0.72);
+  color: #f7fbff;
+  box-shadow:
+    0 14px 24px rgba(19, 15, 46, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .loadingAction {
@@ -307,12 +421,14 @@
 .ghostAction:hover,
 .primaryAction:hover,
 .ghostButton:hover,
-.accountAction:hover {
+.accountAction:hover,
+.settingsTrigger:hover,
+.settingsItem:hover {
   transform: translateY(-2px);
 }
 
-.homeAction:hover::before {
-  opacity: 0.86;
+.navTab:hover {
+  color: rgba(247, 251, 255, 0.94);
 }
 
 .homeAction:focus-visible,
@@ -320,7 +436,9 @@
 .ghostAction:focus-visible,
 .primaryAction:focus-visible,
 .ghostButton:focus-visible,
-.accountAction:focus-visible {
+.accountAction:focus-visible,
+.settingsTrigger:focus-visible,
+.settingsItem:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.82);
   outline-offset: 3px;
 }
@@ -355,6 +473,15 @@
     border-radius: 1.6rem;
   }
 
+  .homeAction {
+    min-height: 2.9rem;
+    padding: 0.34rem 0.9rem 0.34rem 0.4rem;
+  }
+
+  .homeBrandWordmark {
+    font-size: 1.2rem;
+  }
+
   .navTab {
     min-width: 9.25rem;
     padding-inline: 1.1rem;
@@ -368,8 +495,8 @@
   }
 
   .homeAction {
-    width: 3rem;
-    height: 3rem;
+    min-height: 2.72rem;
+    padding: 0.28rem 0.72rem 0.28rem 0.32rem;
   }
 
   .centerNav {
@@ -382,6 +509,16 @@
     min-width: auto;
     padding: 0.76rem 1rem;
     font-size: 0.82rem;
+  }
+
+  .homeMarkShell {
+    width: 1.95rem;
+    height: 1.95rem;
+  }
+
+  .homeBrandWordmark {
+    font-size: 1.08rem;
+    letter-spacing: -0.045em;
   }
 
   .actions {
@@ -398,6 +535,19 @@
     padding-inline: 1rem;
   }
 
+  .settingsMenu {
+    width: 100%;
+  }
+
+  .settingsTrigger {
+    width: 100%;
+  }
+
+  .settingsPanel {
+    min-width: 0;
+    width: 100%;
+  }
+
   .accountAction {
     width: 100%;
     justify-content: space-between;
@@ -412,7 +562,9 @@
   .homeAction:hover,
   .navTab:hover,
   .ghostAction:hover,
-  .primaryAction:hover {
+  .primaryAction:hover,
+  .settingsTrigger:hover,
+  .settingsItem:hover {
     transform: none;
   }
 }

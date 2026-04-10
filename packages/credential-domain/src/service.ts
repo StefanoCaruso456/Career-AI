@@ -23,8 +23,17 @@ export function createEmploymentClaim(args: {
   actorId: string;
   correlationId: string;
 }) {
+  return createEmploymentClaimAsync(args);
+}
+
+async function createEmploymentClaimAsync(args: {
+  input: CreateEmploymentClaimInput;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}) {
   const input = createEmploymentClaimInputSchema.parse(args.input);
-  const owner = getTalentIdentityBySoulRecordId({
+  const owner = await getTalentIdentityBySoulRecordId({
     soulRecordId: input.soulRecordId,
     correlationId: args.correlationId,
   });
@@ -208,6 +217,13 @@ export function getClaimOwnerIdentityId(args: {
   claimId: string;
   correlationId: string;
 }) {
+  return getClaimOwnerIdentityIdAsync(args);
+}
+
+async function getClaimOwnerIdentityIdAsync(args: {
+  claimId: string;
+  correlationId: string;
+}) {
   const claim = getCredentialStore().claimsById.get(args.claimId);
 
   if (!claim) {
@@ -220,10 +236,12 @@ export function getClaimOwnerIdentityId(args: {
     });
   }
 
-  return getTalentIdentityBySoulRecordId({
-    soulRecordId: claim.soul_record_id,
-    correlationId: args.correlationId,
-  }).talentIdentity.id;
+  return (
+    await getTalentIdentityBySoulRecordId({
+      soulRecordId: claim.soul_record_id,
+      correlationId: args.correlationId,
+    })
+  ).talentIdentity.id;
 }
 
 export function getCredentialServiceMetrics() {

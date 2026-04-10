@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       allowAnonymousSystemActor: true,
     });
     const body = createTalentIdentityInputSchema.parse(await request.json());
-    const aggregate = createTalentIdentity({
+    const aggregate = await createTalentIdentity({
       input: body,
       actorType:
         actor.actorType === "talent_user" ? actor.actorType : "system_service",

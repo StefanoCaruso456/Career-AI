@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const actor = getAuthenticatedActor(request.headers, correlationId);
     assertReviewerAccess(actor, correlationId, "view claim audit trails");
     const { claimId } = await context.params;
-    const trail = getClaimAuditTrail({
+    const trail = await getClaimAuditTrail({
       claimId,
       correlationId,
     });

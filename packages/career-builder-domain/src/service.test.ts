@@ -1,9 +1,8 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resetArtifactStore } from "@/packages/artifact-domain/src";
 import { resetAuditStore } from "@/packages/audit-security/src";
-import { resetIdentityStore } from "@/packages/identity-domain/src";
 import { getCareerBuilderWorkspace, saveCareerBuilderPhase } from "@/packages/career-builder-domain/src";
-import { resetCareerBuilderStore } from "./store";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
 const viewer = {
   email: "stefano@example.com",
@@ -11,15 +10,19 @@ const viewer = {
 };
 
 describe("career builder service", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await resetTestDatabase();
+    await installTestDatabase();
     resetArtifactStore();
     resetAuditStore();
-    resetIdentityStore();
-    resetCareerBuilderStore();
   });
 
-  it("creates a builder workspace backed by a talent identity", () => {
-    const snapshot = getCareerBuilderWorkspace({
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
+  it("creates a builder workspace backed by a talent identity", async () => {
+    const snapshot = await getCareerBuilderWorkspace({
       viewer,
       correlationId: "corr-1",
     });
@@ -32,10 +35,12 @@ describe("career builder service", () => {
   });
 
   it("saves profile and evidence data, then derives updated progress from stored state", async () => {
-    const initial = getCareerBuilderWorkspace({
+    const initial = await getCareerBuilderWorkspace({
       viewer,
       correlationId: "corr-1",
     });
+
+    expect(initial.progress.completedEvidenceCount).toBe(0);
 
     const selfSaved = await saveCareerBuilderPhase({
       viewer,
@@ -90,7 +95,7 @@ describe("career builder service", () => {
     expect(savedOffer?.status).toBe("COMPLETE");
     expect(documentSaved.progress.completedEvidenceCount).toBe(1);
 
-    const hydrated = getCareerBuilderWorkspace({
+    const hydrated = await getCareerBuilderWorkspace({
       viewer,
       correlationId: "corr-4",
     });

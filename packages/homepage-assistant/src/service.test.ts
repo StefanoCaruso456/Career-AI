@@ -24,9 +24,10 @@ vi.mock("openai", () => ({
 }));
 
 import {
+  generateHomepageAssistantReply,
+  getFallbackHomepageReply,
   OpenAIConfigError,
   OpenAIResponseError,
-  generateHomepageAssistantReply,
   transcribeHomepageAssistantAudio,
 } from "@/packages/homepage-assistant/src";
 
@@ -73,6 +74,36 @@ describe("homepage assistant service", () => {
     });
   });
 
+  it("includes attachment metadata in the assistant input when files are attached", async () => {
+    createResponseMock.mockResolvedValue({ output_text: "  Attachment-aware reply  " });
+
+    await expect(
+      generateHomepageAssistantReply("Review these uploads", [
+        {
+          mimeType: "application/pdf",
+          name: "offer-letter.pdf",
+          size: 512000,
+        },
+        {
+          mimeType: "text/csv",
+          name: "scorecard.csv",
+          size: 2048,
+        },
+      ]),
+    ).resolves.toBe("Attachment-aware reply");
+
+    expect(createResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.stringContaining("offer-letter.pdf"),
+      }),
+    );
+    expect(createResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.stringContaining("scorecard.csv"),
+      }),
+    );
+  });
+
   it("returns a deterministic fallback reply when the OpenAI key is missing", async () => {
     delete process.env.OPENAI_API_KEY;
 
@@ -82,12 +113,37 @@ describe("homepage assistant service", () => {
     expect(openAIConstructorMock).not.toHaveBeenCalled();
   });
 
-  it("throws a response error when the SDK returns an empty reply", async () => {
+  it("falls back when the SDK returns an empty reply", async () => {
     createResponseMock.mockResolvedValue({ output_text: "   " });
 
-    await expect(generateHomepageAssistantReply("Hello")).rejects.toBeInstanceOf(
-      OpenAIResponseError,
+    await expect(generateHomepageAssistantReply("Hello")).resolves.toBe(
+      getFallbackHomepageReply("Hello"),
     );
+  });
+
+  it("falls back when the SDK request throws", async () => {
+    createResponseMock.mockRejectedValue(new Error("upstream exploded"));
+    const consoleErrorMock = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      generateHomepageAssistantReply("How is this different from a resume builder?"),
+    ).resolves.toBe(getFallbackHomepageReply("How is this different from a resume builder?"));
+
+    consoleErrorMock.mockRestore();
+  });
+
+  it("mentions attached files in the fallback response", async () => {
+    delete process.env.OPENAI_API_KEY;
+
+    await expect(
+      generateHomepageAssistantReply("How is this different from a resume builder?", [
+        {
+          mimeType: "application/pdf",
+          name: "offer-letter.pdf",
+          size: 512000,
+        },
+      ]),
+    ).resolves.toContain("offer-letter.pdf");
   });
 
   it("transcribes uploaded audio with the default transcription model", async () => {

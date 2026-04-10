@@ -8,12 +8,18 @@ import {
   type CareerEvidenceRecord,
   type CareerEvidenceStatus,
   type CareerPhase,
-  type CareerProfileInput,
   type CareerProfileRecord,
   type EvidenceFileSlot,
 } from "@/packages/contracts/src";
 import { logAuditEvent } from "@/packages/audit-security/src";
 import { uploadArtifact } from "@/packages/artifact-domain/src";
+import { createTalentIdentity, findTalentIdentityByEmail } from "@/packages/identity-domain/src";
+import {
+  getPersistentCareerBuilderProfile,
+  listPersistentCareerBuilderEvidence,
+  upsertPersistentCareerBuilderEvidence,
+  upsertPersistentCareerBuilderProfile,
+} from "@/packages/persistence/src";
 import {
   builderEvidenceTemplates,
   builderPhaseTemplateIds,
@@ -25,8 +31,6 @@ import {
   phaseSequence,
   type BuilderEvidenceTemplate,
 } from "./config";
-import { getCareerBuilderStore } from "./store";
-import { createTalentIdentity, findTalentIdentityByEmail } from "@/packages/identity-domain/src";
 
 type BuilderViewer = {
   email: string;
@@ -131,10 +135,7 @@ function isEvidenceStarted(record: CareerEvidenceRecord) {
   );
 }
 
-function getSlottedArtifact(
-  record: CareerEvidenceRecord,
-  slot: EvidenceFileSlot,
-) {
+function getSlottedArtifact(record: CareerEvidenceRecord, slot: EvidenceFileSlot) {
   return record.files.find((file) => file.slot === slot);
 }
 
@@ -175,85 +176,28 @@ function deriveEvidenceStatus(
   return "NOT_STARTED";
 }
 
-function getOrCreateViewerAggregate(viewer: BuilderViewer, correlationId: string) {
-  const existing = findTalentIdentityByEmail({
-    email: viewer.email,
-    correlationId,
-  });
-
-  if (existing) {
-    return existing;
-  }
-
-  const identityName = splitDisplayName(viewer.name, viewer.email);
-
-  return createTalentIdentity({
-    input: {
-      email: viewer.email,
-      firstName: identityName.firstName,
-      lastName: identityName.lastName,
-      countryCode: "US",
-    },
-    actorType: "talent_user",
-    actorId: viewer.email,
-    correlationId,
-  });
+function orderedDriverLicenseFiles(files: CareerArtifactReference[]) {
+  return driversLicenseImageSlots.flatMap(({ key }) =>
+    files.filter((file) => file.slot === key),
+  );
 }
 
-function getOrCreateProfile(viewer: BuilderViewer, correlationId: string) {
-  const aggregate = getOrCreateViewerAggregate(viewer, correlationId);
-  const store = getCareerBuilderStore();
-  const existingProfile = store.profileByTalentIdentityId.get(aggregate.talentIdentity.id);
-
-  if (existingProfile) {
-    return {
-      aggregate,
-      profile: existingProfile,
-    };
-  }
-
-  const profile = createEmptyProfile({
-    talentIdentityId: aggregate.talentIdentity.id,
-    soulRecordId: aggregate.soulRecord.id,
-    displayName: aggregate.talentIdentity.display_name,
-  });
-
-  store.profileByTalentIdentityId.set(aggregate.talentIdentity.id, profile);
+function normalizeEvidenceRecord(
+  template: BuilderEvidenceTemplate,
+  record: CareerEvidenceRecord,
+) {
+  const files = isDriverLicenseTemplate(template)
+    ? orderedDriverLicenseFiles(record.files)
+    : record.files;
 
   return {
-    aggregate,
-    profile,
+    ...record,
+    files,
+    status: deriveEvidenceStatus(template, {
+      ...record,
+      files,
+    }),
   };
-}
-
-function getEvidenceMap(talentIdentityId: string) {
-  const store = getCareerBuilderStore();
-  const existing = store.evidenceByTalentIdentityId.get(talentIdentityId);
-
-  if (existing) {
-    return existing;
-  }
-
-  const next = new Map<string, CareerEvidenceRecord>();
-  store.evidenceByTalentIdentityId.set(talentIdentityId, next);
-  return next;
-}
-
-function getOrCreateEvidenceRecord(args: {
-  talentIdentityId: string;
-  soulRecordId: string;
-  template: BuilderEvidenceTemplate;
-}) {
-  const evidenceMap = getEvidenceMap(args.talentIdentityId);
-  const existing = evidenceMap.get(args.template.id);
-
-  if (existing) {
-    return existing;
-  }
-
-  const next = createEmptyEvidenceRecord(args);
-  evidenceMap.set(args.template.id, next);
-  return next;
 }
 
 function getPhaseSummary(
@@ -298,34 +242,74 @@ function getPhaseSummary(
   return "Waiting on the earlier trust layers to complete first.";
 }
 
-function buildSnapshot(viewer: BuilderViewer, correlationId: string): CareerBuilderSnapshotDto {
-  const { aggregate, profile } = getOrCreateProfile(viewer, correlationId);
-  const evidenceMap = getEvidenceMap(aggregate.talentIdentity.id);
+async function getOrCreateViewerAggregate(viewer: BuilderViewer, correlationId: string) {
+  const existing = await findTalentIdentityByEmail({
+    email: viewer.email,
+    correlationId,
+  });
 
-  const evidence = builderEvidenceTemplates.map((template) => {
-    const record = evidenceMap.get(template.id);
+  if (existing) {
+    return existing;
+  }
 
-    if (record) {
-      const status = deriveEvidenceStatus(template, record);
+  const identityName = splitDisplayName(viewer.name, viewer.email);
 
-      if (record.status !== status) {
-        const updated = {
-          ...record,
-          status,
-        };
-        evidenceMap.set(template.id, updated);
-        return updated;
-      }
+  return createTalentIdentity({
+    input: {
+      email: viewer.email,
+      firstName: identityName.firstName,
+      lastName: identityName.lastName,
+      countryCode: "US",
+    },
+    actorType: "talent_user",
+    actorId: viewer.email,
+    correlationId,
+  });
+}
 
-      return record;
-    }
-
-    return getOrCreateEvidenceRecord({
+async function loadWorkspaceState(viewer: BuilderViewer, correlationId: string) {
+  const aggregate = await getOrCreateViewerAggregate(viewer, correlationId);
+  const profile =
+    (await getPersistentCareerBuilderProfile({
+      careerIdentityId: aggregate.talentIdentity.id,
+      soulRecordId: aggregate.soulRecord.id,
+    })) ??
+    createEmptyProfile({
       talentIdentityId: aggregate.talentIdentity.id,
       soulRecordId: aggregate.soulRecord.id,
-      template,
+      displayName: aggregate.talentIdentity.display_name,
     });
+  const persistedEvidence = await listPersistentCareerBuilderEvidence({
+    careerIdentityId: aggregate.talentIdentity.id,
+    soulRecordId: aggregate.soulRecord.id,
   });
+
+  return {
+    aggregate,
+    profile,
+    persistedEvidence,
+  };
+}
+
+async function buildSnapshot(
+  viewer: BuilderViewer,
+  correlationId: string,
+): Promise<CareerBuilderSnapshotDto> {
+  const { aggregate, profile, persistedEvidence } = await loadWorkspaceState(viewer, correlationId);
+  const evidenceByTemplateId = new Map(
+    persistedEvidence.map((record) => [record.templateId, record] as const),
+  );
+  const evidence = builderEvidenceTemplates.map((template) =>
+    normalizeEvidenceRecord(
+      template,
+      evidenceByTemplateId.get(template.id) ??
+        createEmptyEvidenceRecord({
+          talentIdentityId: aggregate.talentIdentity.id,
+          soulRecordId: aggregate.soulRecord.id,
+          template,
+        }),
+    ),
+  );
 
   const completedProfileFields = builderProfileFields.filter((field) =>
     hasProfileFieldValue(profile, field),
@@ -500,13 +484,7 @@ function validateEvidenceSubmission(args: {
   return errors;
 }
 
-function orderedDriverLicenseFiles(files: CareerArtifactReference[]) {
-  return driversLicenseImageSlots.flatMap(({ key }) =>
-    files.filter((file) => file.slot === key),
-  );
-}
-
-export function getCareerBuilderWorkspace(args: {
+export async function getCareerBuilderWorkspace(args: {
   viewer: BuilderViewer;
   correlationId: string;
 }) {
@@ -521,18 +499,21 @@ export async function saveCareerBuilderPhase(args: {
   correlationId: string;
 }): Promise<CareerBuilderSnapshotDto> {
   const parsed = careerBuilderPhaseSaveInputSchema.parse(args.input);
-  const { aggregate, profile } = getOrCreateProfile(args.viewer, args.correlationId);
-  const store = getCareerBuilderStore();
-  const evidenceMap = getEvidenceMap(aggregate.talentIdentity.id);
+  const { aggregate, profile, persistedEvidence } = await loadWorkspaceState(
+    args.viewer,
+    args.correlationId,
+  );
+  const evidenceByTemplateId = new Map(
+    persistedEvidence.map((record) => [record.templateId, record] as const),
+  );
   const fieldErrors: Record<string, Record<string, string>> = {};
   const allowedTemplateIds = new Set(builderPhaseTemplateIds[args.phase]);
 
   if (args.phase === "self" && parsed.profile) {
-    const now = new Date().toISOString();
-    store.profileByTalentIdentityId.set(aggregate.talentIdentity.id, {
-      ...profile,
-      ...parsed.profile,
-      updatedAt: now,
+    await upsertPersistentCareerBuilderProfile({
+      careerIdentityId: aggregate.talentIdentity.id,
+      soulRecordId: aggregate.soulRecord.id,
+      input: parsed.profile,
     });
 
     logAuditEvent({
@@ -567,11 +548,15 @@ export async function saveCareerBuilderPhase(args: {
     const template = builderEvidenceTemplates.find(
       (candidate) => candidate.id === evidenceInput.templateId,
     )!;
-    const currentRecord = getOrCreateEvidenceRecord({
-      talentIdentityId: aggregate.talentIdentity.id,
-      soulRecordId: aggregate.soulRecord.id,
+    const currentRecord = normalizeEvidenceRecord(
       template,
-    });
+      evidenceByTemplateId.get(template.id) ??
+        createEmptyEvidenceRecord({
+          talentIdentityId: aggregate.talentIdentity.id,
+          soulRecordId: aggregate.soulRecord.id,
+          template,
+        }),
+    );
     const retainedFiles = currentRecord.files.filter((file) =>
       evidenceInput.retainedArtifactIds.includes(file.artifactId),
     );
@@ -605,11 +590,15 @@ export async function saveCareerBuilderPhase(args: {
     const template = builderEvidenceTemplates.find(
       (candidate) => candidate.id === evidenceInput.templateId,
     )!;
-    const currentRecord = getOrCreateEvidenceRecord({
-      talentIdentityId: aggregate.talentIdentity.id,
-      soulRecordId: aggregate.soulRecord.id,
+    const currentRecord = normalizeEvidenceRecord(
       template,
-    });
+      evidenceByTemplateId.get(template.id) ??
+        createEmptyEvidenceRecord({
+          talentIdentityId: aggregate.talentIdentity.id,
+          soulRecordId: aggregate.soulRecord.id,
+          template,
+        }),
+    );
     const retainedFiles = currentRecord.files.filter((file) =>
       evidenceInput.retainedArtifactIds.includes(file.artifactId),
     );
@@ -639,7 +628,7 @@ export async function saveCareerBuilderPhase(args: {
       ? orderedDriverLicenseFiles([...retainedFiles, ...uploadedFiles])
       : [...retainedFiles, ...uploadedFiles];
     const now = new Date().toISOString();
-    const nextRecord: CareerEvidenceRecord = {
+    const nextRecord = normalizeEvidenceRecord(template, {
       ...currentRecord,
       sourceOrIssuer: evidenceInput.sourceOrIssuer,
       issuedOn: evidenceInput.issuedOn,
@@ -647,19 +636,15 @@ export async function saveCareerBuilderPhase(args: {
       whyItMatters: evidenceInput.whyItMatters,
       files: mergedFiles,
       updatedAt: now,
-      status: deriveEvidenceStatus(template, {
-        ...currentRecord,
-        sourceOrIssuer: evidenceInput.sourceOrIssuer,
-        issuedOn: evidenceInput.issuedOn,
-        validationContext: evidenceInput.validationContext,
-        whyItMatters: evidenceInput.whyItMatters,
-        files: mergedFiles,
-        updatedAt: now,
-        status: currentRecord.status,
-      }),
-    };
+    });
 
-    evidenceMap.set(template.id, nextRecord);
+    const persisted = await upsertPersistentCareerBuilderEvidence({
+      careerIdentityId: aggregate.talentIdentity.id,
+      soulRecordId: aggregate.soulRecord.id,
+      record: nextRecord,
+    });
+
+    evidenceByTemplateId.set(template.id, persisted);
   }
 
   logAuditEvent({

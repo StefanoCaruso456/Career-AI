@@ -1,6 +1,7 @@
 export * from "./admin";
 export * from "./audit";
 export * from "./artifact";
+export * from "./chat";
 export * from "./claim";
 export * from "./career-builder";
 export * from "./enums";

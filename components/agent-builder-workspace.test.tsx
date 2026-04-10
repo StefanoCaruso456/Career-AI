@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentBuilderWorkspace } from "@/components/agent-builder-workspace";
-import { builderEvidenceTemplates } from "@/packages/career-builder-domain/src";
+import { builderEvidenceTemplates } from "@/packages/career-builder-domain/src/config";
 import type { CareerBuilderSnapshotDto, CareerEvidenceRecord } from "@/packages/contracts/src";
 
 function createEvidenceRecord(template: (typeof builderEvidenceTemplates)[number]): CareerEvidenceRecord {

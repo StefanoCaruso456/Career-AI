@@ -26,7 +26,7 @@ import {
   phaseMeta,
   phaseSequence,
   type BuilderEvidenceTemplate,
-} from "@/packages/career-builder-domain/src";
+} from "@/packages/career-builder-domain/src/config";
 import type {
   CareerArtifactReference,
   CareerBuilderSnapshotDto,

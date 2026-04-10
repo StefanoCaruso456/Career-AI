@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const actor = getAuthenticatedActor(request.headers, correlationId);
     const { claimId } = await context.params;
-    const ownerIdentityId = getClaimOwnerIdentityId({
+    const ownerIdentityId = await getClaimOwnerIdentityId({
       claimId,
       correlationId,
     });

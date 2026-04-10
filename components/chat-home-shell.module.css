@@ -210,10 +210,14 @@
   justify-content: flex-start;
   gap: 1.1rem;
   text-align: center;
+  transition:
+    gap 220ms ease,
+    padding-top 220ms ease;
 }
 
 .heroTitle {
   margin: clamp(1.7rem, 4.2vw, 2.9rem) 0 clamp(2.9rem, 6.6vw, 4.8rem);
+  max-height: 14rem;
   color: var(--hero-text);
   font-family: var(--font-display), sans-serif;
   max-width: 32ch;
@@ -221,6 +225,13 @@
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.045em;
+  overflow: hidden;
+  transform-origin: top center;
+  transition:
+    margin 220ms ease,
+    max-height 220ms ease,
+    opacity 220ms ease,
+    transform 220ms ease;
 }
 
 .heroTitleLine {
@@ -228,9 +239,10 @@
 }
 
 .chatStage {
+  --chat-stage-shell-height: clamp(34rem, 74vh, 50rem);
   position: relative;
   width: 100%;
-  min-height: clamp(34rem, 74vh, 50rem);
+  min-height: var(--chat-stage-shell-height);
   margin-top: 0.8rem;
   padding: 1.5rem 1.4rem 10.75rem;
   border-radius: 2.2rem;
@@ -259,6 +271,43 @@
 
 .chatStageActive::before {
   inset: auto 20% 7.25rem;
+}
+
+.chatStageConversation {
+  --chat-stage-shell-height: clamp(41.5rem, 84vh, 56.5rem);
+  display: flex;
+  flex-direction: column;
+  min-height: var(--chat-stage-shell-height);
+  padding-bottom: 1rem;
+}
+
+.chatStageConversation::before {
+  inset: auto 18% 1.8rem;
+}
+
+.chatStageConversation .chatStageMain {
+  flex: 1;
+}
+
+.chatStageConversation .composerDock {
+  bottom: 0.45rem;
+}
+
+.heroInnerConversation {
+  gap: 0.4rem;
+  padding-top: max(calc(var(--site-header-clearance) + 1rem), clamp(4.8rem, 9vh, 6.2rem));
+}
+
+.heroTitleConversation {
+  margin: 0;
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-0.8rem) scale(0.97);
+}
+
+.heroInnerConversation .chatStage {
+  margin-top: 0;
 }
 
 .chatSidebarReveal {
@@ -810,8 +859,131 @@
   color: #ff9a90;
 }
 
+.sidebarDeleteOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.06), transparent 24%),
+    rgba(10, 10, 10, 0.58);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.sidebarDeleteDialog {
+  display: grid;
+  gap: 0.2rem;
+  width: min(100%, 31.5rem);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.55rem;
+  background:
+    linear-gradient(180deg, rgba(44, 44, 44, 0.99), rgba(34, 34, 34, 1)),
+    rgba(34, 34, 34, 0.98);
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.sidebarDeleteDialogBody {
+  display: grid;
+  gap: 0.82rem;
+  padding: 1.75rem 1.75rem 0.5rem;
+}
+
+.sidebarDeleteDialogTitle {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(1.45rem, 2.3vw, 1.9rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.sidebarDeleteDialogCopy {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 1.02rem;
+  line-height: 1.55;
+}
+
+.sidebarDeleteDialogCopy strong {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.sidebarDeleteDialogMeta {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.sidebarDeleteDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0 1.75rem 1.55rem;
+}
+
+.sidebarDeleteDialogCancel,
+.sidebarDeleteDialogConfirm {
+  min-width: 9.25rem;
+  min-height: 3.3rem;
+  padding: 0.85rem 1.35rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.sidebarDeleteDialogCancel {
+  border-color: rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(78, 78, 78, 0.94), rgba(60, 60, 60, 0.98)),
+    rgba(64, 64, 64, 0.98);
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.sidebarDeleteDialogConfirm {
+  background: linear-gradient(180deg, #ff5547 0%, #ef3f32 100%);
+  color: #ffffff;
+  box-shadow: 0 18px 30px rgba(239, 63, 50, 0.26);
+}
+
+.sidebarDeleteDialogCancel:hover,
+.sidebarDeleteDialogConfirm:hover {
+  transform: translateY(-1px);
+}
+
+.sidebarDeleteDialogCancel:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(180deg, rgba(88, 88, 88, 0.96), rgba(66, 66, 66, 1)),
+    rgba(70, 70, 70, 1);
+}
+
+.sidebarDeleteDialogConfirm:hover {
+  box-shadow: 0 20px 34px rgba(239, 63, 50, 0.3);
+  background: linear-gradient(180deg, #ff6053 0%, #f14639 100%);
+}
+
 .chatStageMain {
   --chat-conversation-width: 47rem;
+  --chat-composer-clearance: 10.5rem;
   position: relative;
   min-width: 0;
   min-height: inherit;
@@ -837,9 +1009,15 @@
   flex-direction: column;
   gap: 1rem;
   min-height: 100%;
-  max-height: calc(clamp(34rem, 74vh, 50rem) - 11rem);
+  max-height: calc(var(--chat-stage-shell-height) - 11rem);
   overflow-y: auto;
   padding-right: 0.35rem;
+}
+
+.chatTranscriptConversation {
+  max-height: calc(var(--chat-stage-shell-height) - 5.4rem);
+  padding-bottom: var(--chat-composer-clearance);
+  scroll-padding-bottom: var(--chat-composer-clearance);
 }
 
 @keyframes chatSidebarEnter {
@@ -873,6 +1051,12 @@
   min-height: clamp(16rem, 38vh, 24rem);
   margin-inline: auto;
   padding: 0.6rem 0 0;
+}
+
+.chatEmptyStateLanding {
+  min-height: clamp(12rem, 28vh, 18rem);
+  padding-top: 1rem;
+  padding-bottom: clamp(11.5rem, 22vh, 13.5rem);
 }
 
 .projectHome {
@@ -1105,6 +1289,10 @@
   margin-inline: auto;
 }
 
+.transcriptRowConversationStart {
+  margin-top: auto;
+}
+
 .transcriptRowUser {
   justify-content: flex-end;
 }
@@ -1190,6 +1378,10 @@
   transform: none;
 }
 
+.composerDock.composerDockLanding {
+  bottom: clamp(12rem, 24vh, 14rem);
+}
+
 .composerTop {
   display: flex;
   flex-direction: column;
@@ -1250,6 +1442,83 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
+.hiddenAttachmentInput {
+  display: none;
+}
+
+.composerAttachmentStrip,
+.transcriptAttachmentStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.composerAttachmentStrip {
+  margin-top: 0.85rem;
+}
+
+.transcriptAttachmentStrip {
+  margin-bottom: 0.8rem;
+}
+
+.attachmentChip {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(100%, 19rem);
+  padding: 0.52rem 0.6rem 0.52rem 0.78rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.attachmentChipCopy {
+  min-width: 0;
+  display: grid;
+  gap: 0.1rem;
+}
+
+.attachmentChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.attachmentChipMeta {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 0.72rem;
+}
+
+.attachmentChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.76);
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.attachmentChipRemove:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
 .composerFooter {
   margin-top: 0.9rem;
   display: flex;
@@ -1267,8 +1536,7 @@
 
 .iconCircle,
 .iconGhost,
-.voiceButton,
-.modePill {
+.voiceButton {
   border: 0;
   cursor: pointer;
 }
@@ -1282,18 +1550,6 @@
   border-radius: 999px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
-}
-
-.modePill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.7rem 0.92rem;
-  border-radius: 999px;
-  background: transparent;
-  color: #8bb2ff;
-  font-size: 0.95rem;
-  font-weight: 600;
 }
 
 .iconGhost {
@@ -2647,7 +2903,6 @@
 .inlineLink:hover,
 .starterQuestionPill:hover,
 .iconCircle:hover,
-.modePill:hover,
 .iconGhost:hover,
 .voiceButton:hover {
   transform: translateY(-1px);
@@ -2670,12 +2925,44 @@
 .chatSidebarItemMenuAction:focus-visible,
 .chatSidebarRenameInput:focus-visible,
 .chatSidebarRenameAction:focus-visible,
+.sidebarDeleteDialogCancel:focus-visible,
+.sidebarDeleteDialogConfirm:focus-visible,
 .iconCircle:focus-visible,
-.modePill:focus-visible,
+.attachmentChipRemove:focus-visible,
 .iconGhost:focus-visible,
 .voiceButton:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 78%, white 22%);
   outline-offset: 3px;
+}
+
+@media (max-height: 860px) and (min-width: 761px) {
+  .chatStage {
+    --chat-stage-shell-height: 31rem;
+    min-height: var(--chat-stage-shell-height);
+    padding-bottom: 9.8rem;
+  }
+
+  .chatStageConversation {
+    --chat-stage-shell-height: 34.5rem;
+    min-height: var(--chat-stage-shell-height);
+    padding-bottom: 0.9rem;
+  }
+
+  .chatTranscriptConversation {
+    max-height: calc(var(--chat-stage-shell-height) - 4.8rem);
+  }
+
+  .chatTranscript {
+    max-height: calc(var(--chat-stage-shell-height) - 9.6rem);
+  }
+
+  .chatEmptyStateLanding {
+    padding-bottom: 15rem;
+  }
+
+  .composerDock.composerDockLanding {
+    bottom: 15.5rem;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -2765,13 +3052,29 @@
     max-width: 22ch;
     font-size: clamp(1.5rem, 6.2vw, 2.05rem);
     line-height: 1.1;
+    max-height: 12rem;
     margin: 1.25rem 0 2.35rem;
   }
 
+  .heroInnerConversation {
+    padding-top: max(calc(var(--site-header-clearance) + 0.75rem), 5.15rem);
+  }
+
   .chatStage {
-    min-height: 31rem;
+    --chat-stage-shell-height: 31rem;
+    min-height: var(--chat-stage-shell-height);
     padding: 1rem 0.9rem 9.7rem;
     border-radius: 1.8rem;
+  }
+
+  .chatStageConversation {
+    --chat-stage-shell-height: 34rem;
+    min-height: var(--chat-stage-shell-height);
+    padding-bottom: 0.85rem;
+  }
+
+  .chatTranscriptConversation {
+    max-height: calc(var(--chat-stage-shell-height) - 7.4rem);
   }
 
   .chatSidebarReveal {
@@ -2794,6 +3097,7 @@
   }
 
   .chatStageMain {
+    --chat-composer-clearance: 8.6rem;
     min-height: 0;
   }
 
@@ -2813,6 +3117,11 @@
 
   .chatEmptyState {
     min-height: 12rem;
+  }
+
+  .chatEmptyStateLanding {
+    min-height: 9rem;
+    padding-bottom: 8.75rem;
   }
 
   .projectHome {
@@ -2867,6 +3176,10 @@
     right: auto;
     bottom: auto;
     left: auto;
+  }
+
+  .composerDockLanding {
+    bottom: 8.35rem;
   }
 
   .starterQuestionStack {
@@ -2944,8 +3257,19 @@
   }
 
   .chatStage {
-    min-height: 29rem;
+    --chat-stage-shell-height: 29rem;
+    min-height: var(--chat-stage-shell-height);
     padding-bottom: 10.2rem;
+  }
+
+  .chatStageConversation {
+    --chat-stage-shell-height: 32rem;
+    min-height: var(--chat-stage-shell-height);
+    padding-bottom: 0.8rem;
+  }
+
+  .chatTranscriptConversation {
+    max-height: calc(var(--chat-stage-shell-height) - 7.2rem);
   }
 
   .projectHomeTitle h2 {
@@ -2989,6 +3313,26 @@
 
   .chatSidebarItemMenu {
     min-width: 12rem;
+  }
+
+  .sidebarDeleteOverlay {
+    padding: 1rem;
+  }
+
+  .sidebarDeleteDialogBody {
+    padding: 1.35rem 1.2rem 0.4rem;
+  }
+
+  .sidebarDeleteDialogActions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    padding: 0 1.2rem 1.2rem;
+  }
+
+  .sidebarDeleteDialogCancel,
+  .sidebarDeleteDialogConfirm {
+    width: 100%;
   }
 
   .chatTranscript {
@@ -3049,7 +3393,6 @@
   .inlineLink:hover,
   .starterQuestionPill:hover,
   .iconCircle:hover,
-  .modePill:hover,
   .iconGhost:hover,
   .voiceButton:hover {
     transform: none;

@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { LayoutDashboard, LoaderCircle, LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ChevronDown, LayoutDashboard, LoaderCircle, LogOut, Settings2 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import { useEffect, useRef, useState } from "react";
 import { AuthModalTrigger } from "./auth-modal";
 import styles from "./floating-site-header.module.css";
 
@@ -29,12 +31,52 @@ function getInitials(name: string | null | undefined, email: string | null | und
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-export function HeaderAuthControls({
-  googleOAuthEnabled,
-}: {
-  googleOAuthEnabled: boolean;
-}) {
+export function HeaderAuthControls() {
+  const pathname = usePathname();
   const { data: session, status } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const shouldResumeOnboarding =
+    session?.user?.onboardingStatus !== null &&
+    session?.user?.onboardingStatus !== undefined &&
+    session.user.onboardingStatus !== "completed";
+  const accountHref = shouldResumeOnboarding ? "/onboarding" : "/account";
+  const isAccountPage =
+    accountHref === "/account"
+      ? pathname === "/account" || pathname.startsWith("/account/")
+      : pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [menuOpen]);
 
   if (status === "loading") {
     return (
@@ -53,7 +95,6 @@ export function HeaderAuthControls({
         <AuthModalTrigger
           className={styles.primaryAction}
           defaultMode="signup"
-          googleOAuthEnabled={googleOAuthEnabled}
           label="Getting Started"
         />
       </div>
@@ -62,30 +103,86 @@ export function HeaderAuthControls({
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
+  const accountLabel = shouldResumeOnboarding ? "Finish onboarding" : displayName;
+  const accountMeta = shouldResumeOnboarding
+    ? session.user.currentStep
+      ? `Step ${session.user.currentStep} of 4`
+      : "Resume setup"
+    : session.user.talentAgentId ?? "Google connected";
+  const accountMenuLabel = shouldResumeOnboarding ? "Finish onboarding" : "Profile";
 
   return (
     <div className={styles.actions}>
-      <Link className={styles.accountAction} href="/account">
-        <span className={styles.accountAvatar} aria-hidden="true">
-          {initials}
-        </span>
-        <span className={styles.accountCopy}>
-          <strong>{displayName}</strong>
-          <small>Google connected</small>
-        </span>
-        <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
-      </Link>
+      <div className={styles.settingsMenu} ref={menuRef}>
+        <button
+          aria-expanded={menuOpen}
+          aria-haspopup="menu"
+          className={
+            menuOpen
+              ? `${styles.settingsTrigger} ${styles.settingsTriggerOpen}`
+              : styles.settingsTrigger
+          }
+          onClick={() => {
+            setMenuOpen((open) => !open);
+          }}
+          type="button"
+        >
+          <span className={styles.accountAvatar} aria-hidden="true">
+            {initials}
+          </span>
+          <span className={styles.settingsCopy}>
+            <strong>Settings</strong>
+            <small>{displayName}</small>
+          </span>
+          <span className={styles.settingsIcons} aria-hidden="true">
+            <Settings2 size={16} strokeWidth={2} />
+            <ChevronDown
+              className={menuOpen ? styles.settingsCaretOpen : undefined}
+              size={16}
+              strokeWidth={2}
+            />
+          </span>
+        </button>
 
-      <button
-        className={styles.ghostButton}
-        onClick={() => {
-          void signOut({ callbackUrl: "/" });
-        }}
-        type="button"
-      >
-        <LogOut aria-hidden="true" size={16} strokeWidth={2} />
-        Sign out
-      </button>
+        {menuOpen ? (
+          <div className={styles.settingsPanel} role="menu">
+            <div className={styles.settingsPanelHeader}>
+              <span className={styles.settingsPanelTitle}>{accountLabel}</span>
+              <span className={styles.settingsPanelMeta}>{accountMeta}</span>
+            </div>
+
+            <Link
+              aria-current={isAccountPage ? "page" : undefined}
+              className={
+                isAccountPage
+                  ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                  : styles.settingsItem
+              }
+              href={accountHref}
+              onClick={() => {
+                setMenuOpen(false);
+              }}
+              role="menuitem"
+            >
+              <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
+              <span>{accountMenuLabel}</span>
+            </Link>
+
+            <button
+              className={styles.settingsItem}
+              onClick={() => {
+                setMenuOpen(false);
+                void signOut({ callbackUrl: "/" });
+              }}
+              role="menuitem"
+              type="button"
+            >
+              <LogOut aria-hidden="true" size={16} strokeWidth={2} />
+              <span>Sign out</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

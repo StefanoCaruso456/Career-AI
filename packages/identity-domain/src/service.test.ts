@@ -1,20 +1,27 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
 import {
   createTalentIdentity,
+  findTalentIdentityByEmail,
   getTalentIdentity,
-  resetIdentityStore,
+  getTalentIdentityByEmail,
   updatePrivacySettings,
 } from "@/packages/identity-domain/src";
+import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
 describe("identity service", () => {
-  beforeEach(() => {
-    resetIdentityStore();
+  beforeEach(async () => {
+    await resetTestDatabase();
+    await installTestDatabase();
     resetAuditStore();
   });
 
-  it("creates a unique talent agent id and soul record during onboarding", () => {
-    const first = createTalentIdentity({
+  afterEach(async () => {
+    await resetTestDatabase();
+  });
+
+  it("creates a unique talent agent id and soul record during onboarding", async () => {
+    const first = await createTalentIdentity({
       input: {
         email: "jane@example.com",
         firstName: "Jane",
@@ -26,7 +33,7 @@ describe("identity service", () => {
       correlationId: "corr-1",
     });
 
-    const second = createTalentIdentity({
+    const second = await createTalentIdentity({
       input: {
         email: "john@example.com",
         firstName: "John",
@@ -44,8 +51,8 @@ describe("identity service", () => {
     expect(first.privacySettings.talent_identity_id).toBe(first.talentIdentity.id);
   });
 
-  it("prevents duplicate emails", () => {
-    createTalentIdentity({
+  it("prevents duplicate emails", async () => {
+    await createTalentIdentity({
       input: {
         email: "jane@example.com",
         firstName: "Jane",
@@ -57,7 +64,7 @@ describe("identity service", () => {
       correlationId: "corr-1",
     });
 
-    expect(() =>
+    await expect(() =>
       createTalentIdentity({
         input: {
           email: "JANE@example.com",
@@ -69,13 +76,11 @@ describe("identity service", () => {
         actorId: "seed",
         correlationId: "corr-2",
       }),
-    ).toThrowError(/already exists/i);
+    ).rejects.toThrowError(/already exists/i);
   });
 
   it("finds a talent identity by normalized email", async () => {
-    const { findTalentIdentityByEmail } = await import("@/packages/identity-domain/src");
-
-    createTalentIdentity({
+    const created = await createTalentIdentity({
       input: {
         email: "jane@example.com",
         firstName: "Jane",
@@ -87,22 +92,23 @@ describe("identity service", () => {
       correlationId: "corr-1",
     });
 
-    const found = findTalentIdentityByEmail({
+    const found = await findTalentIdentityByEmail({
       email: "JANE@example.com",
       correlationId: "corr-2",
     });
 
     expect(found?.talentIdentity.email).toBe("jane@example.com");
-    expect(
+    expect(found?.talentIdentity.id).toBe(created.talentIdentity.id);
+    await expect(
       findTalentIdentityByEmail({
         email: "missing@example.com",
         correlationId: "corr-3",
       }),
-    ).toBeNull();
+    ).resolves.toBeNull();
   });
 
-  it("updates privacy settings and writes an audit event", () => {
-    const created = createTalentIdentity({
+  it("updates privacy settings and writes an audit event", async () => {
+    const created = await createTalentIdentity({
       input: {
         email: "jane@example.com",
         firstName: "Jane",
@@ -114,7 +120,7 @@ describe("identity service", () => {
       correlationId: "corr-1",
     });
 
-    const updated = updatePrivacySettings({
+    const updated = await updatePrivacySettings({
       talentIdentityId: created.talentIdentity.id,
       input: {
         showEmploymentRecords: true,
@@ -128,7 +134,7 @@ describe("identity service", () => {
     expect(updated.privacySettings.show_employment_records).toBe(true);
     expect(updated.privacySettings.allow_public_share_link).toBe(true);
 
-    const fetched = getTalentIdentity({
+    const fetched = await getTalentIdentity({
       talentIdentityId: created.talentIdentity.id,
       correlationId: "corr-3",
     });
@@ -137,5 +143,27 @@ describe("identity service", () => {
     expect(listAuditEvents().map((event) => event.event_type)).toContain(
       "candidate.privacy_settings.updated",
     );
+  });
+
+  it("retrieves an existing identity by normalized email", async () => {
+    const created = await createTalentIdentity({
+      input: {
+        email: "jane@example.com",
+        firstName: "Jane",
+        lastName: "Doe",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-1",
+    });
+
+    const fetched = await getTalentIdentityByEmail({
+      email: "JANE@example.com",
+      correlationId: "corr-2",
+    });
+
+    expect(fetched.talentIdentity.id).toBe(created.talentIdentity.id);
+    expect(fetched.soulRecord.id).toBe(created.soulRecord.id);
   });
 });

@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Check,
   ChevronDown,
-  Clock3,
   Ellipsis,
   Folder,
   FolderOpen,
@@ -16,43 +15,41 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Pencil,
-  Plus,
   Share2,
   Square,
   Trash2,
   X,
 } from "lucide-react";
+import { AttachmentButton } from "@/components/attachment-button";
+import { ChatMessageAttachments } from "@/components/chat-message-attachments";
+import { FileUploadDropzone } from "@/components/file-upload-dropzone";
+import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
+import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
 import {
+  type ChatConversation,
+  type ChatMessage,
+  type ChatProject,
+  type ChatWorkspaceSnapshot,
+  supportedChatAttachmentTypes,
+} from "@/packages/contracts/src";
+import {
+  type ChangeEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   startTransition,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import styles from "./chat-home-shell.module.css";
 
-type TranscriptEntry = {
-  content: string;
-  error?: boolean;
-  id: string;
-  role: "assistant" | "user";
-};
-
-type ProjectEntry = {
-  id: string;
-  label: string;
-};
-
-type ChatThread = {
-  id: string;
-  label: string;
-  projectId: string;
-  transcript: TranscriptEntry[];
-  updatedAt: number;
-};
+type TranscriptEntry = ChatMessage;
+type ProjectEntry = ChatProject;
+type ChatThread = ChatConversation;
 
 type SidebarEntityType = "chat" | "project";
 
@@ -66,6 +63,31 @@ type SidebarRenameDraft = {
   type: SidebarEntityType;
   value: string;
 };
+
+type SidebarDeleteDraft =
+  | {
+      chatCount: number;
+      id: string;
+      label: string;
+      type: "project";
+    }
+  | {
+      id: string;
+      label: string;
+      type: "chat";
+    };
+
+type TranscriptScrollIntent =
+  | {
+      mode: "anchor-entry";
+      entryId: string;
+    }
+  | {
+      mode: "bottom";
+    }
+  | {
+      mode: "top";
+    };
 
 type SidebarNoticeTone = "default" | "error";
 
@@ -116,6 +138,10 @@ type BrowserSpeechRecognition = {
 
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
+type HeroComposerProps = {
+  onConversationStateChange?: (active: boolean) => void;
+};
+
 type VoiceEnabledWindow = Window &
   typeof globalThis & {
     SpeechRecognition?: BrowserSpeechRecognitionConstructor;
@@ -126,14 +152,8 @@ const starterActions = [
   { kind: "prompt", label: "What does the agent actually do?" },
   { kind: "prompt", label: "How is this different from a resume builder?" },
   { kind: "prompt", label: "How does the agent help me get hired faster?" },
-  { kind: "link", href: "/agent-build", label: "Start Building My Agent ID" },
+  { kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
 ] as const;
-
-const initialProjectCollections: ProjectEntry[] = [
-  { id: "project-verified-profile", label: "Verified profile" },
-  { id: "project-career-story", label: "Career story" },
-  { id: "project-hiring-signals", label: "Hiring signals" },
-];
 
 const preferredRecorderMimeTypes = [
   "audio/webm;codecs=opus",
@@ -143,6 +163,9 @@ const preferredRecorderMimeTypes = [
 ] as const;
 
 const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
+const attachmentInputAccept = supportedChatAttachmentTypes
+  .map((type) => `.${type.extension}`)
+  .join(",");
 
 function mergeVoiceDraft(base: string, incoming: string) {
   const normalizedIncoming = incoming.replace(/\s+/g, " ").trim();
@@ -233,18 +256,20 @@ function getMicrophoneErrorMessage(error: unknown) {
   return "The microphone could not start right now.";
 }
 
-function formatThreadLabel(content: string) {
-  const normalized = content.replace(/\s+/g, " ").trim();
+function buildTranscriptEntrySummary(entry: TranscriptEntry) {
+  const normalizedContent = entry.content.replace(/\s+/g, " ").trim();
 
-  if (normalized.length <= 38) {
-    return normalized;
+  if (normalizedContent) {
+    return normalizedContent;
   }
 
-  return `${normalized.slice(0, 35)}...`;
-}
+  if (entry.attachments?.length) {
+    return entry.attachments.length === 1
+      ? `Attachment: ${entry.attachments[0].originalName}`
+      : `Attachments: ${entry.attachments[0].originalName} +${entry.attachments.length - 1} more`;
+  }
 
-function createEntityId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+  return "";
 }
 
 function getSidebarEntityLabel(type: SidebarEntityType) {
@@ -255,34 +280,13 @@ function capitalizeLabel(label: string) {
   return `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
 }
 
-function buildThreadLabel(transcript: TranscriptEntry[]) {
-  const firstUserEntry = transcript.find((entry) => entry.role === "user");
-
-  if (!firstUserEntry) {
-    return "New chat";
-  }
-
-  return formatThreadLabel(firstUserEntry.content);
-}
-
-function buildProjectLabel(projects: ProjectEntry[]) {
-  let projectIndex = 1;
-
-  while (true) {
-    const candidateLabel = projectIndex === 1 ? "New project" : `New project ${projectIndex}`;
-
-    if (!projects.some((project) => project.label === candidateLabel)) {
-      return candidateLabel;
-    }
-
-    projectIndex += 1;
-  }
-}
-
 function buildThreadPreview(thread: ChatThread) {
-  const firstNarrativeEntry = thread.transcript.find((entry) => entry.role === "user");
-  const fallbackEntry = thread.transcript[thread.transcript.length - 1];
-  const previewSource = firstNarrativeEntry?.content ?? fallbackEntry?.content ?? "Start a new chat in this project.";
+  const firstNarrativeEntry = thread.messages.find((entry) => entry.role === "user");
+  const fallbackEntry = thread.messages[thread.messages.length - 1];
+  const previewSource =
+    (firstNarrativeEntry ? buildTranscriptEntrySummary(firstNarrativeEntry) : "") ||
+    (fallbackEntry ? buildTranscriptEntrySummary(fallbackEntry) : "") ||
+    "Start a new chat in this project.";
   const normalizedPreview = previewSource.replace(/\s+/g, " ").trim();
 
   if (normalizedPreview.length <= 96) {
@@ -292,32 +296,49 @@ function buildThreadPreview(thread: ChatThread) {
   return `${normalizedPreview.slice(0, 93)}...`;
 }
 
-function formatThreadUpdatedAt(updatedAt: number) {
+function formatThreadUpdatedAt(updatedAt: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
     month: "short",
   }).format(new Date(updatedAt));
 }
 
-export function HeroComposer() {
+export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
   const sidebarId = useId();
+  const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
+  const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
   const [message, setMessage] = useState("");
-  const [projects, setProjects] = useState(initialProjectCollections);
-  const [activeProjectId, setActiveProjectId] = useState(initialProjectCollections[0].id);
+  const [projects, setProjects] = useState<ProjectEntry[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
+  const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
+  const {
+    addFiles,
+    attachments: pendingAttachments,
+    clearAttachments,
+    clearSelectionError,
+    removeAttachment,
+    resetAttachments,
+    retryAttachment,
+    selectionError,
+  } = useChatAttachmentDrafts();
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
+  const sidebarDeleteCancelButtonRef = useRef<HTMLButtonElement>(null);
   const speechRecognitionRef = useRef<BrowserSpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
@@ -325,10 +346,20 @@ export function HeroComposer() {
   const voiceSeedMessageRef = useRef("");
   const voiceDraftRef = useRef("");
   const voiceCaptureErrorRef = useRef<string | null>(null);
+  const transcriptScrollIntentRef = useRef<TranscriptScrollIntent | null>(null);
 
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
-  const canSubmit = message.trim().length > 0 && !isSubmitting && !isRecording && !isTranscribing;
+  const hasBlockedAttachments = pendingAttachments.some((attachment) =>
+    ["failed", "pending", "uploading"].includes(attachment.uploadStatus),
+  );
+  const canSubmit =
+    (message.trim().length > 0 || pendingAttachments.length > 0) &&
+    !isSubmitting &&
+    !isWorkspaceLoading &&
+    !isRecording &&
+    !isTranscribing &&
+    !hasBlockedAttachments;
   const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
@@ -336,18 +367,59 @@ export function HeroComposer() {
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
+  const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
 
   useEffect(() => {
-    const transcriptNode = transcriptRef.current;
+    setIsMounted(true);
+  }, []);
 
-    if (!transcriptNode) {
+  useEffect(() => {
+    onConversationStateChange?.(hasActiveConversation);
+  }, [hasActiveConversation, onConversationStateChange]);
+
+  useLayoutEffect(() => {
+    const transcriptNode = transcriptRef.current;
+    const scrollIntent = transcriptScrollIntentRef.current;
+
+    if (!transcriptNode || !scrollIntent) {
+      return;
+    }
+
+    if (scrollIntent.mode === "top") {
+      transcriptNode.scrollTo({
+        behavior: "auto",
+        top: 0,
+      });
+      transcriptScrollIntentRef.current = null;
+      return;
+    }
+
+    if (scrollIntent.mode === "bottom") {
+      transcriptNode.scrollTo({
+        behavior: "smooth",
+        top: transcriptNode.scrollHeight,
+      });
+      transcriptScrollIntentRef.current = null;
+      return;
+    }
+
+    const entrySelector =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(scrollIntent.entryId)
+        : scrollIntent.entryId.replace(/"/g, '\\"');
+    const anchoredEntry = transcriptNode.querySelector<HTMLElement>(
+      `[data-transcript-entry-id="${entrySelector}"]`,
+    );
+
+    if (!anchoredEntry) {
       return;
     }
 
     transcriptNode.scrollTo({
-      behavior: "smooth",
-      top: transcriptNode.scrollHeight,
+      behavior: "auto",
+      top: Math.max(anchoredEntry.offsetTop - 24, 0),
     });
+    transcriptScrollIntentRef.current = null;
   }, [transcript]);
 
   useEffect(() => {
@@ -393,6 +465,32 @@ export function HeroComposer() {
       sidebarRenameInputRef.current?.select();
     });
   }, [sidebarRenameDraft]);
+
+  useEffect(() => {
+    if (!sidebarDeleteDraft) {
+      return;
+    }
+
+    function handleDeleteEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSidebarDeleteDraft(null);
+      }
+    }
+
+    const originalOverflow = document.body.style.overflow;
+    const focusFrame = window.requestAnimationFrame(() => {
+      sidebarDeleteCancelButtonRef.current?.focus();
+    });
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleDeleteEscape);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = originalOverflow;
+      document.removeEventListener("keydown", handleDeleteEscape);
+    };
+  }, [sidebarDeleteDraft]);
 
   useEffect(() => {
     if (!sidebarActionMenu && !sidebarRenameDraft) {
@@ -446,6 +544,106 @@ export function HeroComposer() {
       document.removeEventListener("keydown", handleDocumentKeyDown);
     };
   }, [sidebarActionMenu, sidebarRenameDraft]);
+
+  function applyWorkspaceSnapshot(
+    snapshot: ChatWorkspaceSnapshot,
+    options?: {
+      preferredConversationId?: string | null;
+      preferredProjectId?: string | null;
+    },
+  ) {
+    const nextProjects = snapshot.projects;
+    const nextThreads = snapshot.conversations;
+    const preferredConversationId = options?.preferredConversationId ?? currentThreadId;
+    const preferredProjectId = options?.preferredProjectId ?? activeProjectId;
+    const nextConversation =
+      (preferredConversationId
+        ? nextThreads.find((thread) => thread.id === preferredConversationId)
+        : null) ?? null;
+    const nextProjectId =
+      nextConversation?.projectId ??
+      (preferredProjectId && nextProjects.some((project) => project.id === preferredProjectId)
+        ? preferredProjectId
+        : nextProjects[0]?.id ?? null);
+
+    setProjects(nextProjects);
+    setThreads(nextThreads);
+    setActiveProjectId(nextProjectId);
+
+    if (nextConversation) {
+      setCurrentThreadId(nextConversation.id);
+      setProjectHomeProjectId(null);
+      setTranscript(nextConversation.messages);
+      return;
+    }
+
+    setCurrentThreadId(null);
+    setProjectHomeProjectId(nextProjectId);
+    setTranscript([]);
+  }
+
+  function replaceConversation(nextConversation: ChatConversation) {
+    setThreads((currentThreads) => [
+      nextConversation,
+      ...currentThreads.filter((thread) => thread.id !== nextConversation.id),
+    ]);
+    setActiveProjectId(nextConversation.projectId);
+    setCurrentThreadId(nextConversation.id);
+    setProjectHomeProjectId(null);
+    setTranscript(nextConversation.messages);
+  }
+
+  async function loadWorkspaceSnapshot(options?: {
+    preferredConversationId?: string | null;
+    preferredProjectId?: string | null;
+  }) {
+    const snapshot = await requestWorkspaceSnapshot("/api/chat/state", {
+      method: "GET",
+    });
+
+    applyWorkspaceSnapshot(snapshot, options);
+  }
+
+  async function requestWorkspaceSnapshot(input: string, init: RequestInit) {
+    const response = await fetch(input, init);
+    const payload = (await response.json()) as ChatWorkspaceSnapshot & {
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Chat history could not be loaded right now.");
+    }
+
+    return payload;
+  }
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void (async () => {
+      try {
+        await loadWorkspaceSnapshot();
+      } catch (error) {
+        if (!isCancelled) {
+          setSidebarNotice({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Chat history could not be loaded right now.",
+            tone: "error",
+          });
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsWorkspaceLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   function focusComposer() {
     window.requestAnimationFrame(() => {
@@ -741,25 +939,6 @@ export function HeroComposer() {
     await startVoiceInput();
   }
 
-  function upsertThread(threadId: string, projectId: string, nextTranscript: TranscriptEntry[]) {
-    if (nextTranscript.length === 0) {
-      return;
-    }
-
-    const nextThread: ChatThread = {
-      id: threadId,
-      label: buildThreadLabel(nextTranscript),
-      projectId,
-      transcript: nextTranscript,
-      updatedAt: Date.now(),
-    };
-
-    setThreads((currentThreads) => [
-      nextThread,
-      ...currentThreads.filter((thread) => thread.id !== threadId),
-    ]);
-  }
-
   function openThread(thread: ChatThread) {
     cancelVoiceCapture();
     setSidebarActionMenu(null);
@@ -767,7 +946,10 @@ export function HeroComposer() {
     setProjectHomeProjectId(null);
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
-    setTranscript(thread.transcript);
+    transcriptScrollIntentRef.current = { mode: "top" };
+    void clearAttachments();
+    clearSelectionError();
+    setTranscript(thread.messages);
     setMessage("");
     setSidebarOpen(true);
   }
@@ -778,7 +960,10 @@ export function HeroComposer() {
     setSidebarRenameDraft(null);
     setProjectHomeProjectId(activeProjectId);
     setCurrentThreadId(null);
+    transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
+    void clearAttachments();
+    clearSelectionError();
     setMessage("");
     setSidebarOpen(true);
     focusComposer();
@@ -803,51 +988,90 @@ export function HeroComposer() {
     }
 
     setCurrentThreadId(null);
+    transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
+    void clearAttachments();
+    clearSelectionError();
     setMessage("");
     focusComposer();
   }
 
-  function handleNewProject() {
-    const nextProject: ProjectEntry = {
-      id: createEntityId("project"),
-      label: buildProjectLabel(projects),
-    };
-
+  async function handleNewProject() {
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
-    setProjects((currentProjects) => [nextProject, ...currentProjects]);
-    setActiveProjectId(nextProject.id);
-    setProjectHomeProjectId(nextProject.id);
     setSidebarOpen(true);
-    setCurrentThreadId(null);
-    setTranscript([]);
-    setMessage("");
-    focusComposer();
+
+    try {
+      const existingProjectIds = new Set(projects.map((project) => project.id));
+      const snapshot = await requestWorkspaceSnapshot("/api/chat/projects", {
+        body: JSON.stringify({}),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const nextProject =
+        snapshot.projects.find((project) => !existingProjectIds.has(project.id)) ??
+        snapshot.projects[snapshot.projects.length - 1] ??
+        null;
+
+      transcriptScrollIntentRef.current = { mode: "top" };
+      await clearAttachments();
+      clearSelectionError();
+      setMessage("");
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: null,
+        preferredProjectId: nextProject?.id ?? null,
+      });
+      focusComposer();
+    } catch (error) {
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Project could not be created right now.",
+        tone: "error",
+      });
+    }
   }
 
   async function submitMessage(nextMessage?: string) {
     const prompt = (nextMessage ?? message).trim();
+    const readyAttachments = pendingAttachments.filter(
+      (attachment) => attachment.uploadStatus === "uploaded" && attachment.attachmentId,
+    );
 
-    if (!prompt || isSubmitting) {
+    if ((!prompt && readyAttachments.length === 0) || isSubmitting || !activeProjectId || hasBlockedAttachments) {
       return;
     }
 
-    const requestId = `msg-${Date.now()}`;
-    const threadId = currentThreadId ?? createEntityId("thread");
-    const projectId = activeProjectId;
-    const nextUserTranscript = [
-      ...transcript,
-      { content: prompt, id: `${requestId}-user`, role: "user" as const },
-    ];
+    const previousTranscript = transcript;
+    const previousProjectHomeProjectId = projectHomeProjectId;
+    const previousCurrentThreadId = currentThreadId;
+    const optimisticUserMessage: TranscriptEntry = {
+      attachments: readyAttachments.map((attachment) => ({
+        createdAt: new Date().toISOString(),
+        downloadUrl: attachment.downloadUrl ?? attachment.openUrl ?? "#",
+        extension: attachment.extension,
+        id: attachment.attachmentId ?? attachment.localId,
+        messageId: null,
+        mimeType: attachment.mimeType,
+        openUrl: attachment.openUrl ?? attachment.previewUrl ?? "#",
+        originalName: attachment.originalName,
+        previewKind: attachment.previewKind,
+        sizeBytes: attachment.sizeBytes,
+        status: "uploaded",
+        thumbnailUrl: attachment.thumbnailUrl ?? attachment.previewUrl,
+        updatedAt: new Date().toISOString(),
+      })),
+      content: prompt,
+      createdAt: new Date().toISOString(),
+      id: `pending_message_${Date.now()}`,
+      role: "user",
+    };
 
     setIsSubmitting(true);
-    setMessage("");
     setProjectHomeProjectId(null);
-    setCurrentThreadId(threadId);
-    setTranscript(nextUserTranscript);
-    upsertThread(threadId, projectId, nextUserTranscript);
+    transcriptScrollIntentRef.current = { mode: "bottom" };
+    setTranscript([...transcript, optimisticUserMessage]);
 
     try {
       const reply = await fetch("/api/chat", {
@@ -855,46 +1079,55 @@ export function HeroComposer() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message: prompt }),
+        body: JSON.stringify({
+          attachmentIds: readyAttachments
+            .map((attachment) => attachment.attachmentId)
+            .filter((attachmentId): attachmentId is string => Boolean(attachmentId)),
+          conversationId: currentThreadId,
+          message: prompt,
+          projectId: activeProjectId,
+        }),
       });
 
-      const payload = (await reply.json()) as { error?: string; output?: string };
+      const payload = (await reply.json()) as {
+        assistantMessage?: ChatMessage;
+        conversation?: ChatConversation;
+        error?: string;
+        userMessage?: ChatMessage;
+      };
 
-      if (!reply.ok || !payload.output) {
+      if (!reply.ok || !payload.conversation || !payload.userMessage) {
         throw new Error(payload.error || "The assistant could not respond.");
       }
 
-      startTransition(() => {
-        const nextAssistantTranscript = [
-          ...nextUserTranscript,
-          {
-            content: payload.output || "",
-            id: `${requestId}-assistant`,
-            role: "assistant" as const,
-          },
-        ];
+      const { conversation, userMessage } = payload;
 
-        setTranscript(nextAssistantTranscript);
-        upsertThread(threadId, projectId, nextAssistantTranscript);
+      resetAttachments();
+      clearSelectionError();
+      setMessage("");
+
+      startTransition(() => {
+        transcriptScrollIntentRef.current = {
+          entryId: userMessage.id,
+          mode: "anchor-entry",
+        };
+        replaceConversation(conversation);
       });
     } catch (requestError) {
-      startTransition(() => {
-        const nextAssistantTranscript = [
-          ...nextUserTranscript,
-          {
-            content:
-              requestError instanceof Error
-                ? requestError.message
-                : "The assistant could not respond.",
-            error: true,
-            id: `${requestId}-assistant-error`,
-            role: "assistant" as const,
-          },
-        ];
-
-        setTranscript(nextAssistantTranscript);
-        upsertThread(threadId, projectId, nextAssistantTranscript);
+      setTranscript(previousTranscript);
+      setProjectHomeProjectId(previousProjectHomeProjectId);
+      setCurrentThreadId(previousCurrentThreadId);
+      setSidebarNotice({
+        message:
+          requestError instanceof Error
+            ? requestError.message
+            : "The assistant could not respond.",
+        tone: "error",
       });
+
+      if (nextMessage) {
+        setMessage(prompt);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -918,6 +1151,16 @@ export function HeroComposer() {
     if (voiceNotice?.tone === "error") {
       setVoiceNotice(null);
     }
+  }
+
+  function handleAttachmentSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    addFiles(files);
+    event.target.value = "";
+  }
+
+  function handleAttachmentRemove(attachmentId: string) {
+    void removeAttachment(attachmentId);
   }
 
   function handleStarterQuestion(question: string) {
@@ -952,7 +1195,7 @@ export function HeroComposer() {
     setSidebarRenameDraft(null);
   }
 
-  function submitSidebarRename() {
+  async function submitSidebarRename() {
     if (!sidebarRenameDraft) {
       return;
     }
@@ -968,35 +1211,35 @@ export function HeroComposer() {
       return;
     }
 
-    if (sidebarRenameDraft.type === "project") {
-      setProjects((currentProjects) =>
-        currentProjects.map((project) =>
-          project.id === sidebarRenameDraft.id
-            ? {
-                ...project,
-                label: normalizedLabel,
-              }
-            : project,
-        ),
+    try {
+      const snapshot = await requestWorkspaceSnapshot(
+        sidebarRenameDraft.type === "project"
+          ? `/api/chat/projects/${sidebarRenameDraft.id}`
+          : `/api/chat/conversations/${sidebarRenameDraft.id}`,
+        {
+          body: JSON.stringify({ label: normalizedLabel }),
+          headers: {
+            "Content-Type": "application/json",
+          },
+          method: "PATCH",
+        },
       );
-    } else {
-      setThreads((currentThreads) =>
-        currentThreads.map((thread) =>
-          thread.id === sidebarRenameDraft.id
-            ? {
-                ...thread,
-                label: normalizedLabel,
-              }
-            : thread,
-        ),
-      );
-    }
 
-    setSidebarRenameDraft(null);
-    setSidebarNotice({
-      message: `${capitalizeLabel(entityLabel)} renamed.`,
-      tone: "default",
-    });
+      applyWorkspaceSnapshot(snapshot);
+      setSidebarRenameDraft(null);
+      setSidebarNotice({
+        message: `${capitalizeLabel(entityLabel)} renamed.`,
+        tone: "default",
+      });
+    } catch (error) {
+      setSidebarNotice({
+        message:
+          error instanceof Error
+            ? error.message
+            : `${capitalizeLabel(entityLabel)} could not be renamed right now.`,
+        tone: "error",
+      });
+    }
   }
 
   async function handleSidebarShare(type: SidebarEntityType, id: string) {
@@ -1055,92 +1298,136 @@ export function HeroComposer() {
     }
   }
 
-  function handleProjectDelete(projectId: string) {
+  async function handleProjectDelete(projectId: string) {
     const project = projects.find((currentProject) => currentProject.id === projectId);
 
     if (!project) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${project.label}" and its chats?`);
-
-    if (!confirmed) {
-      return;
-    }
-
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
-
-    const remainingProjects = projects.filter((currentProject) => currentProject.id !== projectId);
-    const remainingThreads = threads.filter((thread) => thread.projectId !== projectId);
-
-    let nextProjects = remainingProjects;
-    let nextActiveProjectId = activeProjectId;
+    setSidebarDeleteDraft(null);
     const isDeletedProjectActive =
       activeProjectId === projectId || projectHomeProjectId === projectId;
 
-    if (remainingProjects.length === 0) {
-      const replacementProject: ProjectEntry = {
-        id: createEntityId("project"),
-        label: "New project",
-      };
+    try {
+      const snapshot = await requestWorkspaceSnapshot(`/api/chat/projects/${projectId}`, {
+        method: "DELETE",
+      });
 
-      nextProjects = [replacementProject];
-      nextActiveProjectId = replacementProject.id;
-    } else if (activeProjectId === projectId) {
-      nextActiveProjectId = remainingProjects[0].id;
+      if (isDeletedProjectActive) {
+        transcriptScrollIntentRef.current = { mode: "top" };
+        await clearAttachments();
+        clearSelectionError();
+        setMessage("");
+      }
+
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: currentThreadId,
+        preferredProjectId: activeProjectId === projectId ? null : activeProjectId,
+      });
+      setSidebarNotice({
+        message: "Project deleted.",
+        tone: "default",
+      });
+    } catch (error) {
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Project could not be deleted right now.",
+        tone: "error",
+      });
     }
-
-    setProjects(nextProjects);
-    setThreads(remainingThreads);
-
-    if (isDeletedProjectActive) {
-      setActiveProjectId(nextActiveProjectId);
-      setProjectHomeProjectId(nextActiveProjectId);
-      setCurrentThreadId(null);
-      setTranscript([]);
-      setMessage("");
-    }
-
-    setSidebarNotice({
-      message: "Project deleted.",
-      tone: "default",
-    });
   }
 
-  function handleChatDelete(chatId: string) {
+  async function handleChatDelete(chatId: string) {
     const chat = threads.find((currentChat) => currentChat.id === chatId);
 
     if (!chat) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${chat.label}"?`);
-
-    if (!confirmed) {
-      return;
-    }
-
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setSidebarDeleteDraft(null);
 
-    const remainingThreads = threads.filter((thread) => thread.id !== chatId);
+    try {
+      const snapshot = await requestWorkspaceSnapshot(`/api/chat/conversations/${chatId}`, {
+        method: "DELETE",
+      });
 
-    setThreads(remainingThreads);
+      if (currentThreadId === chatId) {
+        transcriptScrollIntentRef.current = { mode: "top" };
+        await clearAttachments();
+        clearSelectionError();
+        setMessage("");
+      }
 
-    if (currentThreadId === chatId) {
-      setProjectHomeProjectId(activeProjectId);
-      setCurrentThreadId(null);
-      setTranscript([]);
-      setMessage("");
+      applyWorkspaceSnapshot(snapshot, {
+        preferredConversationId: currentThreadId === chatId ? null : currentThreadId,
+        preferredProjectId: chat.projectId,
+      });
+      setSidebarNotice({
+        message: "Chat deleted.",
+        tone: "default",
+      });
+    } catch (error) {
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Chat could not be deleted right now.",
+        tone: "error",
+      });
+    }
+  }
+
+  function requestProjectDelete(projectId: string) {
+    const project = projects.find((currentProject) => currentProject.id === projectId);
+
+    if (!project) {
+      return;
     }
 
-    setSidebarNotice({
-      message: "Chat deleted.",
-      tone: "default",
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+    setSidebarDeleteDraft({
+      chatCount: threads.filter((thread) => thread.projectId === project.id).length,
+      id: project.id,
+      label: project.label,
+      type: "project",
     });
+  }
+
+  function requestChatDelete(chatId: string) {
+    const chat = threads.find((currentChat) => currentChat.id === chatId);
+
+    if (!chat) {
+      return;
+    }
+
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+    setSidebarDeleteDraft({
+      id: chat.id,
+      label: chat.label,
+      type: "chat",
+    });
+  }
+
+  function closeSidebarDeleteDialog() {
+    setSidebarDeleteDraft(null);
+  }
+
+  function confirmSidebarDelete() {
+    if (!sidebarDeleteDraft) {
+      return;
+    }
+
+    if (sidebarDeleteDraft.type === "project") {
+      void handleProjectDelete(sidebarDeleteDraft.id);
+      return;
+    }
+
+    void handleChatDelete(sidebarDeleteDraft.id);
   }
 
   function getProjectThreads(projectId: string) {
@@ -1149,111 +1436,133 @@ export function HeroComposer() {
 
   function renderComposer(placeholder: string, className?: string) {
     return (
-      <form
-        className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
-        onSubmit={handleSubmit}
+      <FileUploadDropzone
+        disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
+        error={selectionError}
+        hint="Drop PDFs, docs, spreadsheets, slides, text files, or images here."
+        onFilesDropped={addFiles}
       >
-        <div className={styles.composerTop}>
-          <textarea
-            aria-label="Message composer"
-            aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
-            className={styles.composerInput}
-            disabled={isSubmitting || isRecording || isTranscribing}
-            onChange={(event) => handleMessageChange(event.target.value)}
-            onKeyDown={(event) => {
-              void handleKeyDown(event);
-            }}
-            placeholder={
-              isRecording
-                ? "Listening to your voice note..."
-                : isTranscribing
-                  ? "Transcribing your voice note..."
-                  : placeholder
-            }
-            ref={composerInputRef}
-            rows={3}
-            value={message}
+        <form
+          className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
+          onSubmit={handleSubmit}
+        >
+          <input
+            accept={attachmentInputAccept}
+            className={styles.hiddenAttachmentInput}
+            multiple
+            onChange={handleAttachmentSelection}
+            ref={attachmentInputRef}
+            tabIndex={-1}
+            type="file"
           />
-        </div>
-
-        {voiceNotice ? (
-          <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
-            <p
-              className={[
-                styles.composerStatus,
-                voiceNotice.tone === "active"
-                  ? styles.composerStatusActive
-                  : voiceNotice.tone === "error"
-                    ? styles.composerStatusError
-                    : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {voiceNotice.message}
-            </p>
-          </div>
-        ) : null}
-
-        <div className={styles.composerFooter}>
-          <div className={styles.composerStart}>
-            <button aria-label="Add attachment" className={styles.iconCircle} type="button">
-              <Plus size={18} strokeWidth={2.1} />
-            </button>
-
-            <button className={styles.modePill} type="button">
-              <Clock3 aria-hidden="true" size={16} strokeWidth={1.9} />
-              <span>Thinking</span>
-              <ChevronDown aria-hidden="true" size={14} strokeWidth={2} />
-            </button>
-          </div>
-
-          <div className={styles.composerEnd}>
-            <button
-              aria-label={
-                isRecording
-                  ? "Stop voice input"
-                  : isTranscribing
-                    ? "Transcribing voice input"
-                    : "Start voice input"
-              }
-              aria-pressed={isRecording}
-              className={[
-                styles.iconGhost,
-                isRecording ? styles.iconGhostActive : "",
-                isTranscribing ? styles.iconGhostBusy : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              disabled={isSubmitting || isTranscribing}
-              onClick={() => {
-                void handleVoiceInputToggle();
+          <div className={styles.composerTop}>
+            <textarea
+              aria-label="Message composer"
+              aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
+              className={styles.composerInput}
+              disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
+              onChange={(event) => handleMessageChange(event.target.value)}
+              onKeyDown={(event) => {
+                void handleKeyDown(event);
               }}
-              type="button"
-            >
-              {isTranscribing ? (
-                <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
-              ) : isRecording ? (
-                <Square size={14} strokeWidth={2.2} />
-              ) : (
-                <Mic size={16} strokeWidth={1.9} />
-              )}
-            </button>
-            <button
-              aria-label={isSubmitting ? "Generating reply" : "Send message"}
-              className={styles.voiceButton}
-              disabled={!canSubmit}
-              type="submit"
-            >
-              {isSubmitting ? (
-                <LoaderCircle className={styles.spinner} size={18} strokeWidth={2.1} />
-              ) : (
-                <ArrowUp size={18} strokeWidth={2.4} />
-              )}
-            </button>
+              placeholder={
+                isWorkspaceLoading
+                  ? "Loading your chat workspace..."
+                  : isRecording
+                    ? "Listening to your voice note..."
+                    : isTranscribing
+                      ? "Transcribing your voice note..."
+                      : placeholder
+              }
+              ref={composerInputRef}
+              rows={3}
+              value={message}
+            />
           </div>
-        </div>
-      </form>
+
+          {voiceNotice ? (
+            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
+              <p
+                className={[
+                  styles.composerStatus,
+                  voiceNotice.tone === "active"
+                    ? styles.composerStatusActive
+                    : voiceNotice.tone === "error"
+                      ? styles.composerStatusError
+                      : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {voiceNotice.message}
+              </p>
+            </div>
+          ) : null}
+
+          <PromptComposerAttachments
+            attachments={pendingAttachments}
+            onRemove={handleAttachmentRemove}
+            onRetry={retryAttachment}
+          />
+
+          <div className={styles.composerFooter}>
+            <div className={styles.composerStart}>
+              <AttachmentButton
+                className={styles.iconCircle}
+                onClick={() => {
+                  clearSelectionError();
+                  attachmentInputRef.current?.click();
+                }}
+              />
+            </div>
+
+            <div className={styles.composerEnd}>
+              <button
+                aria-label={
+                  isRecording
+                    ? "Stop voice input"
+                    : isTranscribing
+                      ? "Transcribing voice input"
+                      : "Start voice input"
+                }
+                aria-pressed={isRecording}
+                className={[
+                  styles.iconGhost,
+                  isRecording ? styles.iconGhostActive : "",
+                  isTranscribing ? styles.iconGhostBusy : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={isSubmitting || isWorkspaceLoading || isTranscribing}
+                onClick={() => {
+                  void handleVoiceInputToggle();
+                }}
+                type="button"
+              >
+                {isTranscribing ? (
+                  <LoaderCircle className={styles.spinner} size={16} strokeWidth={1.9} />
+                ) : isRecording ? (
+                  <Square size={14} strokeWidth={2.2} />
+                ) : (
+                  <Mic size={16} strokeWidth={1.9} />
+                )}
+              </button>
+              <button
+                aria-label={isSubmitting ? "Generating reply" : "Send message"}
+                className={styles.voiceButton}
+                disabled={!canSubmit}
+                type="submit"
+              >
+                {isSubmitting ? (
+                  <LoaderCircle className={styles.spinner} size={18} strokeWidth={2.1} />
+                ) : (
+                  <ArrowUp size={18} strokeWidth={2.4} />
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
+      </FileUploadDropzone>
     );
   }
 
@@ -1299,7 +1608,7 @@ export function HeroComposer() {
             className={styles.chatSidebarRenameForm}
             onSubmit={(event) => {
               event.preventDefault();
-              submitSidebarRename();
+              void submitSidebarRename();
             }}
           >
             <input
@@ -1459,7 +1768,7 @@ export function HeroComposer() {
               <Folder aria-hidden="true" size={18} strokeWidth={1.9} />
             </span>
           ),
-          onDelete: () => handleProjectDelete(project.id),
+          onDelete: () => requestProjectDelete(project.id),
           onSelect: () => handleProjectSelect(project.id),
           trailingVisual: isActiveProject ? (
             <ChevronDown aria-hidden="true" size={15} strokeWidth={2} />
@@ -1479,7 +1788,7 @@ export function HeroComposer() {
                     itemClassName: styles.chatSidebarProjectChatItem,
                     label: chat.label,
                     labelClassName: styles.chatSidebarProjectChatLabel,
-                    onDelete: () => handleChatDelete(chat.id),
+                    onDelete: () => requestChatDelete(chat.id),
                     onSelect: () => openThread(chat),
                     shellClassName: styles.chatSidebarProjectChatShell,
                     type: "chat",
@@ -1496,228 +1805,323 @@ export function HeroComposer() {
   }
 
   return (
-    <section
-      className={[styles.chatStage, workspaceVisible ? styles.chatStageActive : ""]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {workspaceVisible && !sidebarOpen ? (
-        <button
-          aria-expanded={sidebarOpen}
-          aria-label="Expand conversation sidebar"
-          className={styles.chatSidebarReveal}
-          onClick={() => {
-            setSidebarActionMenu(null);
-            setSidebarRenameDraft(null);
-            setSidebarOpen(true);
-          }}
-          type="button"
-        >
-          <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
-        </button>
-      ) : null}
-
-      {workspaceVisible && sidebarOpen ? (
-        <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
-          <div className={styles.chatSidebarHeader}>
-            <button
-              aria-expanded={sidebarOpen}
-              aria-label="Collapse conversation sidebar"
-              className={styles.chatSidebarCollapse}
-              onClick={() => {
-                setSidebarActionMenu(null);
-                setSidebarRenameDraft(null);
-                setSidebarOpen(false);
-              }}
-              type="button"
-            >
-              <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.9} />
-            </button>
-          </div>
-
-          <div className={styles.chatSidebarSection}>
-            <button className={styles.chatSidebarAction} onClick={handleNewProject} type="button">
-              <span className={styles.chatSidebarActionLabel}>
-                <FolderPlus aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>New project</span>
-              </span>
-            </button>
-
-            <ul className={styles.chatSidebarList} id="chat-project-collection">
-              {projects.map((project) => renderProjectRow(project))}
-            </ul>
-          </div>
-
-          <div className={styles.chatSidebarSection}>
-            <button className={styles.chatSidebarAction} onClick={handleNewChat} type="button">
-              <span className={styles.chatSidebarActionLabel}>
-                <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>New chat</span>
-              </span>
-            </button>
-          </div>
-
-          {sidebarNotice ? (
-            <p
-              aria-live="polite"
-              className={[
-                styles.chatSidebarNotice,
-                sidebarNotice.tone === "error" ? styles.chatSidebarNoticeError : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {sidebarNotice.message}
-            </p>
-          ) : null}
-        </aside>
-      ) : null}
-
-      <div
+    <>
+      <section
         className={[
-          styles.chatStageMain,
-          workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
-          workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
+          styles.chatStage,
+          workspaceVisible ? styles.chatStageActive : "",
+          hasActiveConversation ? styles.chatStageConversation : "",
         ]
           .filter(Boolean)
           .join(" ")}
       >
-        <div aria-live="polite" className={styles.chatTranscript} ref={transcriptRef}>
-          {isProjectHomeVisible && activeProject ? (
-            <section className={styles.projectHome}>
-              <header className={styles.projectHomeHeader}>
-                <div className={styles.projectHomeTitle}>
-                  <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
-                  <h2>{activeProject.label}</h2>
+        {workspaceVisible && !sidebarOpen ? (
+          <button
+            aria-expanded={sidebarOpen}
+            aria-label="Expand conversation sidebar"
+            className={styles.chatSidebarReveal}
+            onClick={() => {
+              setSidebarActionMenu(null);
+              setSidebarRenameDraft(null);
+              setSidebarOpen(true);
+            }}
+            type="button"
+          >
+            <PanelLeftOpen aria-hidden="true" size={16} strokeWidth={1.9} />
+          </button>
+        ) : null}
+
+        {workspaceVisible && sidebarOpen ? (
+          <aside aria-label="Conversation navigation" className={styles.chatSidebar}>
+            <div className={styles.chatSidebarHeader}>
+              <button
+                aria-expanded={sidebarOpen}
+                aria-label="Collapse conversation sidebar"
+                className={styles.chatSidebarCollapse}
+                onClick={() => {
+                  setSidebarActionMenu(null);
+                  setSidebarRenameDraft(null);
+                  setSidebarOpen(false);
+                }}
+                type="button"
+              >
+                <PanelLeftClose aria-hidden="true" size={16} strokeWidth={1.9} />
+              </button>
+            </div>
+
+            <div className={styles.chatSidebarSection}>
+              <button className={styles.chatSidebarAction} onClick={handleNewProject} type="button">
+                <span className={styles.chatSidebarActionLabel}>
+                  <FolderPlus aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>New project</span>
+                </span>
+              </button>
+
+              <ul className={styles.chatSidebarList} id="chat-project-collection">
+                {projects.map((project) => renderProjectRow(project))}
+              </ul>
+            </div>
+
+            <div className={styles.chatSidebarSection}>
+              <button className={styles.chatSidebarAction} onClick={handleNewChat} type="button">
+                <span className={styles.chatSidebarActionLabel}>
+                  <MessageSquareText aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>New chat</span>
+                </span>
+              </button>
+            </div>
+
+            {sidebarNotice ? (
+              <p
+                aria-live="polite"
+                className={[
+                  styles.chatSidebarNotice,
+                  sidebarNotice.tone === "error" ? styles.chatSidebarNoticeError : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {sidebarNotice.message}
+              </p>
+            ) : null}
+          </aside>
+        ) : null}
+
+        <div
+          className={[
+            styles.chatStageMain,
+            workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+            workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <div
+            aria-live="polite"
+            className={[
+              styles.chatTranscript,
+              hasActiveConversation ? styles.chatTranscriptConversation : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            ref={transcriptRef}
+          >
+            {isProjectHomeVisible && activeProject ? (
+              <section className={styles.projectHome}>
+                <header className={styles.projectHomeHeader}>
+                  <div className={styles.projectHomeTitle}>
+                    <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
+                    <h2>{activeProject.label}</h2>
+                  </div>
+                </header>
+
+                {renderComposer(`New chat in ${activeProject.label}`, styles.projectHomeComposer)}
+
+                <div className={styles.projectHomeTabs}>
+                  <button
+                    className={[styles.projectHomeTab, styles.projectHomeTabActive]
+                      .filter(Boolean)
+                      .join(" ")}
+                    type="button"
+                  >
+                    Chats
+                  </button>
+                  <button className={styles.projectHomeTab} type="button">
+                    Sources
+                  </button>
                 </div>
-              </header>
 
-              {renderComposer(
-                `New chat in ${activeProject.label}`,
-                styles.projectHomeComposer,
-              )}
-
-              <div className={styles.projectHomeTabs}>
-                <button
-                  className={[styles.projectHomeTab, styles.projectHomeTabActive]
-                    .filter(Boolean)
-                    .join(" ")}
-                  type="button"
-                >
-                  Chats
-                </button>
-                <button className={styles.projectHomeTab} type="button">
-                  Sources
-                </button>
-              </div>
-
-              <div className={styles.projectHomeList}>
-                {activeProjectThreads.length > 0 ? (
-                  activeProjectThreads.map((thread) => (
-                    <button
-                      className={styles.projectHomeThreadRow}
-                      key={thread.id}
-                      onClick={() => openThread(thread)}
-                      type="button"
-                    >
-                      <div className={styles.projectHomeThreadHeader}>
-                        <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
-                        <span className={styles.projectHomeThreadDate}>
-                          {formatThreadUpdatedAt(thread.updatedAt)}
-                        </span>
-                      </div>
-                      <p className={styles.projectHomeThreadPreview}>
-                        {buildThreadPreview(thread)}
-                      </p>
-                    </button>
-                  ))
-                ) : (
-                  <p className={styles.projectHomeEmpty}>
-                    Start a new chat in this project and it will appear here.
-                  </p>
-                )}
-              </div>
-            </section>
-          ) : transcript.length === 0 ? (
-            <div className={styles.chatEmptyState}>
-              <div className={styles.chatStarterGroup}>
-                <div className={styles.starterQuestionStack}>
-                  {starterActions.map((action) =>
-                    action.kind === "prompt" ? (
+                <div className={styles.projectHomeList}>
+                  {activeProjectThreads.length > 0 ? (
+                    activeProjectThreads.map((thread) => (
                       <button
-                        className={styles.starterQuestionPill}
-                        key={action.label}
-                        onClick={() => handleStarterQuestion(action.label)}
+                        className={styles.projectHomeThreadRow}
+                        key={thread.id}
+                        onClick={() => openThread(thread)}
                         type="button"
                       >
-                        {action.label}
+                        <div className={styles.projectHomeThreadHeader}>
+                          <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
+                          <span className={styles.projectHomeThreadDate}>
+                            {formatThreadUpdatedAt(thread.updatedAt)}
+                          </span>
+                        </div>
+                        <p className={styles.projectHomeThreadPreview}>
+                          {buildThreadPreview(thread)}
+                        </p>
                       </button>
-                    ) : (
-                      <Link
-                        className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
-                          .filter(Boolean)
-                          .join(" ")}
-                        href={action.href}
-                        key={action.label}
-                      >
-                        {action.label}
-                      </Link>
-                    ),
+                    ))
+                  ) : (
+                    <p className={styles.projectHomeEmpty}>
+                      Start a new chat in this project and it will appear here.
+                    </p>
                   )}
                 </div>
-              </div>
-            </div>
-          ) : (
-            transcript.map((entry) => (
+              </section>
+            ) : transcript.length === 0 ? (
               <div
-                className={[
-                  styles.transcriptRow,
-                  entry.role === "user" ? styles.transcriptRowUser : styles.transcriptRowAssistant,
-                ].join(" ")}
-                key={entry.id}
+                className={[styles.chatEmptyState, styles.chatEmptyStateLanding]
+                  .filter(Boolean)
+                  .join(" ")}
               >
-                <article
+                <div className={styles.chatStarterGroup}>
+                  <div className={styles.starterQuestionStack}>
+                    {starterActions.map((action) =>
+                      action.kind === "prompt" ? (
+                        <button
+                          className={styles.starterQuestionPill}
+                          key={action.label}
+                          onClick={() => handleStarterQuestion(action.label)}
+                          type="button"
+                        >
+                          {action.label}
+                        </button>
+                      ) : (
+                        <Link
+                          className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
+                            .filter(Boolean)
+                            .join(" ")}
+                          href={action.href}
+                          key={action.label}
+                        >
+                          {action.label}
+                        </Link>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              transcript.map((entry, index) => (
+                <div
                   className={[
-                    styles.transcriptBubble,
+                    styles.transcriptRow,
+                    hasActiveConversation && index === 0 ? styles.transcriptRowConversationStart : "",
                     entry.role === "user"
-                      ? styles.transcriptBubbleUser
-                      : styles.transcriptBubbleAssistant,
-                    entry.error ? styles.transcriptBubbleError : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
+                      ? styles.transcriptRowUser
+                      : styles.transcriptRowAssistant,
+                  ].join(" ")}
+                  data-transcript-entry-id={entry.id}
+                  key={entry.id}
                 >
-                  <p>{entry.content}</p>
+                  <article
+                    className={[
+                      styles.transcriptBubble,
+                      entry.role === "user"
+                        ? styles.transcriptBubbleUser
+                        : styles.transcriptBubbleAssistant,
+                      entry.error ? styles.transcriptBubbleError : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {entry.attachments?.length ? (
+                      <ChatMessageAttachments attachments={entry.attachments} />
+                    ) : null}
+                    {entry.content.trim() ? <p>{entry.content}</p> : null}
+                  </article>
+                </div>
+              ))
+            )}
+
+            {isSubmitting ? (
+              <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
+                <article
+                  className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
+                >
+                  <div className={styles.transcriptTyping}>
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className={styles.spinner}
+                      size={18}
+                      strokeWidth={2}
+                    />
+                    <span>Thinking through your verification workflow...</span>
+                  </div>
                 </article>
               </div>
-            ))
-          )}
+            ) : null}
+          </div>
 
-          {isSubmitting ? (
-            <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
-              <article
-                className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
-              >
-                <div className={styles.transcriptTyping}>
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className={styles.spinner}
-                    size={18}
-                    strokeWidth={2}
-                  />
-                  <span>Thinking through your verification workflow...</span>
-                </div>
-              </article>
-            </div>
-          ) : null}
+          {!isProjectHomeVisible
+            ? renderComposer(
+                "Ask about verification workflows, recruiter trust views, or candidate proof.",
+                transcript.length === 0 ? styles.composerDockLanding : undefined,
+              )
+            : null}
         </div>
+      </section>
 
-        {!isProjectHomeVisible
-          ? renderComposer(
-              "Ask about verification workflows, recruiter trust views, or candidate proof.",
-            )
-          : null}
-      </div>
-    </section>
+      {isMounted && sidebarDeleteDraft
+        ? createPortal(
+            <div
+              className={styles.sidebarDeleteOverlay}
+              onClick={closeSidebarDeleteDialog}
+              role="presentation"
+            >
+              <div
+                aria-describedby={deleteDialogDescriptionId}
+                aria-labelledby={deleteDialogTitleId}
+                aria-modal="true"
+                className={styles.sidebarDeleteDialog}
+                onClick={(event) => {
+                  event.stopPropagation();
+                }}
+                role="dialog"
+              >
+                <div className={styles.sidebarDeleteDialogBody}>
+                  <h2 className={styles.sidebarDeleteDialogTitle} id={deleteDialogTitleId}>
+                    {sidebarDeleteDraft.type === "project" ? "Delete project?" : "Delete chat?"}
+                  </h2>
+                  <p
+                    className={styles.sidebarDeleteDialogCopy}
+                    id={deleteDialogDescriptionId}
+                  >
+                    {sidebarDeleteDraft.type === "project" ? (
+                      <>
+                        This will delete{" "}
+                        <strong>{sidebarDeleteDraft.label}</strong>
+                        {sidebarDeleteDraft.chatCount > 0
+                          ? ` and ${sidebarDeleteDraft.chatCount} ${
+                              sidebarDeleteDraft.chatCount === 1 ? "chat" : "chats"
+                            } inside it.`
+                          : "."}
+                      </>
+                    ) : (
+                      <>
+                        This will delete <strong>{sidebarDeleteDraft.label}</strong>.
+                      </>
+                    )}
+                  </p>
+                  <p className={styles.sidebarDeleteDialogMeta}>
+                    {sidebarDeleteDraft.type === "project"
+                      ? "Every chat inside this project will be removed from your workspace."
+                      : "Messages inside this chat will be removed from your workspace."}
+                  </p>
+                </div>
+
+                <div className={styles.sidebarDeleteDialogActions}>
+                  <button
+                    className={styles.sidebarDeleteDialogCancel}
+                    onClick={closeSidebarDeleteDialog}
+                    ref={sidebarDeleteCancelButtonRef}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className={styles.sidebarDeleteDialogConfirm}
+                    onClick={confirmSidebarDelete}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }

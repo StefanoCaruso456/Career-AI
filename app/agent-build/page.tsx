@@ -17,7 +17,7 @@ export default async function AgentBuildPage() {
     redirect("/sign-in?callbackUrl=/agent-build");
   }
 
-  const initialSnapshot = getCareerBuilderWorkspace({
+  const initialSnapshot = await getCareerBuilderWorkspace({
     viewer: {
       email: session.user.email,
       name: session.user.name,

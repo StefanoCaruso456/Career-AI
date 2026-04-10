@@ -41,16 +41,18 @@
 
 .headerCopy {
   display: grid;
+  min-width: 0;
 }
 
 .title {
   margin: 0;
   color: #f8fbff;
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(1.18rem, 2.4vw, 1.82rem);
-  line-height: 0.98;
+  font-size: clamp(1.06rem, 0.82rem + 1.2vw, 1.52rem);
+  line-height: 1.02;
   letter-spacing: -0.055em;
-  max-width: 12ch;
+  max-width: none;
+  white-space: nowrap;
 }
 
 .closeButton {
@@ -213,25 +215,6 @@
   line-height: 1.45;
 }
 
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin: 0.85rem 0 0;
-  color: rgba(244, 247, 252, 0.46);
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
-}
-
 .actionBlock {
   margin-top: 0.7rem;
   display: grid;
@@ -249,23 +232,6 @@
   color: rgba(244, 247, 252, 0.72);
   font-size: 0.8rem;
   line-height: 1.55;
-}
-
-.trustRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.trustPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.52rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(244, 247, 252, 0.82);
-  font-size: 0.78rem;
 }
 
 @media (max-width: 560px) {
@@ -288,17 +254,6 @@
   }
 
   .title {
-    max-width: none;
-    font-size: clamp(1.45rem, 8vw, 2rem);
-  }
-
-  .divider {
-    gap: 0.55rem;
-    font-size: 0.7rem;
-  }
-
-  .trustPill {
-    width: 100%;
-    justify-content: center;
+    font-size: clamp(1rem, 1.6vw + 0.74rem, 1.18rem);
   }
 }

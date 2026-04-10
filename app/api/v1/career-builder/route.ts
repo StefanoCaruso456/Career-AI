@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const snapshot = getCareerBuilderWorkspace({
+    const snapshot = await getCareerBuilderWorkspace({
       viewer: {
         email: session.user.email,
         name: session.user.name,
@@ -36,4 +36,3 @@ export async function GET(request: NextRequest) {
     return errorResponse(error, correlationId);
   }
 }
-

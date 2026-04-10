@@ -10,7 +10,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { HeroComposer } from "./hero-composer";
+import { ChatHomeHero } from "./chat-home-hero";
 import styles from "./chat-home-shell.module.css";
 
 type StoryTheme = "aura" | "stream" | "grid" | "orb";
@@ -456,18 +456,7 @@ function SolutionCard({
 export function ChatHomeShell() {
   return (
     <div className={styles.page}>
-      <section className={styles.heroSection}>
-        <div className={styles.heroInner}>
-          <h1 className={styles.heroTitle}>
-            <span className={styles.heroTitleLine}>Career AI is a verified career identity platform</span>
-            <span className={styles.heroTitleLine}>for job seekers that helps them build trust,</span>
-            <span className={styles.heroTitleLine}>stand out to employers, and get hired faster.</span>
-          </h1>
-
-          <HeroComposer />
-
-        </div>
-      </section>
+      <ChatHomeHero />
 
       <section className={styles.introSection} id="platform">
         <div className={[styles.sectionShell, styles.introShell].join(" ")}>

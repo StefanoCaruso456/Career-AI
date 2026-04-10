@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       assertTalentIdentityAccess(actor, body.talentIdentityId, correlationId);
     }
 
-    const profile = generateRecruiterTrustProfile({
+    const profile = await generateRecruiterTrustProfile({
       input: {
         ...body,
         baseUrlOptional: body.baseUrlOptional ?? request.nextUrl.origin,
