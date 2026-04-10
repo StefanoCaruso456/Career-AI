@@ -3,9 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
-import { WorkspaceShell } from "@/components/workspace-shell";
 import { getPersonaSignInRoute } from "@/lib/personas";
-import { workspaceShellByPersona } from "@/lib/workspace-navigation";
 
 export default async function EmployerLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -34,7 +32,7 @@ export default async function EmployerLayout({ children }: { children: ReactNode
   return (
     <>
       <PersonaPreferenceSync persona="employer" />
-      <WorkspaceShell {...workspaceShellByPersona.employer}>{children}</WorkspaceShell>
+      {children}
     </>
   );
 }

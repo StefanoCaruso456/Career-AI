@@ -27,12 +27,33 @@ describe("HeaderCenterTab", () => {
     mockUsePathname.mockReset();
   });
 
-  it("hides the public center tabs inside route-scoped clients", () => {
+  it("hides the public center tabs inside the account client", () => {
     mockUsePathname.mockReturnValue("/account/settings");
 
     const { container } = render(<HeaderCenterTab />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders Agent Sorcerer in the floating header for employer routes", () => {
+    mockUsePathname.mockReturnValue("/employer");
+
+    render(<HeaderCenterTab />);
+
+    const link = screen.getByRole("link", { name: "Agent Sorcerer" });
+    expect(link).toHaveAttribute("href", "/employer/agent-sorcerer");
+    expect(link).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks Agent Sorcerer as current on the employer agent route", () => {
+    mockUsePathname.mockReturnValue("/employer/agent-sorcerer");
+
+    render(<HeaderCenterTab />);
+
+    const link = screen.getByRole("link", { name: "Agent Sorcerer" });
+    expect(link).toHaveAttribute("href", "/employer/agent-sorcerer");
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveClass(styles.navTabCurrent);
   });
 
   it("renders the Career ID label for the agent-build tab", () => {
