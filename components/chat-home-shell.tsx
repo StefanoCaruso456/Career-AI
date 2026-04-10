@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-shell-content";
 import { ChatHomeHero } from "./chat-home-hero";
+import { TrustExplainerSection } from "./trust-explainer-section";
 import styles from "./chat-home-shell.module.css";
 
 function StoryVisual({ theme }: { theme: StoryTheme }) {
@@ -367,6 +368,8 @@ export function ChatHomeShell({
           </div>
         </div>
       </section>
+
+      <TrustExplainerSection content={content.trustExplainer} />
 
       <footer className={styles.footer} id="footer">
         <div className={styles.sectionShell}>

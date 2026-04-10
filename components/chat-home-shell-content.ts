@@ -75,6 +75,24 @@ type LandingFooterColumn = {
   title: string;
 };
 
+type TrustExplainerCard = {
+  copy: string;
+  icon: LucideIcon;
+  title: string;
+};
+
+export type TrustExplainerContent = {
+  body: string;
+  cards: TrustExplainerCard[];
+  cta?: {
+    href: string;
+    label: string;
+  };
+  headline: string;
+  subheadline: string;
+  trustLine: string;
+};
+
 export type LandingContent = {
   footerColumns: LandingFooterColumn[];
   footerCtaLabel: string;
@@ -107,7 +125,40 @@ export type LandingContent = {
   storyCopy: string;
   storyEyebrow: string;
   storyTitle: string;
+  trustExplainer: TrustExplainerContent;
 };
+
+const sharedTrustExplainerCards: TrustExplainerCard[] = [
+  {
+    title: "Build verified credibility",
+    copy:
+      "Candidates add identity, work history, education, credentials, and supporting proof to their Career ID over time.",
+    icon: FileCheck2,
+  },
+  {
+    title: "Share securely",
+    copy:
+      "Information is permission-based and exchanged through secure agent-to-agent communication, so the right data can be requested safely.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Verify faster",
+    copy:
+      "Hiring agents can review trusted, verified information without waiting on slow manual follow-up and fragmented documents.",
+    icon: Workflow,
+  },
+];
+
+const sharedTrustExplainerContent = {
+  headline: "How secure Career ID works",
+  subheadline:
+    "Job seekers build verified credibility over time. Hiring agents can request trusted information securely through agent-to-agent communication.",
+  body:
+    "Career ID helps candidates turn identity, work history, education, and supporting proof into a portable, verified profile. Instead of repeating the same information across every application, job seekers build credibility once and strengthen it over time. When employers or hiring agents need confirmation, they can request verified information securely through agent-to-agent communication. This creates a faster, safer way to verify candidate information, reduce manual back-and-forth, and build trust on both sides of the hiring process.",
+  cards: sharedTrustExplainerCards,
+  trustLine:
+    "Portable. Verified. Secure. Built for faster trust between job seekers and hiring teams.",
+} satisfies Omit<TrustExplainerContent, "cta">;
 
 export const landingContentByPersona: Record<Persona, LandingContent> = {
   employer: {
@@ -335,6 +386,13 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "From lean startup teams to structured recruiting organizations, employer mode keeps candidate proof readable, permissioned, and decision-ready.",
     storyEyebrow: "Employer stories",
     storyTitle: "Build a hiring review layer that turns candidate signals into action.",
+    trustExplainer: {
+      ...sharedTrustExplainerContent,
+      cta: {
+        href: "#solutions",
+        label: "See How Verification Works",
+      },
+    },
   },
   job_seeker: {
     footerColumns: [
@@ -565,5 +623,12 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "From recruiter ops teams to hiring managers and candidate experience leaders, the platform turns fragmented proof into a reusable trust layer.",
     storyEyebrow: "Customer stories",
     storyTitle: "Build a hiring trust foundation that enables faster, cleaner decisions.",
+    trustExplainer: {
+      ...sharedTrustExplainerContent,
+      cta: {
+        href: "/agent-build",
+        label: "Start Building Career ID",
+      },
+    },
   },
 };
