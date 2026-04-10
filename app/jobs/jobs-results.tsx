@@ -210,13 +210,6 @@ export function JobsResults({
   return (
     <div className={styles.jobsResults}>
       <section className={styles.filterPanel}>
-        <div className={styles.filterPanelHeader}>
-          <div>
-            <p className={styles.filterEyebrow}>Manual filters</p>
-            <h2 className={styles.filterTitle}>Start with a keyword, then narrow the list.</h2>
-          </div>
-        </div>
-
         <div className={styles.searchField}>
           <Search aria-hidden="true" size={18} strokeWidth={2} />
           <input
