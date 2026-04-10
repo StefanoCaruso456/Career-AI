@@ -2434,7 +2434,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
 
             {!isProjectHomeVisible
               ? renderComposer(
-                  "Ask about verification workflows, recruiter trust views, or candidate proof.",
+                  "Ask about CareerID and how to find new jobs faster.",
                   styles.composerDockLanding,
                 )
               : null}
