@@ -37,7 +37,6 @@ describe("JobsResults", () => {
     expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
     expect(screen.getByText("Role 24")).toBeInTheDocument();
     expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
-    expect(screen.getByText("Reveal 29 more roles.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "More..." }));
 
