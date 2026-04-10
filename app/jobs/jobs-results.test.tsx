@@ -19,6 +19,7 @@ function createJob(index: number): JobPostingDto {
     applyUrl: `https://jobs.example.com/${index}`,
     postedAt: "2026-04-09T12:00:00.000Z",
     updatedAt: "2026-04-10T12:00:00.000Z",
+    salaryText: "$120,000 - $150,000",
     descriptionSnippet: null,
   };
 }
@@ -158,6 +159,7 @@ describe("JobsResults", () => {
         title: "Machine Learning Engineer",
         companyName: "Figma",
         location: "Remote",
+        salaryText: "$185,000 - $215,000",
         commitment: "Full-time",
         sourceLane: "ats_direct",
       },
@@ -166,6 +168,7 @@ describe("JobsResults", () => {
         title: "Frontend Engineer",
         companyName: "Stripe",
         location: "New York, NY",
+        salaryText: "$92,000 - $98,000",
         commitment: "Contract",
         sourceLane: "aggregator",
       },
@@ -174,6 +177,7 @@ describe("JobsResults", () => {
         title: "Product Manager, AI Platform",
         companyName: "Anthropic",
         location: "Hybrid - Chicago, IL",
+        salaryText: "$135,000 - $150,000",
         commitment: "Full-time",
         sourceLane: "ats_direct",
       },
@@ -181,8 +185,8 @@ describe("JobsResults", () => {
 
     render(<JobsResults jobs={jobs} />);
 
-    fireEvent.change(screen.getByLabelText("Role type"), {
-      target: { value: "product-management" },
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "100k-150k" },
     });
 
     expect(screen.getByText("Showing 1 of 1 matching role from 3 loaded.")).toBeInTheDocument();
@@ -201,5 +205,35 @@ describe("JobsResults", () => {
     expect(screen.getByText("Machine Learning Engineer")).toBeInTheDocument();
     expect(screen.getByText("Frontend Engineer")).toBeInTheDocument();
     expect(screen.getByText("Product Manager, AI Platform")).toBeInTheDocument();
+  });
+
+  it("filters salary text into annualized salary bands", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        title: "Applied AI Engineer",
+        salaryText: "$78/hour",
+      },
+      {
+        ...createJob(2),
+        title: "Security Engineer",
+        salaryText: "$130,000 - $160,000",
+      },
+      {
+        ...createJob(3),
+        title: "Staff Platform Engineer",
+        salaryText: "$260,000+",
+      },
+    ];
+
+    render(<JobsResults jobs={jobs} />);
+
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "150k-200k" },
+    });
+
+    expect(screen.getByText("Applied AI Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Security Engineer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Staff Platform Engineer")).not.toBeInTheDocument();
   });
 });
