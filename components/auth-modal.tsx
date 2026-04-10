@@ -5,6 +5,11 @@ import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } 
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { useGoogleAuthStatus } from "./use-google-auth-status";
+import {
+  getAuthCallbackUrl,
+  personaConfigs,
+  type Persona,
+} from "@/lib/personas";
 import styles from "./auth-modal.module.css";
 
 type AuthMode = "signup" | "signin";
@@ -22,27 +27,57 @@ type AuthModalTriggerProps = {
   label: string;
 };
 
-function getModeCopy(mode: AuthMode) {
-  if (mode === "signup") {
+function getModeCopy({
+  authMode,
+  persona,
+}: {
+  authMode: AuthMode;
+  persona: Persona;
+}) {
+  if (persona === "employer") {
+    if (authMode === "signup") {
+      return {
+        buttonLabel: "Continue with Google",
+        copy:
+          "Set up a business workspace to verify candidate credibility, reduce screening friction, and hire with more confidence.",
+        emailActionLabel: "Create account",
+        formStatus:
+          "Email/password sign-up is not enabled yet. Use Google to create your employer workspace securely.",
+        title: "Create your employer workspace",
+      };
+    }
+
     return {
-      title: "Create your Career AI account",
+      buttonLabel: "Sign in with Google",
+      copy:
+        "Return to your hiring workspace to review candidate signals, align your team, and move faster on the right talent.",
+      emailActionLabel: "Sign in",
+      formStatus:
+        "Email/password sign-in is not enabled yet. Use Google to continue securely.",
+      title: "Sign in to Career AI for Employers",
+    };
+  }
+
+  if (authMode === "signup") {
+    return {
+      buttonLabel: "Continue with Google",
       copy:
         "Build a verified career identity to increase credibility, attract employers, and get hired faster.",
-      buttonLabel: "Continue with Google",
       emailActionLabel: "Create account",
       formStatus:
         "Email/password sign-up is not enabled yet. Use Google to create your workspace securely.",
+      title: "Create your Career AI account",
     };
   }
 
   return {
-    title: "Sign in to Career AI",
+    buttonLabel: "Sign in with Google",
     copy:
       "Return to your workspace and pick up your verified profile where you left it.",
-    buttonLabel: "Sign in with Google",
     emailActionLabel: "Sign in",
     formStatus:
       "Email/password sign-in is not enabled yet. Use Google to continue securely.",
+    title: "Sign in to Career AI",
   };
 }
 
@@ -54,7 +89,7 @@ const emptyFormValues: AuthFormValues = {
 };
 
 export function AuthModalTrigger({
-  callbackUrl = "/account",
+  callbackUrl,
   className,
   defaultMode = "signin",
   label,
@@ -62,15 +97,29 @@ export function AuthModalTrigger({
   const modalRef = useRef<HTMLDivElement>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState<AuthMode>(defaultMode);
+  const [authMode, setAuthMode] = useState<AuthMode>(defaultMode);
+  const [persona, setPersona] = useState<Persona>("job_seeker");
   const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const passwordsMatch =
-    mode !== "signup" ||
+    authMode !== "signup" ||
     formValues.confirmPassword.length === 0 ||
     formValues.password === formValues.confirmPassword;
   const titleId = useId();
+  const modeCopy = getModeCopy({ authMode, persona });
+  const authCallbackUrl = getAuthCallbackUrl({
+    callbackUrl,
+    persona,
+  });
   const { isLoading: isGoogleAuthLoading, status: googleAuthStatus } = useGoogleAuthStatus(isOpen);
+  const googleOAuthEnabled = googleAuthStatus.enabled;
+  const googleSignInDisabled = isGoogleAuthLoading || !googleOAuthEnabled;
+  const googleSignInDisabledLabel = isGoogleAuthLoading
+    ? "Checking Google sign-in..."
+    : "Google sign-in unavailable";
+  const googleOAuthDisabledMessage = isGoogleAuthLoading
+    ? "Checking Google sign-in configuration."
+    : googleAuthStatus.disabledMessage;
 
   useEffect(() => {
     setIsMounted(true);
@@ -103,7 +152,8 @@ export function AuthModalTrigger({
   }, [isOpen]);
 
   function openModal() {
-    setMode(defaultMode);
+    setAuthMode(defaultMode);
+    setPersona("job_seeker");
     setFormValues(emptyFormValues);
     setFormStatus(null);
     setIsOpen(true);
@@ -113,8 +163,13 @@ export function AuthModalTrigger({
     setIsOpen(false);
   }
 
-  function handleModeChange(nextMode: AuthMode) {
-    setMode(nextMode);
+  function handleAuthModeChange(nextMode: AuthMode) {
+    setAuthMode(nextMode);
+    setFormStatus(null);
+  }
+
+  function handlePersonaChange(nextPersona: Persona) {
+    setPersona(nextPersona);
     setFormStatus(null);
   }
 
@@ -134,7 +189,7 @@ export function AuthModalTrigger({
   function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (mode === "signup" && formValues.password !== formValues.confirmPassword) {
+    if (authMode === "signup" && formValues.password !== formValues.confirmPassword) {
       setFormStatus("Passwords must match before you create your account.");
       return;
     }
@@ -142,15 +197,6 @@ export function AuthModalTrigger({
     setFormStatus(modeCopy.formStatus);
   }
 
-  const modeCopy = getModeCopy(mode);
-  const googleOAuthEnabled = googleAuthStatus.enabled;
-  const googleSignInDisabled = isGoogleAuthLoading || !googleOAuthEnabled;
-  const googleSignInDisabledLabel = isGoogleAuthLoading
-    ? "Checking Google sign-in..."
-    : "Google sign-in unavailable";
-  const googleOAuthDisabledMessage = isGoogleAuthLoading
-    ? "Checking Google sign-in configuration."
-    : googleAuthStatus.disabledMessage;
   const modal =
     isMounted && isOpen
       ? createPortal(
@@ -183,28 +229,53 @@ export function AuthModalTrigger({
                 </button>
               </div>
 
-              <div className={styles.modeSwitch}>
-                <button
-                  className={mode === "signup" ? styles.modeButtonActive : styles.modeButton}
-                  onClick={() => handleModeChange("signup")}
-                  type="button"
-                >
-                  Sign up
-                </button>
-                <button
-                  className={mode === "signin" ? styles.modeButtonActive : styles.modeButton}
-                  onClick={() => handleModeChange("signin")}
-                  type="button"
-                >
-                  Sign in
-                </button>
+              <div className={styles.selectorGrid}>
+                <div className={styles.selectorGroup}>
+                  <span className={styles.selectorLabel}>Access</span>
+                  <div className={styles.modeSwitch}>
+                    <button
+                      className={authMode === "signup" ? styles.modeButtonActive : styles.modeButton}
+                      onClick={() => handleAuthModeChange("signup")}
+                      type="button"
+                    >
+                      Sign up
+                    </button>
+                    <button
+                      className={authMode === "signin" ? styles.modeButtonActive : styles.modeButton}
+                      onClick={() => handleAuthModeChange("signin")}
+                      type="button"
+                    >
+                      Sign in
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.selectorGroup}>
+                  <span className={styles.selectorLabel}>Experience</span>
+                  <div className={styles.modeSwitch}>
+                    <button
+                      className={persona === "job_seeker" ? styles.modeButtonActive : styles.modeButton}
+                      onClick={() => handlePersonaChange("job_seeker")}
+                      type="button"
+                    >
+                      {personaConfigs.job_seeker.shortLabel}
+                    </button>
+                    <button
+                      className={persona === "employer" ? styles.modeButtonActive : styles.modeButton}
+                      onClick={() => handlePersonaChange("employer")}
+                      type="button"
+                    >
+                      {personaConfigs.employer.shortLabel}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <p className={styles.copy}>{modeCopy.copy}</p>
 
               <form className={styles.formCard} onSubmit={handleFormSubmit}>
                 <div className={styles.fieldGrid}>
-                  {mode === "signup" ? (
+                  {authMode === "signup" ? (
                     <label className={styles.field}>
                       <span className={styles.fieldLabel}>Full name</span>
                       <input
@@ -237,18 +308,18 @@ export function AuthModalTrigger({
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Password</span>
                     <input
-                      autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                       className={styles.input}
                       name="password"
                       onChange={handleFieldChange("password")}
-                      placeholder={mode === "signup" ? "Create a secure password" : "Enter your password"}
+                      placeholder={authMode === "signup" ? "Create a secure password" : "Enter your password"}
                       required
                       type="password"
                       value={formValues.password}
                     />
                   </label>
 
-                  {mode === "signup" ? (
+                  {authMode === "signup" ? (
                     <label className={styles.field}>
                       <span className={styles.fieldLabel}>Confirm password</span>
                       <input
@@ -279,17 +350,13 @@ export function AuthModalTrigger({
 
               <div className={styles.actionBlock}>
                 <GoogleSignInButton
-                  callbackUrl={callbackUrl}
+                  callbackUrl={authCallbackUrl}
                   disabled={googleSignInDisabled}
                   disabledLabel={googleSignInDisabledLabel}
                   disabledTitle={googleSignInDisabled ? googleOAuthDisabledMessage : undefined}
                   label={modeCopy.buttonLabel}
+                  persona={persona}
                 />
-                {googleSignInDisabled ? (
-                  <p className={styles.googleStatusNote} role="status">
-                    {googleOAuthDisabledMessage}
-                  </p>
-                ) : null}
               </div>
             </div>
           </div>,

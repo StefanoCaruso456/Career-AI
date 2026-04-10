@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AgentBuilderWorkspace } from "@/components/agent-builder-workspace";
+import { getPersonaSignInRoute } from "@/lib/personas";
 import { getCareerBuilderWorkspace } from "@/packages/career-builder-domain/src";
 
 export const metadata: Metadata = {
@@ -14,7 +15,12 @@ export default async function AgentBuildPage() {
   const session = await auth();
 
   if (!session?.user?.email) {
-    redirect("/sign-in?callbackUrl=/agent-build");
+    redirect(
+      getPersonaSignInRoute({
+        callbackUrl: "/agent-build",
+        persona: "job_seeker",
+      }),
+    );
   }
 
   const initialSnapshot = await getCareerBuilderWorkspace({

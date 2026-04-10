@@ -7,6 +7,8 @@ import {
   ensurePersistentCareerIdentityForSessionUser,
   getDisplayNameForContext,
 } from "@/auth-identity";
+import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
+import { getPersonaSignInRoute } from "@/lib/personas";
 import styles from "./page.module.css";
 
 function formatTimestamp(value: string) {
@@ -20,7 +22,12 @@ export default async function AccountPage() {
   const session = await auth();
 
   if (!session?.user) {
-    redirect("/sign-in");
+    redirect(
+      getPersonaSignInRoute({
+        callbackUrl: "/account",
+        persona: "job_seeker",
+      }),
+    );
   }
 
   const { context } = await ensurePersistentCareerIdentityForSessionUser({
@@ -43,6 +50,7 @@ export default async function AccountPage() {
 
   return (
     <main className={styles.page}>
+      <PersonaPreferenceSync persona="job_seeker" />
       <div className={styles.shell}>
         <section className={styles.hero}>
           <div className={styles.identityBlock}>
