@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useState } from "react";
-import { ArrowUpRight, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowUpRight, Search } from "lucide-react";
 import type { JobPostingDto } from "@/packages/contracts/src";
 import styles from "./page.module.css";
 
@@ -214,10 +214,6 @@ export function JobsResults({
           <div>
             <p className={styles.filterEyebrow}>Manual filters</p>
             <h2 className={styles.filterTitle}>Start with a keyword, then narrow the list.</h2>
-          </div>
-          <div className={styles.filterBadge}>
-            <SlidersHorizontal aria-hidden="true" size={16} strokeWidth={2} />
-            <span>LinkedIn-style narrowing for loaded roles</span>
           </div>
         </div>
 
