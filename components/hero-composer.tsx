@@ -2553,9 +2553,6 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
                 .join(" ")}
               ref={transcriptRef}
             >
-              {(isProjectHomeVisible || hasActiveConversation) && activeProject
-                ? renderPersistenceBar()
-                : null}
               {isProjectHomeVisible && activeProject ? (
                 <section className={styles.projectHome}>
                   <header className={styles.projectHomeHeader}>
