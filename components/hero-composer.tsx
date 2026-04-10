@@ -370,6 +370,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
+  const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
 
   useEffect(() => {
     setIsMounted(true);
@@ -1828,6 +1829,7 @@ export function HeroComposer({ onConversationStateChange }: HeroComposerProps) {
         className={[
           styles.chatStage,
           workspaceVisible ? styles.chatStageActive : "",
+          isLandingState ? styles.chatStageLanding : "",
           hasActiveConversation ? styles.chatStageConversation : "",
         ]
           .filter(Boolean)
