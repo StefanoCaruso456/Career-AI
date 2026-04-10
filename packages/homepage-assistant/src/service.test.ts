@@ -146,6 +146,17 @@ describe("homepage assistant service", () => {
     ).resolves.toContain("offer-letter.pdf");
   });
 
+  it("uses the deterministic Career ID explanation for the starter prompt before calling OpenAI", async () => {
+    createResponseMock.mockResolvedValue({ output_text: "  model output that should not be used  " });
+
+    await expect(
+      generateHomepageAssistantReply("What does the agent actually do?"),
+    ).resolves.toContain("turns your Career ID into a recruiter-ready trust layer");
+
+    expect(createResponseMock).not.toHaveBeenCalled();
+    expect(openAIConstructorMock).not.toHaveBeenCalled();
+  });
+
   it("transcribes uploaded audio with the default transcription model", async () => {
     const file = new File(["voice"], "voice-note.webm", { type: "audio/webm" });
     createTranscriptionMock.mockResolvedValue({ text: "  spoken summary  " });

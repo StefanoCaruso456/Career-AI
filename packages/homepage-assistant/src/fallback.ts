@@ -6,9 +6,14 @@ type HomepageAssistantAttachment = {
 
 const homepageFallbackReplies = [
   {
-    matches: ["what does the agent actually do", "what does the agent do"],
+    matches: [
+      "what does the agent actually do",
+      "what does the agent do",
+      "what does this actually do",
+      "what does this do",
+    ],
     output:
-      "Career AI verifies identity, work history, and supporting signals so employers can review a candidate with more trust. Instead of relying on a static resume alone, it builds a portable credibility profile with evidence, audit history, and recruiter-facing verification context.",
+      "Career AI's agent turns your Career ID into a recruiter-ready trust layer. It uses the identity, work history, education, and supporting proof inside your Career ID to help HR teams and recruiters understand your background, ask better questions, and trust what they're seeing faster. Instead of relying on a resume alone, they get a clearer, evidence-backed view of who you are, what you've done, and what has been verified.",
   },
   {
     matches: ["resume builder", "different from a resume"],
@@ -51,7 +56,7 @@ function buildAttachmentSuffix(attachments: HomepageAssistantAttachment[]) {
   return `\n\nAttached files: ${attachmentList}.`;
 }
 
-export function getFallbackHomepageReply(
+export function getMatchedHomepageReply(
   message: string,
   attachments: HomepageAssistantAttachment[] = [],
 ) {
@@ -60,8 +65,22 @@ export function getFallbackHomepageReply(
     matches.some((match) => normalizedMessage.includes(match)),
   );
 
-  if (matchedFallback) {
-    return `${matchedFallback.output}${buildAttachmentSuffix(attachments)}`;
+  if (!matchedFallback) {
+    return null;
+  }
+
+  return `${matchedFallback.output}${buildAttachmentSuffix(attachments)}`;
+}
+
+export function getFallbackHomepageReply(
+  message: string,
+  attachments: HomepageAssistantAttachment[] = [],
+) {
+  const normalizedMessage = message.trim().toLowerCase();
+  const matchedReply = getMatchedHomepageReply(message, attachments);
+
+  if (matchedReply) {
+    return matchedReply;
   }
 
   if (attachments.length > 0 && !normalizedMessage) {
