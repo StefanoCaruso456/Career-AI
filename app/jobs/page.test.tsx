@@ -40,7 +40,7 @@ function createSnapshot(): JobsFeedResponseDto {
         lane: "ats_direct",
         quality: "high_signal",
         status: "connected",
-        jobCount: 1,
+        jobCount: 1045,
         endpointLabel: "boards-api.greenhouse.io/connected-feed",
         lastSyncedAt: "2026-04-10T12:45:00.000Z",
         message: "Greenhouse public jobs synced and ready to persist.",
@@ -92,6 +92,7 @@ describe("JobsPage", () => {
     expect(screen.getByText("Feed details")).toBeInTheDocument();
     expect(screen.getByText("1 active source")).toBeInTheDocument();
     expect(screen.getByText("Connected Feed")).toBeInTheDocument();
+    expect(screen.getByText("1,045 total available")).toBeInTheDocument();
     expect(screen.queryByText("Broken Feed")).not.toBeInTheDocument();
   });
 });

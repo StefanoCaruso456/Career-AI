@@ -43,6 +43,7 @@ export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: INITIAL_REQUEST_LIMIT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
+  const totalAvailableCount = visibleSources.reduce((sum, source) => sum + source.jobCount, 0);
 
   return (
     <main className={styles.page}>
@@ -64,6 +65,7 @@ export default async function JobsPage() {
             <JobsResults
               initialCount={INITIAL_ROLE_COUNT}
               initialRequestLimit={INITIAL_REQUEST_LIMIT}
+              initialTotalAvailableCount={totalAvailableCount}
               jobs={snapshot.jobs}
               loadMoreCount={LOAD_MORE_INCREMENT}
             />

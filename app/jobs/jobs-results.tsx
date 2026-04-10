@@ -2,13 +2,18 @@
 
 import { useDeferredValue, useEffect, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
-import { jobsFeedResponseSchema, type JobPostingDto } from "@/packages/contracts/src";
+import {
+  jobsFeedResponseSchema,
+  type JobPostingDto,
+  type JobSourceSnapshotDto,
+} from "@/packages/contracts/src";
 import styles from "./page.module.css";
 
 type JobsResultsProps = {
   jobs: JobPostingDto[];
   initialCount?: number;
   initialRequestLimit?: number;
+  initialTotalAvailableCount?: number;
   loadMoreCount?: number;
 };
 
@@ -34,6 +39,16 @@ function formatQualityLabel(value: "high_signal" | "coverage") {
 
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return count === 1 ? singular : plural;
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function getTotalAvailableCount(sources: JobSourceSnapshotDto[]) {
+  return sources
+    .filter((source) => source.status === "connected")
+    .reduce((sum, source) => sum + source.jobCount, 0);
 }
 
 function normalizeCommitment(value: string | null) {
@@ -148,9 +163,11 @@ export function JobsResults({
   jobs,
   initialCount = 24,
   initialRequestLimit = Number.MAX_SAFE_INTEGER,
+  initialTotalAvailableCount = jobs.length,
   loadMoreCount = 29,
 }: JobsResultsProps) {
   const [loadedJobs, setLoadedJobs] = useState(jobs);
+  const [totalAvailableCount, setTotalAvailableCount] = useState(initialTotalAvailableCount);
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
@@ -218,8 +235,9 @@ export function JobsResults({
     setLoadedJobs(jobs);
     setHasMoreAvailable(jobs.length >= initialRequestLimit);
     setLoadMoreError(null);
+    setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
-  }, [initialRequestLimit, jobs]);
+  }, [initialRequestLimit, initialTotalAvailableCount, jobs]);
 
   async function handleLoadMore() {
     if (canRevealLoadedJobs) {
@@ -250,6 +268,7 @@ export function JobsResults({
       const snapshot = jobsFeedResponseSchema.parse(payload);
 
       setLoadedJobs(snapshot.jobs);
+      setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
       setVisibleCount((current) => Math.min(Math.max(current, loadedJobs.length) + loadMoreCount, snapshot.jobs.length));
       setHasMoreAvailable(snapshot.jobs.length >= nextLimit);
     } catch (error) {
@@ -395,6 +414,9 @@ export function JobsResults({
         <p className={styles.resultsSummary}>
           Showing {visibleJobs.length} of {filteredJobs.length} matching{" "}
           {pluralize(filteredJobs.length, "role")} from {loadedJobs.length} loaded.
+        </p>
+        <p className={styles.resultsTotal}>
+          {formatCount(totalAvailableCount)} total available
         </p>
       </div>
 
