@@ -88,7 +88,6 @@ describe("JobsPage", () => {
 
     expect(jobsDomainMocks.getJobsFeedSnapshot).toHaveBeenCalledWith({
       limit: 5000,
-      windowDays: 7,
     });
     expect(screen.getByText("Feed details")).toBeInTheDocument();
     expect(screen.getByText("1 active source")).toBeInTheDocument();
