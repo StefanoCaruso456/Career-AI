@@ -70,7 +70,7 @@ describe("JobsResults", () => {
     expect(companySelect).toHaveTextContent("Stripe");
   });
 
-  it("loads a larger jobs window from the API when more roles have not been fetched yet", async () => {
+  it("hydrates the full jobs window in the background after the first page renders", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),
       companyName: "Cisco",
@@ -138,18 +138,102 @@ describe("JobsResults", () => {
     );
 
     render(
-      <JobsResults initialRequestLimit={24} initialTotalAvailableCount={1045} jobs={initialJobs} />,
+      <JobsResults initialRequestLimit={24} initialTotalAvailableCount={53} jobs={initialJobs} />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "More..." }));
-
     await waitFor(() => {
-      expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
+      expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     });
     expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
-    expect(screen.getByText("Role 53")).toBeInTheDocument();
+    expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Company")).toHaveTextContent("Cisco");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
+  });
+
+  it("checks the full jobs window before declaring no matches for active filters", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      title: `Account Executive ${index + 1}`,
+      department: "Sales",
+    }));
+    const expandedJobs = [
+      ...initialJobs,
+      {
+        ...createJob(25),
+        title: "Frontend Engineer",
+        department: "Engineering",
+        companyName: "Stripe",
+      },
+    ];
+    let resolveFetch: ((value: Response) => void) | null = null;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveFetch = resolve;
+          }),
+      ),
+    );
+
+    render(
+      <JobsResults initialRequestLimit={24} initialTotalAvailableCount={25} jobs={initialJobs} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Role type"), {
+      target: { value: "frontend-engineering" },
+    });
+
+    expect(screen.getByText("Checking all 25 available jobs for matches...")).toBeInTheDocument();
+    expect(screen.getByText("Searching all jobs")).toBeInTheDocument();
+    expect(screen.queryByText("No roles match the current filters.")).not.toBeInTheDocument();
+
+    resolveFetch?.(
+      new Response(
+        JSON.stringify({
+          generatedAt: "2026-04-10T12:45:00.000Z",
+          jobs: expandedJobs,
+          sources: [
+            {
+              key: "greenhouse:figma",
+              label: "Figma",
+              lane: "ats_direct",
+              quality: "high_signal",
+              status: "connected",
+              jobCount: expandedJobs.length,
+              endpointLabel: "boards-api.greenhouse.io/figma",
+              lastSyncedAt: "2026-04-10T12:45:00.000Z",
+              message: "Greenhouse public jobs synced and ready to persist.",
+            },
+          ],
+          summary: {
+            totalJobs: expandedJobs.length,
+            directAtsJobs: expandedJobs.length,
+            aggregatorJobs: 0,
+            sourceCount: 1,
+            connectedSourceCount: 1,
+            highSignalSourceCount: 1,
+            coverageSourceCount: 0,
+          },
+          storage: {
+            mode: "database",
+            persistedJobs: expandedJobs.length,
+            persistedSources: 1,
+            lastSyncAt: "2026-04-10T12:45:00.000Z",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Frontend Engineer")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Showing 1 of 1 matching role from 25 loaded.")).toBeInTheDocument();
   });
 
   it("filters roles by keyword and manual facets, then clears back to the loaded window", () => {
