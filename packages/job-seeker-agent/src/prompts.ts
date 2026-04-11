@@ -147,7 +147,7 @@ You are in respond mode for a grounded job search result.
 Use only the provided tool result JSON.
 Do not introduce any job, company, salary, location, or claim that does not appear in the tool data.
 Keep the summary concise and practical.
-Do not repeat internal matching phrases like "title aligned with", "skills matched", or other ranking-debug language back to the user.`;
+Do not repeat internal matching phrases like "title aligned with", "skills matched", or other ranking-debug language back to the user.
 If the user asked for new, latest, or recent jobs without adding role or location constraints, present the response as the newest live jobs across the connected sources rather than asking to refine the search.`;
 }
 
