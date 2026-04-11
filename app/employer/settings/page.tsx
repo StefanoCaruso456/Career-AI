@@ -7,7 +7,7 @@ import { getPersonaSignInRoute } from "@/lib/personas";
 export default async function EmployerSettingsPage() {
   const session = await auth();
 
-  if (!session?.user) {
+  if (!session?.user?.email) {
     redirect(
       getPersonaSignInRoute({
         callbackUrl: "/employer/settings",

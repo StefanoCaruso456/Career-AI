@@ -1,12 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { landingContentByPersona } from "@/components/chat-home-shell-content";
 import { HeroComposer } from "@/components/hero-composer";
 import type {
   ChatConversation,
   ChatMessage,
   ChatProject,
   ChatWorkspaceSnapshot,
+  EmployerCandidateSearchResponseDto,
   JobPostingDto,
   JobsPanelResponseDto,
 } from "@/packages/contracts/src";
@@ -155,6 +157,87 @@ function createJobsPanelResponse(prompt: string, jobs: JobPostingDto[]): JobsPan
       usedCareerIdDefaults: false,
     },
     totalMatches: jobs.length,
+  };
+}
+
+function createEmployerCandidateResponse(
+  prompt: string,
+): EmployerCandidateSearchResponseDto {
+  return {
+    assistantMessage:
+      "I ranked aligned Career ID candidates by title fit, skill overlap, and credibility.",
+    candidates: [
+      {
+        actions: {
+          careerIdUrl: "/employer/candidates?careerId=TAID-000123",
+          profileUrl: "/employer/candidates?candidateId=tal_123",
+        },
+        candidateId: "tal_123",
+        careerId: "TAID-000123",
+        credibility: {
+          evidenceCount: 3,
+          label: "High credibility",
+          score: 88,
+          verificationSignal: "Verified experience",
+          verifiedExperienceCount: 2,
+        },
+        currentRole: "Senior Product Manager",
+        experienceHighlights: [
+          "Built AI workflow tooling for enterprise SaaS teams.",
+          "Verified employer-backed offer letter on file.",
+        ],
+        fullName: "Alex Rivera",
+        headline: "Senior Product Manager",
+        location: "Austin, TX",
+        matchReason:
+          "Title overlap around Senior Product Manager. Skill overlap on AI, product, SaaS.",
+        profileSummary: "Leads AI platform launches for B2B SaaS products.",
+        ranking: {
+          label: "Strong match",
+          score: 91,
+        },
+        targetRole: "Senior Product Manager",
+        topSkills: ["AI", "Product", "SaaS"],
+      },
+    ],
+    diagnostics: {
+      candidateCount: 6,
+      filteredOutCount: 5,
+      highCredibilityCount: 2,
+      parsedSkillCount: 3,
+      searchLatencyMs: 14,
+    },
+    generatedAt: "2026-04-10T00:00:00.000Z",
+    panelCount: 1,
+    query: {
+      filters: {
+        certifications: [],
+        credibilityThreshold: null,
+        education: null,
+        industry: null,
+        location: "Austin, TX",
+        priorEmployers: [],
+        skills: ["AI", "SaaS"],
+        title: "Senior Product Manager",
+        verificationStatus: [],
+        verifiedExperienceOnly: false,
+        workAuthorization: null,
+        yearsExperienceMin: null,
+      },
+      inputMode: "free_text",
+      normalizedPrompt: prompt.toLowerCase(),
+      parsedCriteria: {
+        industryHints: [],
+        location: "Austin, TX",
+        priorEmployers: [],
+        seniority: "senior",
+        skillKeywords: ["ai", "saas", "product"],
+        titleHints: ["Senior Product Manager"],
+        yearsExperienceMin: null,
+      },
+      prompt,
+    },
+    totalMatches: 1,
   };
 }
 
@@ -451,6 +534,71 @@ describe("HeroComposer", () => {
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
 
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(true);
+  });
+
+  it("shows the employer candidate rail instead of the jobs rail for sourcing prompts", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_employer", "Candidate pipeline")]);
+    const conversation = createConversation("conversation_employer", "project_employer", [
+      createMessage(
+        "message_user_employer",
+        "user",
+        "Find aligned candidates for a senior product manager in Austin with AI and SaaS experience",
+      ),
+      createMessage(
+        "message_assistant_employer",
+        "assistant",
+        "I ranked aligned Career ID candidates by title fit, skill overlap, and credibility.",
+      ),
+    ]);
+    const candidatesResponse = createEmployerCandidateResponse(
+      "Find aligned candidates for a senior product manager in Austin with AI and SaaS experience",
+    );
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          candidatePanel: candidatesResponse,
+          conversation,
+          userMessage: conversation.messages[0],
+        });
+      }
+
+      if (url === "/api/v1/employer/candidates/search") {
+        return createJsonResponse(candidatesResponse);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <HeroComposer
+        content={landingContentByPersona.employer.heroComposer}
+        persona="employer"
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Find software engineers" }));
+
+    expect(await screen.findByLabelText("Candidate sourcing panel")).toBeInTheDocument();
+    expect(await screen.findByText("Alex Rivera")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "APPLY" })).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) => getRequestUrl(input) === "/api/v1/employer/candidates/search",
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search"),
+    ).toBe(false);
   });
 
   it("does not show the jobs side panel for non-job prompts", async () => {

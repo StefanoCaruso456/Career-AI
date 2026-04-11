@@ -1,23 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  BriefcaseBusiness,
-  KeyRound,
-  Mail,
-  ShieldCheck,
-  Sparkles,
-  UserRound,
-} from "lucide-react";
+import { ArrowUpRight, KeyRound, Mail, UserRound } from "lucide-react";
 import { getDisplayNameForContext } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
 import { getPostAuthRoute, personaConfigs, type Persona } from "@/lib/personas";
 import type { PersistentTalentIdentityContext } from "@/packages/persistence/src";
 import styles from "@/app/settings/page.module.css";
-
-function getFirstName(name: string) {
-  return name.split(/\s+/).filter(Boolean)[0] ?? "there";
-}
 
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat("en-US", {
@@ -26,35 +14,44 @@ function formatTimestamp(value: string) {
   }).format(new Date(value));
 }
 
-function getAccountTypeCopy(roleType: string | null | undefined, preferredPersona: Persona) {
+function formatProviderLabel(value: string | null | undefined) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  return value
+    .split(/[_-\s]+/)
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function getAccountTypeLabel(roleType: string | null | undefined, preferredPersona: Persona) {
   if (roleType === "candidate") {
-    return {
-      description:
-        "This user signed up as a job seeker and will move through the candidate-facing Career AI experience.",
-      label: "Job seeker",
-    };
+    return "Job seeker";
+  }
+
+  if (roleType === "recruiter" || roleType === "hiring_manager") {
+    return "Employer";
+  }
+
+  return personaConfigs[preferredPersona].shortLabel;
+}
+
+function getRoleLabel(roleType: string | null | undefined) {
+  if (roleType === "candidate") {
+    return "Candidate";
   }
 
   if (roleType === "recruiter") {
-    return {
-      description:
-        "This user signed up as a recruiter and will move through the employer-side hiring experience.",
-      label: "Employer",
-    };
+    return "Recruiter";
   }
 
   if (roleType === "hiring_manager") {
-    return {
-      description:
-        "This user signed up as a hiring manager and will move through the employer-side hiring experience.",
-      label: "Employer",
-    };
+    return "Hiring manager";
   }
 
-  return {
-    description: personaConfigs[preferredPersona].description,
-    label: personaConfigs[preferredPersona].shortLabel,
-  };
+  return null;
 }
 
 export function ProfileAccountPage({
@@ -67,13 +64,39 @@ export function ProfileAccountPage({
   const displayName = getDisplayNameForContext(context);
   const email = context.user.email;
   const personaConfig = personaConfigs[preferredPersona];
-  const accountTypeCopy = getAccountTypeCopy(context.onboarding.roleType, preferredPersona);
+  const accountTypeLabel = getAccountTypeLabel(context.onboarding.roleType, preferredPersona);
+  const providerLabel = formatProviderLabel(context.user.authProvider);
+  const roleLabel = getRoleLabel(context.onboarding.roleType);
   const isOnboardingComplete = context.onboarding.status === "completed";
+  const setupLabel = isOnboardingComplete
+    ? "Complete"
+    : `Step ${context.onboarding.currentStep} of 4`;
+  const destinationLabel = isOnboardingComplete ? personaConfig.workspaceLabel : "Onboarding";
   const primaryHref = isOnboardingComplete ? getPostAuthRoute(preferredPersona) : "/onboarding";
   const primaryLabel = isOnboardingComplete ? "Open workspace" : "Finish onboarding";
-  const primaryDescription = isOnboardingComplete
-    ? `Continue into the ${personaConfig.workspaceLabel.toLowerCase()} this account is currently using.`
-    : `Resume setup at step ${context.onboarding.currentStep} of 4 and complete the persistent account profile.`;
+
+  const accountRows = [
+    { label: "Display name", value: displayName },
+    { label: "Email", value: email },
+    { label: "Sign-in", value: providerLabel },
+    { label: "Last sign-in", value: formatTimestamp(context.user.lastLoginAt) },
+    {
+      className: styles.identifierValue,
+      label: "Career AI ID",
+      value: context.aggregate.talentIdentity.talent_agent_id,
+    },
+  ];
+
+  const accessRows = [
+    { label: "Account type", value: accountTypeLabel },
+    { label: "Destination", value: destinationLabel },
+    { label: "Setup", value: setupLabel },
+    { label: "Workspace", value: personaConfig.workspaceLabel },
+  ];
+
+  if (roleLabel) {
+    accessRows.splice(1, 0, { label: "Role", value: roleLabel });
+  }
 
   return (
     <main className={styles.page}>
@@ -86,191 +109,118 @@ export function ProfileAccountPage({
                 <Image
                   alt={`${displayName} profile image`}
                   className={styles.avatar}
-                  height={96}
+                  height={84}
                   src={context.user.imageUrl}
-                  width={96}
+                  width={84}
                 />
               ) : (
                 <div className={styles.avatarFallback}>
-                  <UserRound aria-hidden="true" size={40} strokeWidth={1.8} />
+                  <UserRound aria-hidden="true" size={34} strokeWidth={1.8} />
                 </div>
               )}
             </div>
 
             <div className={styles.identityCopy}>
-              <span className={styles.eyebrow}>Profile & account</span>
-              <h1 className={styles.title}>Settings</h1>
-              <p className={styles.subtitle}>
-                {getFirstName(displayName)}, this workspace now shows the identity details,
-                security controls, and role-specific account metadata users expect in a
-                modern SaaS profile surface.
-              </p>
-
-              <div className={styles.statusRow}>
-                <span className={styles.statusPill}>
-                  <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                  Google verified
-                </span>
-                <span className={styles.statusPill}>
-                  <BriefcaseBusiness aria-hidden="true" size={16} strokeWidth={2} />
-                  {accountTypeCopy.label}
-                </span>
-                <span className={styles.statusPill}>
-                  <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
-                  {isOnboardingComplete
-                    ? "Onboarding complete"
-                    : `Step ${context.onboarding.currentStep} of 4`}
-                </span>
+              <span className={styles.eyebrow}>Settings</span>
+              <h1 className={styles.title}>Profile &amp; account</h1>
+              <div className={styles.identityMeta}>
+                <strong>{displayName}</strong>
+                <span>{email}</span>
               </div>
             </div>
           </div>
 
-          <aside className={styles.heroPanel}>
-            <span className={styles.heroPanelLabel}>Current destination</span>
-            <strong>{isOnboardingComplete ? personaConfig.workspaceLabel : "Finish onboarding"}</strong>
-            <p>{primaryDescription}</p>
+          <div className={styles.heroActions}>
             <Link className={styles.primaryLink} href={primaryHref}>
               {primaryLabel}
               <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
             </Link>
-          </aside>
+          </div>
         </section>
 
-        <section className={styles.grid}>
-          <article className={`${styles.panel} ${styles.profilePanel}`}>
+        <section className={styles.summaryGrid} aria-label="Account summary">
+          <article className={styles.summaryCard}>
+            <span className={styles.summaryLabel}>Account type</span>
+            <strong className={styles.summaryValue}>{accountTypeLabel}</strong>
+          </article>
+          <article className={styles.summaryCard}>
+            <span className={styles.summaryLabel}>Destination</span>
+            <strong className={styles.summaryValue}>{destinationLabel}</strong>
+          </article>
+          <article className={styles.summaryCard}>
+            <span className={styles.summaryLabel}>Setup</span>
+            <strong className={styles.summaryValue}>{setupLabel}</strong>
+          </article>
+        </section>
+
+        <section className={styles.contentGrid}>
+          <article className={`${styles.panel} ${styles.detailsPanel}`}>
             <div className={styles.panelHeader}>
-              <h2>Profile</h2>
-              <p>Core identity details surfaced directly inside Career AI.</p>
+              <h2>Account details</h2>
             </div>
 
-            <dl className={styles.details}>
-              <div>
-                <dt>Display name</dt>
-                <dd>{displayName}</dd>
-              </div>
-              <div>
-                <dt>Primary email</dt>
-                <dd>{email}</dd>
-              </div>
-              <div>
-                <dt>Account type</dt>
-                <dd>{accountTypeCopy.label}</dd>
-              </div>
-              <div>
-                <dt>Current experience</dt>
-                <dd>{personaConfig.workspaceLabel}</dd>
-              </div>
-              <div>
-                <dt>Authentication provider</dt>
-                <dd>{context.user.authProvider}</dd>
-              </div>
-              <div>
-                <dt>Last sign-in</dt>
-                <dd>{formatTimestamp(context.user.lastLoginAt)}</dd>
-              </div>
-              <div>
-                <dt>Career AI ID</dt>
-                <dd>{context.aggregate.talentIdentity.talent_agent_id}</dd>
-              </div>
+            <dl className={styles.detailList}>
+              {accountRows.map((row) => (
+                <div className={styles.detailRow} key={row.label}>
+                  <dt>{row.label}</dt>
+                  <dd className={row.className}>{row.value}</dd>
+                </div>
+              ))}
             </dl>
           </article>
 
-          <article className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2>Sign-in & security</h2>
-              <p>
-                Email and password controls are routed to the identity provider that actually
-                owns them today.
-              </p>
-            </div>
-
-            <div className={styles.securityList}>
-              <div className={styles.securityRow}>
-                <Mail aria-hidden="true" size={18} strokeWidth={2} />
-                <div>
-                  <strong>Review your account email</strong>
-                  <span>
-                    Users can always see the Google-backed email address attached to this
-                    Career AI account.
-                  </span>
-                </div>
+          <div className={styles.sidebarStack}>
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <h2>Access</h2>
               </div>
 
-              <div className={styles.securityRow}>
-                <KeyRound aria-hidden="true" size={18} strokeWidth={2} />
-                <div>
-                  <strong>Change password in Google</strong>
-                  <span>
-                    Because sign-in is OAuth-only right now, password updates, recovery
-                    options, and 2-Step Verification stay in Google security settings.
-                  </span>
-                </div>
+              <dl className={styles.detailList}>
+                {accessRows.map((row) => (
+                  <div className={styles.detailRow} key={row.label}>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+
+            <article className={styles.panel}>
+              <div className={styles.panelHeader}>
+                <h2>Security</h2>
               </div>
 
-              <div className={styles.securityRow}>
-                <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                <div>
-                  <strong>Verified email source of truth</strong>
-                  <span>
-                    Career AI reads the verified Google identity instead of asking users to
-                    manage duplicate credentials.
+              <p className={styles.securityNote}>Credentials and recovery are managed by Google.</p>
+
+              <div className={styles.actionStack}>
+                <a
+                  className={styles.secondaryLink}
+                  href="https://myaccount.google.com/"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className={styles.actionContent}>
+                    <Mail aria-hidden="true" size={16} strokeWidth={2} />
+                    Google account
                   </span>
-                </div>
+                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
+                </a>
+
+                <a
+                  className={styles.secondaryLink}
+                  href="https://myaccount.google.com/security"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <span className={styles.actionContent}>
+                    <KeyRound aria-hidden="true" size={16} strokeWidth={2} />
+                    Google security
+                  </span>
+                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
+                </a>
               </div>
-            </div>
-
-            <div className={styles.actionStack}>
-              <a
-                className={styles.secondaryLink}
-                href="https://myaccount.google.com/"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Manage Google account
-                <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-              </a>
-              <a
-                className={styles.secondaryLink}
-                href="https://myaccount.google.com/security"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Open Google security
-                <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-              </a>
-            </div>
-          </article>
-
-          <article className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2>Account experience</h2>
-              <p>
-                Role selection affects routing, messaging, and the product surface users see
-                after sign-in.
-              </p>
-            </div>
-
-            <div className={styles.accountTypeCard}>
-              <span className={styles.accountTypeBadge}>{personaConfig.shortLabel}</span>
-              <strong>{accountTypeCopy.label} account</strong>
-              <p>{accountTypeCopy.description}</p>
-            </div>
-
-            <ul className={styles.guidanceList}>
-              <li>Declared role: {context.onboarding.roleType ?? "Not selected yet"}</li>
-              <li>Onboarding progress: {context.onboarding.profileCompletionPercent}% complete</li>
-              <li>Current experience: {personaConfig.shortLabel}</li>
-              <li>
-                If the user needs a different Google email, sign out and continue with the
-                Google account they want to use for Career AI.
-              </li>
-            </ul>
-
-            <Link className={styles.inlineLink} href={primaryHref}>
-              {primaryLabel}
-              <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-            </Link>
-          </article>
+            </article>
+          </div>
         </section>
       </div>
     </main>

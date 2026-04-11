@@ -4,15 +4,18 @@ import { useState } from "react";
 import type { HeroComposerContent } from "./chat-home-shell-content";
 import { HeroComposer } from "./hero-composer";
 import styles from "./chat-home-shell.module.css";
+import type { Persona } from "@/lib/personas";
 
 export function ChatHomeHero({
   embeddedInWorkspaceShell = false,
   heroComposer,
   heroTitle,
+  persona = "job_seeker",
 }: {
   embeddedInWorkspaceShell?: boolean;
   heroComposer: HeroComposerContent;
   heroTitle: string;
+  persona?: Persona;
 }) {
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
 
@@ -49,7 +52,11 @@ export function ChatHomeHero({
           </span>
         </h1>
 
-        <HeroComposer content={heroComposer} onConversationStateChange={setHasActiveConversation} />
+        <HeroComposer
+          content={heroComposer}
+          onConversationStateChange={setHasActiveConversation}
+          persona={persona}
+        />
       </div>
     </section>
   );

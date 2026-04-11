@@ -22,21 +22,29 @@ import {
 } from "lucide-react";
 import { AttachmentButton } from "@/components/attachment-button";
 import { ChatMessageAttachments } from "@/components/chat-message-attachments";
+import { EmployerCandidateResultsRail } from "@/components/employer/employer-candidate-results-rail";
+import { EmployerSourcerFilters } from "@/components/employer/employer-sourcer-filters";
 import { FileUploadDropzone } from "@/components/file-upload-dropzone";
 import { JobsSidePanel } from "@/components/jobs/jobs-side-panel";
 import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
 import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
 import { landingContentByPersona, type HeroComposerContent } from "@/components/chat-home-shell-content";
+import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-search-intent";
+import { loadEmployerCandidateMatches } from "@/lib/employer/load-candidate-matches";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import { loadJobListings } from "@/lib/jobs/load-job-listings";
 import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
+import type { Persona } from "@/lib/personas";
 import {
   type ChatConversation,
   type ChatProjectActivitySnapshot,
   type ChatProjectPersistence,
   type ChatMessage,
   type ChatProject,
+  type EmployerCandidateMatchDto,
+  type EmployerCandidateSearchFiltersDto,
+  type EmployerCandidateSearchResponseDto,
   type JobsPanelResponseDto,
   type ChatWorkspacePersistence,
   type ChatWorkspaceSnapshot,
@@ -162,6 +170,7 @@ type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 type HeroComposerProps = {
   content?: HeroComposerContent;
   onConversationStateChange?: (active: boolean) => void;
+  persona?: Persona;
 };
 
 type ChatSubmitTarget = {
@@ -191,6 +200,19 @@ const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
 const attachmentInputAccept = supportedChatAttachmentTypes
   .map((type) => `.${type.extension}`)
   .join(",");
+const defaultEmployerCandidateSearchFilters: EmployerCandidateSearchFiltersDto = {
+  certifications: [],
+  credibilityThreshold: null,
+  education: null,
+  industry: null,
+  location: null,
+  priorEmployers: [],
+  skills: [],
+  verificationStatus: [],
+  verifiedExperienceOnly: false,
+  workAuthorization: null,
+  yearsExperienceMin: null,
+};
 
 function mergeVoiceDraft(base: string, incoming: string) {
   const normalizedIncoming = incoming.replace(/\s+/g, " ").trim();
@@ -400,6 +422,25 @@ function getLatestJobPrompt(entries: TranscriptEntry[]) {
   return null;
 }
 
+function getLatestCandidatePrompt(entries: TranscriptEntry[]) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+
+    if (entry.role === "user" && entry.content.trim() && isEmployerCandidateSearchIntent(entry.content)) {
+      return entry.content.trim();
+    }
+  }
+
+  return null;
+}
+
+function serializeEmployerFilters(filters: EmployerCandidateSearchFiltersDto) {
+  return JSON.stringify({
+    ...filters,
+    title: filters.title ?? null,
+  });
+}
+
 function formatThreadUpdatedAt(updatedAt: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
@@ -441,9 +482,14 @@ function formatRelativeTimestamp(timestamp: string | null) {
   return `${days}d ago`;
 }
 
-export function HeroComposer({ content, onConversationStateChange }: HeroComposerProps) {
+export function HeroComposer({
+  content,
+  onConversationStateChange,
+  persona = "job_seeker",
+}: HeroComposerProps) {
   const composerContent = content ?? landingContentByPersona.job_seeker.heroComposer;
   const starterActions = composerContent.starterActions;
+  const isEmployerMode = persona === "employer";
   const sidebarId = useId();
   const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
   const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
@@ -469,11 +515,24 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
+  const [candidateSearchFilters, setCandidateSearchFilters] =
+    useState<EmployerCandidateSearchFiltersDto>(defaultEmployerCandidateSearchFilters);
+  const [candidateAssistResponse, setCandidateAssistResponse] =
+    useState<EmployerCandidateSearchResponseDto | null>(null);
+  const [candidateAssistError, setCandidateAssistError] = useState<string | null>(null);
+  const [candidateAssistListings, setCandidateAssistListings] = useState<
+    EmployerCandidateMatchDto[]
+  >([]);
+  const [isCandidateAssistLoading, setIsCandidateAssistLoading] = useState(false);
+  const [candidateAssistLoadedRequestKey, setCandidateAssistLoadedRequestKey] =
+    useState<string | null>(null);
+  const [candidateAssistRefreshKey, setCandidateAssistRefreshKey] = useState(0);
   const [jobsAssistListings, setJobsAssistListings] = useState<JobListing[]>([]);
   const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
   const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
   const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
+  const [shortlistedCandidateIds, setShortlistedCandidateIds] = useState<string[]>([]);
   const [projectActivityState, setProjectActivityState] = useState<ProjectActivityState>({
     error: null,
     isLoading: false,
@@ -534,9 +593,18 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
-  const latestJobPrompt = !isProjectHomeVisible ? getLatestJobPrompt(transcript) : null;
+  const latestCandidatePrompt =
+    isEmployerMode && !isProjectHomeVisible ? getLatestCandidatePrompt(transcript) : null;
+  const latestJobPrompt =
+    !isEmployerMode && !isProjectHomeVisible ? getLatestJobPrompt(transcript) : null;
+  const candidateAssistFiltersKey = serializeEmployerFilters(candidateSearchFilters);
+  const candidateAssistRequestKey = latestCandidatePrompt
+    ? `${latestCandidatePrompt}::${candidateAssistFiltersKey}::${candidateAssistRefreshKey}`
+    : null;
   const jobsAssistRequestKey = latestJobPrompt ? `${latestJobPrompt}::${jobsAssistRefreshKey}` : null;
+  const isCandidateAssistVisible = Boolean(latestCandidatePrompt);
   const isJobsAssistVisible = Boolean(latestJobPrompt);
+  const isAssistRailVisible = isEmployerMode ? isCandidateAssistVisible : isJobsAssistVisible;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
   const [conversationComposerStyle, setConversationComposerStyle] =
@@ -549,6 +617,67 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
   useEffect(() => {
     onConversationStateChange?.(hasActiveConversation);
   }, [hasActiveConversation, onConversationStateChange]);
+
+  useEffect(() => {
+    if (!latestCandidatePrompt) {
+      setCandidateAssistError(null);
+      setCandidateAssistListings([]);
+      setCandidateAssistLoadedRequestKey(null);
+      setCandidateAssistResponse(null);
+      setIsCandidateAssistLoading(false);
+      return;
+    }
+
+    if (candidateAssistLoadedRequestKey === candidateAssistRequestKey) {
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    setIsCandidateAssistLoading(true);
+    setCandidateAssistError(null);
+
+    void loadEmployerCandidateMatches({
+      conversationId: currentThreadId,
+      filters: candidateSearchFilters,
+      limit: 6,
+      prompt: latestCandidatePrompt,
+      refresh: candidateAssistRefreshKey > 0,
+      signal: abortController.signal,
+    })
+      .then((result) => {
+        startTransition(() => {
+          setCandidateAssistListings(result.candidates);
+          setCandidateAssistResponse(result);
+          setCandidateAssistError(null);
+          setCandidateAssistLoadedRequestKey(candidateAssistRequestKey);
+          setIsCandidateAssistLoading(false);
+        });
+      })
+      .catch((error) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+
+        setCandidateAssistError(
+          error instanceof Error
+            ? error.message
+            : "Candidate matches could not be loaded right now.",
+        );
+        setIsCandidateAssistLoading(false);
+      });
+
+    return () => {
+      abortController.abort();
+    };
+  }, [
+    candidateAssistLoadedRequestKey,
+    candidateAssistRefreshKey,
+    candidateAssistRequestKey,
+    candidateSearchFilters,
+    currentThreadId,
+    latestCandidatePrompt,
+  ]);
 
   useEffect(() => {
     if (!latestJobPrompt) {
@@ -1012,9 +1141,11 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
 
   async function requestChatReply(args: {
     attachmentIds: string[];
+    candidateSearchFilters?: EmployerCandidateSearchFiltersDto;
     clientRequestId: string;
     conversationId: string | null;
     message: string;
+    persona: Persona;
     projectId: string;
   }) {
     const response = await fetch("/api/chat", {
@@ -1024,15 +1155,18 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       },
       body: JSON.stringify({
         attachmentIds: args.attachmentIds,
+        candidateSearchFilters: args.candidateSearchFilters,
         clientRequestId: args.clientRequestId,
         conversationId: args.conversationId,
         message: args.message,
+        persona: args.persona,
         projectId: args.projectId,
       }),
     });
 
     const payload = (await response.json()) as {
       assistantMessage?: ChatMessage;
+      candidatePanel?: EmployerCandidateSearchResponseDto | null;
       conversation?: ChatConversation;
       error?: string;
       errorCode?: string;
@@ -1046,6 +1180,22 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       payload,
       status: response.status,
     };
+  }
+
+  function applyCandidateAssistResponse(
+    candidatePanel: EmployerCandidateSearchResponseDto | null | undefined,
+  ) {
+    if (!candidatePanel) {
+      return;
+    }
+
+    setCandidateAssistListings(candidatePanel.candidates);
+    setCandidateAssistResponse(candidatePanel);
+    setCandidateAssistLoadedRequestKey(
+      `${candidatePanel.query.prompt}::${serializeEmployerFilters(candidatePanel.query.filters)}::${candidateAssistRefreshKey}`,
+    );
+    setCandidateAssistError(null);
+    setIsCandidateAssistLoading(false);
   }
 
   function applyJobsAssistResponse(jobsPanel: JobsPanelResponseDto | null | undefined) {
@@ -1531,9 +1681,11 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       const clientRequestId = createClientRequestId();
       let reply = await requestChatReply({
         attachmentIds,
+        candidateSearchFilters: isEmployerMode ? candidateSearchFilters : undefined,
         clientRequestId,
         conversationId: submitTarget.conversationId,
         message: prompt,
+        persona,
         projectId: submitTarget.projectId,
       });
       let payload = reply.payload;
@@ -1553,9 +1705,11 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
         if (recoveredSubmitTarget.projectId) {
           reply = await requestChatReply({
             attachmentIds,
+            candidateSearchFilters: isEmployerMode ? candidateSearchFilters : undefined,
             clientRequestId,
             conversationId: recoveredSubmitTarget.conversationId,
             message: prompt,
+            persona,
             projectId: recoveredSubmitTarget.projectId,
           });
           payload = reply.payload;
@@ -1569,6 +1723,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
       const { conversation, userMessage } = payload;
 
       releaseDetachedAttachments(detachedAttachments);
+      applyCandidateAssistResponse(payload.candidatePanel);
       applyJobsAssistResponse(payload.jobsPanel);
 
       startTransition(() => {
@@ -1640,6 +1795,31 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
 
   function handleStarterQuestion(question: string) {
     void submitMessage(question);
+  }
+
+  function handleReviewCandidateMatch(candidate: EmployerCandidateMatchDto) {
+    setComposerNotice({
+      message: `${candidate.fullName} is ${candidate.ranking.label.toLowerCase()} with ${candidate.credibility.label.toLowerCase()} signal.`,
+      tone: "default",
+    });
+  }
+
+  function handleShortlistCandidate(candidate: EmployerCandidateMatchDto) {
+    setShortlistedCandidateIds((currentIds) => {
+      const alreadyShortlisted = currentIds.includes(candidate.candidateId);
+      const nextIds = alreadyShortlisted
+        ? currentIds.filter((candidateId) => candidateId !== candidate.candidateId)
+        : [...currentIds, candidate.candidateId];
+
+      setComposerNotice({
+        message: alreadyShortlisted
+          ? `${candidate.fullName} removed from shortlist.`
+          : `${candidate.fullName} added to shortlist.`,
+        tone: "default",
+      });
+
+      return nextIds;
+    });
   }
 
   async function handleApplyJob(job: JobListing) {
@@ -2101,6 +2281,12 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
             tabIndex={-1}
             type="file"
           />
+          {isEmployerMode ? (
+            <EmployerSourcerFilters
+              filters={candidateSearchFilters}
+              onChange={setCandidateSearchFilters}
+            />
+          ) : null}
           <div className={styles.composerTop}>
             <textarea
               aria-label="Message composer"
@@ -2585,7 +2771,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
         <div
           className={[
             styles.chatStageMain,
-            isJobsAssistVisible ? styles.chatStageMainWithJobs : "",
+            isAssistRailVisible ? styles.chatStageMainWithJobs : "",
             workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
             workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
           ]
@@ -2596,7 +2782,7 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
           <div
             className={[
               styles.chatStagePrimary,
-              isJobsAssistVisible ? styles.chatStagePrimaryWithJobs : "",
+              isAssistRailVisible ? styles.chatStagePrimaryWithJobs : "",
             ]
               .filter(Boolean)
               .join(" ")}
@@ -2764,7 +2950,24 @@ export function HeroComposer({ content, onConversationStateChange }: HeroCompose
               : null}
           </div>
 
-          {isJobsAssistVisible ? (
+          {isEmployerMode && isCandidateAssistVisible ? (
+            <div className={styles.chatStageJobsRail}>
+              <EmployerCandidateResultsRail
+                candidates={candidateAssistListings}
+                errorMessage={candidateAssistError}
+                isLoading={isCandidateAssistLoading}
+                onRefresh={() => {
+                  setCandidateAssistRefreshKey((currentKey) => currentKey + 1);
+                }}
+                onReviewMatch={handleReviewCandidateMatch}
+                onShortlist={handleShortlistCandidate}
+                query={candidateAssistResponse?.query}
+                shortlistedCandidateIds={shortlistedCandidateIds}
+              />
+            </div>
+          ) : null}
+
+          {!isEmployerMode && isJobsAssistVisible ? (
             <div className={styles.chatStageJobsRail}>
               <JobsSidePanel
                 errorMessage={jobsAssistError}

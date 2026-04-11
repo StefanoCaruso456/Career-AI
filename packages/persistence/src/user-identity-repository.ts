@@ -445,6 +445,24 @@ export async function findPersistentContextBySoulRecordId(args: {
   );
 }
 
+export async function listPersistentCandidateContexts(args?: {
+  limit?: number;
+}) {
+  const limit = args?.limit ?? 250;
+  const result = await getDatabasePool().query<ContextRow>(
+    `
+      ${selectContextBaseQuery}
+      WHERE ci.status = 'ACTIVE'
+        AND (ci.role_type = 'candidate' OR ci.role_type IS NULL)
+      ORDER BY ci.updated_at DESC
+      LIMIT $1
+    `,
+    [limit],
+  );
+
+  return result.rows.map((row) => mapContextRow(row));
+}
+
 export async function provisionGoogleUser(args: ProvisionGoogleUserArgs) {
   const normalizedEmail = normalizeEmail(args.email);
 

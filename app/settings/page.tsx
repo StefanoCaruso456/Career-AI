@@ -18,7 +18,7 @@ export default async function SettingsPage() {
     redirect(getSettingsRoute(preferredPersona));
   }
 
-  if (!session?.user) {
+  if (!session?.user?.email) {
     redirect(
       getPersonaSignInRoute({
         callbackUrl: getSettingsRoute(preferredPersona),
