@@ -3,6 +3,7 @@ import type {
   JobPostingDto,
   JobSearchFiltersDto,
   JobSearchQueryDto,
+  JobSearchRetrievalResultDto,
   JobSeekerAgentTraceEntryDto,
   JobSeekerIntent,
   JobSeekerProfileContextDto,
@@ -51,10 +52,7 @@ export type JobSeekerToolInput =
   | GetUserCareerProfileToolInput
   | null;
 
-export type JobSearchCatalogResult = Omit<
-  JobsPanelResponseDto,
-  "agent" | "assistantMessage" | "debugTrace"
->;
+export type JobSearchCatalogResult = JobSearchRetrievalResultDto;
 
 export type JobSeekerToolResult =
   | JobSearchCatalogResult

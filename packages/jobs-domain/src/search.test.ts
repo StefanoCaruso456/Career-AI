@@ -28,12 +28,14 @@ vi.mock("@/packages/persistence/src", () => ({
   recordJobValidationEvents: (...args: unknown[]) => recordJobValidationEventsMock(...args),
 }));
 
-import { searchJobsPanel } from "./search";
+import { searchJobsCatalog, searchJobsPanel } from "./search";
 
 function createJob(args: {
   companyName: string;
+  descriptionSnippet?: string;
   id: string;
   location: string | null;
+  salaryText?: string | null;
   sourceLane?: "ats_direct" | "aggregator";
   sourceQuality?: "high_signal" | "coverage";
   title: string;
@@ -44,11 +46,12 @@ function createJob(args: {
     commitment: "Full Time",
     companyName: args.companyName,
     department: "Product",
-    descriptionSnippet: `${args.title} at ${args.companyName}`,
+    descriptionSnippet: args.descriptionSnippet ?? `${args.title} at ${args.companyName}`,
     externalId: args.id,
     id: args.id,
     location: args.location,
     postedAt: "2026-04-10T00:00:00.000Z",
+    salaryText: args.salaryText ?? null,
     sourceKey: `${args.sourceLane ?? "ats_direct"}:${args.companyName.toLowerCase()}`,
     sourceLabel: args.companyName,
     sourceLane: args.sourceLane ?? "ats_direct",
@@ -226,5 +229,81 @@ describe("jobs search service", () => {
     expect(result.totalMatches).toBe(2);
     expect(result.jobs[0]?.companyName).toBe("Anthropic");
     expect(result.jobs[1]?.companyName).toBe("Salesforce");
+  });
+
+  it("retrieves semantic role variants and explains why they matched", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "OpenAI",
+          descriptionSnippet:
+            "Lead AI platform roadmap, model launches, and cross-functional product strategy.",
+          id: "job_openai_ai_pm",
+          location: "Remote",
+          title: "Product Manager, AI Platform",
+        }),
+        createJob({
+          companyName: "Anthropic",
+          descriptionSnippet:
+            "Own product strategy for model experiences, AI tooling, and machine learning launches.",
+          id: "job_anthropic_ai_pm",
+          location: "Remote",
+          title: "AI Product Manager",
+        }),
+        createJob({
+          companyName: "Cisco",
+          descriptionSnippet: "Own enterprise account expansion and quota execution.",
+          id: "job_cisco_sales",
+          location: "Austin, TX",
+          title: "Account Executive",
+        }),
+      ],
+      sources: [{ key: "greenhouse:openai" }, { key: "workday:cisco" }],
+    });
+
+    const result = await searchJobsCatalog({
+      prompt: "Show me AI product jobs",
+    });
+
+    expect(
+      result.results.slice(0, 2).map((job) => job.title),
+    ).toEqual(expect.arrayContaining(["Product Manager, AI Platform", "AI Product Manager"]));
+    expect(result.resultQuality).toBe("strong");
+    expect(result.queryInterpretation.normalizedRoles).toContain("product manager");
+    expect(result.results[0]?.matchReasons?.some((reason) => reason.includes("title aligned"))).toBe(true);
+    expect(result.debugMeta.semanticCandidateCount).toBeGreaterThan(0);
+  });
+
+  it("broadens a remote-plus-location search once when the initial filter is too strict", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "Anthropic",
+          descriptionSnippet: "Own remote product work across AI tooling and model launches.",
+          id: "job_anthropic_remote_pm",
+          location: "Remote",
+          title: "Product Manager",
+        }),
+        createJob({
+          companyName: "Cisco",
+          descriptionSnippet: "Onsite product role for networking products in Austin.",
+          id: "job_cisco_onsite_pm",
+          location: "Austin, TX",
+          title: "Product Manager",
+        }),
+      ],
+      sources: [{ key: "greenhouse:anthropic" }, { key: "workday:cisco" }],
+    });
+
+    const result = await searchJobsCatalog({
+      prompt: "Find remote product manager jobs in Austin",
+    });
+
+    expect(result.fallbackApplied.applied).toBe(true);
+    expect(result.fallbackApplied.reason).toBe("relaxed_location");
+    expect(result.results[0]?.companyName).toBe("Anthropic");
+    expect(result.results[0]?.workplaceType).toBe("remote");
   });
 });
