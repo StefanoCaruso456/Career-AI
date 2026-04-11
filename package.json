@@ -4,6 +4,7 @@
   "description": "Career AI frontend and documentation foundation for the Agent Identity Platform.",
   "private": true,
   "scripts": {
+    "braintrust:bootstrap": "node ./scripts/bootstrap-braintrust.mjs",
     "db:migrate": "tsx packages/persistence/src/migrations.ts",
     "dev": "next dev",
     "build": "next build",
@@ -25,6 +26,7 @@
     "@langchain/core": "^1.1.39",
     "@langchain/langgraph": "^1.2.8",
     "@langchain/openai": "^1.4.4",
+    "braintrust": "^3.8.0",
     "lucide-react": "^1.7.0",
     "next": "^16.2.2",
     "next-auth": "^4.24.13",

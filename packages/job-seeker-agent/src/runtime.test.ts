@@ -5,7 +5,12 @@ import type {
   JobSeekerProfileContextDto,
 } from "@/packages/contracts/src";
 import { createJobSeekerAgent } from "./runtime";
-import type { JobSeekerAgentModel, JobSeekerToolSet } from "./types";
+import type {
+  JobSeekerAgentModel,
+  JobSeekerClassifierOutput,
+  JobSeekerPlannerOutput,
+  JobSeekerToolSet,
+} from "./types";
 
 function createJob(args: {
   companyName: string;
@@ -113,38 +118,41 @@ function createSearchCatalogResult(args: {
 }
 
 function createModel(overrides?: Partial<JobSeekerAgentModel>): JobSeekerAgentModel {
+  const defaultClassification: JobSeekerClassifierOutput = {
+    confidence: 0.95,
+    extractedFilters: null,
+    intent: "job_search",
+  };
+  const defaultPlan: JobSeekerPlannerOutput = {
+    clarificationQuestion: null,
+    effectivePrompt: "Find remote machine learning jobs",
+    filters: {
+      companies: [],
+      employmentType: null,
+      exclusions: [],
+      industries: [],
+      keywords: ["machine", "learning"],
+      location: null,
+      locations: [],
+      postedWithinDays: null,
+      role: "machine learning engineer",
+      roleFamilies: ["machine learning engineer"],
+      rankingBoosts: ["title_alignment", "trusted_source"],
+      remotePreference: "remote_only",
+      seniority: null,
+      skills: ["python"],
+      targetJobId: null,
+      workplaceType: "remote",
+    },
+    selectedTool: "searchJobs",
+    shouldUseProfileContext: false,
+  };
+
   return {
-    classifyIntent: vi.fn(async () => ({
-      confidence: 0.95,
-      extractedFilters: null,
-      intent: "job_search",
-    })),
+    classifyIntent: vi.fn(async () => defaultClassification),
     composeGeneralResponse: vi.fn(async () => "General reply"),
     composeSearchResponse: vi.fn(async () => "Grounded jobs reply"),
-    planAction: vi.fn(async () => ({
-      clarificationQuestion: null,
-      effectivePrompt: "Find remote machine learning jobs",
-      filters: {
-        companies: [],
-        employmentType: null,
-        exclusions: [],
-        industries: [],
-        keywords: ["machine", "learning"],
-        location: null,
-        locations: [],
-        postedWithinDays: null,
-        role: "machine learning engineer",
-        roleFamilies: ["machine learning engineer"],
-        rankingBoosts: ["title_alignment", "trusted_source"],
-        remotePreference: "remote_only",
-        seniority: null,
-        skills: ["python"],
-        targetJobId: null,
-        workplaceType: "remote",
-      },
-      selectedTool: "searchJobs",
-      shouldUseProfileContext: false,
-    })),
+    planAction: vi.fn(async () => defaultPlan),
     ...overrides,
   };
 }
@@ -191,7 +199,7 @@ describe("createJobSeekerAgent", () => {
       targetRole: "Product Manager",
     };
     const model = createModel({
-      planAction: vi.fn(async () => ({
+      planAction: vi.fn(async (): Promise<JobSeekerPlannerOutput> => ({
         clarificationQuestion: null,
         effectivePrompt: "Find jobs aligned with my background",
         filters: {
@@ -246,7 +254,7 @@ describe("createJobSeekerAgent", () => {
 
   it("broadens once after an empty search result and stops after the refined retry succeeds", async () => {
     const model = createModel({
-      planAction: vi.fn(async () => ({
+      planAction: vi.fn(async (): Promise<JobSeekerPlannerOutput> => ({
         clarificationQuestion: null,
         effectivePrompt: "Find remote product manager jobs in Austin",
         filters: {

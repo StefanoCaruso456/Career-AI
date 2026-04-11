@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { getTracedOpenAIClient } from "@/lib/braintrust";
 import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
 const homepageInstructions =
@@ -31,7 +31,7 @@ function getOpenAIClient() {
     throw new OpenAIConfigError("The server is missing OPENAI_API_KEY.");
   }
 
-  return new OpenAI({ apiKey });
+  return getTracedOpenAIClient(apiKey);
 }
 
 function getModel() {
