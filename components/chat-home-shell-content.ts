@@ -32,6 +32,11 @@ export type HeroComposerAction =
     }
   | {
       accent?: "jobs";
+      kind: "filters";
+      label: string;
+    }
+  | {
+      accent?: "jobs";
       kind: "prompt";
       label: string;
       value?: string;
@@ -39,6 +44,7 @@ export type HeroComposerAction =
 
 export type HeroComposerContent = {
   composerPlaceholder: string;
+  expandedComposerPlaceholder?: string;
   initialProjects: Array<{
     id: string;
     label: string;
@@ -209,7 +215,9 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTagline: "Clearer proof. Faster reviews. Better hiring confidence.",
     footerTitle: "Give every hiring team one recruiter-safe trust surface to review.",
     heroComposer: {
-      composerPlaceholder: "Paste a job description or describe the candidate you want to find.",
+      composerPlaceholder: "Ask about candidate credibility, screening friction, or hiring alignment.",
+      expandedComposerPlaceholder:
+        "Paste a job description or describe the candidate you want to find.",
       initialProjects: [
         { id: "project-candidate-pipeline", label: "Candidate pipeline" },
         { id: "project-role-scorecards", label: "Role scorecards" },
@@ -218,31 +226,12 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       starterActions: [
         {
           accent: "jobs",
-          kind: "prompt",
-          label: "Find software engineers",
-          value: "Find software engineers with verified experience.",
+          kind: "filters",
+          label: "Find aligned candidates",
         },
-        {
-          kind: "prompt",
-          label: "Find product managers",
-          value: "Find product managers with enterprise SaaS experience.",
-        },
-        {
-          kind: "prompt",
-          label: "Paste a job description",
-          value:
-            "I'll paste a full job description so you can source aligned Career ID candidates.",
-        },
-        {
-          kind: "prompt",
-          label: "Find candidates with verified experience",
-          value: "Find candidates with verified experience for an AI product engineer role.",
-        },
-        {
-          kind: "prompt",
-          label: "See high-credibility matches",
-          value: "Source high-credibility candidates for a recruiter in Austin with enterprise SaaS experience.",
-        },
+        { kind: "prompt", label: "How do we verify candidate credibility faster?" },
+        { kind: "prompt", label: "How can this reduce screening friction?" },
+        { kind: "prompt", label: "How do we find aligned talent with more confidence?" },
         { accent: "primary", kind: "link", href: "#solutions", label: "See employer workflows" },
       ],
       typingLabel: "Thinking through your hiring workflow...",

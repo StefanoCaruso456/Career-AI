@@ -4,12 +4,20 @@ import type { EmployerCandidateSearchFiltersDto } from "@/packages/contracts/src
 import styles from "./employer-sourcer-filters.module.css";
 
 type EmployerSourcerFiltersProps = {
+  autoFocusTitle?: boolean;
   filters: EmployerCandidateSearchFiltersDto;
+  isApplyDisabled?: boolean;
+  onApply: () => void;
+  onCancel: () => void;
   onChange: (nextFilters: EmployerCandidateSearchFiltersDto) => void;
 };
 
 export function EmployerSourcerFilters({
+  autoFocusTitle = false,
   filters,
+  isApplyDisabled = false,
+  onApply,
+  onCancel,
   onChange,
 }: EmployerSourcerFiltersProps) {
   return (
@@ -28,6 +36,7 @@ export function EmployerSourcerFilters({
         <label className={styles.field}>
           <span>Title</span>
           <input
+            autoFocus={autoFocusTitle}
             onChange={(event) => {
               onChange({
                 ...filters,
@@ -107,6 +116,31 @@ export function EmployerSourcerFilters({
         />
         <span>Prioritize candidates with verified experience signals only</span>
       </label>
+
+      <div className={styles.filtersFooter}>
+        <p className={styles.filtersHint}>
+          Use brief adds these filters to the composer so the recruiter can review the search
+          before sending it.
+        </p>
+
+        <div className={styles.filtersActions}>
+          <button
+            className={[styles.filtersButton, styles.filtersButtonSecondary].join(" ")}
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className={[styles.filtersButton, styles.filtersButtonPrimary].join(" ")}
+            disabled={isApplyDisabled}
+            onClick={onApply}
+            type="button"
+          >
+            Use brief
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

@@ -28,7 +28,11 @@ import { FileUploadDropzone } from "@/components/file-upload-dropzone";
 import { JobsSidePanel } from "@/components/jobs/jobs-side-panel";
 import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
 import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
-import { landingContentByPersona, type HeroComposerContent } from "@/components/chat-home-shell-content";
+import {
+  landingContentByPersona,
+  type HeroComposerAction,
+  type HeroComposerContent,
+} from "@/components/chat-home-shell-content";
 import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-search-intent";
 import { loadEmployerCandidateMatches } from "@/lib/employer/load-candidate-matches";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
@@ -441,6 +445,105 @@ function serializeEmployerFilters(filters: EmployerCandidateSearchFiltersDto) {
   });
 }
 
+function hasEmployerSearchFilters(filters: EmployerCandidateSearchFiltersDto) {
+  return Boolean(
+    filters.title?.trim() ||
+      filters.skills.length > 0 ||
+      filters.yearsExperienceMin !== null ||
+      filters.industry?.trim() ||
+      filters.location?.trim() ||
+      filters.workAuthorization?.trim() ||
+      filters.education?.trim() ||
+      filters.credibilityThreshold !== null ||
+      filters.verificationStatus.length > 0 ||
+      filters.priorEmployers.length > 0 ||
+      filters.certifications.length > 0 ||
+      filters.verifiedExperienceOnly,
+  );
+}
+
+function getCredibilityThresholdLabel(threshold: number | null) {
+  if (threshold === null) {
+    return null;
+  }
+
+  if (threshold >= 0.85) {
+    return "very high confidence";
+  }
+
+  if (threshold >= 0.7) {
+    return "high credibility";
+  }
+
+  return "evidence-backed";
+}
+
+function buildEmployerSourcingBrief(filters: EmployerCandidateSearchFiltersDto) {
+  if (!hasEmployerSearchFilters(filters)) {
+    return "";
+  }
+
+  const clauses: string[] = [];
+
+  if (filters.title?.trim()) {
+    clauses.push(`for a ${filters.title.trim()} role`);
+  }
+
+  if (filters.location?.trim()) {
+    clauses.push(`in ${filters.location.trim()}`);
+  }
+
+  if (filters.skills.length > 0) {
+    clauses.push(`with ${filters.skills.join(", ")}`);
+  }
+
+  if (filters.industry?.trim()) {
+    clauses.push(`with ${filters.industry.trim()} industry background`);
+  }
+
+  if (filters.yearsExperienceMin !== null) {
+    clauses.push(`with at least ${filters.yearsExperienceMin} years of experience`);
+  }
+
+  if (filters.workAuthorization?.trim()) {
+    clauses.push(`with ${filters.workAuthorization.trim()} work authorization`);
+  }
+
+  if (filters.education?.trim()) {
+    clauses.push(`with ${filters.education.trim()} education background`);
+  }
+
+  if (filters.priorEmployers.length > 0) {
+    clauses.push(`from employers like ${filters.priorEmployers.join(", ")}`);
+  }
+
+  if (filters.certifications.length > 0) {
+    clauses.push(`with certifications such as ${filters.certifications.join(", ")}`);
+  }
+
+  const followUps: string[] = [];
+
+  if (filters.verifiedExperienceOnly) {
+    followUps.push("Prioritize candidates with verified experience signals only.");
+  }
+
+  const credibilityLabel = getCredibilityThresholdLabel(filters.credibilityThreshold);
+
+  if (credibilityLabel) {
+    followUps.push(`Focus on ${credibilityLabel} candidates.`);
+  }
+
+  if (filters.verificationStatus.length > 0) {
+    followUps.push(
+      `Match candidates with ${filters.verificationStatus.join(", ").replaceAll("_", " ")} signals.`,
+    );
+  }
+
+  const opening = `Find aligned candidates${clauses.length > 0 ? ` ${clauses.join(" ")}` : ""}.`;
+
+  return [opening, ...followUps].join(" ").trim();
+}
+
 function formatThreadUpdatedAt(updatedAt: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
@@ -515,6 +618,7 @@ export function HeroComposer({
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
+  const [isEmployerFiltersOpen, setIsEmployerFiltersOpen] = useState(false);
   const [candidateSearchFilters, setCandidateSearchFilters] =
     useState<EmployerCandidateSearchFiltersDto>(defaultEmployerCandidateSearchFilters);
   const [candidateAssistResponse, setCandidateAssistResponse] =
@@ -571,11 +675,18 @@ export function HeroComposer({
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
   const isComposerInputDisabled = isWorkspaceLoading || isRecording || isTranscribing;
+  const hasEmployerStructuredSearchDraft =
+    isEmployerMode &&
+    isEmployerFiltersOpen &&
+    hasEmployerSearchFilters(candidateSearchFilters) &&
+    message.trim().length === 0;
   const hasBlockedAttachments = pendingAttachments.some((attachment) =>
     ["failed", "pending", "uploading"].includes(attachment.uploadStatus),
   );
   const canSubmit =
-    (message.trim().length > 0 || pendingAttachments.length > 0) &&
+    (message.trim().length > 0 ||
+      pendingAttachments.length > 0 ||
+      hasEmployerStructuredSearchDraft) &&
     !isSubmitting &&
     !isWorkspaceLoading &&
     !isRecording &&
@@ -609,6 +720,12 @@ export function HeroComposer({
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
   const [conversationComposerStyle, setConversationComposerStyle] =
     useState<ConversationComposerStyle | null>(null);
+  const activeComposerPlaceholder =
+    isEmployerMode && isEmployerFiltersOpen
+      ? composerContent.expandedComposerPlaceholder ?? composerContent.composerPlaceholder
+      : composerContent.composerPlaceholder;
+  const isEmployerFiltersApplyDisabled =
+    !message.trim() && !hasEmployerSearchFilters(candidateSearchFilters);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1619,7 +1736,12 @@ export function HeroComposer({
   }
 
   async function submitMessage(nextMessage?: string) {
-    const prompt = (nextMessage ?? message).trim();
+    const explicitPrompt = (nextMessage ?? message).trim();
+    const derivedEmployerPrompt =
+      !explicitPrompt && isEmployerMode && hasEmployerSearchFilters(candidateSearchFilters)
+        ? buildEmployerSourcingBrief(candidateSearchFilters)
+        : "";
+    const prompt = explicitPrompt || derivedEmployerPrompt;
     const readyAttachments = pendingAttachments.filter(
       (attachment) => attachment.uploadStatus === "uploaded" && attachment.attachmentId,
     );
@@ -1669,6 +1791,9 @@ export function HeroComposer({
     };
 
     setProjectHomeProjectId(null);
+    if (isEmployerMode && isEmployerFiltersOpen) {
+      setIsEmployerFiltersOpen(false);
+    }
     transcriptScrollIntentRef.current = { mode: "bottom" };
     setTranscript([...transcript, optimisticUserMessage]);
     clearSelectionError();
@@ -1793,8 +1918,58 @@ export function HeroComposer({
     void removeAttachment(attachmentId);
   }
 
-  function handleStarterQuestion(question: string) {
-    void submitMessage(question);
+  function handleOpenEmployerFilters() {
+    setIsEmployerFiltersOpen(true);
+    setComposerNotice({
+      message: "Add structured recruiter signals, then use the brief or send the search directly.",
+      tone: "default",
+    });
+  }
+
+  function handleCancelEmployerFilters() {
+    setIsEmployerFiltersOpen(false);
+    setComposerNotice(null);
+    focusComposer();
+  }
+
+  function handleApplyEmployerFilters() {
+    const typedMessage = message.trim();
+    const generatedBrief = buildEmployerSourcingBrief(candidateSearchFilters);
+
+    if (!typedMessage && !generatedBrief) {
+      setComposerNotice({
+        message: "Add a title, skill, location, or recruiter brief before using the sourcing brief.",
+        tone: "error",
+      });
+      return;
+    }
+
+    if (!typedMessage && generatedBrief) {
+      setMessage(generatedBrief);
+    }
+
+    setIsEmployerFiltersOpen(false);
+    setComposerNotice({
+      message: typedMessage
+        ? "Structured filters are ready for your next candidate search."
+        : "Sourcing brief added to the composer. Review it, then send when ready.",
+      tone: "default",
+    });
+    focusComposer();
+  }
+
+  function handleStarterAction(action: HeroComposerAction) {
+    if (action.kind === "filters") {
+      handleOpenEmployerFilters();
+      return;
+    }
+
+    if (action.kind !== "prompt") {
+      return;
+    }
+
+    setIsEmployerFiltersOpen(false);
+    void submitMessage(action.value ?? action.label);
   }
 
   function handleReviewCandidateMatch(candidate: EmployerCandidateMatchDto) {
@@ -2281,9 +2456,13 @@ export function HeroComposer({
             tabIndex={-1}
             type="file"
           />
-          {isEmployerMode ? (
+          {isEmployerMode && isEmployerFiltersOpen ? (
             <EmployerSourcerFilters
+              autoFocusTitle
               filters={candidateSearchFilters}
+              isApplyDisabled={isEmployerFiltersApplyDisabled}
+              onApply={handleApplyEmployerFilters}
+              onCancel={handleCancelEmployerFilters}
               onChange={setCandidateSearchFilters}
             />
           ) : null}
@@ -2858,7 +3037,7 @@ export function HeroComposer({
                   <div className={styles.chatStarterGroup}>
                     <div className={styles.starterQuestionStack}>
                       {starterActions.map((action) =>
-                        action.kind === "prompt" ? (
+                        action.kind === "prompt" || action.kind === "filters" ? (
                           <button
                             className={[
                               styles.starterQuestionPill,
@@ -2867,7 +3046,7 @@ export function HeroComposer({
                               .filter(Boolean)
                               .join(" ")}
                             key={action.label}
-                            onClick={() => handleStarterQuestion(action.value ?? action.label)}
+                            onClick={() => handleStarterAction(action)}
                             type="button"
                           >
                             {action.label}
@@ -2944,7 +3123,7 @@ export function HeroComposer({
 
             {!isProjectHomeVisible
               ? renderComposer(
-                  composerContent.composerPlaceholder,
+                  activeComposerPlaceholder,
                   styles.composerDockLanding,
                 )
               : null}
