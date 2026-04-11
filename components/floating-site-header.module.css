@@ -325,6 +325,10 @@
 }
 
 .settingsCopy strong {
+  max-width: 9.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.9rem;
   font-weight: 700;
 }
