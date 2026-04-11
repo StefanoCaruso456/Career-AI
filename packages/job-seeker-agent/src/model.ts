@@ -7,7 +7,7 @@ import {
   jobSeekerToolNameSchema,
   jobWorkplaceTypeSchema,
 } from "@/packages/contracts/src";
-import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src";
+import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
 import {
   buildClassifierPrompt,
   buildGeneralResponsePrompt,
