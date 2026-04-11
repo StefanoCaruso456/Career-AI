@@ -7,92 +7,95 @@ import styles from "./employer-candidate-results-rail.module.css";
 type EmployerCandidateCardProps = {
   candidate: EmployerCandidateMatchDto;
   isShortlisted?: boolean;
-  onReviewMatch?: (candidate: EmployerCandidateMatchDto) => void;
+  onOpenDetail?: (candidate: EmployerCandidateMatchDto) => void;
   onShortlist?: (candidate: EmployerCandidateMatchDto) => void;
 };
 
 export function EmployerCandidateCard({
   candidate,
   isShortlisted = false,
-  onReviewMatch,
+  onOpenDetail,
   onShortlist,
 }: EmployerCandidateCardProps) {
   const roleLine = [candidate.currentRole ?? candidate.targetRole, candidate.currentEmployer, candidate.location]
     .filter(Boolean)
     .join(" • ");
+  const previewSkills = candidate.topSkills.slice(0, 3);
+  const overflowSkillCount = Math.max(candidate.topSkills.length - previewSkills.length, 0);
+  const quickSignals = [
+    candidate.ranking.label,
+    candidate.credibility.verificationSignal,
+    candidate.credibility.verifiedExperienceCount > 0
+      ? `${candidate.credibility.verifiedExperienceCount} verified ${
+          candidate.credibility.verifiedExperienceCount === 1 ? "role" : "roles"
+        }`
+      : null,
+    candidate.credibility.evidenceCount > 0
+      ? `${candidate.credibility.evidenceCount} evidence item${
+          candidate.credibility.evidenceCount === 1 ? "" : "s"
+        }`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+  const careerIdHref = candidate.actions.careerIdUrl ?? candidate.actions.profileUrl ?? "#";
 
   return (
     <li className={styles.candidateCard}>
-      <div className={styles.candidateCardHeader}>
-        <div>
-          <p className={styles.candidateCareerId}>Career ID {candidate.careerId}</p>
-          <p className={styles.candidateName}>{candidate.fullName}</p>
-          <p className={styles.candidateRoleLine}>{roleLine || "Career ID profile"}</p>
+      <button
+        className={styles.candidateCardPreview}
+        onClick={() => {
+          onOpenDetail?.(candidate);
+        }}
+        type="button"
+      >
+        <div className={styles.candidateCardHeader}>
+          <div className={styles.candidateIdentity}>
+            <p className={styles.candidateCareerId}>Career ID {candidate.careerId}</p>
+            <p className={styles.candidateName}>{candidate.fullName}</p>
+            <p className={styles.candidateRoleLine}>{roleLine || "Career ID profile"}</p>
+          </div>
+          <div className={styles.credibilityBadge}>
+            <strong>{candidate.credibility.label}</strong>
+            <span>{candidate.credibility.score}%</span>
+          </div>
         </div>
-        <div className={styles.credibilityBadge}>
-          <strong>{candidate.credibility.label}</strong>
-          <span>{candidate.credibility.score}%</span>
-        </div>
-      </div>
 
-      {candidate.topSkills.length > 0 ? (
-        <div className={styles.skillRow}>
-          {candidate.topSkills.map((skill) => (
-            <span className={styles.skillChip} key={skill}>
-              {skill}
+        {previewSkills.length > 0 ? (
+          <div className={styles.skillRow}>
+            {previewSkills.map((skill) => (
+              <span className={styles.skillChip} key={skill}>
+                {skill}
+              </span>
+            ))}
+            {overflowSkillCount > 0 ? (
+              <span className={styles.skillChip}>+{overflowSkillCount} more</span>
+            ) : null}
+          </div>
+        ) : null}
+
+        <p className={styles.matchReason}>{candidate.matchReason}</p>
+
+        <div className={styles.cardMeta}>
+          {quickSignals.map((signal) => (
+            <span className={styles.metaChip} key={signal}>
+              {signal}
             </span>
           ))}
         </div>
-      ) : null}
-
-      <p className={styles.matchReason}>{candidate.matchReason}</p>
-
-      {candidate.profileSummary ? (
-        <p className={styles.profileSummary}>{candidate.profileSummary}</p>
-      ) : null}
-
-      {candidate.experienceHighlights.length > 0 ? (
-        <ul className={styles.highlightList}>
-          {candidate.experienceHighlights.map((highlight) => (
-            <li key={highlight}>{highlight}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      <div className={styles.cardMeta}>
-        <span>{candidate.ranking.label}</span>
-        <span>{candidate.credibility.verificationSignal}</span>
-        {candidate.currentEmployer ? <span>{candidate.currentEmployer}</span> : null}
-      </div>
+      </button>
 
       <div className={styles.cardActions}>
-        <Link
+        <button
           className={styles.primaryAction}
-          href={candidate.actions.careerIdUrl ?? candidate.actions.profileUrl ?? "#"}
+          onClick={() => {
+            onOpenDetail?.(candidate);
+          }}
+          type="button"
         >
+          More
+        </button>
+        <Link className={styles.secondaryAction} href={careerIdHref}>
           View Career ID
         </Link>
-        <Link
-          className={styles.secondaryAction}
-          href={candidate.actions.profileUrl ?? candidate.actions.careerIdUrl ?? "#"}
-          onClick={() => {
-            onReviewMatch?.(candidate);
-          }}
-        >
-          Open candidate detail
-        </Link>
-        {candidate.actions.trustProfileUrl ? (
-          <Link className={styles.secondaryAction} href={candidate.actions.trustProfileUrl}>
-            Review trust profile
-          </Link>
-        ) : (
-          <span
-            aria-disabled="true"
-            className={[styles.secondaryAction, styles.secondaryActionDisabled].join(" ")}
-          >
-            Trust profile unavailable
-          </span>
-        )}
         <button
           className={styles.secondaryAction}
           onClick={() => {

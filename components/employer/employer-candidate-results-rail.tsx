@@ -11,8 +11,8 @@ type EmployerCandidateResultsRailProps = {
   candidates: EmployerCandidateMatchDto[];
   errorMessage?: string | null;
   isLoading?: boolean;
+  onOpenDetail?: (candidate: EmployerCandidateMatchDto) => void;
   onRefresh?: () => void;
-  onReviewMatch?: (candidate: EmployerCandidateMatchDto) => void;
   onShortlist?: (candidate: EmployerCandidateMatchDto) => void;
   query?: EmployerCandidateSearchQueryDto | null;
   shortlistedCandidateIds?: string[];
@@ -48,8 +48,8 @@ export function EmployerCandidateResultsRail({
   candidates,
   errorMessage = null,
   isLoading = false,
+  onOpenDetail,
   onRefresh,
-  onReviewMatch,
   onShortlist,
   query = null,
   shortlistedCandidateIds = [],
@@ -70,7 +70,7 @@ export function EmployerCandidateResultsRail({
           Find aligned candidates
         </button>
         <p className={styles.resultsRailLead}>
-          Search verified Career ID talent and rank stronger credibility signals first.
+          Search verified Career ID talent, then open a candidate only when you need the full recruiter-safe profile.
         </p>
         {querySummary.length > 0 ? (
           <div className={styles.summaryRow}>
@@ -110,7 +110,7 @@ export function EmployerCandidateResultsRail({
                 candidate={candidate}
                 isShortlisted={shortlistedCandidateIds.includes(candidate.candidateId)}
                 key={candidate.candidateId}
-                onReviewMatch={onReviewMatch}
+                onOpenDetail={onOpenDetail}
                 onShortlist={onShortlist}
               />
             ))}
