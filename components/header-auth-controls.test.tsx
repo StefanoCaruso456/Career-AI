@@ -24,7 +24,7 @@ describe("HeaderAuthControls", () => {
     vi.clearAllMocks();
   });
 
-  it("renders a compact settings menu with title-only actions", () => {
+  it("shows the account holder in the trigger and opens the workspace menu", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
     mockUsePathname.mockReturnValue("/employer");
     mockUseSession.mockReturnValue({
@@ -42,15 +42,45 @@ describe("HeaderAuthControls", () => {
     render(<HeaderAuthControls />);
 
     expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
-    expect(screen.getByText("Employer workspace")).toBeInTheDocument();
+    expect(screen.getByText("Employer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
     expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
     expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
-    expect(screen.getByText("Employer")).toBeInTheDocument();
+    expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/google currently manages/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/review name, email, password guidance/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the trigger identity-focused while surfacing onboarding in the menu", () => {
+    window.localStorage.setItem("career-ai.preferred-persona", "employer");
+    mockUsePathname.mockReturnValue("/settings");
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          currentStep: 1,
+          email: "alex@company.com",
+          name: "Alex Rivera",
+          onboardingStatus: "in_progress",
+          roleType: "recruiter",
+        },
+      },
+      status: "authenticated",
+    });
+
+    render(<HeaderAuthControls />);
+
+    expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
+    expect(screen.getByText("Employer")).toBeInTheDocument();
+    expect(screen.queryByText(/step 1 of 4/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
+
+    expect(screen.getByRole("menuitem", { name: /finish onboarding/i })).toHaveAttribute(
+      "href",
+      "/onboarding",
+    );
   });
 });

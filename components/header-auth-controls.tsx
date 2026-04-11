@@ -73,11 +73,6 @@ export function HeaderAuthControls() {
     session?.user?.onboardingStatus !== null &&
     session?.user?.onboardingStatus !== undefined &&
     session.user.onboardingStatus !== "completed";
-  const accountHref = shouldResumeOnboarding ? "/onboarding" : getPostAuthRoute(preferredPersona);
-  const isAccountPage =
-    accountHref === "/onboarding"
-      ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
-      : pathname === accountHref || pathname.startsWith(`${accountHref}/`);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -143,14 +138,9 @@ export function HeaderAuthControls() {
   const settingsHref = "/settings";
   const isSettingsPage = pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
   const workspaceHref = getPostAuthRoute(preferredPersona);
-  const workspaceLabel = personaConfigs[preferredPersona].workspaceLabel;
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
-  const accountLabel = shouldResumeOnboarding ? "Finish onboarding" : displayName;
-  const accountMeta = shouldResumeOnboarding
-    ? session.user.currentStep
-      ? `Step ${session.user.currentStep} of 4`
-      : "Resume setup"
-    : workspaceLabel;
+  const accountLabel = displayName;
+  const accountMeta = accountTypeLabel;
   const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
   const isPrimaryMenuPage =
     primaryMenuHref === "/onboarding"
