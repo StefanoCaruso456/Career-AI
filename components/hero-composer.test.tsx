@@ -659,10 +659,7 @@ describe("HeroComposer", () => {
     expect(
       screen.queryByRole("link", { name: "Review trust profile" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View Career ID" })).toHaveAttribute(
-      "href",
-      "/employer/candidates?careerId=TAID-000123",
-    );
+    expect(screen.queryByRole("link", { name: "View Career ID" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
 
     expect(await screen.findByRole("dialog", { name: "Alex Rivera" })).toBeInTheDocument();

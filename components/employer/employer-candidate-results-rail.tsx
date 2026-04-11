@@ -18,32 +18,6 @@ type EmployerCandidateResultsRailProps = {
   shortlistedCandidateIds?: string[];
 };
 
-const directLookupPattern =
-  /\b(?:TAID-\d{6}|tal_[a-z0-9-]+|share_[a-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\b/i;
-
-function buildQuerySummary(query?: EmployerCandidateSearchQueryDto | null) {
-  if (!query) {
-    return [];
-  }
-
-  const summary = [
-    query.parsedCriteria.titleHints[0],
-    query.parsedCriteria.skillKeywords.length > 0
-      ? `Skills: ${query.parsedCriteria.skillKeywords.slice(0, 3).join(", ")}`
-      : null,
-    query.parsedCriteria.location ? `Location: ${query.parsedCriteria.location}` : null,
-    query.filters.verifiedExperienceOnly ? "Verified experience only" : null,
-  ].filter((value): value is string => Boolean(value));
-
-  if (summary.length > 0) {
-    return summary;
-  }
-
-  const directLookup = query.prompt.match(directLookupPattern)?.[0] ?? null;
-
-  return directLookup ? [`Direct lookup: ${directLookup}`] : [];
-}
-
 export function EmployerCandidateResultsRail({
   candidates,
   errorMessage = null,
@@ -51,11 +25,8 @@ export function EmployerCandidateResultsRail({
   onOpenDetail,
   onRefresh,
   onShortlist,
-  query = null,
   shortlistedCandidateIds = [],
 }: EmployerCandidateResultsRailProps) {
-  const querySummary = buildQuerySummary(query);
-
   return (
     <aside aria-label="Candidate sourcing panel" className={styles.resultsRail}>
       <div className={styles.resultsRailHeader}>
@@ -72,15 +43,6 @@ export function EmployerCandidateResultsRail({
         <p className={styles.resultsRailLead}>
           Search verified Career ID talent, then open a candidate only when you need the full recruiter-safe profile.
         </p>
-        {querySummary.length > 0 ? (
-          <div className={styles.summaryRow}>
-            {querySummary.map((item) => (
-              <span className={styles.summaryChip} key={item}>
-                {item}
-              </span>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       <div className={styles.resultsRailBody}>

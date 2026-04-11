@@ -68,22 +68,6 @@
   line-height: 1.55;
 }
 
-.summaryRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-}
-
-.summaryChip {
-  padding: 0.42rem 0.65rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 234, 227, 0.86);
-  font-size: 0.72rem;
-  line-height: 1;
-}
-
 .resultsRailBody {
   display: grid;
   gap: 0.72rem;
@@ -214,23 +198,6 @@
   overflow: hidden;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-}
-
-.cardMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.42rem;
-}
-
-.metaChip {
-  padding: 0.34rem 0.56rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.62);
-  font-size: 0.68rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
 }
 
 .cardActions {

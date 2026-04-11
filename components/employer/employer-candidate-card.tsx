@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { EmployerCandidateMatchDto } from "@/packages/contracts/src";
 import styles from "./employer-candidate-results-rail.module.css";
 
@@ -22,21 +21,6 @@ export function EmployerCandidateCard({
     .join(" • ");
   const previewSkills = candidate.topSkills.slice(0, 3);
   const overflowSkillCount = Math.max(candidate.topSkills.length - previewSkills.length, 0);
-  const quickSignals = [
-    candidate.ranking.label,
-    candidate.credibility.verificationSignal,
-    candidate.credibility.verifiedExperienceCount > 0
-      ? `${candidate.credibility.verifiedExperienceCount} verified ${
-          candidate.credibility.verifiedExperienceCount === 1 ? "role" : "roles"
-        }`
-      : null,
-    candidate.credibility.evidenceCount > 0
-      ? `${candidate.credibility.evidenceCount} evidence item${
-          candidate.credibility.evidenceCount === 1 ? "" : "s"
-        }`
-      : null,
-  ].filter((value): value is string => Boolean(value));
-  const careerIdHref = candidate.actions.careerIdUrl ?? candidate.actions.profileUrl ?? "#";
 
   return (
     <li className={styles.candidateCard}>
@@ -73,14 +57,6 @@ export function EmployerCandidateCard({
         ) : null}
 
         <p className={styles.matchReason}>{candidate.matchReason}</p>
-
-        <div className={styles.cardMeta}>
-          {quickSignals.map((signal) => (
-            <span className={styles.metaChip} key={signal}>
-              {signal}
-            </span>
-          ))}
-        </div>
       </button>
 
       <div className={styles.cardActions}>
@@ -93,9 +69,6 @@ export function EmployerCandidateCard({
         >
           More
         </button>
-        <Link className={styles.secondaryAction} href={careerIdHref}>
-          View Career ID
-        </Link>
         <button
           className={styles.secondaryAction}
           onClick={() => {
