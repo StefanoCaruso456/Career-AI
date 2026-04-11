@@ -2,7 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { resetAuditStore } from "@/packages/audit-security/src";
 import { resetArtifactStore } from "@/packages/artifact-domain/src";
 import { getCredentialStore, resetCredentialStore } from "@/packages/credential-domain/src";
-import { listPersistentCandidateContexts } from "@/packages/persistence/src";
+import {
+  listPersistentCandidateContexts,
+  listPersistentRecruiterCandidateProjections,
+} from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import {
   ensureRecruiterDemoDatasetLoaded,
@@ -77,7 +80,7 @@ describe("recruiter demo dataset validation", () => {
     searchableCandidate = pickCandidate(snapshot, "searchable");
     limitedCandidate = pickCandidate(snapshot, "limited");
     privateCandidate = pickCandidate(snapshot, "private");
-  }, 45_000);
+  }, 120_000);
 
   afterAll(async () => {
     resetDemoRuntime();
@@ -88,6 +91,17 @@ describe("recruiter demo dataset validation", () => {
     const contexts = await listPersistentCandidateContexts({
       limit: 500,
     });
+    const projections = await listPersistentRecruiterCandidateProjections({
+      limit: 500,
+      searchableOnly: false,
+    });
+    const searchableProjections = projections.filter((projection) => projection.searchable);
+    const limitedProjections = projections.filter(
+      (projection) => projection.recruiterVisibility === "limited",
+    );
+    const privateProjections = projections.filter(
+      (projection) => projection.recruiterVisibility === "private",
+    );
     const searchable = contexts.filter((context) => getVisibility(context) === "searchable");
     const limited = contexts.filter((context) => getVisibility(context) === "limited");
     const privateContexts = contexts.filter((context) => getVisibility(context) === "private");
@@ -99,6 +113,10 @@ describe("recruiter demo dataset validation", () => {
     expect(searchable).toHaveLength(130);
     expect(limited).toHaveLength(40);
     expect(privateContexts).toHaveLength(30);
+    expect(projections).toHaveLength(200);
+    expect(searchableProjections).toHaveLength(170);
+    expect(limitedProjections).toHaveLength(40);
+    expect(privateProjections).toHaveLength(30);
     expect(shareEnabled).toHaveLength(170);
     expect(snapshot.totalCandidates).toBe(200);
     expect(snapshot.searchableCandidates).toBe(170);
@@ -201,7 +219,7 @@ describe("recruiter demo dataset validation", () => {
 describe("recruiter demo dataset idempotency", () => {
   beforeAll(async () => {
     await installFreshDemoDataset();
-  }, 45_000);
+  }, 120_000);
 
   afterAll(async () => {
     resetDemoRuntime();

@@ -12,6 +12,7 @@ import {
   queryRequired,
   withDatabaseTransaction,
 } from "./client";
+import { refreshPersistentRecruiterCandidateProjection } from "./recruiter-candidate-projection-repository";
 
 type CareerBuilderProfileRow = {
   career_identity_id: string;
@@ -208,48 +209,55 @@ export async function upsertPersistentCareerBuilderProfile(args: {
   soulRecordId: string;
   input: CareerProfileInput;
 }) {
-  const row = await queryRequired<CareerBuilderProfileRow>(
-    getDatabasePool(),
-    `
-      INSERT INTO career_builder_profiles (
-        career_identity_id,
-        legal_name,
-        career_headline,
-        target_role,
-        location,
-        core_narrative,
-        updated_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      ON CONFLICT (career_identity_id)
-      DO UPDATE SET
-        legal_name = EXCLUDED.legal_name,
-        career_headline = EXCLUDED.career_headline,
-        target_role = EXCLUDED.target_role,
-        location = EXCLUDED.location,
-        core_narrative = EXCLUDED.core_narrative,
-        updated_at = NOW()
-      RETURNING
-        career_identity_id,
-        legal_name,
-        career_headline,
-        target_role,
-        location,
-        core_narrative,
-        created_at,
-        updated_at
-    `,
-    [
-      args.careerIdentityId,
-      args.input.legalName,
-      args.input.careerHeadline,
-      args.input.targetRole,
-      args.input.location,
-      args.input.coreNarrative,
-    ],
-  );
+  return withDatabaseTransaction(async (client) => {
+    const row = await queryRequired<CareerBuilderProfileRow>(
+      client,
+      `
+        INSERT INTO career_builder_profiles (
+          career_identity_id,
+          legal_name,
+          career_headline,
+          target_role,
+          location,
+          core_narrative,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        ON CONFLICT (career_identity_id)
+        DO UPDATE SET
+          legal_name = EXCLUDED.legal_name,
+          career_headline = EXCLUDED.career_headline,
+          target_role = EXCLUDED.target_role,
+          location = EXCLUDED.location,
+          core_narrative = EXCLUDED.core_narrative,
+          updated_at = NOW()
+        RETURNING
+          career_identity_id,
+          legal_name,
+          career_headline,
+          target_role,
+          location,
+          core_narrative,
+          created_at,
+          updated_at
+      `,
+      [
+        args.careerIdentityId,
+        args.input.legalName,
+        args.input.careerHeadline,
+        args.input.targetRole,
+        args.input.location,
+        args.input.coreNarrative,
+      ],
+    );
 
-  return mapProfileRow(row, args.soulRecordId);
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: args.careerIdentityId,
+      queryable: client,
+    });
+
+    return mapProfileRow(row, args.soulRecordId);
+  });
 }
 
 export async function upsertPersistentCareerBuilderEvidence(args: {
@@ -340,6 +348,11 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
     }
 
     const files = args.record.files;
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: args.careerIdentityId,
+      queryable: client,
+    });
 
     return mapEvidenceRow(row, args.soulRecordId, files);
   });

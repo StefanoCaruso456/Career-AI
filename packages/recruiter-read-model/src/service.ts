@@ -15,6 +15,9 @@ import {
 import { logAuditEvent } from "@/packages/audit-security/src";
 import { listClaimDetails } from "@/packages/credential-domain/src";
 import {
+  refreshPersistentRecruiterCandidateProjection,
+} from "@/packages/persistence/src";
+import {
   getTalentIdentity,
   updateSoulRecordReferences,
 } from "@/packages/identity-domain/src";
@@ -283,6 +286,11 @@ async function generateRecruiterTrustProfileAsync(args: {
     actorType: args.actorType,
     actorId: args.actorId,
     correlationId: args.correlationId,
+  });
+  await refreshPersistentRecruiterCandidateProjection({
+    careerIdentityId: aggregate.talentIdentity.id,
+    shareProfileIdOptional: profile.id,
+    publicShareTokenOptional: profile.public_share_token,
   });
 
   logAuditEvent({

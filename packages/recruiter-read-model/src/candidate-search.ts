@@ -6,24 +6,13 @@ import type {
   EmployerCandidateSearchResponseDto,
 } from "@/packages/contracts/src";
 import { employerCandidateSearchResponseSchema } from "@/packages/contracts/src";
-import { listClaimDetails } from "@/packages/credential-domain/src";
 import {
-  getPersistentCareerBuilderProfile,
-  listPersistentCandidateContexts,
-  listPersistentCareerBuilderEvidence,
-  type PersistentTalentIdentityContext,
+  listPersistentRecruiterCandidateProjections,
+  type PersistentRecruiterCandidateProjection,
 } from "@/packages/persistence/src";
 import { ensureRecruiterDemoDatasetLoaded } from "./demo-dataset";
-import { getRecruiterReadModelStore } from "./store";
 
 const DEFAULT_SEARCH_LIMIT = 6;
-const EMPLOYMENT_EVIDENCE_TEMPLATES = new Set([
-  "offer-letters",
-  "employment-history-reports",
-  "promotion-letters",
-  "company-letters",
-  "hr-official-letters",
-]);
 const TITLE_KEYWORDS = [
   "engineer",
   "developer",
@@ -88,30 +77,7 @@ const SHARE_PROFILE_ID_LOOKUP_PATTERN = /\bshare_[a-z0-9-]+\b/gi;
 const SHARE_TOKEN_LOOKUP_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 
-type SearchableCandidate = {
-  candidateId: string;
-  careerId: string;
-  careerIdUrl: string;
-  currentEmployer: string | null;
-  currentRole: string | null;
-  fullName: string;
-  headline: string | null;
-  location: string | null;
-  profileSummary: string | null;
-  profileUrl: string;
-  searchText: string;
-  shareProfileUrl: string | null;
-  skillTerms: string[];
-  displaySkills: string[];
-  highlights: string[];
-  lookupTokens: string[];
-  priorEmployers: string[];
-  targetRole: string | null;
-  credibilityScore: number;
-  evidenceCount: number;
-  verifiedExperienceCount: number;
-  verificationSignal: string;
-};
+type SearchableCandidate = PersistentRecruiterCandidateProjection;
 
 type ScoredCandidate = {
   candidate: EmployerCandidateMatchDto;
@@ -155,26 +121,6 @@ function extractLookupTokens(prompt: string) {
   ];
 
   return uniq(matches.map((match) => normalizeLookupToken(match[0] ?? "")));
-}
-
-function getShareProfileForTalentIdentity(talentIdentityId: string, defaultShareProfileId: string | null) {
-  const store = getRecruiterReadModelStore();
-
-  if (defaultShareProfileId) {
-    const defaultProfile = store.profilesById.get(defaultShareProfileId);
-
-    if (defaultProfile) {
-      return defaultProfile;
-    }
-  }
-
-  for (const profile of store.profilesById.values()) {
-    if (profile.talent_identity_id === talentIdentityId) {
-      return profile;
-    }
-  }
-
-  return null;
 }
 
 function tokenize(value: string) {
@@ -330,173 +276,6 @@ function shouldAutoloadRecruiterDemoDataset() {
   }
 
   return process.env.NODE_ENV !== "test";
-}
-
-async function buildSearchableCandidate(
-  context: PersistentTalentIdentityContext,
-): Promise<SearchableCandidate | null> {
-  const claimDetails = listClaimDetails({
-    correlationId: `searchable-candidate:${context.aggregate.talentIdentity.id}`,
-    soulRecordIdOptional: context.aggregate.soulRecord.id,
-  });
-  const profile = await getPersistentCareerBuilderProfile({
-    careerIdentityId: context.aggregate.talentIdentity.id,
-    soulRecordId: context.aggregate.soulRecord.id,
-  });
-  const evidence = await listPersistentCareerBuilderEvidence({
-    careerIdentityId: context.aggregate.talentIdentity.id,
-    soulRecordId: context.aggregate.soulRecord.id,
-  });
-  const onboardingProfile = context.onboarding.profile;
-  const recruiterVisibility =
-    typeof onboardingProfile.recruiterVisibility === "string"
-      ? onboardingProfile.recruiterVisibility.trim().toLowerCase()
-      : null;
-
-  if (recruiterVisibility === "private") {
-    return null;
-  }
-
-  const onboardingHeadline =
-    typeof onboardingProfile.headline === "string" ? onboardingProfile.headline.trim() : "";
-  const onboardingLocation =
-    typeof onboardingProfile.location === "string" ? onboardingProfile.location.trim() : "";
-  const onboardingIntent =
-    typeof onboardingProfile.intent === "string" ? onboardingProfile.intent.trim() : "";
-  const completedEvidence = evidence.filter((item) => item.status === "COMPLETE");
-  const canUseEmploymentSignals =
-    recruiterVisibility === "limited"
-      ? false
-      : context.aggregate.privacySettings.show_employment_records;
-  const verifiedExperienceCount = completedEvidence.filter((item) =>
-    EMPLOYMENT_EVIDENCE_TEMPLATES.has(item.templateId),
-  ).length;
-  const currentEmploymentRecord = claimDetails.find(
-    (details) => details.employmentRecord.currently_employed,
-  );
-  const mostRecentEmploymentRecord =
-    [...claimDetails].sort(
-      (left, right) =>
-        (right.employmentRecord.end_date_optional ?? right.employmentRecord.start_date).localeCompare(
-          left.employmentRecord.end_date_optional ?? left.employmentRecord.start_date,
-        ),
-    )[0] ?? null;
-  const currentEmployer = canUseEmploymentSignals
-    ? currentEmploymentRecord?.employmentRecord.employer_name ??
-      mostRecentEmploymentRecord?.employmentRecord.employer_name ??
-      completedEvidence[0]?.sourceOrIssuer ??
-      null
-    : null;
-  const currentRole =
-    profile?.careerHeadline?.trim() || onboardingHeadline || profile?.targetRole?.trim() || null;
-  const targetRole = profile?.targetRole?.trim() || onboardingHeadline || null;
-  const location = profile?.location?.trim() || onboardingLocation || null;
-  const profileSummary = profile?.coreNarrative?.trim() || onboardingIntent || null;
-  const profileUrl = `/employer/candidates?candidateId=${encodeURIComponent(
-    context.aggregate.talentIdentity.id,
-  )}`;
-  const shareProfile = getShareProfileForTalentIdentity(
-    context.aggregate.talentIdentity.id,
-    context.aggregate.soulRecord.default_share_profile_id,
-  );
-  const shareProfileUrl = shareProfile ? `/share/${shareProfile.public_share_token}` : null;
-  const lookupTokens = uniq([
-    normalizeLookupToken(context.aggregate.talentIdentity.id),
-    normalizeLookupToken(context.aggregate.talentIdentity.talent_agent_id),
-    context.aggregate.soulRecord.default_share_profile_id
-      ? normalizeLookupToken(context.aggregate.soulRecord.default_share_profile_id)
-      : null,
-    shareProfile?.public_share_token
-      ? normalizeLookupToken(shareProfile.public_share_token)
-      : null,
-  ]);
-  const displaySkills = uniq([
-    ...(profile ? tokenize(profile.careerHeadline) : []),
-    ...(profile ? tokenize(profile.targetRole) : []),
-    ...(profile ? tokenize(profile.coreNarrative) : []),
-    ...(canUseEmploymentSignals
-      ? completedEvidence.flatMap((item) =>
-          uniq([
-            item.sourceOrIssuer,
-            item.validationContext,
-            item.whyItMatters,
-          ]).flatMap((value) => tokenize(value)),
-        )
-      : []),
-  ])
-    .slice(0, 6)
-    .map((term) => toDisplayTerm(term));
-  const searchFragments = uniq([
-    context.aggregate.talentIdentity.display_name,
-    currentRole,
-    currentEmployer,
-    targetRole,
-    location,
-    profileSummary,
-    ...(canUseEmploymentSignals ? completedEvidence.map((item) => item.sourceOrIssuer) : []),
-    ...(canUseEmploymentSignals ? completedEvidence.map((item) => item.validationContext) : []),
-    ...(canUseEmploymentSignals ? completedEvidence.map((item) => item.whyItMatters) : []),
-  ]);
-
-  if (searchFragments.length === 0) {
-    return null;
-  }
-
-  const profileCompletion = Math.min(context.onboarding.profileCompletionPercent / 100, 1);
-  const credibilityScore = Math.min(
-    1,
-    profileCompletion * 0.46 +
-      Math.min(completedEvidence.length, 5) * 0.08 +
-      Math.min(verifiedExperienceCount, 3) * 0.13 +
-      (profile ? 0.12 : 0) +
-      (context.aggregate.privacySettings.show_employment_records ? 0.05 : 0) +
-      (context.aggregate.privacySettings.allow_public_share_link ? 0.04 : 0),
-  );
-  const verificationSignal =
-    verifiedExperienceCount >= 1
-      ? "Verified experience"
-      : completedEvidence.length >= 2
-        ? "Evidence-backed profile"
-        : profileCompletion >= 0.7
-          ? "Structured profile"
-          : "Early profile";
-
-  return {
-    candidateId: context.aggregate.talentIdentity.id,
-    careerId: context.aggregate.talentIdentity.talent_agent_id,
-    careerIdUrl: `/employer/candidates?careerId=${encodeURIComponent(
-      context.aggregate.talentIdentity.talent_agent_id,
-    )}`,
-    credibilityScore,
-    currentEmployer,
-    currentRole,
-    displaySkills,
-    evidenceCount: completedEvidence.length,
-    fullName: context.aggregate.talentIdentity.display_name,
-    headline: currentRole,
-    highlights: uniq([
-      currentRole,
-      targetRole ? `Targeting ${targetRole}` : null,
-      ...(canUseEmploymentSignals
-        ? completedEvidence.slice(0, 2).map((item) => item.whyItMatters || item.sourceOrIssuer)
-        : profileSummary
-          ? [profileSummary.split(".")[0] ?? profileSummary]
-          : []),
-    ]).slice(0, 3),
-    lookupTokens,
-    location,
-    priorEmployers: canUseEmploymentSignals
-      ? uniq(completedEvidence.map((item) => item.sourceOrIssuer))
-      : [],
-    profileSummary,
-    profileUrl,
-    searchText: searchFragments.join(" "),
-    shareProfileUrl,
-    skillTerms: tokenize(searchFragments.join(" ")),
-    targetRole,
-    verificationSignal,
-    verifiedExperienceCount,
-  };
 }
 
 function overlapScore(queryTerms: string[], candidateTerms: string[]) {
@@ -800,7 +579,7 @@ export async function searchEmployerCandidates(args: {
     prompt: args.prompt,
   });
   const lookupTokens = extractLookupTokens(args.prompt);
-  let contexts: PersistentTalentIdentityContext[] = [];
+  let candidateCorpus: SearchableCandidate[] = [];
 
   if (shouldAutoloadRecruiterDemoDataset()) {
     try {
@@ -811,14 +590,13 @@ export async function searchEmployerCandidates(args: {
   }
 
   try {
-    contexts = await listPersistentCandidateContexts();
+    candidateCorpus = await listPersistentRecruiterCandidateProjections({
+      limit: 500,
+    });
   } catch {
-    contexts = [];
+    candidateCorpus = [];
   }
 
-  const candidateCorpus = (
-    await Promise.all(contexts.map((context) => buildSearchableCandidate(context)))
-  ).filter((candidate): candidate is SearchableCandidate => Boolean(candidate));
   const exactLookupCorpus =
     lookupTokens.length > 0
       ? candidateCorpus.filter((candidate) =>
