@@ -48,9 +48,9 @@ function createSnapshot(): CareerBuilderSnapshotDto {
       completedEvidenceCount: 0,
       strongestTier: "self",
       nextUploads: [
-        { templateId: "idme-verification", title: "ID.me verification" },
-        { templateId: "drivers-license", title: "Driver's license" },
-        { templateId: "signature-backed-documents", title: "Signature-backed documents" },
+        { templateId: "diplomas-degrees", title: "Diplomas and degrees" },
+        { templateId: "professional-certifications", title: "Professional certifications" },
+        { templateId: "transcripts", title: "Transcripts" },
       ],
     },
     phaseProgress: [
@@ -79,7 +79,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Document-backed",
         completed: 0,
         started: 0,
-        total: 3,
+        total: 7,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -99,7 +99,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Institution-verified",
         completed: 0,
         started: 0,
-        total: 2,
+        total: 4,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -147,6 +147,19 @@ describe("AgentBuilderWorkspace", () => {
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
+  });
+
+  it("shows education and certification uploads inside the document-backed modal", async () => {
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Education & certifications" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Diplomas and degrees" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Professional certifications" })).toBeInTheDocument();
   });
 
   it("loads existing saved values into the phase modal", async () => {

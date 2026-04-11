@@ -139,4 +139,53 @@ describe("career builder service", () => {
       errorCode: "VALIDATION_FAILED",
     });
   });
+
+  it("saves education and certification evidence in the new builder section", async () => {
+    const diplomaFile = new File(["diploma"], "mba-diploma.pdf", {
+      type: "application/pdf",
+    });
+
+    const certificationFile = new File(["cert"], "pmp-certificate.pdf", {
+      type: "application/pdf",
+    });
+
+    const saved = await saveCareerBuilderPhase({
+      viewer,
+      phase: "document",
+      input: {
+        evidence: [
+          {
+            templateId: "diplomas-degrees",
+            sourceOrIssuer: "Northwestern University",
+            issuedOn: "2022-06-15",
+            validationContext: "Confirms MBA program completion.",
+            whyItMatters: "Adds formal graduate education proof to the Career ID.",
+            retainedArtifactIds: [],
+          },
+          {
+            templateId: "professional-certifications",
+            sourceOrIssuer: "Project Management Institute",
+            issuedOn: "2025-02-01",
+            validationContext: "Verifies active PMP certification.",
+            whyItMatters: "Shows verified credentialing for program delivery leadership.",
+            retainedArtifactIds: [],
+          },
+        ],
+      },
+      uploadsByTemplateId: {
+        "diplomas-degrees": [{ file: diplomaFile }],
+        "professional-certifications": [{ file: certificationFile }],
+      },
+      correlationId: "corr-6",
+    });
+
+    expect(
+      saved.evidence.find((record) => record.templateId === "diplomas-degrees")?.files[0]?.name,
+    ).toBe("mba-diploma.pdf");
+    expect(
+      saved.evidence.find((record) => record.templateId === "professional-certifications")
+        ?.status,
+    ).toBe("COMPLETE");
+    expect(saved.phaseProgress.find((phase) => phase.phase === "document")?.completed).toBe(2);
+  });
 });

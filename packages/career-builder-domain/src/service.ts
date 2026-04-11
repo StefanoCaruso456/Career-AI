@@ -229,11 +229,11 @@ function getPhaseSummary(
       case "relationship":
         return "Add a referral, endorsement, or trusted letter to unlock this phase.";
       case "document":
-        return "Attach formal employment proof to unlock this phase.";
+        return "Attach formal work, education, or credential proof to unlock this phase.";
       case "signature":
         return "Add signed proof from a named signer to unlock this phase.";
       case "institution":
-        return "Add institution-issued identity proof to reach the highest trust layer.";
+        return "Add institution or issuer-backed verification to reach the highest trust layer.";
       default:
         return "This phase is ready for its first signal.";
     }
