@@ -5,14 +5,9 @@ import { HeaderHomeLink } from "@/components/header-home-link";
 import styles from "@/components/floating-site-header.module.css";
 
 const mockUsePathname = vi.fn();
-const mockUseSession = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
-}));
-
-vi.mock("next-auth/react", () => ({
-  useSession: () => mockUseSession(),
 }));
 
 vi.mock("next/link", () => ({
@@ -36,13 +31,7 @@ vi.mock("next/image", () => ({
 
 describe("HeaderHomeLink", () => {
   beforeEach(() => {
-    window.localStorage.clear();
     mockUsePathname.mockReset();
-    mockUseSession.mockReset();
-    mockUseSession.mockReturnValue({
-      data: null,
-      status: "unauthenticated",
-    });
   });
 
   it("marks the home link as current on the home route", () => {
@@ -105,20 +94,21 @@ describe("HeaderHomeLink", () => {
     expect(logo).not.toHaveAttribute("src", "/career-ai-home-mark.png");
   });
 
-  it("routes shared settings back into the employer workspace for recruiter sessions", () => {
+  it("keeps shared settings routes pointed at the public home", () => {
     mockUsePathname.mockReturnValue("/settings");
-    mockUseSession.mockReturnValue({
-      data: {
-        user: {
-          roleType: "recruiter",
-        },
-      },
-      status: "authenticated",
-    });
 
     render(<HeaderHomeLink />);
 
     const link = screen.getByRole("link", { name: "Career AI home" });
-    expect(link).toHaveAttribute("href", "/employer");
+    expect(link).toHaveAttribute("href", "/");
+  });
+
+  it("keeps onboarding routes pointed at the public home", () => {
+    mockUsePathname.mockReturnValue("/onboarding");
+
+    render(<HeaderHomeLink />);
+
+    const link = screen.getByRole("link", { name: "Career AI home" });
+    expect(link).toHaveAttribute("href", "/");
   });
 });

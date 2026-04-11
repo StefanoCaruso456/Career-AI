@@ -2,21 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { readPreferredPersona } from "@/lib/persona-preference";
-import { getPersonaFromRoute, resolveActivePersona } from "@/lib/personas";
+import { getPersonaFromRoute } from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
 
 export function HeaderCenterTab() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const activePersona = session?.user
-    ? resolveActivePersona({
-        preferredPersona: readPreferredPersona(),
-        roleType: session.user.roleType,
-        route: pathname,
-      })
-    : getPersonaFromRoute(pathname);
+  const routePersona = getPersonaFromRoute(pathname);
   const isAccount = pathname === "/account" || pathname.startsWith("/account/");
   const isEmployerAgentSorcerer =
     pathname === "/employer/agent-sorcerer" ||
@@ -25,11 +16,11 @@ export function HeaderCenterTab() {
     pathname === "/agent-build" || pathname.startsWith("/agent-build/");
   const isJobs = pathname === "/jobs" || pathname.startsWith("/jobs/");
 
-  if (activePersona === "job_seeker" && isAccount) {
+  if (routePersona === "job_seeker" && isAccount) {
     return null;
   }
 
-  if (activePersona === "employer") {
+  if (routePersona === "employer") {
     return (
       <div className={styles.centerNav}>
         <Link
