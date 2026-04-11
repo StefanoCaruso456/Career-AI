@@ -95,6 +95,23 @@ function isGenericFindJobsPrompt(args: {
   );
 }
 
+function isFreshnessFirstBrowsePrompt(args: {
+  companies: string[];
+  location: string | null;
+  normalizedPrompt: string;
+  role: string | null;
+  seniority: string | null;
+  workplaceType: JobSearchFiltersDto["workplaceType"];
+}) {
+  return (
+    isGenericFindJobsPrompt(args) &&
+    (args.normalizedPrompt.includes("new jobs") ||
+      args.normalizedPrompt.includes("latest jobs") ||
+      args.normalizedPrompt.includes("recent jobs") ||
+      args.normalizedPrompt.includes("recently posted"))
+  );
+}
+
 function splitEntityList(value: string) {
   return value
     .replace(/\band\b/gi, ",")
@@ -260,7 +277,6 @@ export function parseJobSearchQuery(args: {
   const role = extractRole(prompt);
   const seniority = extractSeniority(prompt);
   const employmentType = extractEmploymentType(prompt);
-  const postedWithinDays = extractPostedWithinDays(prompt);
   const salaryBounds = extractSalaryBounds(prompt);
   const workplaceType = normalizedPrompt.includes("remote")
     ? "remote"
@@ -277,6 +293,15 @@ export function parseJobSearchQuery(args: {
     seniority,
     workplaceType,
   });
+  const isFreshnessBrowsePrompt = isFreshnessFirstBrowsePrompt({
+    companies,
+    location,
+    normalizedPrompt,
+    role,
+    seniority,
+    workplaceType,
+  });
+  const postedWithinDays = isFreshnessBrowsePrompt ? null : extractPostedWithinDays(prompt);
   const keywords = isGenericPrompt ? [] : extractKeywords(role, prompt);
   const filters: JobSearchFiltersDto = {
     companies,
@@ -289,7 +314,9 @@ export function parseJobSearchQuery(args: {
     postedWithinDays,
     role,
     roleFamilies: role ? [role] : [],
-    rankingBoosts: ["title_alignment", "freshness", "trusted_source"],
+    rankingBoosts: isFreshnessBrowsePrompt
+      ? ["freshness", "trusted_source"]
+      : ["title_alignment", "freshness", "trusted_source"],
     remotePreference:
       workplaceType === "remote"
         ? "remote_only"
@@ -306,7 +333,7 @@ export function parseJobSearchQuery(args: {
     workplaceType,
   };
 
-  if (isGenericPrompt && args.candidateDefaults) {
+  if (isGenericPrompt && args.candidateDefaults && !isFreshnessBrowsePrompt) {
     return {
       careerIdSignals: args.candidateDefaults.signals,
       conversationContext: null,
@@ -319,7 +346,7 @@ export function parseJobSearchQuery(args: {
   }
 
   return {
-    careerIdSignals: args.candidateDefaults?.signals ?? [],
+    careerIdSignals: isFreshnessBrowsePrompt ? [] : args.candidateDefaults?.signals ?? [],
     conversationContext: null,
     effectivePrompt: prompt,
     filters,
@@ -480,13 +507,25 @@ function jobMatchesRecency(job: JobPostingDto, postedWithinDays: number | null) 
     return true;
   }
 
-  const timestamp = Date.parse(job.updatedAt || job.postedAt || "");
+  const timestamp = getPostedTimestamp(job);
 
-  if (Number.isNaN(timestamp)) {
+  if (timestamp === null) {
     return false;
   }
 
   return Date.now() - timestamp <= postedWithinDays * 24 * 60 * 60 * 1000;
+}
+
+function getPostedTimestamp(job: Pick<JobPostingDto, "postedAt" | "updatedAt">) {
+  const value = job.postedAt || job.updatedAt;
+
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function jobMatchesEmploymentType(job: JobPostingDto, employmentType: string | null) {

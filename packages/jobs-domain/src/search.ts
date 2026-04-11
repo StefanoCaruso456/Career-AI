@@ -15,6 +15,19 @@ import {
   validateJobsCatalog,
 } from "./search-catalog";
 
+function isNewestJobsBrowseQuery(query: JobSearchQueryDto) {
+  return (
+    !query.filters.role &&
+    query.filters.skills.length === 0 &&
+    !query.filters.location &&
+    query.filters.companies.length === 0 &&
+    !query.filters.workplaceType &&
+    /(?:\bnew jobs?\b|\blatest jobs?\b|\brecent jobs?\b|\brecently posted\b)/i.test(
+      query.normalizedPrompt,
+    )
+  );
+}
+
 function inferResultQuality(result: JobSearchRetrievalResultDto) {
   if (result.results.length === 0) {
     return "empty" as const;
@@ -41,8 +54,23 @@ function buildAssistantMessage(args: {
   jobs: JobPostingDto[];
   query: JobSearchQueryDto;
 }) {
+  const isNewestBrowse = isNewestJobsBrowseQuery(args.query);
+
   if (args.jobs.length === 0) {
+    if (isNewestBrowse) {
+      return "I couldn’t find any live jobs across the connected sources right now.";
+    }
+
     return "I didn’t find grounded job matches for that search in the live inventory yet. I can broaden the title, location, or workplace preference if you want.";
+  }
+
+  if (isNewestBrowse) {
+    const latestRoles = args.jobs
+      .slice(0, 3)
+      .map((job) => `${job.title} at ${job.companyName}`)
+      .join("; ");
+
+    return `Here are the newest live jobs across all connected sources. Latest roles: ${latestRoles}.`;
   }
 
   const roleSegment = args.query.filters.role ? ` ${args.query.filters.role}` : "";
@@ -88,7 +116,7 @@ export async function searchJobsPanel(args: {
   return jobsPanelResponseSchema.parse({
     agent: {
       clarificationQuestion:
-        result.results.length === 0
+        result.results.length === 0 && !isNewestJobsBrowseQuery(result.query)
           ? "Do you want me to widen the title, location, or workplace preference?"
           : null,
       intent: "job_search",
