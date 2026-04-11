@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { AttachmentButton } from "@/components/attachment-button";
 import { ChatMessageAttachments } from "@/components/chat-message-attachments";
+import { EmployerCandidateDetailModal } from "@/components/employer/employer-candidate-detail-modal";
 import { EmployerCandidateResultsRail } from "@/components/employer/employer-candidate-results-rail";
 import { EmployerSourcerFilters } from "@/components/employer/employer-sourcer-filters";
 import { FileUploadDropzone } from "@/components/file-upload-dropzone";
@@ -636,6 +637,8 @@ export function HeroComposer({
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
   const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
   const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
+  const [selectedCandidateDetail, setSelectedCandidateDetail] =
+    useState<EmployerCandidateMatchDto | null>(null);
   const [shortlistedCandidateIds, setShortlistedCandidateIds] = useState<string[]>([]);
   const [projectActivityState, setProjectActivityState] = useState<ProjectActivityState>({
     error: null,
@@ -1972,11 +1975,12 @@ export function HeroComposer({
     void submitMessage(action.value ?? action.label);
   }
 
-  function handleReviewCandidateMatch(candidate: EmployerCandidateMatchDto) {
-    setComposerNotice({
-      message: `${candidate.fullName} is ${candidate.ranking.label.toLowerCase()} with ${candidate.credibility.label.toLowerCase()} signal.`,
-      tone: "default",
-    });
+  function handleOpenCandidateDetail(candidate: EmployerCandidateMatchDto) {
+    setSelectedCandidateDetail(candidate);
+  }
+
+  function closeCandidateDetail() {
+    setSelectedCandidateDetail(null);
   }
 
   function handleShortlistCandidate(candidate: EmployerCandidateMatchDto) {
@@ -3135,10 +3139,10 @@ export function HeroComposer({
                 candidates={candidateAssistListings}
                 errorMessage={candidateAssistError}
                 isLoading={isCandidateAssistLoading}
+                onOpenDetail={handleOpenCandidateDetail}
                 onRefresh={() => {
                   setCandidateAssistRefreshKey((currentKey) => currentKey + 1);
                 }}
-                onReviewMatch={handleReviewCandidateMatch}
                 onShortlist={handleShortlistCandidate}
                 query={candidateAssistResponse?.query}
                 shortlistedCandidateIds={shortlistedCandidateIds}
@@ -3278,6 +3282,15 @@ export function HeroComposer({
             document.body,
           )
         : null}
+
+      {isMounted && selectedCandidateDetail ? (
+        <EmployerCandidateDetailModal
+          candidate={selectedCandidateDetail}
+          isShortlisted={shortlistedCandidateIds.includes(selectedCandidateDetail.candidateId)}
+          onClose={closeCandidateDetail}
+          onShortlist={handleShortlistCandidate}
+        />
+      ) : null}
 
       {isMounted && sidebarDeleteDraft
         ? createPortal(

@@ -604,10 +604,22 @@ describe("HeroComposer", () => {
     expect(await screen.findByLabelText("Candidate sourcing panel")).toBeInTheDocument();
     expect(await screen.findByText("Alex Rivera")).toBeInTheDocument();
     expect(screen.getByText("Career ID TAID-000123")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Built AI workflow tooling for enterprise SaaS teams."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Review trust profile" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View Career ID" })).toHaveAttribute(
       "href",
       "/employer/candidates?careerId=TAID-000123",
     );
+    fireEvent.click(screen.getByRole("button", { name: "More" }));
+
+    expect(await screen.findByRole("dialog", { name: "Alex Rivera" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Built AI workflow tooling for enterprise SaaS teams."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review trust profile" })).toHaveAttribute(
       "href",
       "/share/0f0d4b93-15d2-4a2e-8297-9dc6165ddf75",
