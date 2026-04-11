@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { isJobIntent } from "@/lib/jobs/is-job-intent";
+import { isJobIntent } from "./is-job-intent";
 
 describe("isJobIntent", () => {
-  it("returns true for job-related prompts", () => {
-    expect(isJobIntent("Can you help me find jobs for product designers?")).toBe(true);
-    expect(isJobIntent("Show me open positions in AI recruiting.")).toBe(true);
-    expect(isJobIntent("What opportunities should I apply to next?")).toBe(true);
+  it("detects title-only search prompts without explicit job nouns", () => {
+    expect(isJobIntent("find software engineers")).toBe(true);
+    expect(isJobIntent("show product managers in Austin")).toBe(true);
   });
 
-  it("returns false for non-job prompts", () => {
-    expect(isJobIntent("What does the agent actually do?")).toBe(false);
-    expect(isJobIntent("Summarize my verification workflow.")).toBe(false);
-    expect(isJobIntent("")).toBe(false);
+  it("does not over-classify general product questions as job search", () => {
+    expect(isJobIntent("what does the agent actually do")).toBe(false);
+    expect(isJobIntent("how does this help me get hired faster")).toBe(false);
   });
 });

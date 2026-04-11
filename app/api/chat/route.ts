@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { runJobSeekerAgent } from "@/packages/job-seeker-agent/src";
+import { searchJobsPanel } from "@/packages/jobs-domain/src";
 import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
+import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
 import { sendChatMessageInputSchema } from "@/packages/contracts/src";
 import {
   createAssistantChatMessage,
@@ -8,6 +10,7 @@ import {
   summarizeChatAttachmentsForAssistant,
 } from "@/packages/chat-domain/src";
 import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-search-intent";
+import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import {
   jsonChatErrorResponse,
   jsonChatResponse,
@@ -61,19 +64,43 @@ export async function POST(request: Request) {
       });
       assistantReply = candidatePanel.assistantMessage;
     } else if (payload.persona !== "employer") {
-      const agentResult = await runJobSeekerAgent({
-        attachments: attachmentSummaries,
-        conversationId: userMessageResult.conversation.id,
-        limit: 8,
-        messages: userMessageResult.conversation.messages.map((message) => ({
-          content: message.content,
-          role: message.role,
-        })),
-        ownerId,
-        userQuery: payload.message,
-      });
-      assistantReply = agentResult.assistantMessage;
-      jobsPanel = agentResult.jobsPanel;
+      try {
+        const agentResult = await runJobSeekerAgent({
+          attachments: attachmentSummaries,
+          conversationId: userMessageResult.conversation.id,
+          limit: 8,
+          messages: userMessageResult.conversation.messages.map((message) => ({
+            content: message.content,
+            role: message.role,
+          })),
+          ownerId,
+          userQuery: payload.message,
+        });
+        assistantReply = agentResult.assistantMessage;
+        jobsPanel = agentResult.jobsPanel;
+      } catch (error) {
+        console.error("Job seeker agent failed; using deterministic fallback.", error);
+
+        if (isJobIntent(payload.message)) {
+          try {
+            jobsPanel = await searchJobsPanel({
+              conversationId: userMessageResult.conversation.id,
+              limit: 8,
+              origin: "chat_prompt",
+              ownerId,
+              prompt: payload.message,
+              refresh: true,
+            });
+            assistantReply = jobsPanel.assistantMessage;
+          } catch (fallbackError) {
+            console.error("Deterministic job-search fallback failed.", fallbackError);
+            assistantReply = "I couldn’t complete the live job search right now. Please try again in a moment.";
+            assistantReplyError = true;
+          }
+        } else {
+          assistantReply = getFallbackHomepageReply(payload.message, attachmentSummaries);
+        }
+      }
     } else {
       assistantReply =
         "Employer mode can help with candidate sourcing requests. Switch back to job seeker mode if you want me to search live jobs.";

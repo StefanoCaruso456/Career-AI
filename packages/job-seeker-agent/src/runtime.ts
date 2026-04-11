@@ -8,6 +8,7 @@ import {
   jobSeekerToolNameSchema,
   jobsPanelResponseSchema,
 } from "@/packages/contracts/src";
+import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
 import { normalizeHumanLabel } from "@/packages/jobs-domain/src/metadata";
 import { parseJobSearchQuery } from "@/packages/jobs-domain/src";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
@@ -473,6 +474,36 @@ function buildJobsPanel(
   });
 }
 
+function buildSearchFallbackResponse(args: {
+  clarificationQuestion: string | null;
+  jobs: Array<{ companyName: string; location: string | null; matchSummary?: string; title: string }>;
+  resultQuality: string;
+}) {
+  if (args.jobs.length === 0) {
+    if (args.clarificationQuestion) {
+      return `I didn’t find strong grounded matches yet. ${args.clarificationQuestion}`;
+    }
+
+    return "I didn’t find grounded job matches for that search in the live inventory yet.";
+  }
+
+  const lead =
+    args.resultQuality === "weak"
+      ? "I found a few grounded roles, but the alignment is weaker than I’d like."
+      : "I found grounded matches from the live jobs inventory.";
+  const topMatches = args.jobs
+    .slice(0, 3)
+    .map((job) => {
+      const location = job.location ? ` (${job.location})` : "";
+      const reason = job.matchSummary ? ` because ${job.matchSummary}` : "";
+
+      return `${job.title} at ${job.companyName}${location}${reason}`;
+    })
+    .join("; ");
+
+  return `${lead} Best fits: ${topMatches}.`;
+}
+
 export function createJobSeekerAgent(deps: {
   model: JobSeekerAgentModel;
   tools: JobSeekerToolSet;
@@ -807,16 +838,26 @@ export function createJobSeekerAgent(deps: {
     }
 
     if (state.intent === "general_chat" || state.intent === "application_help" || state.intent === "unsupported") {
-      const assistantMessage = await deps.model.composeGeneralResponse({
-        attachments: state.attachments,
-        intent: state.intent,
-        messages: state.messages,
-        profileContext: state.profileContext,
-        userQuery: state.userQuery,
-      });
+      let assistantMessage: string;
+      let usedFallback = false;
+
+      try {
+        assistantMessage = await deps.model.composeGeneralResponse({
+          attachments: state.attachments,
+          intent: state.intent,
+          messages: state.messages,
+          profileContext: state.profileContext,
+          userQuery: state.userQuery,
+        });
+      } catch {
+        assistantMessage = getFallbackHomepageReply(state.userQuery, state.attachments);
+        usedFallback = true;
+      }
 
       return {
-        debugTrace: appendTrace(state, "respond", "Generated non-search response."),
+        debugTrace: appendTrace(state, "respond", "Generated non-search response.", {
+          usedFallback,
+        }),
         responsePayload: {
           assistantMessage,
           jobsPanel: null,
@@ -850,20 +891,33 @@ export function createJobSeekerAgent(deps: {
     }
 
     const clarificationQuestion = null;
-    const assistantMessage = await deps.model.composeSearchResponse({
-      clarificationQuestion,
-      jobs: state.lastSearchResult.results,
-      profileContext: state.lastSearchResult.profileContext ?? state.profileContext,
-      query: state.lastSearchResult.query,
-      resultQuality: state.resultQuality ?? "empty",
-      userQuery: state.userQuery,
-    });
+    let assistantMessage: string;
+    let usedFallback = false;
+
+    try {
+      assistantMessage = await deps.model.composeSearchResponse({
+        clarificationQuestion,
+        jobs: state.lastSearchResult.results,
+        profileContext: state.lastSearchResult.profileContext ?? state.profileContext,
+        query: state.lastSearchResult.query,
+        resultQuality: state.resultQuality ?? "empty",
+        userQuery: state.userQuery,
+      });
+    } catch {
+      assistantMessage = buildSearchFallbackResponse({
+        clarificationQuestion,
+        jobs: state.lastSearchResult.results,
+        resultQuality: state.resultQuality ?? "empty",
+      });
+      usedFallback = true;
+    }
     const jobsPanel = buildJobsPanel(state, assistantMessage, state.lastSearchResult, clarificationQuestion);
 
     return {
       debugTrace: appendTrace(state, "respond", "Generated grounded jobs response.", {
         jobCount: state.lastSearchResult.results.length,
         resultQuality: state.resultQuality,
+        usedFallback,
       }),
       responsePayload: {
         assistantMessage,

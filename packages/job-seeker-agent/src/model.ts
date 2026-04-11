@@ -14,6 +14,7 @@ import {
   buildPlannerPrompt,
   buildSearchResponsePrompt,
 } from "./prompts";
+import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import type {
   HomepageAssistantAttachment,
   JobSeekerAgentModel,
@@ -136,9 +137,8 @@ function detectFallbackIntent(message: string) {
   }
 
   if (
-    /\b(job|jobs|role|roles|position|positions|openings|hiring|remote|hybrid|onsite|machine learning|data analyst|product manager)\b/i.test(
-      normalized,
-    )
+    isJobIntent(normalized) ||
+    /\b(remote|hybrid|onsite|on-site)\b/i.test(normalized)
   ) {
     return "job_search" as const;
   }
