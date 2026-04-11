@@ -1,5 +1,5 @@
 import { jobsPanelResponseSchema } from "@/packages/contracts/src";
-import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
+import { mapJobsPanelToListings } from "@/lib/jobs/map-jobs-to-listings";
 
 type LoadJobListingsOptions = {
   conversationId?: string | null;
@@ -40,6 +40,6 @@ export async function loadJobListings(options: LoadJobListingsOptions) {
 
   return {
     ...snapshot,
-    listings: mapJobsToListings(snapshot.jobs),
+    listings: mapJobsPanelToListings(snapshot),
   };
 }

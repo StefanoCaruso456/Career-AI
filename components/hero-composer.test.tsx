@@ -7,6 +7,7 @@ import type {
   ChatConversation,
   ChatMessage,
   ChatProject,
+  ChatWorkspacePersistence,
   ChatWorkspaceSnapshot,
   EmployerCandidateSearchResponseDto,
   JobPostingDto,
@@ -52,8 +53,17 @@ vi.mock("@/components/use-chat-attachment-drafts", () => ({
 }));
 
 function createWorkspaceSnapshot(projects: ChatProject[], conversations: ChatConversation[] = []): ChatWorkspaceSnapshot {
+  const persistence: ChatWorkspacePersistence = {
+    checkpointCount: 0,
+    lastCheckpointAt: null,
+    lastSavedAt: null,
+    pendingMemoryJobs: 0,
+  };
+
   return {
     conversations,
+    persistence,
+    projectPersistence: {},
     projects,
   };
 }
@@ -129,6 +139,17 @@ function createJobPosting(id: string, companyName: string, title: string): JobPo
 function createJobsPanelResponse(prompt: string, jobs: JobPostingDto[]): JobsPanelResponseDto {
   return {
     assistantMessage: "Here are a few live roles worth reviewing.",
+    agent: {
+      clarificationQuestion: null,
+      intent: "job_search",
+      intentConfidence: 1,
+      loopCount: 0,
+      maxLoops: 2,
+      resultQuality: jobs.length > 0 ? "acceptable" : "empty",
+      selectedTool: "searchJobs",
+      terminationReason: jobs.length > 0 ? "grounded_results_ready" : "jobs_search_completed_empty",
+    },
+    debugTrace: [],
     diagnostics: {
       duplicateCount: 0,
       filteredOutCount: 0,
@@ -140,21 +161,47 @@ function createJobsPanelResponse(prompt: string, jobs: JobPostingDto[]): JobsPan
     generatedAt: "2026-04-10T00:00:00.000Z",
     jobs,
     panelCount: jobs.length,
+    profileContext: null,
     query: {
       careerIdSignals: [],
+      conversationContext: null,
+      effectivePrompt: prompt,
       filters: {
         companies: [],
+        employmentType: null,
+        exclusions: [],
         industries: [],
         keywords: [],
         location: null,
+        locations: [],
         postedWithinDays: null,
         role: null,
+        roleFamilies: [],
+        rankingBoosts: [],
+        remotePreference: null,
         seniority: null,
+        skills: [],
+        targetJobId: null,
         workplaceType: null,
       },
       normalizedPrompt: prompt.toLowerCase(),
       prompt,
       usedCareerIdDefaults: false,
+    },
+    rail: {
+      cards: jobs.map((job) => ({
+        applyUrl: job.applyUrl,
+        company: job.companyName,
+        jobId: job.id,
+        location: job.location,
+        matchReason: job.matchSummary ?? "Grounded match from the live jobs inventory.",
+        relevanceScore: job.relevanceScore ?? null,
+        salaryText: job.salaryText ?? null,
+        summary: job.descriptionSnippet ?? null,
+        title: job.title,
+        workplaceType: job.workplaceType ?? null,
+      })),
+      emptyState: jobs.length > 0 ? null : "No grounded job matches were found from the live inventory for the current search.",
     },
     totalMatches: jobs.length,
   };

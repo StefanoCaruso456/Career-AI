@@ -130,7 +130,7 @@
 .jobCopy {
   min-width: 0;
   display: grid;
-  gap: 0.18rem;
+  gap: 0.22rem;
 }
 
 .jobCompany {
@@ -146,4 +146,18 @@
   color: rgba(255, 170, 149, 0.9);
   font-size: 0.93rem;
   line-height: 1.45;
+}
+
+.jobMeta {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.jobReason {
+  margin: 0;
+  color: rgba(255, 233, 227, 0.78);
+  font-size: 0.8rem;
+  line-height: 1.55;
 }

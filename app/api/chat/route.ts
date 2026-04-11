@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src";
-import { generateHomepageAssistantReply } from "@/packages/homepage-assistant/src";
-import { searchJobsPanel } from "@/packages/jobs-domain/src";
+import { runJobSeekerAgent } from "@/packages/job-seeker-agent/src";
 import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
 import { sendChatMessageInputSchema } from "@/packages/contracts/src";
 import {
@@ -10,7 +8,6 @@ import {
   summarizeChatAttachmentsForAssistant,
 } from "@/packages/chat-domain/src";
 import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-search-intent";
-import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import {
   jsonChatErrorResponse,
   jsonChatResponse,
@@ -51,7 +48,7 @@ export async function POST(request: Request) {
     let assistantReply: string;
     let assistantReplyError = false;
     let candidatePanel: Awaited<ReturnType<typeof searchEmployerCandidates>> | null = null;
-    let jobsPanel: Awaited<ReturnType<typeof searchJobsPanel>> | null = null;
+    let jobsPanel = null;
 
     if (
       payload.persona === "employer" &&
@@ -63,24 +60,24 @@ export async function POST(request: Request) {
         prompt: payload.message,
       });
       assistantReply = candidatePanel.assistantMessage;
-    } else if (payload.persona !== "employer" && isJobIntent(payload.message)) {
-      jobsPanel = await searchJobsPanel({
+    } else if (payload.persona !== "employer") {
+      const agentResult = await runJobSeekerAgent({
+        attachments: attachmentSummaries,
         conversationId: userMessageResult.conversation.id,
         limit: 8,
-        origin: "chat_prompt",
+        messages: userMessageResult.conversation.messages.map((message) => ({
+          content: message.content,
+          role: message.role,
+        })),
         ownerId,
-        prompt: payload.message,
-        refresh: true,
+        userQuery: payload.message,
       });
-      assistantReply = jobsPanel.assistantMessage;
+      assistantReply = agentResult.assistantMessage;
+      jobsPanel = agentResult.jobsPanel;
     } else {
-      try {
-        assistantReply = await generateHomepageAssistantReply(payload.message, attachmentSummaries);
-      } catch (error) {
-        console.error("Chat reply generation fell back to the deterministic assistant reply", error);
-        assistantReply = getFallbackHomepageReply(payload.message, attachmentSummaries);
-        assistantReplyError = true;
-      }
+      assistantReply =
+        "Employer mode can help with candidate sourcing requests. Switch back to job seeker mode if you want me to search live jobs.";
+      assistantReplyError = true;
     }
 
     const assistantMessageResult = await createAssistantChatMessage({
