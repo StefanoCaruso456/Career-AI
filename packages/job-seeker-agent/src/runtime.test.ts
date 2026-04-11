@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   JobPostingDto,
   JobSearchQueryDto,
+  JobSearchRetrievalResultDto,
   JobSeekerProfileContextDto,
 } from "@/packages/contracts/src";
 import { createJobSeekerAgent } from "./runtime";
@@ -63,6 +64,8 @@ function createQuery(prompt: string, overrides?: Partial<JobSearchQueryDto>): Jo
       roleFamilies: [],
       rankingBoosts: ["title_alignment", "trusted_source"],
       remotePreference: null,
+      salaryMax: null,
+      salaryMin: null,
       seniority: null,
       skills: [],
       targetJobId: null,
@@ -81,10 +84,34 @@ function createSearchCatalogResult(args: {
   prompt: string;
   query?: Partial<JobSearchQueryDto>;
   totalMatches?: number;
-}) {
+}): JobSearchRetrievalResultDto {
   const query = createQuery(args.prompt, args.query);
 
   return {
+    appliedFilters: {
+      ...query.filters,
+      limit: args.jobs.length || 8,
+      offset: 0,
+    },
+    debugMeta: {
+      candidateCountAfterFiltering: args.totalMatches ?? args.jobs.length,
+      candidateCountAfterMerging: args.totalMatches ?? args.jobs.length,
+      duplicateCount: 0,
+      fallbackApplied: {
+        applied: false,
+        broadenedFields: [],
+        reason: "none" as const,
+      },
+      filteredOutCount: 0,
+      invalidCount: 0,
+      lexicalCandidateCount: args.totalMatches ?? args.jobs.length,
+      mergedCandidateCount: args.totalMatches ?? args.jobs.length,
+      searchLatencyMs: 12,
+      semanticCandidateCount: args.totalMatches ?? args.jobs.length,
+      sourceCount: 1,
+      staleCount: 0,
+      structuredCandidateCount: args.totalMatches ?? args.jobs.length,
+    },
     diagnostics: {
       duplicateCount: 0,
       filteredOutCount: 0,
@@ -93,11 +120,54 @@ function createSearchCatalogResult(args: {
       sourceCount: 1,
       staleCount: 0,
     },
+    fallbackApplied: {
+      applied: false,
+      broadenedFields: [],
+      reason: "none" as const,
+    },
     generatedAt: "2026-04-10T00:00:00.000Z",
-    jobs: args.jobs,
-    panelCount: args.jobs.length,
     profileContext: args.profileContext ?? null,
     query,
+    queryInterpretation: {
+      adjacentRoles: [],
+      companyTerms: [],
+      employmentType: query.filters.employmentType,
+      excludeTerms: [],
+      industries: [],
+      locations: query.filters.locations,
+      normalizedQuery: query.normalizedPrompt,
+      normalizedRoles: query.filters.roleFamilies,
+      profileSignalsUsed: query.careerIdSignals,
+      rankingBoosts: query.filters.rankingBoosts,
+      rawQuery: query.prompt,
+      remotePreference: query.filters.remotePreference,
+      salaryMax: query.filters.salaryMax,
+      salaryMin: query.filters.salaryMin,
+      semanticThemes: query.filters.keywords,
+      seniority: query.filters.seniority,
+      skills: query.filters.skills,
+      workplaceType: query.filters.workplaceType,
+    },
+    rankingSummary: {
+      scoringVersion: "hybrid_v1",
+      topSignals: args.jobs[0]?.matchReasons ?? args.jobs[0]?.matchSignals ?? [],
+      weights: {
+        employmentType: 0,
+        freshness: 0.07,
+        industry: 0,
+        lexical: 0.18,
+        location: 0,
+        mismatchPenalty: 0.38,
+        profile: 0,
+        remotePreference: 0,
+        semantic: 0.18,
+        seniority: 0,
+        skill: 0,
+        title: 0.2,
+        trust: 0.08,
+      },
+    },
+    resultQuality: args.jobs.length > 0 ? "strong" : "empty",
     rail: {
       cards: args.jobs.map((job) => ({
         applyUrl: job.applyUrl,
@@ -113,7 +183,9 @@ function createSearchCatalogResult(args: {
       })),
       emptyState: args.jobs.length > 0 ? null : "No grounded matches found.",
     },
-    totalMatches: args.totalMatches ?? args.jobs.length,
+    results: args.jobs,
+    returnedCount: args.jobs.length,
+    totalCandidateCount: args.totalMatches ?? args.jobs.length,
   };
 }
 
@@ -139,6 +211,8 @@ function createModel(overrides?: Partial<JobSeekerAgentModel>): JobSeekerAgentMo
       roleFamilies: ["machine learning engineer"],
       rankingBoosts: ["title_alignment", "trusted_source"],
       remotePreference: "remote_only",
+      salaryMax: null,
+      salaryMin: null,
       seniority: null,
       skills: ["python"],
       targetJobId: null,
@@ -215,6 +289,8 @@ describe("createJobSeekerAgent", () => {
           roleFamilies: [],
           rankingBoosts: ["profile_alignment", "trusted_source"],
           remotePreference: null,
+          salaryMax: null,
+          salaryMin: null,
           seniority: null,
           skills: [],
           targetJobId: null,
@@ -270,6 +346,8 @@ describe("createJobSeekerAgent", () => {
           roleFamilies: ["product manager"],
           rankingBoosts: ["title_alignment", "location_alignment", "trusted_source"],
           remotePreference: "remote_only",
+          salaryMax: null,
+          salaryMin: null,
           seniority: null,
           skills: [],
           targetJobId: null,
@@ -299,6 +377,8 @@ describe("createJobSeekerAgent", () => {
               roleFamilies: ["product manager"],
               rankingBoosts: ["title_alignment", "location_alignment", "trusted_source"],
               remotePreference: "remote_only",
+              salaryMax: null,
+              salaryMin: null,
               seniority: null,
               skills: [],
               targetJobId: null,

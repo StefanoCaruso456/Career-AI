@@ -58,6 +58,37 @@ export const jobSearchRankingBoostSchema = z.enum([
   "freshness",
   "trusted_source",
 ]);
+export const jobSearchFallbackReasonSchema = z.enum([
+  "none",
+  "relaxed_location",
+  "relaxed_seniority",
+  "trimmed_skills",
+  "relaxed_employment_type",
+  "broadened_roles",
+  "relaxed_salary",
+]);
+export const jobSalaryRangeSchema = z.object({
+  currency: z.string().nullable().default(null),
+  max: z.number().nonnegative().nullable().default(null),
+  min: z.number().nonnegative().nullable().default(null),
+  rawText: z.string().nullable().default(null),
+});
+export const jobSearchRankingBreakdownSchema = z.object({
+  employmentTypeScore: z.number().min(0).max(1),
+  finalScore: z.number().min(0).max(1),
+  freshnessScore: z.number().min(0).max(1),
+  industryScore: z.number().min(0).max(1),
+  lexicalScore: z.number().min(0).max(1),
+  locationScore: z.number().min(0).max(1),
+  mismatchPenalty: z.number().min(0).max(1),
+  profileAlignmentScore: z.number().min(0).max(1),
+  remotePreferenceScore: z.number().min(0).max(1),
+  semanticScore: z.number().min(0).max(1),
+  seniorityScore: z.number().min(0).max(1),
+  skillOverlapScore: z.number().min(0).max(1),
+  titleMatchScore: z.number().min(0).max(1),
+  trustScore: z.number().min(0).max(1),
+});
 
 export const jobPostingSchema = z.object({
   id: z.string(),
@@ -72,6 +103,7 @@ export const jobPostingSchema = z.object({
   department: z.string().nullable(),
   commitment: z.string().nullable(),
   salaryText: z.string().nullable().optional(),
+  salaryRange: jobSalaryRangeSchema.optional(),
   sourceKey: z.string(),
   sourceLabel: z.string(),
   sourceLane: jobSourceLaneSchema,
@@ -93,8 +125,10 @@ export const jobPostingSchema = z.object({
   applicationPathType: jobApplicationPathTypeSchema.optional(),
   redirectRequired: z.boolean().optional(),
   orchestrationMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  matchReasons: z.array(z.string()).optional(),
   matchSignals: z.array(z.string()).optional(),
   matchSummary: z.string().optional(),
+  rankingBreakdown: jobSearchRankingBreakdownSchema.optional(),
   relevanceScore: z.number().min(0).max(1).optional(),
   searchReasons: z.array(z.string()).optional(),
 });
@@ -149,6 +183,8 @@ export const jobSearchFiltersSchema = z.object({
   roleFamilies: z.array(z.string()).default([]),
   remotePreference: jobSearchRemotePreferenceSchema.nullable().default(null),
   rankingBoosts: z.array(jobSearchRankingBoostSchema).default([]),
+  salaryMax: z.number().nonnegative().nullable().default(null),
+  salaryMin: z.number().nonnegative().nullable().default(null),
   seniority: z.string().nullable().default(null),
   skills: z.array(z.string()).default([]),
   targetJobId: z.string().nullable().default(null),
@@ -174,6 +210,97 @@ export const jobSeekerProfileContextSchema = z.object({
   targetRole: z.string().nullable(),
 });
 
+export const jobSearchQueryInterpretationSchema = z.object({
+  adjacentRoles: z.array(z.string()),
+  companyTerms: z.array(z.string()),
+  excludeTerms: z.array(z.string()),
+  industries: z.array(z.string()),
+  locations: z.array(z.string()),
+  normalizedQuery: z.string(),
+  normalizedRoles: z.array(z.string()),
+  profileSignalsUsed: z.array(z.string()),
+  rawQuery: z.string(),
+  rankingBoosts: z.array(jobSearchRankingBoostSchema),
+  remotePreference: jobSearchRemotePreferenceSchema.nullable(),
+  salaryMax: z.number().nonnegative().nullable(),
+  salaryMin: z.number().nonnegative().nullable(),
+  semanticThemes: z.array(z.string()),
+  seniority: z.string().nullable(),
+  skills: z.array(z.string()),
+  employmentType: z.string().nullable(),
+  workplaceType: jobWorkplaceTypeSchema.nullable(),
+});
+
+export const searchJobsToolInputSchema = z.object({
+  careerIdContext: jobSeekerProfileContextSchema.nullable().default(null),
+  companies: z.array(z.string()).default([]),
+  employmentType: z.string().nullable().default(null),
+  excludeTerms: z.array(z.string()).default([]),
+  industries: z.array(z.string()).default([]),
+  limit: z.number().int().positive().max(24).default(8),
+  locations: z.array(z.string()).default([]),
+  normalizedRoles: z.array(z.string()).default([]),
+  offset: z.number().int().nonnegative().default(0),
+  postedWithinDays: z.number().int().positive().nullable().default(null),
+  profileContext: jobSeekerProfileContextSchema.nullable().default(null),
+  rankingBoosts: z.array(jobSearchRankingBoostSchema).default([]),
+  rawQuery: z.string().trim().min(1),
+  remotePreference: jobSearchRemotePreferenceSchema.nullable().default(null),
+  salaryMax: z.number().nonnegative().nullable().default(null),
+  salaryMin: z.number().nonnegative().nullable().default(null),
+  seniority: z.string().nullable().default(null),
+  skills: z.array(z.string()).default([]),
+  targetJobId: z.string().nullable().default(null),
+  workplaceType: jobWorkplaceTypeSchema.nullable().default(null),
+});
+
+export const jobSearchFallbackSchema = z.object({
+  applied: z.boolean(),
+  broadenedFields: z.array(z.string()),
+  reason: jobSearchFallbackReasonSchema,
+});
+
+export const jobSearchAppliedFiltersSchema = jobSearchFiltersSchema.extend({
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+});
+
+export const jobSearchRankingSummarySchema = z.object({
+  scoringVersion: z.string(),
+  topSignals: z.array(z.string()),
+  weights: z.object({
+    employmentType: z.number().nonnegative(),
+    freshness: z.number().nonnegative(),
+    industry: z.number().nonnegative(),
+    lexical: z.number().nonnegative(),
+    location: z.number().nonnegative(),
+    profile: z.number().nonnegative(),
+    remotePreference: z.number().nonnegative(),
+    semantic: z.number().nonnegative(),
+    seniority: z.number().nonnegative(),
+    skill: z.number().nonnegative(),
+    title: z.number().nonnegative(),
+    trust: z.number().nonnegative(),
+    mismatchPenalty: z.number().nonnegative(),
+  }),
+});
+
+export const jobSearchDebugMetaSchema = z.object({
+  candidateCountAfterFiltering: z.number().int().nonnegative(),
+  candidateCountAfterMerging: z.number().int().nonnegative(),
+  duplicateCount: z.number().int().nonnegative(),
+  fallbackApplied: jobSearchFallbackSchema,
+  filteredOutCount: z.number().int().nonnegative(),
+  invalidCount: z.number().int().nonnegative(),
+  lexicalCandidateCount: z.number().int().nonnegative(),
+  mergedCandidateCount: z.number().int().nonnegative(),
+  searchLatencyMs: z.number().int().nonnegative(),
+  semanticCandidateCount: z.number().int().nonnegative(),
+  sourceCount: z.number().int().nonnegative(),
+  staleCount: z.number().int().nonnegative(),
+  structuredCandidateCount: z.number().int().nonnegative(),
+});
+
 export const jobRailCardSchema = z.object({
   applyUrl: z.string().url(),
   company: z.string(),
@@ -185,6 +312,33 @@ export const jobRailCardSchema = z.object({
   summary: z.string().nullable(),
   title: z.string(),
   workplaceType: jobWorkplaceTypeSchema.nullable(),
+});
+
+export const jobSearchRetrievalResultSchema = z.object({
+  appliedFilters: jobSearchAppliedFiltersSchema,
+  debugMeta: jobSearchDebugMetaSchema,
+  diagnostics: z.object({
+    duplicateCount: z.number().int().nonnegative(),
+    filteredOutCount: z.number().int().nonnegative(),
+    invalidCount: z.number().int().nonnegative(),
+    searchLatencyMs: z.number().int().nonnegative(),
+    sourceCount: z.number().int().nonnegative(),
+    staleCount: z.number().int().nonnegative(),
+  }),
+  fallbackApplied: jobSearchFallbackSchema,
+  generatedAt: z.string().datetime(),
+  profileContext: jobSeekerProfileContextSchema.nullable(),
+  query: jobSearchQuerySchema,
+  queryInterpretation: jobSearchQueryInterpretationSchema,
+  rail: z.object({
+    cards: z.array(jobRailCardSchema),
+    emptyState: z.string().nullable(),
+  }),
+  rankingSummary: jobSearchRankingSummarySchema,
+  resultQuality: jobSeekerResultQualitySchema,
+  results: z.array(jobPostingSchema),
+  returnedCount: z.number().int().nonnegative(),
+  totalCandidateCount: z.number().int().nonnegative(),
 });
 
 export const jobSeekerAgentTraceEntrySchema = z.object({
@@ -262,6 +416,9 @@ export type JobSeekerResultQuality = z.infer<typeof jobSeekerResultQualitySchema
 export type JobSeekerToolName = z.infer<typeof jobSeekerToolNameSchema>;
 export type JobSearchRemotePreference = z.infer<typeof jobSearchRemotePreferenceSchema>;
 export type JobSearchRankingBoost = z.infer<typeof jobSearchRankingBoostSchema>;
+export type JobSearchFallbackReason = z.infer<typeof jobSearchFallbackReasonSchema>;
+export type JobSalaryRangeDto = z.infer<typeof jobSalaryRangeSchema>;
+export type JobSearchRankingBreakdownDto = z.infer<typeof jobSearchRankingBreakdownSchema>;
 export type JobPostingDto = z.infer<typeof jobPostingSchema>;
 export type JobSourceSnapshotDto = z.infer<typeof jobSourceSnapshotSchema>;
 export type JobsFeedSummaryDto = z.infer<typeof jobsFeedSummarySchema>;
@@ -270,7 +427,14 @@ export type JobsFeedResponseDto = z.infer<typeof jobsFeedResponseSchema>;
 export type JobSearchFiltersDto = z.infer<typeof jobSearchFiltersSchema>;
 export type JobSearchQueryDto = z.infer<typeof jobSearchQuerySchema>;
 export type JobSeekerProfileContextDto = z.infer<typeof jobSeekerProfileContextSchema>;
+export type JobSearchQueryInterpretationDto = z.infer<typeof jobSearchQueryInterpretationSchema>;
+export type SearchJobsToolInputDto = z.infer<typeof searchJobsToolInputSchema>;
+export type JobSearchFallbackDto = z.infer<typeof jobSearchFallbackSchema>;
+export type JobSearchAppliedFiltersDto = z.infer<typeof jobSearchAppliedFiltersSchema>;
+export type JobSearchRankingSummaryDto = z.infer<typeof jobSearchRankingSummarySchema>;
+export type JobSearchDebugMetaDto = z.infer<typeof jobSearchDebugMetaSchema>;
 export type JobRailCardDto = z.infer<typeof jobRailCardSchema>;
+export type JobSearchRetrievalResultDto = z.infer<typeof jobSearchRetrievalResultSchema>;
 export type JobSeekerAgentTraceEntryDto = z.infer<typeof jobSeekerAgentTraceEntrySchema>;
 export type JobSeekerAgentMetadataDto = z.infer<typeof jobSeekerAgentMetadataSchema>;
 export type JobsPanelResponseDto = z.infer<typeof jobsPanelResponseSchema>;

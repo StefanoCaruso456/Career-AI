@@ -217,6 +217,8 @@ function mergeFilters(
     roleFamilies: [],
     rankingBoosts: [],
     remotePreference: null,
+    salaryMax: null,
+    salaryMin: null,
     seniority: null,
     skills: [],
     targetJobId: null,
@@ -244,6 +246,8 @@ function mergeFilters(
         ? Array.from(new Set([...base.rankingBoosts, ...next.rankingBoosts]))
         : base.rankingBoosts,
     remotePreference: next.remotePreference ?? base.remotePreference,
+    salaryMax: next.salaryMax ?? base.salaryMax,
+    salaryMin: next.salaryMin ?? base.salaryMin,
     seniority: next.seniority ?? base.seniority,
     skills: next.skills.length > 0 ? next.skills : base.skills,
     targetJobId: next.targetJobId ?? base.targetJobId,
@@ -296,18 +300,25 @@ function buildSearchQueryFromState(
 }
 
 function assessSearchResultQuality(state: JobSeekerAgentState, result: JobSearchCatalogResult | null) {
-  if (!result || result.jobs.length === 0) {
+  if (!result || result.results.length === 0) {
     return "empty" as const;
   }
 
-  const topScore = result.jobs[0]?.relevanceScore ?? 0;
-  const titleAligned = result.jobs.filter((job) =>
+  if (result.resultQuality) {
+    return result.resultQuality;
+  }
+
+  const topScore = result.results[0]?.relevanceScore ?? 0;
+  const titleAligned = result.results.filter((job) =>
+    job.matchReasons?.some((signal) => signal.includes("title aligned")) ||
     job.matchSignals?.some((signal) => signal.includes("title aligned")),
   ).length;
-  const locationAligned = result.jobs.filter((job) =>
+  const locationAligned = result.results.filter((job) =>
+    job.matchReasons?.some((signal) => signal.includes("location")) ||
     job.matchSignals?.some((signal) => signal.includes("location aligned")),
   ).length;
-  const skillAligned = result.jobs.filter((job) =>
+  const skillAligned = result.results.filter((job) =>
+    job.matchReasons?.some((signal) => signal.includes("skill")) ||
     job.matchSignals?.some((signal) => signal.includes("skill")),
   ).length;
   const hasRoleConstraint = Boolean(result.query.filters.role);
@@ -328,11 +339,11 @@ function assessSearchResultQuality(state: JobSeekerAgentState, result: JobSearch
     alignmentSignals += 1;
   }
 
-  if (topScore >= 0.82 && alignmentSignals >= 2 && result.jobs.length >= 3) {
+  if (topScore >= 0.82 && alignmentSignals >= 2 && result.results.length >= 3) {
     return "strong" as const;
   }
 
-  if (topScore >= 0.58 || (alignmentSignals >= 2 && result.jobs.length >= 2)) {
+  if (topScore >= 0.58 || (alignmentSignals >= 2 && result.results.length >= 2)) {
     return "acceptable" as const;
   }
 
@@ -453,12 +464,12 @@ function buildJobsPanel(
     debugTrace: state.debugTrace,
     diagnostics: result.diagnostics,
     generatedAt: result.generatedAt,
-    jobs: result.jobs,
-    panelCount: result.panelCount,
+    jobs: result.results,
+    panelCount: result.returnedCount,
     profileContext: result.profileContext ?? state.profileContext,
     query: result.query,
     rail: result.rail,
-    totalMatches: result.totalMatches,
+    totalMatches: result.totalCandidateCount,
   });
 }
 
@@ -666,7 +677,7 @@ export function createJobSeekerAgent(deps: {
 
         return {
           debugTrace: appendTrace(state, "execute_tool", "Executed findSimilarJobs.", {
-            jobCount: result?.jobs.length ?? 0,
+            jobCount: result?.results.length ?? 0,
           }),
           lastSearchResult: result,
           lastToolKind: "findSimilarJobs" as const,
@@ -681,8 +692,8 @@ export function createJobSeekerAgent(deps: {
       return {
         debugTrace: appendTrace(state, "execute_tool", "Executed searchJobs.", {
           effectivePrompt: toolArgs.query.effectivePrompt,
-          resultCount: result.jobs.length,
-          totalMatches: result.totalMatches,
+          resultCount: result.results.length,
+          totalMatches: result.totalCandidateCount,
         }),
         lastSearchResult: result,
         lastToolKind: "searchJobs" as const,
@@ -724,8 +735,8 @@ export function createJobSeekerAgent(deps: {
     return {
       debugTrace: appendTrace(state, "evaluate_tool_result", `Evaluated search result as ${quality}.`, {
         loopCount: state.loopCount,
-        resultCount: result?.jobs.length ?? 0,
-        totalMatches: result?.totalMatches ?? 0,
+        resultCount: result?.results.length ?? 0,
+        totalMatches: result?.totalCandidateCount ?? 0,
       }),
       resultQuality: quality,
       shouldTerminate:
@@ -841,7 +852,7 @@ export function createJobSeekerAgent(deps: {
     const clarificationQuestion = null;
     const assistantMessage = await deps.model.composeSearchResponse({
       clarificationQuestion,
-      jobs: state.lastSearchResult.jobs,
+      jobs: state.lastSearchResult.results,
       profileContext: state.lastSearchResult.profileContext ?? state.profileContext,
       query: state.lastSearchResult.query,
       resultQuality: state.resultQuality ?? "empty",
@@ -851,7 +862,7 @@ export function createJobSeekerAgent(deps: {
 
     return {
       debugTrace: appendTrace(state, "respond", "Generated grounded jobs response.", {
-        jobCount: state.lastSearchResult.jobs.length,
+        jobCount: state.lastSearchResult.results.length,
         resultQuality: state.resultQuality,
       }),
       responsePayload: {

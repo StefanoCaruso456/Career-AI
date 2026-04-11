@@ -1,4 +1,9 @@
-import type { JobPostingDto, JobSearchQueryDto, JobsPanelResponseDto } from "@/packages/contracts/src";
+import type {
+  JobPostingDto,
+  JobSearchQueryDto,
+  JobSearchRetrievalResultDto,
+  JobsPanelResponseDto,
+} from "@/packages/contracts/src";
 import { jobsPanelResponseSchema } from "@/packages/contracts/src";
 import {
   buildJobRailCards,
@@ -10,18 +15,22 @@ import {
   validateJobsCatalog,
 } from "./search-catalog";
 
-function inferResultQuality(jobs: JobPostingDto[]) {
-  if (jobs.length === 0) {
+function inferResultQuality(result: JobSearchRetrievalResultDto) {
+  if (result.results.length === 0) {
     return "empty" as const;
   }
 
-  const topScore = jobs[0]?.relevanceScore ?? 0;
+  if (result.resultQuality) {
+    return result.resultQuality;
+  }
 
-  if (topScore >= 0.82 && jobs.length >= 3) {
+  const topScore = result.results[0]?.relevanceScore ?? 0;
+
+  if (topScore >= 0.82 && result.results.length >= 3) {
     return "strong" as const;
   }
 
-  if (topScore >= 0.58 || jobs.length >= 2) {
+  if (topScore >= 0.58 || result.results.length >= 2) {
     return "acceptable" as const;
   }
 
@@ -68,12 +77,12 @@ export async function searchJobsPanel(args: {
     prompt: args.prompt,
     refresh: args.refresh,
   });
-  const resultQuality = inferResultQuality(result.jobs);
+  const resultQuality = inferResultQuality(result);
 
   return jobsPanelResponseSchema.parse({
     agent: {
       clarificationQuestion:
-        result.jobs.length === 0
+        result.results.length === 0
           ? "Do you want me to widen the title, location, or workplace preference?"
           : null,
       intent: "job_search",
@@ -86,21 +95,21 @@ export async function searchJobsPanel(args: {
         resultQuality === "empty" ? "jobs_search_completed_empty" : "jobs_search_completed",
     },
     assistantMessage: buildAssistantMessage({
-      jobs: result.jobs,
+      jobs: result.results,
       query: result.query,
     }),
     debugTrace: [],
     diagnostics: result.diagnostics,
     generatedAt: result.generatedAt,
-    jobs: result.jobs,
-    panelCount: result.panelCount,
+    jobs: result.results,
+    panelCount: result.returnedCount,
     profileContext: result.profileContext,
     query: result.query,
     rail: {
-      cards: buildJobRailCards(result.jobs),
+      cards: buildJobRailCards(result.results),
       emptyState: result.rail.emptyState,
     },
-    totalMatches: result.totalMatches,
+    totalMatches: result.totalCandidateCount,
   });
 }
 

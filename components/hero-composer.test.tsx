@@ -179,6 +179,8 @@ function createJobsPanelResponse(prompt: string, jobs: JobPostingDto[]): JobsPan
         roleFamilies: [],
         rankingBoosts: [],
         remotePreference: null,
+        salaryMax: null,
+        salaryMin: null,
         seniority: null,
         skills: [],
         targetJobId: null,

@@ -4,8 +4,10 @@ import type {
   JobSearchFiltersDto,
   JobSearchOrigin,
   JobSearchQueryDto,
+  JobSearchRetrievalResultDto,
   JobSeekerProfileContextDto,
 } from "@/packages/contracts/src";
+import { jobSearchRetrievalResultSchema } from "@/packages/contracts/src";
 import {
   findPersistentContextByEmail,
   findPersistentContextByTalentIdentityId,
@@ -22,6 +24,11 @@ import {
   inferJobWorkplaceType,
   normalizeHumanLabel,
 } from "./metadata";
+import {
+  buildRetrievalEmptyState,
+  buildRetrievalRailCards,
+  runHybridJobSearch,
+} from "./search-engine";
 import { getJobsFeedSnapshot } from "./service";
 
 const DEFAULT_PANEL_LIMIT = 8;
@@ -48,24 +55,23 @@ type SearchableJob = {
 };
 
 export type JobSearchCatalogResult = {
-  diagnostics: {
-    duplicateCount: number;
-    filteredOutCount: number;
-    invalidCount: number;
-    searchLatencyMs: number;
-    sourceCount: number;
-    staleCount: number;
-  };
+  appliedFilters: JobSearchRetrievalResultDto["appliedFilters"];
+  debugMeta: JobSearchRetrievalResultDto["debugMeta"];
+  diagnostics: JobSearchRetrievalResultDto["diagnostics"];
+  fallbackApplied: JobSearchRetrievalResultDto["fallbackApplied"];
   generatedAt: string;
-  jobs: JobPostingDto[];
-  panelCount: number;
   profileContext: JobSeekerProfileContextDto | null;
   query: JobSearchQueryDto;
+  queryInterpretation: JobSearchRetrievalResultDto["queryInterpretation"];
   rail: {
     cards: JobRailCardDto[];
     emptyState: string | null;
   };
-  totalMatches: number;
+  rankingSummary: JobSearchRetrievalResultDto["rankingSummary"];
+  resultQuality: JobSearchRetrievalResultDto["resultQuality"];
+  results: JobPostingDto[];
+  returnedCount: number;
+  totalCandidateCount: number;
 };
 
 function isGenericFindJobsPrompt(args: {
@@ -148,6 +154,44 @@ function extractSeniority(prompt: string) {
   return match?.[1]?.trim() || null;
 }
 
+function extractEmploymentType(prompt: string) {
+  const match = prompt.match(
+    /\b(full[ -]?time|part[ -]?time|contract|contractor|temporary|temp|internship|intern)\b/i,
+  );
+
+  return match?.[1]?.replace(/\s+/g, " ").trim() || null;
+}
+
+function extractSalaryBounds(prompt: string) {
+  const matches = Array.from(
+    prompt.matchAll(/(?:[$£€])?\s*\d[\d,.]*(?:\.\d+)?\s*[kKmM]?/g),
+  )
+    .map((match) => {
+      const raw = match[0]?.trim() ?? "";
+      const numeric = Number.parseFloat(raw.replace(/[^0-9.]/g, ""));
+
+      if (!Number.isFinite(numeric)) {
+        return null;
+      }
+
+      if (/[kK]/.test(raw)) {
+        return numeric * 1_000;
+      }
+
+      if (/[mM]/.test(raw)) {
+        return numeric * 1_000_000;
+      }
+
+      return numeric;
+    })
+    .filter((value): value is number => value !== null);
+
+  return {
+    max: matches.length > 1 ? matches[1] : matches[0] ?? null,
+    min: matches[0] ?? null,
+  };
+}
+
 function extractPostedWithinDays(prompt: string) {
   const normalizedPrompt = normalizeHumanLabel(prompt);
 
@@ -214,7 +258,9 @@ export function parseJobSearchQuery(args: {
   const location = extractLocation(prompt);
   const role = extractRole(prompt);
   const seniority = extractSeniority(prompt);
+  const employmentType = extractEmploymentType(prompt);
   const postedWithinDays = extractPostedWithinDays(prompt);
+  const salaryBounds = extractSalaryBounds(prompt);
   const workplaceType = normalizedPrompt.includes("remote")
     ? "remote"
     : normalizedPrompt.includes("hybrid")
@@ -233,7 +279,7 @@ export function parseJobSearchQuery(args: {
   const keywords = isGenericPrompt ? [] : extractKeywords(role, prompt);
   const filters: JobSearchFiltersDto = {
     companies,
-    employmentType: null,
+    employmentType,
     exclusions: [],
     industries: [],
     keywords,
@@ -251,6 +297,8 @@ export function parseJobSearchQuery(args: {
           : workplaceType === "onsite"
             ? "onsite_preferred"
             : null,
+    salaryMax: salaryBounds.max,
+    salaryMin: salaryBounds.min,
     seniority,
     skills: [],
     targetJobId: null,
@@ -750,7 +798,11 @@ export function buildJobRailCards(jobs: JobPostingDto[]) {
     company: job.companyName,
     jobId: job.id,
     location: job.location,
-    matchReason: buildMatchSummary(job),
+    matchReason:
+      job.matchSummary ??
+      job.matchReasons?.[0] ??
+      job.matchSignals?.[0] ??
+      buildMatchSummary(job),
     relevanceScore: job.relevanceScore ?? null,
     salaryText: job.salaryText ?? null,
     summary: job.descriptionSnippet ?? null,
@@ -762,6 +814,7 @@ export function buildJobRailCards(jobs: JobPostingDto[]) {
 export async function searchJobsCatalog(args: {
   conversationId?: string | null;
   limit?: number;
+  offset?: number;
   origin?: JobSearchOrigin;
   ownerId?: string | null;
   profileContext?: JobSeekerProfileContextDto | null;
@@ -769,7 +822,6 @@ export async function searchJobsCatalog(args: {
   query?: JobSearchQueryDto;
   refresh?: boolean;
 }): Promise<JobSearchCatalogResult> {
-  const startedAt = Date.now();
   const candidateDefaults = args.profileContext
     ? {
         careerIdentityId: args.profileContext.careerIdentityId,
@@ -790,134 +842,31 @@ export async function searchJobsCatalog(args: {
     refresh: args.refresh ?? false,
     windowDays: query.filters.postedWithinDays,
   });
-  const rankedJobs: SearchableJob[] = [];
-  const seenFingerprints = new Set<string>();
-  let duplicateCount = 0;
-  let invalidCount = 0;
-  let staleCount = 0;
-  let filteredOutCount = 0;
-
-  for (const job of snapshot.jobs) {
-    if (query.filters.targetJobId && job.id === query.filters.targetJobId) {
-      filteredOutCount += 1;
-      continue;
-    }
-
-    const validation = evaluateJobValidation({
-      canonicalApplyUrl: job.canonicalApplyUrl ?? job.applyUrl,
-      canonicalJobUrl: job.canonicalJobUrl ?? null,
-      companyName: job.companyName,
-      descriptionSnippet: job.descriptionSnippet,
-      externalId: job.externalId,
-      location: job.location,
-      postedAt: job.postedAt,
-      sourceLane: job.sourceLane,
-      sourceQuality: job.sourceQuality,
-      title: job.title,
-      updatedAt: job.updatedAt,
-      workplaceType: job.workplaceType ?? inferJobWorkplaceType(job.location),
-    });
-
-    if (validation.validationStatus === "invalid" || validation.validationStatus === "expired") {
-      invalidCount += 1;
-      filteredOutCount += 1;
-      continue;
-    }
-
-    if (validation.validationStatus === "stale") {
-      staleCount += 1;
-      filteredOutCount += 1;
-      continue;
-    }
-
-    const dedupeFingerprint =
-      job.dedupeFingerprint ??
-      createJobDedupeFingerprint({
-        applyUrl: validation.canonicalApplyUrl ?? job.applyUrl,
-        companyName: job.companyName,
-        externalSourceJobId: job.externalSourceJobId ?? job.externalId,
-        location: job.location,
-        title: job.title,
-      });
-
-    if (seenFingerprints.has(dedupeFingerprint)) {
-      duplicateCount += 1;
-      filteredOutCount += 1;
-      continue;
-    }
-
-    if (
-      !jobMatchesCompanies(job, query.filters.companies) ||
-      !jobMatchesLocation(job, query.filters.location) ||
-      !jobMatchesAnyLocation(job, query.filters.locations) ||
-      !jobMatchesWorkplace(job, query.filters.workplaceType) ||
-      !jobMatchesRecency(job, query.filters.postedWithinDays) ||
-      !jobMatchesRole(job, query.filters) ||
-      !jobMatchesEmploymentType(job, query.filters.employmentType) ||
-      !jobMatchesIndustries(job, query.filters.industries) ||
-      !jobMatchesExclusions(job, query.filters.exclusions)
-    ) {
-      filteredOutCount += 1;
-      continue;
-    }
-
-    seenFingerprints.add(dedupeFingerprint);
-    const reasons = buildSearchReasons({
-      filters: query.filters,
-      job,
-      validation,
-    });
-    const mergedJob = mergeValidationIntoJob({
-      candidateDefaults,
-      filters: query.filters,
-      job,
-      reasons,
-      validation,
-    });
-
-    rankedJobs.push({
-      job: mergedJob,
-      score: scoreJob({
-        candidateDefaults,
-        filters: query.filters,
-        job: mergedJob,
-        validation,
-      }),
-    });
-  }
-
-  rankedJobs.sort((left, right) => {
-    if (left.score !== right.score) {
-      return right.score - left.score;
-    }
-
-    return (right.job.trustScore ?? 0) - (left.job.trustScore ?? 0);
-  });
-
-  const limit = Math.max(1, Math.min(args.limit ?? DEFAULT_PANEL_LIMIT, 12));
-  const topScore = rankedJobs[0]?.score ?? 0;
-  const jobs = rankedJobs.slice(0, limit).map((entry) => ({
-    ...entry.job,
-    relevanceScore: createRelevanceScore(entry.score, topScore),
-  }));
-  const searchLatencyMs = Date.now() - startedAt;
   const generatedAt = new Date().toISOString();
-  const railCards = buildJobRailCards(jobs);
+  const searchResult = runHybridJobSearch({
+    jobs: snapshot.jobs,
+    limit: Math.max(1, Math.min(args.limit ?? DEFAULT_PANEL_LIMIT, 12)),
+    offset: Math.max(0, args.offset ?? 0),
+    profileContext,
+    query,
+    sourceCount: snapshot.sourceCount,
+  });
+  const railCards = buildRetrievalRailCards(searchResult.results);
 
   if (isDatabaseConfigured() && args.ownerId) {
     await Promise.all([
       recordJobSearchEvent({
         conversationId: args.conversationId ?? null,
-        latencyMs: searchLatencyMs,
+        latencyMs: searchResult.diagnostics.searchLatencyMs,
         origin: args.origin ?? "api",
         ownerId: args.ownerId,
-        prompt: query.effectivePrompt ?? query.prompt,
-        query,
-        resultCount: rankedJobs.length,
-        resultJobIds: jobs.map((job) => job.id),
+        prompt: searchResult.resolvedQuery.effectivePrompt ?? searchResult.resolvedQuery.prompt,
+        query: searchResult.resolvedQuery,
+        resultCount: searchResult.totalCandidateCount,
+        resultJobIds: searchResult.results.map((job) => job.id),
       }),
       recordJobValidationEvents({
-        events: jobs.map((job) => ({
+        events: searchResult.results.map((job) => ({
           jobId: job.id,
           reasonCodes: job.searchReasons ?? [],
           sourceTrustTier: job.sourceTrustTier ?? "unknown",
@@ -929,29 +878,28 @@ export async function searchJobsCatalog(args: {
     ]);
   }
 
-  return {
-    diagnostics: {
-      duplicateCount,
-      filteredOutCount,
-      invalidCount,
-      searchLatencyMs,
-      sourceCount: snapshot.sourceCount,
-      staleCount,
+  return jobSearchRetrievalResultSchema.parse({
+    appliedFilters: searchResult.appliedFilters,
+    debugMeta: {
+      ...searchResult.debugMeta,
+      fallbackApplied: searchResult.fallbackApplied,
     },
+    diagnostics: searchResult.diagnostics,
+    fallbackApplied: searchResult.fallbackApplied,
     generatedAt,
-    jobs,
-    panelCount: jobs.length,
     profileContext,
-    query,
+    query: searchResult.resolvedQuery,
+    queryInterpretation: searchResult.queryInterpretation,
     rail: {
       cards: railCards,
-      emptyState:
-        jobs.length === 0
-          ? "No grounded job matches were found from the live inventory for the current search."
-          : null,
+      emptyState: buildRetrievalEmptyState(searchResult.results),
     },
-    totalMatches: rankedJobs.length,
-  };
+    rankingSummary: searchResult.rankingSummary,
+    resultQuality: searchResult.resultQuality,
+    results: searchResult.results,
+    returnedCount: searchResult.results.length,
+    totalCandidateCount: searchResult.totalCandidateCount,
+  });
 }
 
 export async function findSimilarJobsCatalog(args: {
@@ -990,6 +938,8 @@ export async function findSimilarJobsCatalog(args: {
           : (anchorJob.workplaceType ?? inferJobWorkplaceType(anchorJob.location)) === "hybrid"
             ? "hybrid_preferred"
             : null,
+      salaryMax: anchorJob.salaryRange?.max ?? null,
+      salaryMin: anchorJob.salaryRange?.min ?? null,
       seniority: null,
       skills: [],
       targetJobId: anchorJob.id,
@@ -1077,6 +1027,8 @@ export async function validateJobsCatalog(args?: {
         roleFamilies: [],
         rankingBoosts: [],
         remotePreference: null,
+        salaryMax: null,
+        salaryMin: null,
         seniority: null,
         skills: [],
         targetJobId: null,

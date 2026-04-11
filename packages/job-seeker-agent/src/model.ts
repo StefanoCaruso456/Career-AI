@@ -35,6 +35,8 @@ const plannerFiltersSchema = z.object({
   roleFamilies: z.array(z.string()),
   rankingBoosts: z.array(jobSearchRankingBoostSchema),
   remotePreference: jobSearchRemotePreferenceSchema.nullable(),
+  salaryMax: z.number().nonnegative().nullable(),
+  salaryMin: z.number().nonnegative().nullable(),
   seniority: z.string().nullable(),
   skills: z.array(z.string()),
   targetJobId: z.string().nullable(),
