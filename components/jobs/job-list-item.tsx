@@ -9,6 +9,8 @@ type JobListItemProps = {
 };
 
 export function JobListItem({ job, onApply }: JobListItemProps) {
+  const meta = [job.location, job.workplaceType, job.salaryText].filter(Boolean).join(" • ");
+
   return (
     <li className={styles.jobRow}>
       <button
@@ -23,6 +25,8 @@ export function JobListItem({ job, onApply }: JobListItemProps) {
       <div className={styles.jobCopy}>
         <p className={styles.jobCompany}>{job.company}</p>
         <p className={styles.jobTitle}>{job.title}</p>
+        {meta ? <p className={styles.jobMeta}>{meta}</p> : null}
+        <p className={styles.jobReason}>{job.matchReason}</p>
       </div>
     </li>
   );

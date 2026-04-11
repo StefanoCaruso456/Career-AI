@@ -165,7 +165,7 @@ describe("JobsResults", () => {
         companyName: "Stripe",
       },
     ];
-    let resolveFetch: ((value: Response) => void) | null = null;
+    let resolveFetch: (value: Response) => void = () => {};
 
     vi.stubGlobal(
       "fetch",
@@ -189,7 +189,7 @@ describe("JobsResults", () => {
     expect(screen.getByText("Searching all jobs")).toBeInTheDocument();
     expect(screen.queryByText("No roles match the current filters.")).not.toBeInTheDocument();
 
-    resolveFetch?.(
+    resolveFetch(
       new Response(
         JSON.stringify({
           generatedAt: "2026-04-10T12:45:00.000Z",

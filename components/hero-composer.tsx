@@ -38,7 +38,7 @@ import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-sea
 import { loadEmployerCandidateMatches } from "@/lib/employer/load-candidate-matches";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import { loadJobListings } from "@/lib/jobs/load-job-listings";
-import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
+import { mapJobsPanelToListings } from "@/lib/jobs/map-jobs-to-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import type { Persona } from "@/lib/personas";
 import {
@@ -1323,7 +1323,7 @@ export function HeroComposer({
       return;
     }
 
-    setJobsAssistListings(mapJobsToListings(jobsPanel.jobs));
+    setJobsAssistListings(mapJobsPanelToListings(jobsPanel));
     setJobsAssistLoadedRequestKey(`${jobsPanel.query.prompt}::${jobsAssistRefreshKey}`);
     setJobsAssistError(null);
     setIsJobsAssistLoading(false);
