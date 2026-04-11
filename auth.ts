@@ -144,7 +144,20 @@ export const authOptions = {
 
       return true;
     },
-    async jwt({ token, account, profile, user }) {
+    async jwt({ token, account, profile, user, trigger, session }) {
+      if (trigger === "update" && session && typeof session === "object") {
+        const updatedName =
+          typeof session.name === "string"
+            ? session.name
+            : typeof (session as { user?: { name?: unknown } }).user?.name === "string"
+              ? (session as { user: { name: string } }).user.name
+              : null;
+
+        if (updatedName) {
+          token.name = updatedName;
+        }
+      }
+
       const googleProfile = getGoogleProfile(profile);
       const email =
         typeof token.email === "string"

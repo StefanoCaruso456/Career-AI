@@ -502,9 +502,18 @@ export async function provisionGoogleUser(args: ProvisionGoogleUserArgs) {
         ON CONFLICT (id) DO UPDATE
         SET
           email = EXCLUDED.email,
-          full_name = EXCLUDED.full_name,
-          first_name = EXCLUDED.first_name,
-          last_name = EXCLUDED.last_name,
+          full_name = CASE
+            WHEN users.full_name = '' THEN EXCLUDED.full_name
+            ELSE users.full_name
+          END,
+          first_name = CASE
+            WHEN users.first_name = '' THEN EXCLUDED.first_name
+            ELSE users.first_name
+          END,
+          last_name = CASE
+            WHEN users.last_name = '' THEN EXCLUDED.last_name
+            ELSE users.last_name
+          END,
           image_url = EXCLUDED.image_url,
           auth_provider = EXCLUDED.auth_provider,
           provider_user_id = EXCLUDED.provider_user_id,
@@ -543,6 +552,76 @@ export async function provisionGoogleUser(args: ProvisionGoogleUserArgs) {
       createdUser,
       createdIdentity: identityState.createdIdentity,
     };
+  });
+}
+
+export async function updatePersistentTalentIdentityProfile(args: {
+  talentIdentityId: string;
+  input: {
+    firstName?: string;
+    lastName?: string;
+    countryCode?: string;
+    phoneOptional?: string | null;
+  };
+  correlationId: string;
+}) {
+  return withDatabaseTransaction(async (client) => {
+    const context = await findContextByWhere(client, "ci.id = $1", [args.talentIdentityId]);
+
+    if (!context) {
+      throw buildNotFoundError(args.correlationId, {
+        talentIdentityId: args.talentIdentityId,
+      });
+    }
+
+    const nextFirstName = args.input.firstName ?? context.user.firstName;
+    const nextLastName = args.input.lastName ?? context.user.lastName;
+    const nextFullName = formatDisplayName(nextFirstName, nextLastName, "");
+    const nextCountryCode = args.input.countryCode?.toUpperCase();
+    const hasPhoneOptional = Object.prototype.hasOwnProperty.call(args.input, "phoneOptional");
+
+    await client.query(
+      `
+        UPDATE users
+        SET
+          full_name = $2,
+          first_name = $3,
+          last_name = $4,
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [context.user.id, nextFullName, nextFirstName, nextLastName],
+    );
+
+    await client.query(
+      `
+        UPDATE career_identities
+        SET
+          display_name = $2,
+          country_code = COALESCE($3, country_code),
+          phone_optional = CASE
+            WHEN $4 THEN $5
+            ELSE phone_optional
+          END,
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [
+        args.talentIdentityId,
+        nextFullName,
+        nextCountryCode,
+        hasPhoneOptional,
+        args.input.phoneOptional ?? null,
+      ],
+    );
+
+    return requireContextByWhere(
+      client,
+      "ci.id = $1",
+      [args.talentIdentityId],
+      args.correlationId,
+      { talentIdentityId: args.talentIdentityId },
+    );
   });
 }
 
