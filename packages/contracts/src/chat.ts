@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { employerCandidateSearchFiltersSchema } from "./recruiter";
 
 export const chatAttachmentPreviewKindSchema = z.enum([
   "document",
@@ -172,9 +173,11 @@ export const renameChatConversationInputSchema = z.object({
 export const sendChatMessageInputSchema = z
   .object({
     attachmentIds: z.array(z.string().trim().min(1)).max(chatAttachmentLimits.maxFilesPerMessage).default([]),
+    candidateSearchFilters: employerCandidateSearchFiltersSchema.optional(),
     clientRequestId: z.string().trim().min(1).max(120).optional(),
     conversationId: z.string().trim().min(1).nullable().optional(),
     message: z.string().trim().max(chatAttachmentLimits.maxMessageLength).default(""),
+    persona: z.enum(["job_seeker", "employer"]).optional(),
     projectId: z.string().trim().min(1),
   })
   .superRefine((payload, context) => {

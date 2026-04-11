@@ -4,6 +4,7 @@ import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-sh
 import { ChatHomeHero } from "./chat-home-hero";
 import { TrustExplainerSection } from "./trust-explainer-section";
 import styles from "./chat-home-shell.module.css";
+import type { Persona } from "@/lib/personas";
 
 function StoryVisual({ theme }: { theme: StoryTheme }) {
   return (
@@ -239,9 +240,11 @@ function SolutionCard({
 export function ChatHomeShell({
   content,
   embeddedInWorkspaceShell = false,
+  persona = "job_seeker",
 }: {
   content: LandingContent;
   embeddedInWorkspaceShell?: boolean;
+  persona?: Persona;
 }) {
   return (
     <div className={styles.page}>
@@ -249,6 +252,7 @@ export function ChatHomeShell({
         embeddedInWorkspaceShell={embeddedInWorkspaceShell}
         heroComposer={content.heroComposer}
         heroTitle={content.heroTitle}
+        persona={persona}
       />
 
       <section className={styles.introSection} id="platform">

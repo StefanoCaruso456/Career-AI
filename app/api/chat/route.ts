@@ -2,12 +2,14 @@ import { z } from "zod";
 import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src";
 import { generateHomepageAssistantReply } from "@/packages/homepage-assistant/src";
 import { searchJobsPanel } from "@/packages/jobs-domain/src";
+import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
 import { sendChatMessageInputSchema } from "@/packages/contracts/src";
 import {
   createAssistantChatMessage,
   createUserChatMessage,
   summarizeChatAttachmentsForAssistant,
 } from "@/packages/chat-domain/src";
+import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-search-intent";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import {
   jsonChatErrorResponse,
@@ -48,9 +50,20 @@ export async function POST(request: Request) {
     );
     let assistantReply: string;
     let assistantReplyError = false;
+    let candidatePanel: Awaited<ReturnType<typeof searchEmployerCandidates>> | null = null;
     let jobsPanel: Awaited<ReturnType<typeof searchJobsPanel>> | null = null;
 
-    if (isJobIntent(payload.message)) {
+    if (
+      payload.persona === "employer" &&
+      isEmployerCandidateSearchIntent(payload.message)
+    ) {
+      candidatePanel = await searchEmployerCandidates({
+        filters: payload.candidateSearchFilters,
+        limit: 8,
+        prompt: payload.message,
+      });
+      assistantReply = candidatePanel.assistantMessage;
+    } else if (payload.persona !== "employer" && isJobIntent(payload.message)) {
       jobsPanel = await searchJobsPanel({
         conversationId: userMessageResult.conversation.id,
         limit: 8,
@@ -81,6 +94,7 @@ export async function POST(request: Request) {
     return jsonChatResponse(
         {
           assistantMessage: assistantMessageResult.assistantMessage,
+          candidatePanel,
           conversation: assistantMessageResult.conversation,
           jobsPanel,
           userMessage: userMessageResult.userMessage,

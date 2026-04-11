@@ -58,6 +58,96 @@ export const generateShareQrInputSchema = z.object({
   baseUrlOptional: z.string().url().optional(),
 });
 
+export const employerCandidateSearchFiltersSchema = z.object({
+  title: z.string().trim().max(160).optional(),
+  skills: z.array(z.string().trim().min(1).max(80)).default([]),
+  yearsExperienceMin: z.number().int().nonnegative().nullable().default(null),
+  industry: z.string().trim().max(120).nullable().default(null),
+  location: z.string().trim().max(120).nullable().default(null),
+  workAuthorization: z.string().trim().max(120).nullable().default(null),
+  education: z.string().trim().max(120).nullable().default(null),
+  credibilityThreshold: z.number().min(0).max(1).nullable().default(null),
+  verificationStatus: z.array(verificationStatusSchema).default([]),
+  priorEmployers: z.array(z.string().trim().min(1).max(120)).default([]),
+  certifications: z.array(z.string().trim().min(1).max(120)).default([]),
+  verifiedExperienceOnly: z.boolean().default(false),
+});
+
+export const employerCandidateSearchInputModeSchema = z.enum([
+  "free_text",
+  "job_title",
+  "job_description",
+]);
+
+export const employerCandidateSearchQuerySchema = z.object({
+  prompt: z.string(),
+  normalizedPrompt: z.string(),
+  inputMode: employerCandidateSearchInputModeSchema,
+  parsedCriteria: z.object({
+    titleHints: z.array(z.string()).default([]),
+    skillKeywords: z.array(z.string()).default([]),
+    seniority: z.string().nullable().default(null),
+    location: z.string().nullable().default(null),
+    industryHints: z.array(z.string()).default([]),
+    yearsExperienceMin: z.number().int().nonnegative().nullable().default(null),
+    priorEmployers: z.array(z.string()).default([]),
+  }),
+  filters: employerCandidateSearchFiltersSchema,
+});
+
+export const employerCandidateMatchSchema = z.object({
+  candidateId: z.string(),
+  careerId: z.string(),
+  fullName: z.string(),
+  currentRole: z.string().nullable(),
+  targetRole: z.string().nullable(),
+  headline: z.string().nullable(),
+  location: z.string().nullable(),
+  topSkills: z.array(z.string()).default([]),
+  matchReason: z.string(),
+  experienceHighlights: z.array(z.string()).default([]),
+  profileSummary: z.string().nullable(),
+  credibility: z.object({
+    label: z.string(),
+    score: z.number().min(0).max(100),
+    verifiedExperienceCount: z.number().int().nonnegative(),
+    evidenceCount: z.number().int().nonnegative(),
+    verificationSignal: z.string(),
+  }),
+  ranking: z.object({
+    label: z.string(),
+    score: z.number().min(0).max(100),
+  }),
+  actions: z.object({
+    careerIdUrl: z.string().nullable(),
+    profileUrl: z.string().nullable(),
+  }),
+});
+
+export const employerCandidateSearchResponseSchema = z.object({
+  assistantMessage: z.string(),
+  diagnostics: z.object({
+    candidateCount: z.number().int().nonnegative(),
+    filteredOutCount: z.number().int().nonnegative(),
+    highCredibilityCount: z.number().int().nonnegative(),
+    parsedSkillCount: z.number().int().nonnegative(),
+    searchLatencyMs: z.number().int().nonnegative(),
+  }),
+  generatedAt: z.string().datetime(),
+  candidates: z.array(employerCandidateMatchSchema),
+  panelCount: z.number().int().nonnegative(),
+  query: employerCandidateSearchQuerySchema,
+  totalMatches: z.number().int().nonnegative(),
+});
+
+export const searchEmployerCandidatesInputSchema = z.object({
+  conversationId: z.string().trim().min(1).nullable().optional(),
+  filters: employerCandidateSearchFiltersSchema.optional(),
+  limit: z.number().int().positive().max(24).optional(),
+  prompt: z.string().trim().min(1),
+  refresh: z.boolean().optional(),
+});
+
 export type TrustSummary = z.infer<typeof trustSummarySchema>;
 export type RecruiterEmploymentRecordView = z.infer<
   typeof recruiterEmploymentRecordViewSchema
@@ -67,6 +157,22 @@ export type GenerateShareProfileInput = z.infer<
   typeof generateShareProfileInputSchema
 >;
 export type GenerateShareQrInput = z.infer<typeof generateShareQrInputSchema>;
+export type EmployerCandidateSearchFiltersDto = z.infer<
+  typeof employerCandidateSearchFiltersSchema
+>;
+export type EmployerCandidateSearchInputMode = z.infer<
+  typeof employerCandidateSearchInputModeSchema
+>;
+export type EmployerCandidateSearchQueryDto = z.infer<
+  typeof employerCandidateSearchQuerySchema
+>;
+export type EmployerCandidateMatchDto = z.infer<typeof employerCandidateMatchSchema>;
+export type EmployerCandidateSearchResponseDto = z.infer<
+  typeof employerCandidateSearchResponseSchema
+>;
+export type SearchEmployerCandidatesInput = z.infer<
+  typeof searchEmployerCandidatesInputSchema
+>;
 
 export type TrustSummaryDto = {
   id: string;
