@@ -5,9 +5,14 @@ import { HeaderCenterTab } from "@/components/header-center-tab";
 import styles from "@/components/floating-site-header.module.css";
 
 const mockUsePathname = vi.fn();
+const mockUseSession = vi.fn();
 
 vi.mock("next/navigation", () => ({
   usePathname: () => mockUsePathname(),
+}));
+
+vi.mock("next-auth/react", () => ({
+  useSession: () => mockUseSession(),
 }));
 
 vi.mock("next/link", () => ({
@@ -24,7 +29,13 @@ vi.mock("next/link", () => ({
 
 describe("HeaderCenterTab", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     mockUsePathname.mockReset();
+    mockUseSession.mockReset();
+    mockUseSession.mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+    });
   });
 
   it("hides the public center tabs inside the account client", () => {
@@ -65,5 +76,25 @@ describe("HeaderCenterTab", () => {
     expect(link).toHaveAttribute("href", "/agent-build");
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.navTabCurrent);
+  });
+
+  it("keeps employer navigation visible on generic settings routes for recruiter sessions", () => {
+    mockUsePathname.mockReturnValue("/settings");
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          roleType: "recruiter",
+        },
+      },
+      status: "authenticated",
+    });
+
+    render(<HeaderCenterTab />);
+
+    expect(screen.getByRole("link", { name: "Agent Sorcerer" })).toHaveAttribute(
+      "href",
+      "/employer/agent-sorcerer",
+    );
+    expect(screen.queryByRole("link", { name: "Career ID" })).not.toBeInTheDocument();
   });
 });

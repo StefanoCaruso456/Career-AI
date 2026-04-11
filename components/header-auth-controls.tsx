@@ -17,9 +17,10 @@ import { AuthModalTrigger } from "./auth-modal";
 import { readPreferredPersona } from "@/lib/persona-preference";
 import {
   defaultPersona,
-  getPersonaFromRoute,
   getPostAuthRoute,
+  getSettingsRoute,
   personaConfigs,
+  resolveActivePersona,
   type Persona,
 } from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
@@ -79,8 +80,14 @@ export function HeaderAuthControls() {
   }, [pathname]);
 
   useEffect(() => {
-    setPreferredPersona(getPersonaFromRoute(pathname) ?? readPreferredPersona());
-  }, [pathname]);
+    setPreferredPersona(
+      resolveActivePersona({
+        preferredPersona: readPreferredPersona(),
+        roleType: session?.user?.roleType,
+        route: pathname,
+      }),
+    );
+  }, [pathname, session?.user?.roleType]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -135,7 +142,7 @@ export function HeaderAuthControls() {
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
-  const settingsHref = "/settings";
+  const settingsHref = getSettingsRoute(preferredPersona);
   const isSettingsPage = pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
   const workspaceHref = getPostAuthRoute(preferredPersona);
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);

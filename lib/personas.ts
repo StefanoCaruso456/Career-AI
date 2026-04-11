@@ -43,6 +43,18 @@ export function getPersona(value: string | null | undefined): Persona {
   return isPersona(value) ? value : defaultPersona;
 }
 
+export function getPersonaFromRoleType(roleType: string | null | undefined): Persona | null {
+  if (roleType === "candidate") {
+    return "job_seeker";
+  }
+
+  if (roleType === "recruiter" || roleType === "hiring_manager") {
+    return "employer";
+  }
+
+  return null;
+}
+
 export function getPersonaFromRoute(route: string | null | undefined): Persona | null {
   if (!route) {
     return null;
@@ -81,8 +93,28 @@ export function resolvePersona({
   return getPersonaFromRoute(callbackUrl) ?? defaultPersona;
 }
 
+export function resolveActivePersona({
+  preferredPersona,
+  roleType,
+  route,
+}: {
+  preferredPersona?: string | null | undefined;
+  roleType?: string | null | undefined;
+  route?: string | null | undefined;
+}) {
+  return (
+    getPersonaFromRoute(route) ??
+    getPersonaFromRoleType(roleType) ??
+    getPersona(preferredPersona)
+  );
+}
+
 export function getPostAuthRoute(persona: Persona) {
   return personaConfigs[persona].landingRoute;
+}
+
+export function getSettingsRoute(persona: Persona) {
+  return persona === "employer" ? "/employer/settings" : "/settings";
 }
 
 export function getSafeCallbackUrl(callbackUrl: string | null | undefined) {

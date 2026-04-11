@@ -46,7 +46,10 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/employer/settings",
+    );
     expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
@@ -54,8 +57,8 @@ describe("HeaderAuthControls", () => {
     expect(screen.queryByText(/review name, email, password guidance/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the trigger identity-focused while surfacing onboarding in the menu", () => {
-    window.localStorage.setItem("career-ai.preferred-persona", "employer");
+  it("keeps the trigger identity-focused while keeping employer settings sticky", () => {
+    window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
     mockUsePathname.mockReturnValue("/settings");
     mockUseSession.mockReturnValue({
       data: {
@@ -81,6 +84,10 @@ describe("HeaderAuthControls", () => {
     expect(screen.getByRole("menuitem", { name: /finish onboarding/i })).toHaveAttribute(
       "href",
       "/onboarding",
+    );
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/employer/settings",
     );
   });
 });

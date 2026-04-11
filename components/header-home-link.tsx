@@ -3,12 +3,21 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { getPersonaFromRoute, getPostAuthRoute } from "@/lib/personas";
+import { useSession } from "next-auth/react";
+import { readPreferredPersona } from "@/lib/persona-preference";
+import { getPersonaFromRoute, getPostAuthRoute, resolveActivePersona } from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
 
 export function HeaderHomeLink() {
   const pathname = usePathname();
-  const activePersona = getPersonaFromRoute(pathname);
+  const { data: session } = useSession();
+  const activePersona = session?.user
+    ? resolveActivePersona({
+        preferredPersona: readPreferredPersona(),
+        roleType: session.user.roleType,
+        route: pathname,
+      })
+    : getPersonaFromRoute(pathname);
   const homeHref = activePersona ? getPostAuthRoute(activePersona) : "/";
   const isHome = pathname === homeHref;
 
