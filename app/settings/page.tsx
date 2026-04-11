@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import {
   ArrowUpRight,
   BriefcaseBusiness,
-  KeyRound,
-  Mail,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -95,6 +93,12 @@ export default async function SettingsPage() {
   const isOnboardingComplete = context.onboarding.status === "completed";
   const primaryHref = isOnboardingComplete ? getPostAuthRoute(preferredPersona) : "/onboarding";
   const primaryLabel = isOnboardingComplete ? "Open workspace" : "Finish onboarding";
+  const onboardingStatusLabel = isOnboardingComplete
+    ? "Completed"
+    : `Step ${context.onboarding.currentStep} of 4`;
+  const currentDestinationLabel = isOnboardingComplete
+    ? personaConfig.workspaceLabel
+    : "Finish onboarding";
   const primaryDescription = isOnboardingComplete
     ? `Continue into the ${personaConfig.workspaceLabel.toLowerCase()} this account is currently using.`
     : `Resume setup at step ${context.onboarding.currentStep} of 4 and complete the persistent account profile.`;
@@ -125,9 +129,9 @@ export default async function SettingsPage() {
               <span className={styles.eyebrow}>Profile & account</span>
               <h1 className={styles.title}>Settings</h1>
               <p className={styles.subtitle}>
-                {getFirstName(displayName)}, this workspace now shows the identity details,
-                security controls, and role-specific account metadata users expect in a
-                modern SaaS profile surface.
+                {getFirstName(displayName)}, this page keeps the useful account context in one
+                place so profile details, onboarding state, and identity metadata are easy to
+                scan without repeated cards.
               </p>
 
               <div className={styles.statusRow}>
@@ -183,8 +187,20 @@ export default async function SettingsPage() {
                 <dd>{accountTypeCopy.label}</dd>
               </div>
               <div>
+                <dt>Declared role</dt>
+                <dd>{context.onboarding.roleType ?? "Not selected yet"}</dd>
+              </div>
+              <div>
                 <dt>Current experience</dt>
                 <dd>{personaConfig.workspaceLabel}</dd>
+              </div>
+              <div>
+                <dt>Current destination</dt>
+                <dd>{currentDestinationLabel}</dd>
+              </div>
+              <div>
+                <dt>Onboarding status</dt>
+                <dd>{onboardingStatusLabel}</dd>
               </div>
               <div>
                 <dt>Authentication provider</dt>
@@ -199,103 +215,34 @@ export default async function SettingsPage() {
                 <dd>{context.aggregate.talentIdentity.talent_agent_id}</dd>
               </div>
             </dl>
-          </article>
 
-          <article className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2>Sign-in & security</h2>
-              <p>
-                Email and password controls are routed to the identity provider that actually
-                owns them today.
+            <div className={styles.profileFooter}>
+              <p className={styles.profileFootnote}>
+                Credentials and recovery still live in Google, so Career AI only shows the
+                linked account context here.
               </p>
-            </div>
 
-            <div className={styles.securityList}>
-              <div className={styles.securityRow}>
-                <Mail aria-hidden="true" size={18} strokeWidth={2} />
-                <div>
-                  <strong>Review your account email</strong>
-                  <span>
-                    Users can always see the Google-backed email address attached to this
-                    Career AI account.
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.securityRow}>
-                <KeyRound aria-hidden="true" size={18} strokeWidth={2} />
-                <div>
-                  <strong>Change password in Google</strong>
-                  <span>
-                    Because sign-in is OAuth-only right now, password updates, recovery
-                    options, and 2-Step Verification stay in Google security settings.
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.securityRow}>
-                <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                <div>
-                  <strong>Verified email source of truth</strong>
-                  <span>
-                    Career AI reads the verified Google identity instead of asking users to
-                    manage duplicate credentials.
-                  </span>
-                </div>
+              <div className={styles.profileLinks}>
+                <a
+                  className={styles.inlineLink}
+                  href="https://myaccount.google.com/"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Google account
+                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
+                </a>
+                <a
+                  className={styles.inlineLink}
+                  href="https://myaccount.google.com/security"
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Google security
+                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
+                </a>
               </div>
             </div>
-
-            <div className={styles.actionStack}>
-              <a
-                className={styles.secondaryLink}
-                href="https://myaccount.google.com/"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Manage Google account
-                <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-              </a>
-              <a
-                className={styles.secondaryLink}
-                href="https://myaccount.google.com/security"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Open Google security
-                <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-              </a>
-            </div>
-          </article>
-
-          <article className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <h2>Account experience</h2>
-              <p>
-                Role selection affects routing, messaging, and the product surface users see
-                after sign-in.
-              </p>
-            </div>
-
-            <div className={styles.accountTypeCard}>
-              <span className={styles.accountTypeBadge}>{personaConfig.shortLabel}</span>
-              <strong>{accountTypeCopy.label} account</strong>
-              <p>{accountTypeCopy.description}</p>
-            </div>
-
-            <ul className={styles.guidanceList}>
-              <li>Declared role: {context.onboarding.roleType ?? "Not selected yet"}</li>
-              <li>Onboarding progress: {context.onboarding.profileCompletionPercent}% complete</li>
-              <li>Current experience: {personaConfig.shortLabel}</li>
-              <li>
-                If the user needs a different Google email, sign out and continue with the
-                Google account they want to use for Career AI.
-              </li>
-            </ul>
-
-            <Link className={styles.inlineLink} href={primaryHref}>
-              {primaryLabel}
-              <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-            </Link>
           </article>
         </section>
       </div>

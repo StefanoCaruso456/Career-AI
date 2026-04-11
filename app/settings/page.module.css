@@ -140,7 +140,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.35rem;
 }
 
@@ -206,44 +206,7 @@
   line-height: 1.55;
 }
 
-.securityList {
-  display: grid;
-  gap: 0.9rem;
-}
-
-.securityRow {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  padding: 0.95rem 1rem;
-  border-radius: 1.3rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.securityRow div {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.securityRow strong {
-  font-size: 0.94rem;
-  letter-spacing: -0.02em;
-}
-
-.securityRow span {
-  color: var(--text-secondary);
-  font-size: 0.84rem;
-  line-height: 1.55;
-}
-
-.actionStack {
-  display: grid;
-  gap: 0.7rem;
-}
-
 .primaryLink,
-.secondaryLink,
 .inlineLink {
   display: inline-flex;
   width: fit-content;
@@ -257,8 +220,7 @@
     background 180ms ease;
 }
 
-.primaryLink,
-.secondaryLink {
+.primaryLink {
   padding: 0.86rem 1rem;
   border-radius: 1.1rem;
   border: 1px solid rgba(141, 127, 255, 0.18);
@@ -276,59 +238,31 @@
   font-weight: 600;
 }
 
-.accountTypeCard {
+.profileFooter {
   display: grid;
-  gap: 0.55rem;
-  padding: 1rem;
-  border-radius: 1.3rem;
-  border: 1px solid rgba(141, 127, 255, 0.18);
-  background:
-    radial-gradient(circle at top right, rgba(141, 127, 255, 0.12), transparent 34%),
-    rgba(18, 21, 33, 0.86);
+  gap: 0.9rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.accountTypeCard strong {
-  font-size: 1.02rem;
-  letter-spacing: -0.02em;
-}
-
-.accountTypeCard p {
+.profileFootnote {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
-.accountTypeBadge {
-  display: inline-flex;
-  width: fit-content;
-  align-items: center;
-  padding: 0.42rem 0.7rem;
-  border-radius: 999px;
-  background: rgba(141, 127, 255, 0.12);
-  border: 1px solid rgba(141, 127, 255, 0.24);
-  color: #f3f0ff;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.guidanceList {
-  margin: 0;
-  padding-left: 1rem;
-  display: grid;
-  gap: 0.7rem;
-  color: var(--text-secondary);
+.profileLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem 1.1rem;
 }
 
 .primaryLink:hover,
-.secondaryLink:hover,
 .inlineLink:hover {
   transform: translateY(-2px);
 }
 
 .primaryLink:focus-visible,
-.secondaryLink:focus-visible,
 .inlineLink:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.86);
   outline-offset: 3px;
@@ -359,7 +293,7 @@
   }
 
   .primaryLink,
-  .secondaryLink {
+  .inlineLink {
     width: 100%;
     justify-content: center;
   }
@@ -367,7 +301,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .primaryLink:hover,
-  .secondaryLink:hover,
   .inlineLink:hover {
     transform: none;
   }
