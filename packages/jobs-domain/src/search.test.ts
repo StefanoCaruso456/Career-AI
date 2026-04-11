@@ -117,6 +117,7 @@ describe("jobs search service", () => {
     expect(result.query.filters.location).toBe("Austin");
     expect(result.query.filters.role).toBe("senior product manager");
     expect(result.assistantMessage.toLowerCase()).toContain("senior product manager");
+    expect(result.assistantMessage.toLowerCase()).not.toContain("title aligned with");
   });
 
   it("uses Career ID defaults for generic find-jobs prompts when a signed-in profile exists", async () => {

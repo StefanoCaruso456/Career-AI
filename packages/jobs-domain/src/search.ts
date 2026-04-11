@@ -55,10 +55,16 @@ function buildAssistantMessage(args: {
   const personalizationSegment = args.query.usedCareerIdDefaults
     ? " I kept the search broad and used your Career ID context to rank the strongest matches."
     : "";
-  const topJob = args.jobs[0];
-  const topSignal = topJob?.matchSummary ? ` Top match: ${topJob.title} at ${topJob.companyName} because ${topJob.matchSummary}.` : "";
+  const topMatches = args.jobs
+    .slice(0, 3)
+    .map((job) => {
+      const location = job.location ? ` (${job.location})` : "";
 
-  return `I found ${args.jobs.length} grounded${workplaceSegment}${roleSegment} job matches${locationSegment}${companySegment}.${personalizationSegment}${topSignal}`;
+      return `${job.title} at ${job.companyName}${location}`;
+    })
+    .join("; ");
+
+  return `I found ${args.jobs.length} grounded${workplaceSegment}${roleSegment} job matches${locationSegment}${companySegment}.${personalizationSegment} Best fits: ${topMatches}.`;
 }
 
 export async function searchJobsPanel(args: {

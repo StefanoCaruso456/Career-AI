@@ -24,6 +24,7 @@ import {
   inferJobWorkplaceType,
   normalizeHumanLabel,
 } from "./metadata";
+import { formatJobMatchReason } from "@/lib/jobs/format-job-match-reason";
 import {
   buildRetrievalEmptyState,
   buildRetrievalRailCards,
@@ -798,11 +799,11 @@ export function buildJobRailCards(jobs: JobPostingDto[]) {
     company: job.companyName,
     jobId: job.id,
     location: job.location,
-    matchReason:
-      job.matchSummary ??
-      job.matchReasons?.[0] ??
-      job.matchSignals?.[0] ??
-      buildMatchSummary(job),
+    matchReason: formatJobMatchReason({
+      matchReason: job.matchSignals?.[0] ?? buildMatchSummary(job),
+      matchReasons: job.matchReasons,
+      matchSummary: job.matchSummary,
+    }),
     relevanceScore: job.relevanceScore ?? null,
     salaryText: job.salaryText ?? null,
     summary: job.descriptionSnippet ?? null,

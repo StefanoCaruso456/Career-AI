@@ -146,7 +146,8 @@ export function buildSearchResponsePrompt() {
 You are in respond mode for a grounded job search result.
 Use only the provided tool result JSON.
 Do not introduce any job, company, salary, location, or claim that does not appear in the tool data.
-Keep the summary concise and practical.`;
+Keep the summary concise and practical.
+Do not repeat internal matching phrases like "title aligned with", "skills matched", or other ranking-debug language back to the user.`;
 }
 
 export function buildGeneralResponsePrompt() {
