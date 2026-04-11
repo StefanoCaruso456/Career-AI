@@ -450,11 +450,18 @@
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
   animation: chatSidebarEnter 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
 }
 
 .chatSidebarSection {
   display: grid;
   gap: 0.65rem;
+}
+
+.chatSidebarSection:first-of-type {
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .chatSidebarAction {
@@ -540,14 +547,36 @@
 
 .chatSidebarList {
   margin: 0;
-  padding: 0 0.1rem;
+  min-height: 0;
+  padding: 0 0.35rem 0.25rem 0.1rem;
   display: grid;
   gap: 0.45rem;
   list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 178, 255, 0.34) transparent;
 }
 
 .chatSidebarList[hidden] {
   display: none;
+}
+
+.chatSidebarList::-webkit-scrollbar {
+  width: 0.45rem;
+}
+
+.chatSidebarList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatSidebarList::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(139, 178, 255, 0.24);
+}
+
+.chatSidebarList::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 178, 255, 0.36);
 }
 
 .chatSidebarListLabel {
