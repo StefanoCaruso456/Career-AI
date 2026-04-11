@@ -3,6 +3,8 @@ const sourcingVerbs = /\b(find|source|search|match|shortlist|screen|surface|pull
 const sourcingTargets = /\b(candidate|candidates|talent|people|profiles)\b/i;
 const titleKeywords =
   /\b(engineer|developer|manager|designer|analyst|scientist|architect|recruiter|marketer|consultant|director|lead|specialist|coordinator)\b/i;
+const directLookupPattern =
+  /\b(?:TAID-\d{6}|tal_[a-z0-9-]+|share_[a-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\b/i;
 
 export function isEmployerCandidateSearchIntent(prompt: string) {
   const normalizedPrompt = prompt.replace(/\s+/g, " ").trim();
@@ -18,6 +20,10 @@ export function isEmployerCandidateSearchIntent(prompt: string) {
       normalizedPrompt,
     )
   ) {
+    return true;
+  }
+
+  if (directLookupPattern.test(normalizedPrompt)) {
     return true;
   }
 

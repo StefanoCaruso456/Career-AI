@@ -100,6 +100,7 @@ export const employerCandidateMatchSchema = z.object({
   careerId: z.string(),
   fullName: z.string(),
   currentRole: z.string().nullable(),
+  currentEmployer: z.string().nullable(),
   targetRole: z.string().nullable(),
   headline: z.string().nullable(),
   location: z.string().nullable(),
@@ -121,6 +122,7 @@ export const employerCandidateMatchSchema = z.object({
   actions: z.object({
     careerIdUrl: z.string().nullable(),
     profileUrl: z.string().nullable(),
+    trustProfileUrl: z.string().nullable(),
   }),
 });
 

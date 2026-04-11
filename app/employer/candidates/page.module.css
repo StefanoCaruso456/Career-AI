@@ -1,0 +1,235 @@
+.page {
+  min-height: 100vh;
+  padding: 2rem 1.25rem 3rem;
+  background:
+    radial-gradient(circle at top, rgba(255, 168, 125, 0.12), transparent 32%),
+    linear-gradient(180deg, #120f0e, #1c1716 34%, #0f0f10 100%);
+}
+
+.shell {
+  display: grid;
+  gap: 1.4rem;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.hero,
+.primaryPanel,
+.sidePanel,
+.emptyState {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.6rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(17, 16, 16, 0.82);
+  box-shadow:
+    0 26px 44px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.hero,
+.emptyState,
+.primaryPanel,
+.sidePanel {
+  padding: 1.35rem;
+}
+
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.4rem;
+}
+
+.eyebrow,
+.careerIdLabel,
+.summaryLabel,
+.metricLabel {
+  margin: 0;
+  color: rgba(255, 214, 198, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0.45rem 0 0;
+  color: rgba(255, 249, 247, 0.96);
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1;
+}
+
+.subtitle {
+  max-width: 56rem;
+  margin: 0.75rem 0 0;
+  color: rgba(255, 241, 235, 0.72);
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+.heroActions,
+.metricActions,
+.skillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.72rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.9fr);
+  gap: 1.2rem;
+}
+
+.primaryPanel,
+.sidePanel {
+  display: grid;
+  gap: 1rem;
+}
+
+.identityRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.careerIdValue {
+  margin: 0.18rem 0 0;
+  color: rgba(255, 248, 244, 0.95);
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.rankingBadge,
+.metricCard,
+.summaryCard {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rankingBadge {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.72rem 0.86rem;
+  color: rgba(255, 232, 225, 0.92);
+  text-align: right;
+}
+
+.rankingBadge strong,
+.rankingBadge span {
+  font-size: 0.78rem;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.summaryCard,
+.metricCard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.92rem;
+}
+
+.summaryCard strong,
+.metricCard strong {
+  color: rgba(255, 249, 246, 0.94);
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.summaryCard p,
+.metricCard p,
+.panelSection p,
+.emptyState p {
+  margin: 0;
+  color: rgba(255, 239, 231, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.62;
+}
+
+.panelSection {
+  display: grid;
+  gap: 0.48rem;
+}
+
+.panelSection h2,
+.emptyState h2 {
+  margin: 0;
+  color: rgba(255, 249, 246, 0.94);
+  font-size: 1rem;
+}
+
+.highlightList {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: rgba(255, 239, 231, 0.7);
+  font-size: 0.88rem;
+  line-height: 1.58;
+}
+
+.skillChip,
+.primaryAction,
+.secondaryAction,
+.disabledAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.58rem 0.84rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.skillChip {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 247, 243, 0.84);
+}
+
+.primaryAction {
+  border: 1px solid rgba(255, 168, 129, 0.42);
+  background: rgba(56, 37, 32, 0.88);
+  color: rgba(255, 236, 229, 0.94);
+}
+
+.secondaryAction,
+.disabledAction {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 247, 243, 0.82);
+}
+
+.disabledAction {
+  cursor: default;
+  opacity: 0.62;
+}
+
+@media (max-width: 920px) {
+  .hero,
+  .identityRow {
+    flex-direction: column;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding-inline: 0.95rem;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
