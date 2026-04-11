@@ -48,6 +48,26 @@ type SearchableJob = {
   score: number;
 };
 
+function isGenericFindJobsPrompt(args: {
+  companies: string[];
+  location: string | null;
+  normalizedPrompt: string;
+  role: string | null;
+  seniority: string | null;
+  workplaceType: JobSearchFiltersDto["workplaceType"];
+}) {
+  return (
+    args.companies.length === 0 &&
+    !args.location &&
+    !args.role &&
+    !args.seniority &&
+    !args.workplaceType &&
+    (args.normalizedPrompt.includes("for me") ||
+      args.normalizedPrompt === "find new jobs" ||
+      args.normalizedPrompt === "find new jobs for me")
+  );
+}
+
 function splitEntityList(value: string) {
   return value
     .replace(/\band\b/gi, ",")
@@ -162,10 +182,18 @@ function parseJobSearchQuery(args: {
     ? "remote"
     : normalizedPrompt.includes("hybrid")
       ? "hybrid"
-      : normalizedPrompt.includes("onsite") || normalizedPrompt.includes("on-site")
+    : normalizedPrompt.includes("onsite") || normalizedPrompt.includes("on-site")
         ? "onsite"
         : null;
-  const keywords = extractKeywords(role, prompt);
+  const isGenericPrompt = isGenericFindJobsPrompt({
+    companies,
+    location,
+    normalizedPrompt,
+    role,
+    seniority,
+    workplaceType,
+  });
+  const keywords = isGenericPrompt ? [] : extractKeywords(role, prompt);
   const filters: JobSearchFiltersDto = {
     companies,
     industries: [],
@@ -176,29 +204,11 @@ function parseJobSearchQuery(args: {
     seniority,
     workplaceType,
   };
-  const isGenericPrompt =
-    companies.length === 0 &&
-    !location &&
-    !role &&
-    !seniority &&
-    !workplaceType &&
-    (normalizedPrompt.includes("for me") || normalizedPrompt === "find new jobs" || normalizedPrompt === "find new jobs for me");
 
   if (isGenericPrompt && args.candidateDefaults) {
     return {
       careerIdSignals: args.candidateDefaults.signals,
-      filters: {
-        ...filters,
-        keywords:
-          filters.keywords.length > 0
-            ? filters.keywords
-            : extractKeywords(
-                args.candidateDefaults.targetRole ?? args.candidateDefaults.headline,
-                args.candidateDefaults.targetRole ?? args.candidateDefaults.headline ?? prompt,
-              ),
-        location: filters.location ?? args.candidateDefaults.location,
-        role: filters.role ?? args.candidateDefaults.targetRole ?? args.candidateDefaults.headline,
-      },
+      filters,
       normalizedPrompt,
       prompt,
       usedCareerIdDefaults: true,

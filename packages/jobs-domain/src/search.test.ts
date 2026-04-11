@@ -163,10 +163,68 @@ describe("jobs search service", () => {
     });
 
     expect(result.query.usedCareerIdDefaults).toBe(true);
-    expect(result.query.filters.location).toBe("Chicago, IL");
-    expect(result.query.filters.role).toBe("Product Manager");
+    expect(result.query.filters.keywords).toEqual([]);
+    expect(result.query.filters.location).toBeNull();
+    expect(result.query.filters.role).toBeNull();
     expect(result.jobs[0]?.companyName).toBe("Anthropic");
     expect(recordJobSearchEventMock).toHaveBeenCalledTimes(1);
     expect(recordJobValidationEventsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps generic find-jobs prompts broad while ranking by Career ID defaults", async () => {
+    isDatabaseConfiguredMock.mockReturnValue(true);
+    findPersistentContextByTalentIdentityIdMock.mockResolvedValue({
+      aggregate: {
+        soulRecord: {
+          id: "soul_123",
+        },
+        talentIdentity: {
+          id: "talent_123",
+        },
+      },
+      onboarding: {
+        profile: {
+          headline: "AI Product Manager",
+          location: "Chicago, IL",
+        },
+      },
+    });
+    getPersistentCareerBuilderProfileMock.mockResolvedValue({
+      careerHeadline: "AI Product Manager",
+      location: "Chicago, IL",
+      targetRole: "Product Manager",
+    });
+    getPersistedJobsFeedSnapshotMock.mockResolvedValue({
+      jobs: [
+        createJob({
+          companyName: "Anthropic",
+          id: "job_anthropic_pm",
+          location: "Chicago, IL",
+          title: "Product Manager",
+        }),
+        createJob({
+          companyName: "Salesforce",
+          id: "job_salesforce_cs",
+          location: "Remote",
+          title: "Customer Success Manager",
+        }),
+      ],
+      sources: [{ key: "greenhouse:anthropic" }, { key: "workday:salesforce" }],
+      storage: {
+        lastSyncAt: "2026-04-10T00:00:00.000Z",
+        mode: "database",
+        persistedJobs: 2,
+        persistedSources: 2,
+      },
+    });
+
+    const result = await searchJobsPanel({
+      ownerId: "user:talent_123",
+      prompt: "Find new jobs for me",
+    });
+
+    expect(result.totalMatches).toBe(2);
+    expect(result.jobs[0]?.companyName).toBe("Anthropic");
+    expect(result.jobs[1]?.companyName).toBe("Salesforce");
   });
 });
