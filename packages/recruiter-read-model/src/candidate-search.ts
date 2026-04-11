@@ -12,6 +12,7 @@ import {
   listPersistentCareerBuilderEvidence,
   type PersistentTalentIdentityContext,
 } from "@/packages/persistence/src";
+import { ensureRecruiterDemoDatasetLoaded } from "./demo-dataset";
 
 const DEFAULT_SEARCH_LIMIT = 6;
 const EMPLOYMENT_EVIDENCE_TEMPLATES = new Set([
@@ -265,6 +266,20 @@ function buildSearchQuery(args: {
   };
 }
 
+function shouldAutoloadRecruiterDemoDataset() {
+  const explicitSetting = process.env.CAREER_AI_ENABLE_RECRUITER_DEMO_DATASET?.trim().toLowerCase();
+
+  if (explicitSetting === "1" || explicitSetting === "true" || explicitSetting === "yes") {
+    return true;
+  }
+
+  if (explicitSetting === "0" || explicitSetting === "false" || explicitSetting === "no") {
+    return false;
+  }
+
+  return process.env.NODE_ENV !== "test";
+}
+
 async function buildSearchableCandidate(
   context: PersistentTalentIdentityContext,
 ): Promise<SearchableCandidate | null> {
@@ -277,6 +292,15 @@ async function buildSearchableCandidate(
     soulRecordId: context.aggregate.soulRecord.id,
   });
   const onboardingProfile = context.onboarding.profile;
+  const recruiterVisibility =
+    typeof onboardingProfile.recruiterVisibility === "string"
+      ? onboardingProfile.recruiterVisibility.trim().toLowerCase()
+      : null;
+
+  if (recruiterVisibility === "private") {
+    return null;
+  }
+
   const onboardingHeadline =
     typeof onboardingProfile.headline === "string" ? onboardingProfile.headline.trim() : "";
   const onboardingLocation =
@@ -284,6 +308,10 @@ async function buildSearchableCandidate(
   const onboardingIntent =
     typeof onboardingProfile.intent === "string" ? onboardingProfile.intent.trim() : "";
   const completedEvidence = evidence.filter((item) => item.status === "COMPLETE");
+  const canUseEmploymentSignals =
+    recruiterVisibility === "limited"
+      ? false
+      : context.aggregate.privacySettings.show_employment_records;
   const verifiedExperienceCount = completedEvidence.filter((item) =>
     EMPLOYMENT_EVIDENCE_TEMPLATES.has(item.templateId),
   ).length;
@@ -296,13 +324,15 @@ async function buildSearchableCandidate(
     ...(profile ? tokenize(profile.careerHeadline) : []),
     ...(profile ? tokenize(profile.targetRole) : []),
     ...(profile ? tokenize(profile.coreNarrative) : []),
-    ...completedEvidence.flatMap((item) =>
-      uniq([
-        item.sourceOrIssuer,
-        item.validationContext,
-        item.whyItMatters,
-      ]).flatMap((value) => tokenize(value)),
-    ),
+    ...(canUseEmploymentSignals
+      ? completedEvidence.flatMap((item) =>
+          uniq([
+            item.sourceOrIssuer,
+            item.validationContext,
+            item.whyItMatters,
+          ]).flatMap((value) => tokenize(value)),
+        )
+      : []),
   ])
     .slice(0, 6)
     .map((term) => toDisplayTerm(term));
@@ -312,9 +342,9 @@ async function buildSearchableCandidate(
     targetRole,
     location,
     profileSummary,
-    ...completedEvidence.map((item) => item.sourceOrIssuer),
-    ...completedEvidence.map((item) => item.validationContext),
-    ...completedEvidence.map((item) => item.whyItMatters),
+    ...(canUseEmploymentSignals ? completedEvidence.map((item) => item.sourceOrIssuer) : []),
+    ...(canUseEmploymentSignals ? completedEvidence.map((item) => item.validationContext) : []),
+    ...(canUseEmploymentSignals ? completedEvidence.map((item) => item.whyItMatters) : []),
   ]);
 
   if (searchFragments.length === 0) {
@@ -355,10 +385,16 @@ async function buildSearchableCandidate(
     highlights: uniq([
       currentRole,
       targetRole ? `Targeting ${targetRole}` : null,
-      ...completedEvidence.slice(0, 2).map((item) => item.whyItMatters || item.sourceOrIssuer),
+      ...(canUseEmploymentSignals
+        ? completedEvidence.slice(0, 2).map((item) => item.whyItMatters || item.sourceOrIssuer)
+        : profileSummary
+          ? [profileSummary.split(".")[0] ?? profileSummary]
+          : []),
     ]).slice(0, 3),
     location,
-    priorEmployers: uniq(completedEvidence.map((item) => item.sourceOrIssuer)),
+    priorEmployers: canUseEmploymentSignals
+      ? uniq(completedEvidence.map((item) => item.sourceOrIssuer))
+      : [],
     profileSummary,
     searchText: searchFragments.join(" "),
     skillTerms: tokenize(searchFragments.join(" ")),
@@ -594,6 +630,14 @@ export async function searchEmployerCandidates(args: {
   });
   let contexts: PersistentTalentIdentityContext[] = [];
 
+  if (shouldAutoloadRecruiterDemoDataset()) {
+    try {
+      await ensureRecruiterDemoDatasetLoaded();
+    } catch {
+      // Fall back to whatever live data is already available.
+    }
+  }
+
   try {
     contexts = await listPersistentCandidateContexts();
   } catch {
@@ -611,7 +655,10 @@ export async function searchEmployerCandidates(args: {
       }),
     )
     .filter((match): match is ScoredCandidate => Boolean(match))
-    .sort((left, right) => right.score - left.score);
+    .sort(
+      (left, right) =>
+        right.score - left.score || left.candidate.fullName.localeCompare(right.candidate.fullName),
+    );
   const limitedMatches = scoredMatches
     .slice(0, args.limit ?? DEFAULT_SEARCH_LIMIT)
     .map((match) => match.candidate);
