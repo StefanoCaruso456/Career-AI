@@ -17,6 +17,7 @@ import {
   inferJobWorkplaceType,
   normalizeHumanLabel,
 } from "./metadata";
+import { formatJobMatchReason } from "@/lib/jobs/format-job-match-reason";
 
 const DEFAULT_SEARCH_WINDOW_DAYS = 30;
 const SEARCH_SCORING_VERSION = "hybrid_v1";
@@ -1266,11 +1267,11 @@ function createRailCards(results: JobPostingDto[]) {
     company: job.companyName,
     jobId: job.id,
     location: job.location,
-    matchReason:
-      job.matchSummary ??
-      job.matchReasons?.[0] ??
-      job.matchSignals?.[0] ??
-      "Grounded match from the live jobs inventory.",
+    matchReason: formatJobMatchReason({
+      matchReason: job.matchSignals?.[0] ?? null,
+      matchReasons: job.matchReasons,
+      matchSummary: job.matchSummary,
+    }),
     relevanceScore: job.relevanceScore ?? null,
     salaryText: job.salaryText ?? null,
     summary: job.descriptionSnippet ?? null,

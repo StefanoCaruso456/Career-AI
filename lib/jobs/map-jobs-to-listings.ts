@@ -1,4 +1,5 @@
 import type { JobPostingDto, JobsPanelResponseDto } from "@/packages/contracts/src";
+import { formatJobMatchReason } from "@/lib/jobs/format-job-match-reason";
 
 export type JobListing = {
   applyUrl: string;
@@ -25,7 +26,10 @@ export function mapJobsToListings(jobs: JobPostingDto[]) {
     id: job.id,
     isOrchestrationReady: job.orchestrationReadiness ?? false,
     location: job.location,
-    matchReason: job.matchSummary ?? "Grounded match from the live jobs inventory.",
+    matchReason: formatJobMatchReason({
+      matchReasons: job.matchReasons,
+      matchSummary: job.matchSummary,
+    }),
     relevanceScore: job.relevanceScore ?? null,
     salaryText: job.salaryText ?? null,
     sourceLabel: job.sourceLabel,
@@ -49,7 +53,11 @@ export function mapJobsPanelToListings(panel: JobsPanelResponseDto) {
       id: card.jobId,
       isOrchestrationReady: job?.orchestrationReadiness ?? false,
       location: card.location,
-      matchReason: card.matchReason,
+      matchReason: formatJobMatchReason({
+        matchReason: card.matchReason,
+        matchReasons: job?.matchReasons,
+        matchSummary: job?.matchSummary,
+      }),
       relevanceScore: card.relevanceScore,
       salaryText: card.salaryText,
       sourceLabel: job?.sourceLabel ?? "Live inventory",

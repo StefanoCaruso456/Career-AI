@@ -120,9 +120,8 @@ function buildSearchFallbackMessage(args: {
     .slice(0, 3)
     .map((job) => {
       const location = job.location ? ` (${job.location})` : "";
-      const reason = job.matchSummary ? ` because ${job.matchSummary}` : "";
 
-      return `${job.title} at ${job.companyName}${location}${reason}`;
+      return `${job.title} at ${job.companyName}${location}`;
     })
     .join("; ");
 
