@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight, UserRound } from "lucide-react";
 import { getDisplayNameForContext } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
+import { ProfileAccountDetailsCard } from "@/components/profile-account-details-card";
 import { getPostAuthRoute, personaConfigs, type Persona } from "@/lib/personas";
 import type { PersistentTalentIdentityContext } from "@/packages/persistence/src";
 import styles from "@/app/settings/page.module.css";
@@ -75,9 +76,7 @@ export function ProfileAccountPage({
   const primaryHref = isOnboardingComplete ? getPostAuthRoute(preferredPersona) : "/onboarding";
   const primaryLabel = isOnboardingComplete ? "Open workspace" : "Finish onboarding";
 
-  const accountRows = [
-    { label: "Display name", value: displayName },
-    { label: "Email", value: email },
+  const readOnlyAccountRows = [
     { label: "Account type", value: accountTypeLabel },
     ...(roleLabel ? [{ label: "Role", value: roleLabel }] : []),
     { label: "Destination", value: destinationLabel },
@@ -86,8 +85,8 @@ export function ProfileAccountPage({
     { label: "Sign-in", value: providerLabel },
     { label: "Last sign-in", value: formatTimestamp(context.user.lastLoginAt) },
     {
-      className: styles.identifierValue,
       label: "Career AI ID",
+      isIdentifier: true,
       value: context.aggregate.talentIdentity.talent_agent_id,
     },
   ];
@@ -148,20 +147,15 @@ export function ProfileAccountPage({
         </section>
 
         <section className={styles.contentGrid}>
-          <article className={`${styles.panel} ${styles.detailsPanel}`}>
-            <div className={styles.panelHeader}>
-              <h2>Account details</h2>
-            </div>
-
-            <dl className={styles.detailList}>
-              {accountRows.map((row) => (
-                <div className={styles.detailRow} key={row.label}>
-                  <dt>{row.label}</dt>
-                  <dd className={row.className}>{row.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </article>
+          <ProfileAccountDetailsCard
+            initialCountryCode={context.aggregate.talentIdentity.country_code}
+            initialDisplayName={displayName}
+            initialEmail={email}
+            initialFirstName={context.user.firstName}
+            initialLastName={context.user.lastName}
+            initialPhoneOptional={context.aggregate.talentIdentity.phone_optional}
+            readOnlyRows={readOnlyAccountRows}
+          />
         </section>
       </div>
     </main>

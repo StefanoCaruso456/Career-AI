@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { ApiError } from "@/packages/contracts/src";
 import { errorResponse, getCorrelationId, successResponse } from "@/packages/audit-security/src";
-import { toTalentIdentityDetailsDto } from "@/packages/identity-domain/src";
+import { toTalentIdentityDetailsDto, updateTalentIdentityProfile } from "@/packages/identity-domain/src";
 
 export async function GET(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
@@ -34,6 +34,48 @@ export async function GET(request: NextRequest) {
     });
 
     return successResponse(toTalentIdentityDetailsDto(context.aggregate), correlationId);
+  } catch (error) {
+    return errorResponse(error, correlationId);
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const correlationId = getCorrelationId(request.headers);
+
+  try {
+    const session = await auth();
+
+    if (!session?.user) {
+      throw new ApiError({
+        errorCode: "UNAUTHORIZED",
+        status: 401,
+        message: "You must be signed in to update your Career AI identity.",
+        details: null,
+        correlationId,
+      });
+    }
+
+    const { context } = await ensurePersistentCareerIdentityForSessionUser({
+      user: {
+        appUserId: session.user.appUserId,
+        authProvider: session.user.authProvider,
+        email: session.user.email,
+        image: session.user.image,
+        name: session.user.name,
+        providerUserId: session.user.providerUserId,
+      },
+      correlationId,
+    });
+    const input = await request.json();
+    const aggregate = await updateTalentIdentityProfile({
+      talentIdentityId: context.aggregate.talentIdentity.id,
+      input,
+      actorType: "talent_user",
+      actorId: context.aggregate.talentIdentity.id,
+      correlationId,
+    });
+
+    return successResponse(toTalentIdentityDetailsDto(aggregate), correlationId);
   } catch (error) {
     return errorResponse(error, correlationId);
   }

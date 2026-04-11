@@ -50,6 +50,32 @@ export const createTalentIdentityInputSchema = z.object({
   phoneOptional: z.string().trim().min(3).max(30).optional(),
 });
 
+export const updateTalentIdentityProfileInputSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(100).optional(),
+    lastName: z.string().trim().min(1).max(100).optional(),
+    countryCode: z
+      .string()
+      .trim()
+      .length(2)
+      .transform((value) => value.toUpperCase())
+      .optional(),
+    phoneOptional: z
+      .union([z.string().trim().min(3).max(30), z.literal(""), z.null()])
+      .transform((value) => (value === "" ? null : value))
+      .optional(),
+  })
+  .refine(
+    (value) =>
+      value.firstName !== undefined ||
+      value.lastName !== undefined ||
+      value.countryCode !== undefined ||
+      value.phoneOptional !== undefined,
+    {
+      message: "At least one profile field must be provided.",
+    },
+  );
+
 export const updatePrivacySettingsInputSchema = z
   .object({
     showEmploymentRecords: z.boolean().optional(),
@@ -70,6 +96,9 @@ export type PrivacySettings = z.infer<typeof privacySettingsSchema>;
 export type SoulRecord = z.infer<typeof soulRecordSchema>;
 export type TalentIdentity = z.infer<typeof talentIdentitySchema>;
 export type CreateTalentIdentityInput = z.infer<typeof createTalentIdentityInputSchema>;
+export type UpdateTalentIdentityProfileInput = z.infer<
+  typeof updateTalentIdentityProfileInputSchema
+>;
 export type UpdatePrivacySettingsInput = z.infer<typeof updatePrivacySettingsInputSchema>;
 
 export type TalentIdentityAggregate = {

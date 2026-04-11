@@ -1,10 +1,12 @@
 import {
   ApiError,
   createTalentIdentityInputSchema,
+  updateTalentIdentityProfileInputSchema,
   updatePrivacySettingsInputSchema,
   type ActorType,
   type CreateTalentIdentityInput,
   type TalentIdentityAggregate,
+  type UpdateTalentIdentityProfileInput,
   type UpdatePrivacySettingsInput,
 } from "@/packages/contracts/src";
 import { logAuditEvent } from "@/packages/audit-security/src";
@@ -14,6 +16,7 @@ import {
   findPersistentContextBySoulRecordId,
   findPersistentContextByTalentIdentityId,
   getPersistentIdentityServiceMetrics,
+  updatePersistentTalentIdentityProfile,
   updatePersistentPrivacySettings,
   updatePersistentSoulRecordReferences,
 } from "@/packages/persistence/src";
@@ -125,6 +128,33 @@ export async function updatePrivacySettings(args: {
     actorId: args.actorId,
     targetType: "privacy_settings",
     targetId: context.aggregate.privacySettings.id,
+    correlationId: args.correlationId,
+    metadataJson: input,
+  });
+
+  return context.aggregate;
+}
+
+export async function updateTalentIdentityProfile(args: {
+  talentIdentityId: string;
+  input: UpdateTalentIdentityProfileInput;
+  actorType: "talent_user" | "system_service";
+  actorId: string;
+  correlationId: string;
+}) {
+  const input = updateTalentIdentityProfileInputSchema.parse(args.input);
+  const context = await updatePersistentTalentIdentityProfile({
+    talentIdentityId: args.talentIdentityId,
+    input,
+    correlationId: args.correlationId,
+  });
+
+  logAuditEvent({
+    eventType: "talent.identity.profile.updated",
+    actorType: args.actorType,
+    actorId: args.actorId,
+    targetType: "talent_identity",
+    targetId: context.aggregate.talentIdentity.id,
     correlationId: args.correlationId,
     metadataJson: input,
   });

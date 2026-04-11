@@ -5,6 +5,7 @@ import {
   findTalentIdentityByEmail,
   getTalentIdentity,
   getTalentIdentityByEmail,
+  updateTalentIdentityProfile,
   updatePrivacySettings,
 } from "@/packages/identity-domain/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
@@ -165,5 +166,37 @@ describe("identity service", () => {
 
     expect(fetched.talentIdentity.id).toBe(created.talentIdentity.id);
     expect(fetched.soulRecord.id).toBe(created.soulRecord.id);
+  });
+
+  it("updates editable profile fields and records an audit event", async () => {
+    const created = await createTalentIdentity({
+      input: {
+        email: "jordan@example.com",
+        firstName: "Jordan",
+        lastName: "West",
+        countryCode: "US",
+      },
+      actorType: "talent_user",
+      actorId: "talent-seed",
+      correlationId: "corr-1",
+    });
+
+    const updated = await updateTalentIdentityProfile({
+      talentIdentityId: created.talentIdentity.id,
+      input: {
+        firstName: "Jordan",
+        lastName: "Miles",
+        phoneOptional: "555-0104",
+      },
+      actorType: "talent_user",
+      actorId: created.talentIdentity.id,
+      correlationId: "corr-2",
+    });
+
+    expect(updated.talentIdentity.display_name).toBe("Jordan Miles");
+    expect(updated.talentIdentity.phone_optional).toBe("555-0104");
+    expect(listAuditEvents().map((event) => event.event_type)).toContain(
+      "talent.identity.profile.updated",
+    );
   });
 });
