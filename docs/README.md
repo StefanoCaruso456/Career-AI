@@ -3,6 +3,7 @@
 ## Product
 
 - [Agent Identity Platform PRD](./product/agent-identity-platform-prd.md)
+- [Employer Agent Sourcer PRD](./product/employer-agent-sourcer-prd.md)
 
 ## Planning
 
