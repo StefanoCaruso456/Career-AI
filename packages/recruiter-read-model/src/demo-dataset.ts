@@ -1,6 +1,11 @@
 import type { CareerEvidenceTemplateId, VerificationStatus } from "@/packages/contracts/src";
-import { attachArtifactToClaim, uploadArtifact } from "@/packages/artifact-domain/src";
-import { createEmploymentClaim } from "@/packages/credential-domain/src";
+import {
+  attachArtifactToClaim,
+  getArtifactStore,
+  listArtifactsForClaim,
+  uploadArtifact,
+} from "@/packages/artifact-domain/src";
+import { createEmploymentClaim, listClaimDetails } from "@/packages/credential-domain/src";
 import { updatePrivacySettings } from "@/packages/identity-domain/src";
 import {
   completePersistentOnboarding,
@@ -10,8 +15,13 @@ import {
   upsertPersistentCareerBuilderEvidence,
   upsertPersistentCareerBuilderProfile,
 } from "@/packages/persistence/src";
-import { addProvenanceRecord, transitionVerificationRecord } from "@/packages/verification-domain/src";
+import {
+  addProvenanceRecord,
+  getVerificationStore,
+  transitionVerificationRecord,
+} from "@/packages/verification-domain/src";
 import { generateRecruiterTrustProfile } from "./service";
+import { getRecruiterReadModelStore } from "./store";
 
 const RECRUITER_DEMO_DATASET_VERSION = "recruiter-demo-2026-04-v1";
 const RECRUITER_DEMO_CANDIDATE_COUNT = 200;
@@ -1062,6 +1072,43 @@ function buildArtifactReferences(artifacts: ArtifactReference[]) {
   }));
 }
 
+function normalizeOptionalString(value: string | null | undefined) {
+  return value ?? null;
+}
+
+function buildClaimMatcher(args: {
+  employment: EmploymentBlueprint;
+}) {
+  return (details: ReturnType<typeof listClaimDetails>[number]) =>
+    details.employmentRecord.employer_name === args.employment.employerName &&
+    details.employmentRecord.role_title === args.employment.roleTitle &&
+    details.employmentRecord.start_date === args.employment.startDate &&
+    normalizeOptionalString(details.employmentRecord.end_date_optional) ===
+      normalizeOptionalString(args.employment.endDate) &&
+    details.employmentRecord.currently_employed === args.employment.currentlyEmployed;
+}
+
+function getExistingShareProfile(args: { talentIdentityId: string }) {
+  return [...getRecruiterReadModelStore().profilesById.values()]
+    .filter((profile) => profile.talent_identity_id === args.talentIdentityId)
+    .sort((left, right) => right.generated_at.localeCompare(left.generated_at))[0];
+}
+
+function getArtifactReferencesForClaim(args: { claimId: string }) {
+  const store = getArtifactStore();
+
+  return listArtifactsForClaim(args.claimId)
+    .map((artifactId) => store.artifactsById.get(artifactId))
+    .filter((artifact): artifact is NonNullable<typeof artifact> => Boolean(artifact))
+    .map((artifact) => ({
+      artifactId: artifact.artifact_id,
+      mimeType: artifact.mime_type,
+      name: artifact.original_filename,
+      sizeLabel: formatBytes(store.contentsById.get(artifact.artifact_id)?.byteLength ?? 0),
+      uploadedAt: artifact.uploaded_at,
+    }));
+}
+
 async function createClaimArtifacts(args: {
   claimId: string;
   employerName: string;
@@ -1127,6 +1174,137 @@ function buildVerificationPath(targetStatus: VerificationStatus): VerificationSt
   }
 }
 
+const verificationStatusOrder: VerificationStatus[] = [
+  "NOT_SUBMITTED",
+  "SUBMITTED",
+  "PARSING",
+  "PARSED",
+  "PENDING_REVIEW",
+  "PARTIALLY_VERIFIED",
+  "REVIEWED",
+  "SOURCE_VERIFIED",
+  "MULTI_SOURCE_VERIFIED",
+  "EXPIRED",
+  "REJECTED",
+  "NEEDS_RESUBMISSION",
+];
+
+function getVerificationOrder(status: VerificationStatus) {
+  const index = verificationStatusOrder.indexOf(status);
+
+  return index === -1 ? 0 : index;
+}
+
+async function ensureClaimVerification(args: {
+  claimId: string;
+  correlationId: string;
+  targetStatus: VerificationStatus;
+}) {
+  const existing = listClaimDetails({
+    correlationId: args.correlationId,
+  }).find((details) => details.claimId === args.claimId);
+
+  if (!existing) {
+    return;
+  }
+
+  const currentStatus = existing.verification.status;
+
+  if (currentStatus === args.targetStatus) {
+    return;
+  }
+
+  const transitionPath = buildVerificationPath(args.targetStatus).filter(
+    (status) => getVerificationOrder(status) > getVerificationOrder(currentStatus),
+  );
+
+  for (const status of transitionPath) {
+    transitionVerificationRecord({
+      actorId: DEMO_ACTOR_ID,
+      actorType: "reviewer_admin",
+      correlationId: `${args.correlationId}:${status}`,
+      reason: `Recruiter demo dataset bootstrap set verification to ${status}.`,
+      reviewerActorId: DEMO_ACTOR_ID,
+      targetStatus: status,
+      verificationRecordId: existing.verification.id,
+    });
+  }
+}
+
+async function ensureClaimArtifacts(args: {
+  claimId: string;
+  correlationId: string;
+  employerName: string;
+  fullName: string;
+  ownerTalentId: string;
+  roleTitle: string;
+  totalArtifacts: number;
+}) {
+  const existingArtifacts = getArtifactReferencesForClaim({
+    claimId: args.claimId,
+  });
+
+  if (existingArtifacts.length >= args.totalArtifacts) {
+    return existingArtifacts;
+  }
+
+  const createdArtifacts = await createClaimArtifacts({
+    claimId: args.claimId,
+    employerName: args.employerName,
+    fullName: args.fullName,
+    ownerTalentId: args.ownerTalentId,
+    roleTitle: args.roleTitle,
+    totalArtifacts: args.totalArtifacts - existingArtifacts.length,
+  });
+
+  return [...existingArtifacts, ...createdArtifacts];
+}
+
+function ensureClaimProvenance(args: {
+  claimId: string;
+  employerName: string;
+  roleTitle: string;
+  targetStatus: VerificationStatus;
+}) {
+  const claimDetails = listClaimDetails({
+    correlationId: `claim-provenance:${args.claimId}`,
+  }).find((details) => details.claimId === args.claimId);
+
+  if (!claimDetails) {
+    return;
+  }
+
+  const requiredEntries =
+    args.targetStatus === "SOURCE_VERIFIED" || args.targetStatus === "MULTI_SOURCE_VERIFIED"
+      ? 2
+      : args.targetStatus === "REVIEWED" || args.targetStatus === "PARTIALLY_VERIFIED"
+        ? 1
+        : 0;
+  const store = getVerificationStore();
+  const existingEntries =
+    store.provenanceByVerificationId.get(claimDetails.verification.id) ?? [];
+
+  for (let provenanceIndex = existingEntries.length; provenanceIndex < requiredEntries; provenanceIndex += 1) {
+    addProvenanceRecord({
+      actorId: DEMO_ACTOR_ID,
+      actorType: "system_service",
+      correlationId: `provenance:${claimDetails.verification.id}:${provenanceIndex}`,
+      input: {
+        artifactIdOptional: claimDetails.artifactIds[provenanceIndex],
+        sourceActorIdOptional: DEMO_ACTOR_ID,
+        sourceActorType: provenanceIndex === 0 ? "reviewer_admin" : "system_service",
+        sourceDetails: {
+          employer: args.employerName,
+          roleTitle: args.roleTitle,
+          verificationStage: args.targetStatus,
+        },
+        sourceMethod: provenanceIndex === 0 ? "INTERNAL_REVIEW" : "EMPLOYER_AGENT",
+      },
+      verificationRecordId: claimDetails.verification.id,
+    });
+  }
+}
+
 async function seedEmploymentClaim(args: {
   candidate: CandidateBlueprint;
   claimIndex: number;
@@ -1134,79 +1312,65 @@ async function seedEmploymentClaim(args: {
   ownerTalentId: string;
   soulRecordId: string;
 }) {
-  const signatoryName = SIGNATORY_NAMES[(args.claimIndex + args.candidate.fullName.length) % SIGNATORY_NAMES.length];
-  const created = await createEmploymentClaim({
-    actorId: DEMO_ACTOR_ID,
-    actorType: "system_service",
-    correlationId: `claim:${args.candidate.email}:${args.claimIndex}`,
-    input: {
-      companyLetterheadDetectedOptional: true,
-      currentlyEmployed: args.employment.currentlyEmployed,
-      documentDateOptional: args.employment.endDate ?? args.employment.startDate,
-      employerDomainOptional: `${slugify(args.employment.employerName)}.com`,
-      employerName: args.employment.employerName,
-      employmentTypeOptional: "Full-time",
-      endDate: args.employment.endDate ?? undefined,
-      locationOptional: args.candidate.location,
-      roleTitle: args.employment.roleTitle,
-      signatoryNameOptional: signatoryName,
-      signatoryTitleOptional: "People Operations Manager",
-      soulRecordId: args.soulRecordId,
-      startDate: args.employment.startDate,
-    },
-  });
-  const artifacts = await createClaimArtifacts({
-    claimId: created.claim.id,
+  const correlationId = `claim:${args.candidate.email}:${args.claimIndex}`;
+  const signatoryName =
+    SIGNATORY_NAMES[(args.claimIndex + args.candidate.fullName.length) % SIGNATORY_NAMES.length];
+  const existing = listClaimDetails({
+    correlationId,
+    soulRecordIdOptional: args.soulRecordId,
+  }).find(
+    buildClaimMatcher({
+      employment: args.employment,
+    }),
+  );
+  const claimId =
+    existing?.claimId ??
+    (
+      await createEmploymentClaim({
+        actorId: DEMO_ACTOR_ID,
+        actorType: "system_service",
+        correlationId,
+        input: {
+          companyLetterheadDetectedOptional: true,
+          currentlyEmployed: args.employment.currentlyEmployed,
+          documentDateOptional: args.employment.endDate ?? args.employment.startDate,
+          employerDomainOptional: `${slugify(args.employment.employerName)}.com`,
+          employerName: args.employment.employerName,
+          employmentTypeOptional: "Full-time",
+          endDate: args.employment.endDate ?? undefined,
+          locationOptional: args.candidate.location,
+          roleTitle: args.employment.roleTitle,
+          signatoryNameOptional: signatoryName,
+          signatoryTitleOptional: "People Operations Manager",
+          soulRecordId: args.soulRecordId,
+          startDate: args.employment.startDate,
+        },
+      })
+    ).claim.id;
+  const artifacts = await ensureClaimArtifacts({
+    claimId,
+    correlationId,
     employerName: args.employment.employerName,
     fullName: args.candidate.fullName,
     ownerTalentId: args.ownerTalentId,
     roleTitle: args.employment.roleTitle,
     totalArtifacts: args.employment.artifactCount,
   });
-
-  for (const status of buildVerificationPath(args.employment.targetStatus)) {
-    transitionVerificationRecord({
-      actorId: DEMO_ACTOR_ID,
-      actorType: "reviewer_admin",
-      correlationId: `verification:${created.verificationRecord.id}:${status}`,
-      reason: `Recruiter demo dataset bootstrap set verification to ${status}.`,
-      reviewerActorId: DEMO_ACTOR_ID,
-      targetStatus: status,
-      verificationRecordId: created.verificationRecord.id,
-    });
-  }
-
-  const provenanceEntries =
-    args.employment.targetStatus === "SOURCE_VERIFIED" || args.employment.targetStatus === "MULTI_SOURCE_VERIFIED"
-      ? 2
-      : args.employment.targetStatus === "REVIEWED" || args.employment.targetStatus === "PARTIALLY_VERIFIED"
-        ? 1
-        : 0;
-
-  for (let provenanceIndex = 0; provenanceIndex < provenanceEntries; provenanceIndex += 1) {
-    addProvenanceRecord({
-      actorId: DEMO_ACTOR_ID,
-      actorType: "system_service",
-      correlationId: `provenance:${created.verificationRecord.id}:${provenanceIndex}`,
-      input: {
-        artifactIdOptional: artifacts[provenanceIndex]?.artifactId,
-        sourceActorIdOptional: DEMO_ACTOR_ID,
-        sourceActorType: provenanceIndex === 0 ? "reviewer_admin" : "system_service",
-        sourceDetails: {
-          employer: args.employment.employerName,
-          roleTitle: args.employment.roleTitle,
-          verificationStage: args.employment.targetStatus,
-        },
-        sourceMethod:
-          provenanceIndex === 0 ? "INTERNAL_REVIEW" : "EMPLOYER_AGENT",
-      },
-      verificationRecordId: created.verificationRecord.id,
-    });
-  }
+  await ensureClaimVerification({
+    claimId,
+    correlationId,
+    targetStatus: args.employment.targetStatus,
+  });
+  ensureClaimProvenance({
+    claimId,
+    employerName: args.employment.employerName,
+    roleTitle: args.employment.roleTitle,
+    targetStatus: args.employment.targetStatus,
+  });
 
   return {
     artifacts,
-    claimId: created.claim.id,
+    claimId,
   };
 }
 
@@ -1310,17 +1474,26 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
   let publicShareToken: string | null = null;
 
   if (privacy.allowPublicShareLink) {
-    const profile = await generateRecruiterTrustProfile({
-      actorId: DEMO_ACTOR_ID,
-      actorType: "system_service",
-      correlationId: `share:${blueprint.email}`,
-      input: {
-        baseUrlOptional: DEMO_SHARE_BASE_URL,
-        talentIdentityId,
-      },
+    const existingProfile = getExistingShareProfile({
+      talentIdentityId,
     });
-    shareProfileId = profile.id;
-    publicShareToken = profile.publicShareToken;
+
+    if (existingProfile) {
+      shareProfileId = existingProfile.id;
+      publicShareToken = existingProfile.public_share_token;
+    } else {
+      const profile = await generateRecruiterTrustProfile({
+        actorId: DEMO_ACTOR_ID,
+        actorType: "system_service",
+        correlationId: `share:${blueprint.email}`,
+        input: {
+          baseUrlOptional: DEMO_SHARE_BASE_URL,
+          talentIdentityId,
+        },
+      });
+      shareProfileId = profile.id;
+      publicShareToken = profile.publicShareToken;
+    }
   }
 
   return {
