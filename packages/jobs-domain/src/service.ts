@@ -376,7 +376,7 @@ function formatWindowLabel(windowDays: number | null) {
 }
 
 function getJobTimestamp(job: Pick<JobPostingDto, "postedAt" | "updatedAt">) {
-  const value = job.updatedAt || job.postedAt;
+  const value = job.postedAt || job.updatedAt;
 
   if (!value) {
     return null;

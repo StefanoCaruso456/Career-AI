@@ -208,6 +208,22 @@ const INDUSTRY_KEYWORDS = {
   startup: ["startup", "high growth", "scale up", "venture backed"],
 } as const;
 
+function isFreshnessFirstBrowseInterpretation(interpretation: JobSearchQueryInterpretationDto) {
+  return (
+    interpretation.normalizedRoles.length === 0 &&
+    interpretation.skills.length === 0 &&
+    interpretation.locations.length === 0 &&
+    interpretation.companyTerms.length === 0 &&
+    interpretation.industries.length === 0 &&
+    !interpretation.remotePreference &&
+    !interpretation.seniority &&
+    !interpretation.employmentType &&
+    /(?:\bnew jobs?\b|\blatest jobs?\b|\brecent jobs?\b|\brecently posted\b)/i.test(
+      interpretation.normalizedQuery,
+    )
+  );
+}
+
 type SearchJobDocument = {
   dedupeFingerprint: string;
   fullText: string;
@@ -896,9 +912,9 @@ function matchesPostedWindow(document: SearchJobDocument, postedWithinDays: numb
     return true;
   }
 
-  const timestamp = Date.parse(document.job.updatedAt || document.job.postedAt || "");
+  const timestamp = getRecencyTimestamp(document.job);
 
-  if (Number.isNaN(timestamp)) {
+  if (timestamp === null) {
     return false;
   }
 
@@ -942,6 +958,24 @@ function buildActiveWeights(args: {
   interpretation: JobSearchQueryInterpretationDto;
   profileContext: JobSeekerProfileContextDto | null;
 }) {
+  if (isFreshnessFirstBrowseInterpretation(args.interpretation)) {
+    return {
+      employmentType: 0,
+      freshness: 0.72,
+      industry: 0,
+      lexical: 0,
+      location: 0,
+      mismatchPenalty: 0,
+      profile: 0,
+      remotePreference: 0,
+      semantic: 0,
+      seniority: 0,
+      skill: 0,
+      title: 0,
+      trust: 0.28,
+    } satisfies JobSearchRankingSummaryDto["weights"];
+  }
+
   return {
     employmentType: args.interpretation.employmentType ? 0.05 : 0,
     freshness: 0.07,
@@ -960,9 +994,9 @@ function buildActiveWeights(args: {
 }
 
 function computeFreshnessScore(job: JobPostingDto) {
-  const timestamp = Date.parse(job.updatedAt || job.postedAt || "");
+  const timestamp = getRecencyTimestamp(job);
 
-  if (Number.isNaN(timestamp)) {
+  if (timestamp === null) {
     return 0;
   }
 
@@ -1237,9 +1271,16 @@ function createRankingSummary(args: {
   } satisfies JobSearchRankingSummaryDto;
 }
 
-function inferResultQuality(candidates: SearchRankedCandidate[]) {
+function inferResultQuality(
+  candidates: SearchRankedCandidate[],
+  interpretation: JobSearchQueryInterpretationDto,
+) {
   if (candidates.length === 0) {
     return "empty" as const;
+  }
+
+  if (isFreshnessFirstBrowseInterpretation(interpretation)) {
+    return "acceptable" as const;
   }
 
   const topScore = candidates[0]?.breakdown.finalScore ?? 0;
@@ -1261,6 +1302,29 @@ function inferResultQuality(candidates: SearchRankedCandidate[]) {
   return "weak" as const;
 }
 
+function sortCandidates(
+  candidates: SearchRankedCandidate[],
+  interpretation: JobSearchQueryInterpretationDto,
+) {
+  if (isFreshnessFirstBrowseInterpretation(interpretation)) {
+    return [...candidates].sort(
+      (left, right) =>
+        right.breakdown.freshnessScore - left.breakdown.freshnessScore ||
+        right.breakdown.trustScore - left.breakdown.trustScore ||
+        (getRecencyTimestamp(right.job) ?? 0) - (getRecencyTimestamp(left.job) ?? 0) ||
+        right.breakdown.finalScore - left.breakdown.finalScore,
+    );
+  }
+
+  return [...candidates].sort(
+    (left, right) =>
+      right.breakdown.finalScore - left.breakdown.finalScore ||
+      right.breakdown.titleMatchScore - left.breakdown.titleMatchScore ||
+      right.breakdown.semanticScore - left.breakdown.semanticScore ||
+      right.breakdown.lexicalScore - left.breakdown.lexicalScore,
+  );
+}
+
 function createRailCards(results: JobPostingDto[]) {
   return results.map((job) => ({
     applyUrl: job.canonicalApplyUrl ?? job.applyUrl,
@@ -1278,6 +1342,18 @@ function createRailCards(results: JobPostingDto[]) {
     title: job.title,
     workplaceType: job.workplaceType ?? null,
   }));
+}
+
+function getRecencyTimestamp(job: Pick<JobPostingDto, "postedAt" | "updatedAt">) {
+  const value = job.postedAt || job.updatedAt;
+
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+
+  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function scoreDocument(args: {
@@ -1615,17 +1691,11 @@ export function runHybridJobSearchPass(args: {
             )
             .slice(0, Math.max(args.limit * BASELINE_LIMIT_MULTIPLIER, 24))
         : [];
-  const mergedCandidates = [...baselineCandidates].sort(
-    (left, right) =>
-      right.breakdown.finalScore - left.breakdown.finalScore ||
-      right.breakdown.titleMatchScore - left.breakdown.titleMatchScore ||
-      right.breakdown.semanticScore - left.breakdown.semanticScore ||
-      right.breakdown.lexicalScore - left.breakdown.lexicalScore,
-  );
+  const mergedCandidates = sortCandidates(baselineCandidates, queryInterpretation);
   const pagedResults = mergedCandidates
     .slice(offset, offset + args.limit)
     .map((candidate) => candidate.job);
-  const resultQuality = inferResultQuality(mergedCandidates);
+  const resultQuality = inferResultQuality(mergedCandidates, queryInterpretation);
   const searchLatencyMs = Date.now() - startedAt;
 
   return {

@@ -35,6 +35,7 @@ function createJob(args: {
   descriptionSnippet?: string;
   id: string;
   location: string | null;
+  postedAt?: string;
   salaryText?: string | null;
   sourceLane?: "ats_direct" | "aggregator";
   sourceQuality?: "high_signal" | "coverage";
@@ -50,7 +51,7 @@ function createJob(args: {
     externalId: args.id,
     id: args.id,
     location: args.location,
-    postedAt: "2026-04-10T00:00:00.000Z",
+    postedAt: args.postedAt ?? "2026-04-10T00:00:00.000Z",
     salaryText: args.salaryText ?? null,
     sourceKey: `${args.sourceLane ?? "ats_direct"}:${args.companyName.toLowerCase()}`,
     sourceLabel: args.companyName,
@@ -163,7 +164,7 @@ describe("jobs search service", () => {
 
     const result = await searchJobsPanel({
       ownerId: "user:talent_123",
-      prompt: "Find new jobs for me",
+      prompt: "Find jobs for me",
     });
 
     expect(result.query.usedCareerIdDefaults).toBe(true);
@@ -224,12 +225,53 @@ describe("jobs search service", () => {
 
     const result = await searchJobsPanel({
       ownerId: "user:talent_123",
-      prompt: "Find new jobs for me",
+      prompt: "Find jobs for me",
     });
 
     expect(result.totalMatches).toBe(2);
     expect(result.jobs[0]?.companyName).toBe("Anthropic");
     expect(result.jobs[1]?.companyName).toBe("Salesforce");
+  });
+
+  it("treats generic new-jobs prompts as newest-live-jobs browsing across sources", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "Adobe",
+          id: "job_adobe_old",
+          location: "Remote",
+          postedAt: "2026-03-01T00:00:00.000Z",
+          title: "Product Designer",
+        }),
+        createJob({
+          companyName: "Cisco",
+          id: "job_cisco_newest",
+          location: "Austin, TX",
+          postedAt: "2026-04-10T12:00:00.000Z",
+          title: "Software Engineer",
+        }),
+        createJob({
+          companyName: "NVIDIA",
+          id: "job_nvidia_newer",
+          location: "Remote",
+          postedAt: "2026-04-09T12:00:00.000Z",
+          title: "ML Engineer",
+        }),
+      ],
+      sources: [{ key: "workday:cisco" }, { key: "workday:nvidia" }, { key: "workday:adobe" }],
+    });
+
+    const result = await searchJobsPanel({
+      prompt: "Find new jobs for me",
+    });
+
+    expect(result.query.filters.postedWithinDays).toBeNull();
+    expect(result.agent.resultQuality).toBe("acceptable");
+    expect(result.agent.clarificationQuestion).toBeNull();
+    expect(result.assistantMessage).toContain("newest live jobs across all connected sources");
+    expect(result.jobs[0]?.companyName).toBe("Cisco");
+    expect(result.jobs[1]?.companyName).toBe("NVIDIA");
   });
 
   it("retrieves semantic role variants and explains why they matched", async () => {
