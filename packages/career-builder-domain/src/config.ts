@@ -11,7 +11,7 @@ export type BuilderEvidenceTemplate = {
   guidance: string;
   id: CareerEvidenceTemplateId;
   modalPhases: CareerPhase[];
-  section: "employment" | "identity" | "network";
+  section: "education" | "employment" | "identity" | "network";
   sourceHint: string;
   title: string;
   uploadKind?: "default" | "drivers-license-images";
@@ -62,11 +62,11 @@ export const phaseMeta: Record<
   },
   document: {
     actionLabel: "Save document-backed evidence",
-    description: "Attach role, chronology, and employment proof that can be reviewed directly.",
+    description: "Attach work history, education, and credential proof that can be reviewed directly.",
     label: "Document-backed",
     modalTitle: "Document-backed evidence",
     modalSubtitle:
-      "Use formal employment documents to strengthen chronology, role history, and career progression.",
+      "Use formal employment, education, and credential documents to strengthen your verified story.",
     previewLabel: "document-backed",
     rank: 3,
     supportTitle: "Structured proof",
@@ -84,14 +84,14 @@ export const phaseMeta: Record<
   },
   institution: {
     actionLabel: "Save institution-verified evidence",
-    description: "Anchor the Career ID to identity providers and institution-issued verification.",
+    description: "Anchor the Career ID to identity providers, schools, and credential issuers.",
     label: "Institution-verified",
     modalTitle: "Institution-verified evidence",
     modalSubtitle:
-      "Bring in identity anchors and verified proof from institutions or third-party providers.",
+      "Bring in identity anchors and verified proof from institutions, registrars, and credential issuers.",
     previewLabel: "institution-verified",
     rank: 5,
-    supportTitle: "Identity anchors",
+    supportTitle: "Institution and issuer proof",
   },
 };
 
@@ -137,6 +137,50 @@ export const builderEvidenceTemplates: BuilderEvidenceTemplate[] = [
     section: "identity",
     sourceHint: "Signer, legal representative, or certifying party",
     title: "Signature-backed documents",
+  },
+  {
+    acceptedFormats: "Official diploma, degree PDF, or scanned copy",
+    completionTier: "document",
+    contextHint: "Which degree, program, or academic milestone does this prove?",
+    guidance: "Diplomas and degree certificates give recruiters fast proof of formal education.",
+    id: "diplomas-degrees",
+    modalPhases: ["document"],
+    section: "education",
+    sourceHint: "School, university, or registrar",
+    title: "Diplomas and degrees",
+  },
+  {
+    acceptedFormats: "Official transcript, registrar PDF, or sealed scan",
+    completionTier: "document",
+    contextHint: "Which attendance window, program, or completion record does this transcript support?",
+    guidance: "Transcripts add coursework and completion detail that backs up academic claims.",
+    id: "transcripts",
+    modalPhases: ["document"],
+    section: "education",
+    sourceHint: "Registrar, school portal, or academic office",
+    title: "Transcripts",
+  },
+  {
+    acceptedFormats: "Official certificate, badge export, or issuer PDF",
+    completionTier: "document",
+    contextHint: "Which certification, skill credential, or continuing education record does this prove?",
+    guidance: "Certification uploads make licensed or skills-based credentials easier to trust quickly.",
+    id: "professional-certifications",
+    modalPhases: ["document"],
+    section: "education",
+    sourceHint: "Certification issuer or credential platform",
+    title: "Professional certifications",
+  },
+  {
+    acceptedFormats: "License PDF, wallet card scan, or regulator record",
+    completionTier: "document",
+    contextHint: "Which active license, board credential, or regulated qualification does this verify?",
+    guidance: "Professional licenses help prove regulated qualifications that carry immediate hiring weight.",
+    id: "professional-licenses",
+    modalPhases: ["document"],
+    section: "education",
+    sourceHint: "Licensing board, regulator, or issuing authority",
+    title: "Professional licenses",
   },
   {
     acceptedFormats: "Offer packet, signed offer, or PDF",
@@ -192,6 +236,28 @@ export const builderEvidenceTemplates: BuilderEvidenceTemplate[] = [
     section: "employment",
     sourceHint: "HR team, people ops, or employer official",
     title: "HR official letters",
+  },
+  {
+    acceptedFormats: "Registrar letter, official verification PDF, or institution email export",
+    completionTier: "institution",
+    contextHint: "Which degree, attendance record, or completion claim does this letter verify?",
+    guidance: "Registrar or institution-issued verification adds stronger proof than self-uploaded academic documents.",
+    id: "institution-verification-letters",
+    modalPhases: ["institution"],
+    section: "education",
+    sourceHint: "Registrar, school official, or institution verification office",
+    title: "Institution verification letters",
+  },
+  {
+    acceptedFormats: "Registry screenshot, public lookup export, or issuer verification PDF",
+    completionTier: "institution",
+    contextHint: "Which active certification, license, or credential does this lookup confirm?",
+    guidance: "Issuer-backed registry proof strengthens certifications and licenses that recruiters may need to validate.",
+    id: "certification-registry-verifications",
+    modalPhases: ["institution"],
+    section: "education",
+    sourceHint: "Issuer, licensing board, or credential registry",
+    title: "Certification registry verifications",
   },
   {
     acceptedFormats: "Written referral, note, or signed PDF",
@@ -257,8 +323,14 @@ export const builderPhaseTemplateIds = Object.fromEntries(
 ) as Record<CareerPhase, CareerEvidenceTemplateId[]>;
 
 export const nextUploadPriority = [
+  "diplomas-degrees",
+  "professional-certifications",
+  "transcripts",
+  "professional-licenses",
   "idme-verification",
   "drivers-license",
+  "institution-verification-letters",
+  "certification-registry-verifications",
   "signature-backed-documents",
   "offer-letters",
   "promotion-letters",
