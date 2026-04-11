@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, KeyRound, Mail, UserRound } from "lucide-react";
+import { ArrowUpRight, UserRound } from "lucide-react";
 import { getDisplayNameForContext } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
 import { getPostAuthRoute, personaConfigs, type Persona } from "@/lib/personas";
@@ -78,6 +78,11 @@ export function ProfileAccountPage({
   const accountRows = [
     { label: "Display name", value: displayName },
     { label: "Email", value: email },
+    { label: "Account type", value: accountTypeLabel },
+    ...(roleLabel ? [{ label: "Role", value: roleLabel }] : []),
+    { label: "Destination", value: destinationLabel },
+    { label: "Setup", value: setupLabel },
+    { label: "Workspace", value: personaConfig.workspaceLabel },
     { label: "Sign-in", value: providerLabel },
     { label: "Last sign-in", value: formatTimestamp(context.user.lastLoginAt) },
     {
@@ -86,17 +91,6 @@ export function ProfileAccountPage({
       value: context.aggregate.talentIdentity.talent_agent_id,
     },
   ];
-
-  const accessRows = [
-    { label: "Account type", value: accountTypeLabel },
-    { label: "Destination", value: destinationLabel },
-    { label: "Setup", value: setupLabel },
-    { label: "Workspace", value: personaConfig.workspaceLabel },
-  ];
-
-  if (roleLabel) {
-    accessRows.splice(1, 0, { label: "Role", value: roleLabel });
-  }
 
   return (
     <main className={styles.page}>
@@ -168,59 +162,6 @@ export function ProfileAccountPage({
               ))}
             </dl>
           </article>
-
-          <div className={styles.sidebarStack}>
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <h2>Access</h2>
-              </div>
-
-              <dl className={styles.detailList}>
-                {accessRows.map((row) => (
-                  <div className={styles.detailRow} key={row.label}>
-                    <dt>{row.label}</dt>
-                    <dd>{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </article>
-
-            <article className={styles.panel}>
-              <div className={styles.panelHeader}>
-                <h2>Security</h2>
-              </div>
-
-              <p className={styles.securityNote}>Credentials and recovery are managed by Google.</p>
-
-              <div className={styles.actionStack}>
-                <a
-                  className={styles.secondaryLink}
-                  href="https://myaccount.google.com/"
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <span className={styles.actionContent}>
-                    <Mail aria-hidden="true" size={16} strokeWidth={2} />
-                    Google account
-                  </span>
-                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-                </a>
-
-                <a
-                  className={styles.secondaryLink}
-                  href="https://myaccount.google.com/security"
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  <span className={styles.actionContent}>
-                    <KeyRound aria-hidden="true" size={16} strokeWidth={2} />
-                    Google security
-                  </span>
-                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-                </a>
-              </div>
-            </article>
-          </div>
         </section>
       </div>
     </main>
