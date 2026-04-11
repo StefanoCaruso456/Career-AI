@@ -39,6 +39,32 @@ npm run dev
 The app runs locally at [http://localhost:3000](http://localhost:3000).
 The homepage assistant calls the official OpenAI Node SDK from the server-side `/api/chat` route and reads `OPENAI_API_KEY` and `OPENAI_MODEL` from the environment.
 
+## Braintrust
+
+The repo now includes a centralized Braintrust bootstrap in [lib/braintrust.ts](./lib/braintrust.ts) and a Next.js startup hook in [instrumentation.ts](./instrumentation.ts).
+
+By default, the bootstrap targets the Braintrust org slug from the app URL you shared:
+
+- `BRAINTRUST_ORG_NAME=Gauntlet_AI`
+- `BRAINTRUST_PROJECT=Career AI`
+
+Required environment variable:
+
+- `BRAINTRUST_API_KEY`
+
+Optional overrides:
+
+- `BRAINTRUST_API_URL`
+- `BRAINTRUST_APP_URL`
+
+To create or initialize the Braintrust project from this repo, run:
+
+```bash
+npm run braintrust:bootstrap
+```
+
+That command loads `.env.local` if present, initializes the Braintrust logger, and emits a bootstrap span so the project exists before the broader runtime trace tree is added.
+
 ## Google Auth
 
 This app now includes Google sign-in using Auth.js and NextAuth route handlers.
