@@ -353,9 +353,9 @@
   position: absolute;
   top: calc(100% + 0.7rem);
   right: 0;
-  min-width: 23rem;
-  padding: 0.95rem;
-  border-radius: 1.35rem;
+  min-width: 18.75rem;
+  padding: 0.8rem;
+  border-radius: 1.2rem;
   border: 1px solid rgba(141, 127, 255, 0.24);
   background:
     radial-gradient(circle at top right, rgba(141, 127, 255, 0.14), transparent 38%),
@@ -367,13 +367,13 @@
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   backdrop-filter: blur(18px) saturate(150%);
   display: grid;
-  gap: 0.75rem;
+  gap: 0.35rem;
 }
 
 .settingsPanelProfile {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.2rem 0.2rem 0.1rem;
+  gap: 0.45rem;
+  padding: 0.15rem 0.15rem 0.45rem;
 }
 
 .settingsPanelIdentity {
@@ -424,22 +424,15 @@
   display: inline-flex;
   width: fit-content;
   align-items: center;
-  padding: 0.42rem 0.72rem;
+  padding: 0.34rem 0.64rem;
   border-radius: 999px;
   border: 1px solid rgba(141, 127, 255, 0.26);
   background: rgba(141, 127, 255, 0.12);
   color: #f3f0ff;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.settingsPanelDescription {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.68);
-  font-size: 0.82rem;
-  line-height: 1.5;
 }
 
 .settingsPanelDivider {
@@ -448,36 +441,42 @@
 }
 
 .settingsItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 0.72rem;
-  padding: 0.88rem 0.92rem;
+  gap: 0.9rem;
+  padding: 0.78rem 0.82rem;
   border: 1px solid transparent;
-  border-radius: 1rem;
+  border-radius: 0.92rem;
   background: transparent;
   color: rgba(247, 247, 247, 0.88);
-  font-size: 0.86rem;
+  font-size: 0.84rem;
   font-weight: 600;
   cursor: pointer;
 }
 
+.settingsItemLead {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.68rem;
+}
+
 .settingsItemCopy {
   min-width: 0;
-  display: grid;
-  gap: 0.14rem;
+  display: block;
 }
 
 .settingsItemCopy strong {
+  display: block;
   font-size: 0.9rem;
   font-weight: 700;
 }
 
-.settingsItemCopy small {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.76rem;
-  font-weight: 500;
-  line-height: 1.45;
+.settingsItemArrow {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .settingsItemCurrent {
@@ -491,14 +490,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.settingsHint {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0 0.15rem;
-  color: rgba(255, 255, 255, 0.66);
-  font-size: 0.76rem;
-  line-height: 1.45;
+.settingsItemDanger {
+  color: rgba(255, 240, 240, 0.92);
 }
 
 .settingsItemDanger:hover {
@@ -654,7 +647,7 @@
 
   .settingsPanel {
     min-width: 0;
-    width: min(100vw - 1.5rem, 23rem);
+    width: min(100vw - 1.5rem, 18.75rem);
   }
 
   .accountAction {

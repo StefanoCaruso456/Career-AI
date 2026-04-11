@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
+  ChevronRight,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
   Settings2,
-  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -47,35 +47,20 @@ function getInitials(name: string | null | undefined, email: string | null | und
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-function getAccountTypeCopy(roleType: string | null | undefined, preferredPersona: Persona) {
+function getAccountTypeLabel(roleType: string | null | undefined, preferredPersona: Persona) {
   if (roleType === "candidate") {
-    return {
-      description:
-        "This user signed up as a job seeker and will see the candidate-side Career AI experience.",
-      label: "Job seeker",
-    };
+    return "Job seeker";
   }
 
   if (roleType === "recruiter") {
-    return {
-      description:
-        "This user signed up as an employer-side recruiter and will land in the hiring workspace.",
-      label: "Employer",
-    };
+    return "Employer";
   }
 
   if (roleType === "hiring_manager") {
-    return {
-      description:
-        "This user signed up as an employer-side hiring manager and will land in the hiring workspace.",
-      label: "Employer",
-    };
+    return "Employer";
   }
 
-  return {
-    description: personaConfigs[preferredPersona].description,
-    label: personaConfigs[preferredPersona].shortLabel,
-  };
+  return personaConfigs[preferredPersona].shortLabel;
 }
 
 export function HeaderAuthControls() {
@@ -159,7 +144,7 @@ export function HeaderAuthControls() {
   const isSettingsPage = pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
   const workspaceHref = getPostAuthRoute(preferredPersona);
   const workspaceLabel = personaConfigs[preferredPersona].workspaceLabel;
-  const accountTypeCopy = getAccountTypeCopy(session.user.roleType, preferredPersona);
+  const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
   const accountLabel = shouldResumeOnboarding ? "Finish onboarding" : displayName;
   const accountMeta = shouldResumeOnboarding
     ? session.user.currentStep
@@ -171,15 +156,7 @@ export function HeaderAuthControls() {
     primaryMenuHref === "/onboarding"
       ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
       : pathname === primaryMenuHref || pathname.startsWith(`${primaryMenuHref}/`);
-  const primaryMenuCopy = shouldResumeOnboarding
-    ? {
-        description: accountMeta,
-        label: "Finish onboarding",
-      }
-    : {
-        description: `Return to the ${workspaceLabel.toLowerCase()} selected for this account.`,
-        label: "Open workspace",
-      };
+  const primaryMenuLabel = shouldResumeOnboarding ? "Finish onboarding" : "Workspace";
 
   return (
     <div className={styles.actions}>
@@ -226,13 +203,10 @@ export function HeaderAuthControls() {
                   <span>{session.user.email ?? "Google account email unavailable"}</span>
                 </div>
               </div>
-              <span className={styles.settingsPanelBadge}>{accountTypeCopy.label}</span>
-              <p className={styles.settingsPanelDescription}>
-                {shouldResumeOnboarding
-                  ? `Finish setup to unlock the full ${workspaceLabel.toLowerCase()} and profile settings experience.`
-                  : accountTypeCopy.description}
-              </p>
+              <span className={styles.settingsPanelBadge}>{accountTypeLabel}</span>
             </div>
+
+            <div className={styles.settingsPanelDivider} />
 
             <Link
               aria-current={isPrimaryMenuPage ? "page" : undefined}
@@ -247,14 +221,14 @@ export function HeaderAuthControls() {
               }}
               role="menuitem"
             >
-              <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
-              <span className={styles.settingsItemCopy}>
-                <strong>{primaryMenuCopy.label}</strong>
-                <small>{primaryMenuCopy.description}</small>
+              <span className={styles.settingsItemLead}>
+                <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
+                <span className={styles.settingsItemCopy}>
+                  <strong>{primaryMenuLabel}</strong>
+                </span>
               </span>
+              <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
             </Link>
-
-            <div className={styles.settingsPanelDivider} />
 
             <Link
               aria-current={isSettingsPage ? "page" : undefined}
@@ -269,17 +243,16 @@ export function HeaderAuthControls() {
               }}
               role="menuitem"
             >
-              <UserRound aria-hidden="true" size={16} strokeWidth={2} />
-              <span className={styles.settingsItemCopy}>
-                <strong>Profile & account</strong>
-                <small>Review name, email, password guidance, and account type.</small>
+              <span className={styles.settingsItemLead}>
+                <UserRound aria-hidden="true" size={16} strokeWidth={2} />
+                <span className={styles.settingsItemCopy}>
+                  <strong>Profile & account</strong>
+                </span>
               </span>
+              <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
             </Link>
 
-            <div className={styles.settingsHint}>
-              <ShieldCheck aria-hidden="true" size={15} strokeWidth={2} />
-              <span>Google currently manages the verified email and password for this account.</span>
-            </div>
+            <div className={styles.settingsPanelDivider} />
 
             <button
               className={`${styles.settingsItem} ${styles.settingsItemDanger}`}
@@ -290,10 +263,11 @@ export function HeaderAuthControls() {
               role="menuitem"
               type="button"
             >
-              <LogOut aria-hidden="true" size={16} strokeWidth={2} />
-              <span className={styles.settingsItemCopy}>
-                <strong>Sign out</strong>
-                <small>End this session and return to the public Career AI homepage.</small>
+              <span className={styles.settingsItemLead}>
+                <LogOut aria-hidden="true" size={16} strokeWidth={2} />
+                <span className={styles.settingsItemCopy}>
+                  <strong>Sign out</strong>
+                </span>
               </span>
             </button>
           </div>

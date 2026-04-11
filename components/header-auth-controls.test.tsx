@@ -24,7 +24,7 @@ describe("HeaderAuthControls", () => {
     vi.clearAllMocks();
   });
 
-  it("shows the current account label in the trigger and opens the workspace menu", () => {
+  it("renders a compact settings menu with title-only actions", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
     mockUsePathname.mockReturnValue("/employer");
     mockUseSession.mockReturnValue({
@@ -47,7 +47,10 @@ describe("HeaderAuthControls", () => {
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
     expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
-    expect(screen.getByRole("menuitem", { name: /open workspace/i })).toHaveAttribute("href", "/employer");
+    expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
     expect(screen.getByText("Employer")).toBeInTheDocument();
+    expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/google currently manages/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/review name, email, password guidance/i)).not.toBeInTheDocument();
   });
 });
