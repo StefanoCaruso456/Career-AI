@@ -415,4 +415,38 @@ describe("createJobSeekerAgent", () => {
     expect(result.jobsPanel?.jobs[0]?.companyName).toBe("OpenAI");
     expect(result.jobsPanel?.agent.loopCount).toBe(1);
   });
+
+  it("falls back to a deterministic grounded jobs reply when search-response composition throws", async () => {
+    const model = createModel({
+      composeSearchResponse: vi.fn(async () => {
+        throw new Error("provider timeout");
+      }),
+    });
+    const tools = createTools({
+      searchJobs: vi.fn(async () =>
+        createSearchCatalogResult({
+          jobs: [
+            createJob({
+              companyName: "OpenAI",
+              id: "job_openai_platform",
+              location: "Remote",
+              matchSummary: "title aligned with the request",
+              title: "Software Engineer",
+            }),
+          ],
+          prompt: "find software engineers",
+        }),
+      ),
+    });
+    const agent = createJobSeekerAgent({ model, tools });
+
+    const result = await agent.invoke({
+      messages: [{ content: "find software engineers", role: "user" }],
+      userQuery: "find software engineers",
+    });
+
+    expect(result.jobsPanel?.jobs[0]?.title).toBe("Software Engineer");
+    expect(result.assistantMessage).toContain("I found grounded matches from the live jobs inventory.");
+    expect(result.assistantMessage).toContain("Software Engineer at OpenAI");
+  });
 });

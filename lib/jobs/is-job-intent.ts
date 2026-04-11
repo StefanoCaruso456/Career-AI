@@ -26,6 +26,60 @@ const jobIntentTerms = [
   "openings",
 ] as const;
 
+const jobSearchVerbs = [
+  "find",
+  "show",
+  "search",
+  "look",
+  "surface",
+  "pull",
+  "browse",
+  "see",
+] as const;
+
+const jobTitleTerms = [
+  "engineer",
+  "engineers",
+  "developer",
+  "developers",
+  "designer",
+  "designers",
+  "manager",
+  "managers",
+  "analyst",
+  "analysts",
+  "scientist",
+  "scientists",
+  "researcher",
+  "researchers",
+  "recruiter",
+  "recruiters",
+  "marketer",
+  "marketers",
+  "specialist",
+  "specialists",
+  "consultant",
+  "consultants",
+  "architect",
+  "architects",
+  "administrator",
+  "administrators",
+  "operator",
+  "operators",
+  "strategist",
+  "strategists",
+  "writer",
+  "writers",
+  "product",
+  "sales",
+  "marketing",
+  "support",
+  "operations",
+  "qa",
+  "sre",
+  "devops",
+] as const;
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -41,7 +95,23 @@ export function isJobIntent(prompt: string) {
     return true;
   }
 
-  return jobIntentTerms.some((term) =>
+  if (
+    jobIntentTerms.some((term) =>
+      new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(normalizedPrompt),
+    )
+  ) {
+    return true;
+  }
+
+  const startsWithSearchVerb = jobSearchVerbs.some((verb) =>
+    new RegExp(`^\\b${escapeRegExp(verb)}\\b`, "i").test(normalizedPrompt),
+  );
+
+  if (!startsWithSearchVerb) {
+    return false;
+  }
+
+  return jobTitleTerms.some((term) =>
     new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(normalizedPrompt),
   );
 }
