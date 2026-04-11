@@ -46,11 +46,42 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/employer/settings",
+    );
     expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
     expect(screen.getByText("Employer")).toBeInTheDocument();
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/google currently manages/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/review name, email, password guidance/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps employer routing sticky on generic shared pages", async () => {
+    window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
+    mockUsePathname.mockReturnValue("/settings");
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          email: "alex@company.com",
+          name: "Alex Rivera",
+          onboardingStatus: "completed",
+          roleType: "recruiter",
+        },
+      },
+      status: "authenticated",
+    });
+
+    render(<HeaderAuthControls />);
+
+    expect(await screen.findByText("Employer workspace")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
+
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/employer/settings",
+    );
+    expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
   });
 });

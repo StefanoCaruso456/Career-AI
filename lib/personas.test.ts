@@ -4,8 +4,11 @@ import {
   getAuthCallbackUrl,
   getPersona,
   getPersonaFromRoute,
+  getPersonaFromRoleType,
   getPersonaSignInRoute,
   getPostAuthRoute,
+  getSettingsRoute,
+  resolveActivePersona,
 } from "@/lib/personas";
 
 describe("persona helpers", () => {
@@ -17,6 +20,8 @@ describe("persona helpers", () => {
   it("returns the configured post-auth routes", () => {
     expect(getPostAuthRoute("job_seeker")).toBe("/account");
     expect(getPostAuthRoute("employer")).toBe("/employer");
+    expect(getSettingsRoute("job_seeker")).toBe("/settings");
+    expect(getSettingsRoute("employer")).toBe("/employer/settings");
   });
 
   it("infers a persona from its landing route", () => {
@@ -26,6 +31,30 @@ describe("persona helpers", () => {
     expect(getPersonaFromRoute("/employer/candidates")).toBe("employer");
     expect(getPersonaFromRoute("/agent-build")).toBeNull();
     expect(getPersonaFromRoute("/accounting")).toBeNull();
+  });
+
+  it("maps persisted role types back to personas", () => {
+    expect(getPersonaFromRoleType("candidate")).toBe("job_seeker");
+    expect(getPersonaFromRoleType("recruiter")).toBe("employer");
+    expect(getPersonaFromRoleType("hiring_manager")).toBe("employer");
+    expect(getPersonaFromRoleType("unknown")).toBeNull();
+  });
+
+  it("prefers the explicit route, then role type, then stored preference", () => {
+    expect(
+      resolveActivePersona({
+        preferredPersona: "job_seeker",
+        roleType: "recruiter",
+        route: "/settings",
+      }),
+    ).toBe("employer");
+    expect(
+      resolveActivePersona({
+        preferredPersona: "employer",
+        roleType: "candidate",
+        route: "/account/settings",
+      }),
+    ).toBe("job_seeker");
   });
 
   it("keeps safe internal callback urls and falls back to the persona route", () => {
