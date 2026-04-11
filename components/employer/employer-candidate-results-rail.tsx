@@ -18,12 +18,15 @@ type EmployerCandidateResultsRailProps = {
   shortlistedCandidateIds?: string[];
 };
 
+const directLookupPattern =
+  /\b(?:TAID-\d{6}|tal_[a-z0-9-]+|share_[a-z0-9-]+|[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\b/i;
+
 function buildQuerySummary(query?: EmployerCandidateSearchQueryDto | null) {
   if (!query) {
     return [];
   }
 
-  return [
+  const summary = [
     query.parsedCriteria.titleHints[0],
     query.parsedCriteria.skillKeywords.length > 0
       ? `Skills: ${query.parsedCriteria.skillKeywords.slice(0, 3).join(", ")}`
@@ -31,6 +34,14 @@ function buildQuerySummary(query?: EmployerCandidateSearchQueryDto | null) {
     query.parsedCriteria.location ? `Location: ${query.parsedCriteria.location}` : null,
     query.filters.verifiedExperienceOnly ? "Verified experience only" : null,
   ].filter((value): value is string => Boolean(value));
+
+  if (summary.length > 0) {
+    return summary;
+  }
+
+  const directLookup = query.prompt.match(directLookupPattern)?.[0] ?? null;
+
+  return directLookup ? [`Direct lookup: ${directLookup}`] : [];
 }
 
 export function EmployerCandidateResultsRail({
@@ -75,18 +86,20 @@ export function EmployerCandidateResultsRail({
       <div className={styles.resultsRailBody}>
         {isLoading ? (
           <p className={styles.resultsRailLoading}>
-            Searching Career ID candidates and ranking verified matches...
+            Searching Career ID candidates...
           </p>
         ) : null}
 
         {!isLoading && errorMessage && candidates.length === 0 ? (
-          <p className={styles.resultsRailError}>{errorMessage}</p>
+          <p className={styles.resultsRailError}>
+            {errorMessage || "Unable to load recruiter candidate results."}
+          </p>
         ) : null}
 
         {!isLoading && !errorMessage && candidates.length === 0 ? (
           <p className={styles.resultsRailEmpty}>
-            No aligned candidates surfaced yet. Try broadening the title, adding a few skills, or
-            pasting the full job description.
+            No aligned candidates found. Try broadening the role, skills, or pasted job
+            description.
           </p>
         ) : null}
 

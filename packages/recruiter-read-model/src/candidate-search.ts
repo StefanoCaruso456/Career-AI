@@ -6,6 +6,7 @@ import type {
   EmployerCandidateSearchResponseDto,
 } from "@/packages/contracts/src";
 import { employerCandidateSearchResponseSchema } from "@/packages/contracts/src";
+import { listClaimDetails } from "@/packages/credential-domain/src";
 import {
   getPersistentCareerBuilderProfile,
   listPersistentCandidateContexts,
@@ -13,6 +14,7 @@ import {
   type PersistentTalentIdentityContext,
 } from "@/packages/persistence/src";
 import { ensureRecruiterDemoDatasetLoaded } from "./demo-dataset";
+import { getRecruiterReadModelStore } from "./store";
 
 const DEFAULT_SEARCH_LIMIT = 6;
 const EMPLOYMENT_EVIDENCE_TEMPLATES = new Set([
@@ -80,22 +82,31 @@ const SKILL_STOPWORDS = new Set([
   "work",
   "years",
 ]);
+const CAREER_ID_LOOKUP_PATTERN = /\bTAID-\d{6}\b/gi;
+const CANDIDATE_ID_LOOKUP_PATTERN = /\btal_[a-z0-9-]+\b/gi;
+const SHARE_PROFILE_ID_LOOKUP_PATTERN = /\bshare_[a-z0-9-]+\b/gi;
+const SHARE_TOKEN_LOOKUP_PATTERN =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi;
 
 type SearchableCandidate = {
   candidateId: string;
   careerId: string;
   careerIdUrl: string;
+  currentEmployer: string | null;
   currentRole: string | null;
-  targetRole: string | null;
   fullName: string;
   headline: string | null;
   location: string | null;
   profileSummary: string | null;
+  profileUrl: string;
   searchText: string;
+  shareProfileUrl: string | null;
   skillTerms: string[];
   displaySkills: string[];
   highlights: string[];
+  lookupTokens: string[];
   priorEmployers: string[];
+  targetRole: string | null;
   credibilityScore: number;
   evidenceCount: number;
   verifiedExperienceCount: number;
@@ -123,6 +134,47 @@ function normalizeValue(value: string) {
     .replace(/[^a-z0-9+#./ -]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function normalizeLookupToken(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+
+  if (/^TAID-/i.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  return normalized.toLowerCase();
+}
+
+function extractLookupTokens(prompt: string) {
+  const matches = [
+    ...prompt.matchAll(CAREER_ID_LOOKUP_PATTERN),
+    ...prompt.matchAll(CANDIDATE_ID_LOOKUP_PATTERN),
+    ...prompt.matchAll(SHARE_PROFILE_ID_LOOKUP_PATTERN),
+    ...prompt.matchAll(SHARE_TOKEN_LOOKUP_PATTERN),
+  ];
+
+  return uniq(matches.map((match) => normalizeLookupToken(match[0] ?? "")));
+}
+
+function getShareProfileForTalentIdentity(talentIdentityId: string, defaultShareProfileId: string | null) {
+  const store = getRecruiterReadModelStore();
+
+  if (defaultShareProfileId) {
+    const defaultProfile = store.profilesById.get(defaultShareProfileId);
+
+    if (defaultProfile) {
+      return defaultProfile;
+    }
+  }
+
+  for (const profile of store.profilesById.values()) {
+    if (profile.talent_identity_id === talentIdentityId) {
+      return profile;
+    }
+  }
+
+  return null;
 }
 
 function tokenize(value: string) {
@@ -283,6 +335,10 @@ function shouldAutoloadRecruiterDemoDataset() {
 async function buildSearchableCandidate(
   context: PersistentTalentIdentityContext,
 ): Promise<SearchableCandidate | null> {
+  const claimDetails = listClaimDetails({
+    correlationId: `searchable-candidate:${context.aggregate.talentIdentity.id}`,
+    soulRecordIdOptional: context.aggregate.soulRecord.id,
+  });
   const profile = await getPersistentCareerBuilderProfile({
     careerIdentityId: context.aggregate.talentIdentity.id,
     soulRecordId: context.aggregate.soulRecord.id,
@@ -315,11 +371,45 @@ async function buildSearchableCandidate(
   const verifiedExperienceCount = completedEvidence.filter((item) =>
     EMPLOYMENT_EVIDENCE_TEMPLATES.has(item.templateId),
   ).length;
+  const currentEmploymentRecord = claimDetails.find(
+    (details) => details.employmentRecord.currently_employed,
+  );
+  const mostRecentEmploymentRecord =
+    [...claimDetails].sort(
+      (left, right) =>
+        (right.employmentRecord.end_date_optional ?? right.employmentRecord.start_date).localeCompare(
+          left.employmentRecord.end_date_optional ?? left.employmentRecord.start_date,
+        ),
+    )[0] ?? null;
+  const currentEmployer = canUseEmploymentSignals
+    ? currentEmploymentRecord?.employmentRecord.employer_name ??
+      mostRecentEmploymentRecord?.employmentRecord.employer_name ??
+      completedEvidence[0]?.sourceOrIssuer ??
+      null
+    : null;
   const currentRole =
     profile?.careerHeadline?.trim() || onboardingHeadline || profile?.targetRole?.trim() || null;
   const targetRole = profile?.targetRole?.trim() || onboardingHeadline || null;
   const location = profile?.location?.trim() || onboardingLocation || null;
   const profileSummary = profile?.coreNarrative?.trim() || onboardingIntent || null;
+  const profileUrl = `/employer/candidates?candidateId=${encodeURIComponent(
+    context.aggregate.talentIdentity.id,
+  )}`;
+  const shareProfile = getShareProfileForTalentIdentity(
+    context.aggregate.talentIdentity.id,
+    context.aggregate.soulRecord.default_share_profile_id,
+  );
+  const shareProfileUrl = shareProfile ? `/share/${shareProfile.public_share_token}` : null;
+  const lookupTokens = uniq([
+    normalizeLookupToken(context.aggregate.talentIdentity.id),
+    normalizeLookupToken(context.aggregate.talentIdentity.talent_agent_id),
+    context.aggregate.soulRecord.default_share_profile_id
+      ? normalizeLookupToken(context.aggregate.soulRecord.default_share_profile_id)
+      : null,
+    shareProfile?.public_share_token
+      ? normalizeLookupToken(shareProfile.public_share_token)
+      : null,
+  ]);
   const displaySkills = uniq([
     ...(profile ? tokenize(profile.careerHeadline) : []),
     ...(profile ? tokenize(profile.targetRole) : []),
@@ -339,6 +429,7 @@ async function buildSearchableCandidate(
   const searchFragments = uniq([
     context.aggregate.talentIdentity.display_name,
     currentRole,
+    currentEmployer,
     targetRole,
     location,
     profileSummary,
@@ -377,6 +468,7 @@ async function buildSearchableCandidate(
       context.aggregate.talentIdentity.talent_agent_id,
     )}`,
     credibilityScore,
+    currentEmployer,
     currentRole,
     displaySkills,
     evidenceCount: completedEvidence.length,
@@ -391,12 +483,15 @@ async function buildSearchableCandidate(
           ? [profileSummary.split(".")[0] ?? profileSummary]
           : []),
     ]).slice(0, 3),
+    lookupTokens,
     location,
     priorEmployers: canUseEmploymentSignals
       ? uniq(completedEvidence.map((item) => item.sourceOrIssuer))
       : [],
     profileSummary,
+    profileUrl,
     searchText: searchFragments.join(" "),
+    shareProfileUrl,
     skillTerms: tokenize(searchFragments.join(" ")),
     targetRole,
     verificationSignal,
@@ -464,10 +559,88 @@ function buildMatchReason(args: {
   return reasons.slice(0, 3).join(" ");
 }
 
+function getCredibilityLabel(credibilityScore: number) {
+  if (credibilityScore >= 0.76) {
+    return "High credibility";
+  }
+
+  if (credibilityScore >= 0.56) {
+    return "Evidence-backed";
+  }
+
+  return "Growing profile";
+}
+
+function buildLookupMatchReason(args: {
+  candidate: SearchableCandidate;
+  lookupTokens: string[];
+}) {
+  const matchedToken = args.lookupTokens.find((token) => args.candidate.lookupTokens.includes(token));
+
+  if (!matchedToken) {
+    return "Direct recruiter lookup matched this Career ID candidate.";
+  }
+
+  if (matchedToken.startsWith("taid-")) {
+    return `Exact Career ID lookup matched ${matchedToken.toUpperCase()}.`;
+  }
+
+  if (matchedToken.startsWith("tal_")) {
+    return "Exact candidate identifier lookup matched this Career ID profile.";
+  }
+
+  if (matchedToken.startsWith("share_")) {
+    return "Exact recruiter-safe share profile lookup matched this candidate.";
+  }
+
+  return "Exact recruiter-safe share token lookup matched this candidate.";
+}
+
+function toEmployerCandidateMatch(args: {
+  candidate: SearchableCandidate;
+  rankingLabel: string;
+  rankingScore: number;
+  matchReason: string;
+  topSkills: string[];
+}): EmployerCandidateMatchDto {
+  return {
+    actions: {
+      careerIdUrl: args.candidate.careerIdUrl,
+      profileUrl: args.candidate.profileUrl,
+      trustProfileUrl: args.candidate.shareProfileUrl,
+    },
+    candidateId: args.candidate.candidateId,
+    careerId: args.candidate.careerId,
+    credibility: {
+      evidenceCount: args.candidate.evidenceCount,
+      label: getCredibilityLabel(args.candidate.credibilityScore),
+      score: Math.round(args.candidate.credibilityScore * 100),
+      verificationSignal: args.candidate.verificationSignal,
+      verifiedExperienceCount: args.candidate.verifiedExperienceCount,
+    },
+    currentEmployer: args.candidate.currentEmployer,
+    currentRole: args.candidate.currentRole,
+    experienceHighlights: args.candidate.highlights,
+    fullName: args.candidate.fullName,
+    headline: args.candidate.headline,
+    location: args.candidate.location,
+    matchReason: args.matchReason,
+    profileSummary: args.candidate.profileSummary,
+    ranking: {
+      label: args.rankingLabel,
+      score: args.rankingScore,
+    },
+    targetRole: args.candidate.targetRole,
+    topSkills: args.topSkills,
+  };
+}
+
 function scoreCandidate(args: {
   candidate: SearchableCandidate;
   query: EmployerCandidateSearchQueryDto;
+  lookupTokens: string[];
 }): ScoredCandidate | null {
+  const exactLookupMatch = args.lookupTokens.some((token) => args.candidate.lookupTokens.includes(token));
   const normalizedLocation = args.query.filters.location
     ? normalizeValue(args.query.filters.location)
     : args.query.parsedCriteria.location
@@ -516,6 +689,22 @@ function scoreCandidate(args: {
     return null;
   }
 
+  if (exactLookupMatch) {
+    return {
+      score: 100,
+      candidate: toEmployerCandidateMatch({
+        candidate: args.candidate,
+        matchReason: buildLookupMatchReason({
+          candidate: args.candidate,
+          lookupTokens: args.lookupTokens,
+        }),
+        rankingLabel: "Exact match",
+        rankingScore: 100,
+        topSkills: args.candidate.displaySkills.slice(0, 4).map((term) => toDisplayTerm(term)),
+      }),
+    };
+  }
+
   const totalScore =
     titleScore * 38 +
     skillScore * 24 +
@@ -535,34 +724,11 @@ function scoreCandidate(args: {
 
   const rankingLabel =
     roundedScore >= 78 ? "Strong match" : roundedScore >= 58 ? "Aligned" : "Worth review";
-  const credibilityLabel =
-    credibilityScore >= 0.76
-      ? "High credibility"
-      : credibilityScore >= 0.56
-        ? "Evidence-backed"
-        : "Growing profile";
 
   return {
     score: roundedScore,
-    candidate: {
-      actions: {
-        careerIdUrl: args.candidate.careerIdUrl,
-        profileUrl: `/employer/candidates?candidateId=${encodeURIComponent(args.candidate.candidateId)}`,
-      },
-      candidateId: args.candidate.candidateId,
-      careerId: args.candidate.careerId,
-      credibility: {
-        evidenceCount: args.candidate.evidenceCount,
-        label: credibilityLabel,
-        score: Math.round(args.candidate.credibilityScore * 100),
-        verificationSignal: args.candidate.verificationSignal,
-        verifiedExperienceCount: args.candidate.verifiedExperienceCount,
-      },
-      currentRole: args.candidate.currentRole,
-      experienceHighlights: args.candidate.highlights,
-      fullName: args.candidate.fullName,
-      headline: args.candidate.headline,
-      location: args.candidate.location,
+    candidate: toEmployerCandidateMatch({
+      candidate: args.candidate,
       matchReason: buildMatchReason({
         candidate: args.candidate,
         credibilityScore,
@@ -570,25 +736,30 @@ function scoreCandidate(args: {
         query: args.query,
         titleScore,
       }),
-      profileSummary: args.candidate.profileSummary,
-      ranking: {
-        label: rankingLabel,
-        score: roundedScore,
-      },
-      targetRole: args.candidate.targetRole,
-      topSkills: (matchedSkills.length > 0 ? matchedSkills : args.candidate.displaySkills).slice(0, 4).map((term) =>
-        toDisplayTerm(term),
-      ),
-    },
+      rankingLabel,
+      rankingScore: roundedScore,
+      topSkills: (matchedSkills.length > 0 ? matchedSkills : args.candidate.displaySkills)
+        .slice(0, 4)
+        .map((term) => toDisplayTerm(term)),
+    }),
   };
 }
 
 function buildAssistantMessage(args: {
   matches: EmployerCandidateMatchDto[];
   query: EmployerCandidateSearchQueryDto;
+  lookupTokens: string[];
 }) {
   if (args.matches.length === 0) {
+    if (args.lookupTokens.length > 0) {
+      return "No Career ID candidate matched that direct lookup. Check the identifier and try again.";
+    }
+
     return "I could not find aligned Career ID candidates for that search yet. Try broadening the title, adding a few skills, or pasting the full job description.";
+  }
+
+  if (args.lookupTokens.length > 0) {
+    return `I resolved ${args.matches[0]?.fullName ?? "that candidate"} directly from the provided identifier and loaded the recruiter-safe Career ID result.`;
   }
 
   const querySkillFallback = args.query.parsedCriteria.skillKeywords
@@ -628,6 +799,7 @@ export async function searchEmployerCandidates(args: {
     filters,
     prompt: args.prompt,
   });
+  const lookupTokens = extractLookupTokens(args.prompt);
   let contexts: PersistentTalentIdentityContext[] = [];
 
   if (shouldAutoloadRecruiterDemoDataset()) {
@@ -647,11 +819,19 @@ export async function searchEmployerCandidates(args: {
   const candidateCorpus = (
     await Promise.all(contexts.map((context) => buildSearchableCandidate(context)))
   ).filter((candidate): candidate is SearchableCandidate => Boolean(candidate));
-  const scoredMatches = candidateCorpus
+  const exactLookupCorpus =
+    lookupTokens.length > 0
+      ? candidateCorpus.filter((candidate) =>
+          lookupTokens.some((token) => candidate.lookupTokens.includes(token)),
+        )
+      : candidateCorpus;
+  const candidateSource = lookupTokens.length > 0 ? exactLookupCorpus : candidateCorpus;
+  const scoredMatches = candidateSource
     .map((candidate) =>
       scoreCandidate({
         candidate,
         query,
+        lookupTokens,
       }),
     )
     .filter((match): match is ScoredCandidate => Boolean(match))
@@ -666,11 +846,12 @@ export async function searchEmployerCandidates(args: {
     assistantMessage: buildAssistantMessage({
       matches: limitedMatches,
       query,
+      lookupTokens,
     }),
     candidates: limitedMatches,
     diagnostics: {
       candidateCount: candidateCorpus.length,
-      filteredOutCount: Math.max(candidateCorpus.length - scoredMatches.length, 0),
+      filteredOutCount: Math.max(candidateSource.length - scoredMatches.length, 0),
       highCredibilityCount: candidateCorpus.filter((candidate) => candidate.credibilityScore >= 0.76)
         .length,
       parsedSkillCount: query.parsedCriteria.skillKeywords.length,

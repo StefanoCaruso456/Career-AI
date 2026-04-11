@@ -779,7 +779,7 @@ export function HeroComposer({
         setCandidateAssistError(
           error instanceof Error
             ? error.message
-            : "Candidate matches could not be loaded right now.",
+            : "Unable to load recruiter candidate results.",
         );
         setIsCandidateAssistLoading(false);
       });

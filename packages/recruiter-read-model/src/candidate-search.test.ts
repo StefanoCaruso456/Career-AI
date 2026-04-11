@@ -196,4 +196,85 @@ describe("searchEmployerCandidates", () => {
 
     expect(result.candidates).toHaveLength(0);
   });
+
+  it("supports direct recruiter lookups while keeping private candidates hidden", async () => {
+    const visibleCandidate = await provisionGoogleUser({
+      correlationId: "lookup-visible",
+      email: "lookup-visible@example.com",
+      emailVerified: true,
+      firstName: "Jamie",
+      fullName: "Jamie Stone",
+      lastName: "Stone",
+      providerUserId: "google-lookup-visible",
+    });
+    await updateRoleSelection({
+      correlationId: "lookup-visible-role",
+      roleType: "candidate",
+      userId: visibleCandidate.context.user.id,
+    });
+    await updateCareerProfileBasics({
+      correlationId: "lookup-visible-profile",
+      profilePatch: {
+        headline: "Staff Product Designer",
+        intent: "Designs enterprise workflow systems with verified collaboration history.",
+        location: "Seattle, WA",
+      },
+      userId: visibleCandidate.context.user.id,
+    });
+    await upsertPersistentCareerBuilderProfile({
+      careerIdentityId: visibleCandidate.context.aggregate.talentIdentity.id,
+      input: {
+        careerHeadline: "Staff Product Designer",
+        coreNarrative: "Owns end-to-end product design systems for B2B workflow software.",
+        legalName: "Jamie Stone",
+        location: "Seattle, WA",
+        targetRole: "Head of Product Design",
+      },
+      soulRecordId: visibleCandidate.context.aggregate.soulRecord.id,
+    });
+
+    const privateCandidate = await provisionGoogleUser({
+      correlationId: "lookup-private",
+      email: "lookup-private@example.com",
+      emailVerified: true,
+      firstName: "Morgan",
+      fullName: "Morgan Hale",
+      lastName: "Hale",
+      providerUserId: "google-lookup-private",
+    });
+    await updateRoleSelection({
+      correlationId: "lookup-private-role",
+      roleType: "candidate",
+      userId: privateCandidate.context.user.id,
+    });
+    await updateCareerProfileBasics({
+      correlationId: "lookup-private-profile",
+      profilePatch: {
+        headline: "Principal Security Engineer",
+        intent: "Keeps sensitive employer history private.",
+        location: "Remote - US",
+        recruiterVisibility: "private",
+      },
+      userId: privateCandidate.context.user.id,
+    });
+
+    const byCareerId = await searchEmployerCandidates({
+      prompt: visibleCandidate.context.aggregate.talentIdentity.talent_agent_id,
+    });
+    const byCandidateId = await searchEmployerCandidates({
+      prompt: visibleCandidate.context.aggregate.talentIdentity.id,
+    });
+    const privateLookup = await searchEmployerCandidates({
+      prompt: privateCandidate.context.aggregate.talentIdentity.talent_agent_id,
+    });
+
+    expect(byCareerId.totalMatches).toBe(1);
+    expect(byCareerId.candidates[0]?.fullName).toBe("Jamie Stone");
+    expect(byCareerId.candidates[0]?.ranking.label).toBe("Exact match");
+    expect(byCandidateId.totalMatches).toBe(1);
+    expect(byCandidateId.candidates[0]?.candidateId).toBe(
+      visibleCandidate.context.aggregate.talentIdentity.id,
+    );
+    expect(privateLookup.candidates).toHaveLength(0);
+  });
 });

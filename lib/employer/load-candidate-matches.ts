@@ -36,7 +36,7 @@ export async function loadEmployerCandidateMatches(
 
   if (!response.ok) {
     throw new Error(
-      payload.error || payload.message || "Candidate matches could not be loaded right now.",
+      payload.error || payload.message || "Unable to load recruiter candidate results.",
     );
   }
 

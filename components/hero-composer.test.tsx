@@ -171,6 +171,7 @@ function createEmployerCandidateResponse(
         actions: {
           careerIdUrl: "/employer/candidates?careerId=TAID-000123",
           profileUrl: "/employer/candidates?candidateId=tal_123",
+          trustProfileUrl: "/share/0f0d4b93-15d2-4a2e-8297-9dc6165ddf75",
         },
         candidateId: "tal_123",
         careerId: "TAID-000123",
@@ -181,6 +182,7 @@ function createEmployerCandidateResponse(
           verificationSignal: "Verified experience",
           verifiedExperienceCount: 2,
         },
+        currentEmployer: "Northstar SaaS",
         currentRole: "Senior Product Manager",
         experienceHighlights: [
           "Built AI workflow tooling for enterprise SaaS teams.",
@@ -597,6 +599,81 @@ describe("HeroComposer", () => {
       target: { value: "Austin, TX" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Use brief" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByLabelText("Candidate sourcing panel")).toBeInTheDocument();
+    expect(await screen.findByText("Alex Rivera")).toBeInTheDocument();
+    expect(screen.getByText("Career ID TAID-000123")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Career ID" })).toHaveAttribute(
+      "href",
+      "/employer/candidates?careerId=TAID-000123",
+    );
+    expect(screen.getByRole("link", { name: "Review trust profile" })).toHaveAttribute(
+      "href",
+      "/share/0f0d4b93-15d2-4a2e-8297-9dc6165ddf75",
+    );
+    expect(screen.queryByRole("button", { name: "APPLY" })).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) => getRequestUrl(input) === "/api/v1/employer/candidates/search",
+      ),
+    ).toBe(true);
+    expect(
+      fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search"),
+    ).toBe(false);
+  });
+
+  it("resolves direct Career ID lookups into the employer candidate rail", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_employer", "Candidate pipeline")]);
+    const conversation = createConversation("conversation_lookup", "project_employer", [
+      createMessage("message_lookup_user", "user", "TAID-000123"),
+      createMessage(
+        "message_lookup_assistant",
+        "assistant",
+        "I resolved Alex Rivera directly from the provided identifier and loaded the recruiter-safe Career ID result.",
+      ),
+    ]);
+    const candidatesResponse = createEmployerCandidateResponse("TAID-000123");
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          candidatePanel: candidatesResponse,
+          conversation,
+          userMessage: conversation.messages[0],
+        });
+      }
+
+      if (url === "/api/v1/employer/candidates/search") {
+        return createJsonResponse(candidatesResponse);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <HeroComposer
+        content={landingContentByPersona.employer.heroComposer}
+        persona="employer"
+      />,
+    );
+
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    fireEvent.change(composer, {
+      target: {
+        value: "TAID-000123",
+      },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByLabelText("Candidate sourcing panel")).toBeInTheDocument();
