@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
+import { ApiError } from "@/packages/contracts/src";
+import { getEmployerCandidateTrace } from "@/packages/recruiter-read-model/src";
 import styles from "./page.module.css";
 
 type EmployerCandidatesPageProps = {
@@ -31,13 +32,22 @@ export default async function EmployerCandidatesPage({
 }: EmployerCandidatesPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const lookupValue = resolveLookupValue(resolvedSearchParams);
-  const lookupResponse = lookupValue
-    ? await searchEmployerCandidates({
-        limit: 1,
-        prompt: lookupValue,
-      })
-    : null;
-  const candidate = lookupResponse?.candidates[0] ?? null;
+  let trace = null;
+
+  if (lookupValue) {
+    try {
+      trace = await getEmployerCandidateTrace({
+        correlationId: crypto.randomUUID(),
+        input: {
+          lookup: lookupValue,
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 404)) {
+        throw error;
+      }
+    }
+  }
 
   return (
     <main className={styles.page}>
@@ -46,11 +56,11 @@ export default async function EmployerCandidatesPage({
           <div>
             <p className={styles.eyebrow}>Employer candidate detail</p>
             <h1 className={styles.title}>
-              {candidate ? candidate.fullName : "Open a recruiter-safe Career ID view"}
+              {trace ? trace.candidate.fullName : "Open a recruiter-safe Career ID view"}
             </h1>
             <p className={styles.subtitle}>
-              {candidate
-                ? "Review the recruiter-safe candidate summary, Career ID routing, and trust profile access without falling back to seeker job workflows."
+              {trace
+                ? "Review the recruiter-safe Career ID trace, including persisted profile data, visibility-aware evidence, and current trust-link access for this single job seeker."
                 : "Use a Career ID, candidate identifier, or trust-profile lookup from the employer sourcer rail to open recruiter-safe candidate detail here."}
             </p>
           </div>
@@ -59,15 +69,15 @@ export default async function EmployerCandidatesPage({
             <Link className={styles.primaryAction} href="/employer">
               Back to employer sourcer
             </Link>
-            {candidate?.actions.trustProfileUrl ? (
-              <Link className={styles.secondaryAction} href={candidate.actions.trustProfileUrl}>
+            {trace?.actions.trustProfileUrl ? (
+              <Link className={styles.secondaryAction} href={trace.actions.trustProfileUrl}>
                 Review trust profile
               </Link>
             ) : null}
           </div>
         </section>
 
-        {lookupValue && !candidate ? (
+        {lookupValue && !trace ? (
           <section className={styles.emptyState}>
             <h2>No recruiter-safe candidate matched that lookup.</h2>
             <p>
@@ -88,54 +98,66 @@ export default async function EmployerCandidatesPage({
           </section>
         ) : null}
 
-        {candidate ? (
+        {trace ? (
           <div className={styles.grid}>
             <section className={styles.primaryPanel}>
               <div className={styles.identityRow}>
                 <div>
                   <p className={styles.careerIdLabel}>Career ID</p>
-                  <p className={styles.careerIdValue}>{candidate.careerId}</p>
+                  <p className={styles.careerIdValue}>{trace.candidate.careerId}</p>
                 </div>
                 <div className={styles.rankingBadge}>
-                  <strong>{candidate.ranking.label}</strong>
-                  <span>{candidate.ranking.score}% match</span>
+                  <strong>Career ID trace</strong>
+                  <span>{trace.lookup.resolvedBy.replaceAll("_", " ")}</span>
                 </div>
               </div>
 
               <div className={styles.summaryGrid}>
                 <div className={styles.summaryCard}>
                   <span className={styles.summaryLabel}>Headline</span>
-                  <strong>{candidate.headline ?? candidate.currentRole ?? candidate.targetRole ?? "Career ID candidate"}</strong>
+                  <strong>
+                    {trace.candidate.headline ??
+                      trace.candidate.currentRole ??
+                      trace.candidate.targetRole ??
+                      "Career ID candidate"}
+                  </strong>
                 </div>
                 <div className={styles.summaryCard}>
                   <span className={styles.summaryLabel}>Location</span>
-                  <strong>{candidate.location ?? "Not specified"}</strong>
+                  <strong>{trace.candidate.location ?? "Not specified"}</strong>
                 </div>
                 <div className={styles.summaryCard}>
                   <span className={styles.summaryLabel}>Employer signal</span>
-                  <strong>{candidate.currentEmployer ?? "Hidden by visibility controls"}</strong>
+                  <strong>{trace.candidate.currentEmployer ?? "Hidden by visibility controls"}</strong>
                 </div>
                 <div className={styles.summaryCard}>
-                  <span className={styles.summaryLabel}>Verification</span>
-                  <strong>{candidate.credibility.verificationSignal}</strong>
+                  <span className={styles.summaryLabel}>Visibility</span>
+                  <strong>{trace.candidate.recruiterVisibility}</strong>
                 </div>
               </div>
 
               <div className={styles.panelSection}>
                 <h2>Recruiter-safe preview</h2>
-                <p>{candidate.profileSummary ?? "This candidate has not shared a preview summary yet."}</p>
+                <p>
+                  {trace.candidate.profileSummary ??
+                    "This candidate has not shared a preview summary yet."}
+                </p>
               </div>
 
               <div className={styles.panelSection}>
-                <h2>Why this candidate matched</h2>
-                <p>{candidate.matchReason}</p>
+                <h2>Profile narrative</h2>
+                <p>
+                  {trace.profile?.coreNarrative ??
+                    trace.candidate.profileSummary ??
+                    "No longer-form profile narrative is persisted yet."}
+                </p>
               </div>
 
               <div className={styles.panelSection}>
                 <h2>Experience highlights</h2>
-                {candidate.experienceHighlights.length > 0 ? (
+                {trace.searchProjection.experienceHighlights.length > 0 ? (
                   <ul className={styles.highlightList}>
-                    {candidate.experienceHighlights.map((highlight) => (
+                    {trace.searchProjection.experienceHighlights.map((highlight) => (
                       <li key={highlight}>{highlight}</li>
                     ))}
                   </ul>
@@ -145,41 +167,111 @@ export default async function EmployerCandidatesPage({
               </div>
 
               <div className={styles.panelSection}>
-                <h2>Top matched skills</h2>
+                <h2>Searchable skills</h2>
                 <div className={styles.skillRow}>
-                  {candidate.topSkills.map((skill) => (
+                  {trace.searchProjection.displaySkills.map((skill) => (
                     <span className={styles.skillChip} key={skill}>
                       {skill}
                     </span>
                   ))}
                 </div>
               </div>
+
+              <div className={styles.panelSection}>
+                <h2>Evidence records</h2>
+                {trace.evidenceRecords.length > 0 ? (
+                  <div className={styles.detailList}>
+                    {trace.evidenceRecords.map((record) => (
+                      <article className={styles.detailCard} key={record.id}>
+                        <div className={styles.detailHeader}>
+                          <strong>{record.templateId}</strong>
+                          <span>{record.status}</span>
+                        </div>
+                        <p>
+                          {record.sourceOrIssuer ?? "Source hidden by visibility controls"}
+                        </p>
+                        <p>{record.whyItMatters}</p>
+                        <div className={styles.metaList}>
+                          <span>Issued: {record.issuedOn || "Not specified"}</span>
+                          <span>{record.fileCount} file reference(s)</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No persisted evidence records are attached to this candidate yet.</p>
+                )}
+              </div>
+
+              <div className={styles.panelSection}>
+                <h2>Visible employment records</h2>
+                {trace.visibleEmploymentRecords.length > 0 ? (
+                  <div className={styles.detailList}>
+                    {trace.visibleEmploymentRecords.map((record) => (
+                      <article className={styles.detailCard} key={record.claimId}>
+                        <div className={styles.detailHeader}>
+                          <strong>{record.roleTitle}</strong>
+                          <span>{record.verificationStatusOptional ?? "No status label"}</span>
+                        </div>
+                        <p>{record.employerName}</p>
+                        <div className={styles.metaList}>
+                          <span>{record.startDate}</span>
+                          <span>{record.endDateOptional ?? "Present"}</span>
+                          <span>{record.artifactCount} artifact(s)</span>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p>Employment records are not visible for this candidate trace.</p>
+                )}
+              </div>
             </section>
 
             <aside className={styles.sidePanel}>
               <div className={styles.metricCard}>
                 <span className={styles.metricLabel}>Credibility</span>
-                <strong>{candidate.credibility.label}</strong>
-                <p>{candidate.credibility.score}% confidence score</p>
+                <strong>{trace.credibility.label}</strong>
+                <p>{trace.credibility.score}% confidence score</p>
               </div>
               <div className={styles.metricCard}>
                 <span className={styles.metricLabel}>Evidence count</span>
-                <strong>{candidate.credibility.evidenceCount}</strong>
-                <p>{candidate.credibility.verifiedExperienceCount} verified experience signal(s)</p>
+                <strong>{trace.credibility.evidenceCount}</strong>
+                <p>
+                  {trace.credibility.verifiedExperienceCount} verified experience signal(s)
+                </p>
+              </div>
+              <div className={styles.metricCard}>
+                <span className={styles.metricLabel}>Onboarding</span>
+                <strong>{trace.onboarding.status}</strong>
+                <p>{trace.onboarding.profileCompletionPercent}% profile completion</p>
+              </div>
+              <div className={styles.metricCard}>
+                <span className={styles.metricLabel}>Search projection</span>
+                <strong>{trace.searchProjection.searchableKeywords.length} keywords</strong>
+                <p>{trace.credibility.verificationSignal}</p>
               </div>
               <div className={styles.metricCard}>
                 <span className={styles.metricLabel}>Next actions</span>
                 <div className={styles.metricActions}>
-                  <Link className={styles.primaryAction} href={candidate.actions.careerIdUrl ?? "#"}>
+                  <Link className={styles.primaryAction} href={trace.actions.careerIdUrl ?? "#"}>
                     View Career ID
                   </Link>
-                  {candidate.actions.trustProfileUrl ? (
-                    <Link className={styles.secondaryAction} href={candidate.actions.trustProfileUrl}>
+                  {trace.actions.trustProfileUrl ? (
+                    <Link className={styles.secondaryAction} href={trace.actions.trustProfileUrl}>
                       Review trust profile
                     </Link>
                   ) : (
                     <span className={styles.disabledAction}>Trust profile unavailable</span>
                   )}
+                </div>
+              </div>
+              <div className={styles.metricCard}>
+                <span className={styles.metricLabel}>Trace metadata</span>
+                <div className={styles.metaList}>
+                  <span>Lookup: {trace.lookup.value}</span>
+                  <span>Resolved by: {trace.lookup.resolvedBy}</span>
+                  <span>Role type: {trace.onboarding.roleType ?? "candidate"}</span>
                 </div>
               </div>
             </aside>

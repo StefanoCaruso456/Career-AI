@@ -1,10 +1,18 @@
 import { z } from "zod";
 import {
+  careerArtifactReferenceSchema,
+  careerEvidenceStatusSchema,
+  careerEvidenceTemplateIdSchema,
+  careerPhaseSchema,
+  careerProfileRecordSchema,
+} from "./career-builder";
+import {
   verificationConfidenceTierSchema,
   verificationStatusSchema,
 } from "./enums";
 
 const emptyVisibleCategorySchema = z.array(z.record(z.string(), z.unknown()));
+const recruiterVisibilityTierSchema = z.enum(["searchable", "limited", "private"]);
 
 export const trustSummarySchema = z.object({
   id: z.string(),
@@ -150,6 +158,113 @@ export const searchEmployerCandidatesInputSchema = z.object({
   refresh: z.boolean().optional(),
 });
 
+export const recruiterEmploymentRecordViewDtoSchema = z.object({
+  claimId: z.string(),
+  employerName: z.string(),
+  roleTitle: z.string(),
+  startDate: z.string(),
+  endDateOptional: z.string().nullable(),
+  currentlyEmployed: z.boolean(),
+  verificationStatusOptional: verificationStatusSchema.nullable(),
+  confidenceTierOptional: verificationConfidenceTierSchema.nullable(),
+  sourceLabelOptional: z.string().nullable(),
+  artifactCount: z.number().int().nonnegative(),
+  lastUpdatedAt: z.string().datetime(),
+});
+
+export const employerCandidateTraceInputSchema = z.object({
+  lookup: z.string().trim().min(1),
+  baseUrlOptional: z.string().url().optional(),
+});
+
+export const employerCandidateTraceResolvedBySchema = z.enum([
+  "career_id",
+  "candidate_id",
+  "share_profile_id",
+  "share_token",
+]);
+
+export const employerCandidateTraceEvidenceSchema = z.object({
+  id: z.string(),
+  templateId: careerEvidenceTemplateIdSchema,
+  completionTier: careerPhaseSchema,
+  sourceOrIssuer: z.string().nullable(),
+  issuedOn: z.string(),
+  validationContext: z.string(),
+  whyItMatters: z.string(),
+  files: z.array(careerArtifactReferenceSchema),
+  fileCount: z.number().int().nonnegative(),
+  status: careerEvidenceStatusSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const employerCandidateTraceResponseSchema = z.object({
+  lookup: z.object({
+    value: z.string(),
+    resolvedBy: employerCandidateTraceResolvedBySchema,
+  }),
+  candidate: z.object({
+    candidateId: z.string(),
+    careerId: z.string(),
+    fullName: z.string(),
+    currentRole: z.string().nullable(),
+    currentEmployer: z.string().nullable(),
+    targetRole: z.string().nullable(),
+    headline: z.string().nullable(),
+    location: z.string().nullable(),
+    profileSummary: z.string().nullable(),
+    recruiterVisibility: recruiterVisibilityTierSchema,
+    searchable: z.boolean(),
+    updatedAt: z.string().datetime(),
+  }),
+  onboarding: z.object({
+    status: z.string(),
+    profileCompletionPercent: z.number().int().nonnegative(),
+    currentStep: z.number().int().nonnegative(),
+    roleType: z.string().nullable(),
+  }),
+  privacy: z.object({
+    showEmploymentRecords: z.boolean(),
+    showEducationRecords: z.boolean(),
+    showCertificationRecords: z.boolean(),
+    showEndorsements: z.boolean(),
+    showStatusLabels: z.boolean(),
+    showArtifactPreviews: z.boolean(),
+    allowPublicShareLink: z.boolean(),
+    allowQrShare: z.boolean(),
+  }),
+  credibility: z.object({
+    label: z.string(),
+    score: z.number().min(0).max(100),
+    evidenceCount: z.number().int().nonnegative(),
+    verifiedExperienceCount: z.number().int().nonnegative(),
+    verificationSignal: z.string(),
+  }),
+  profile: careerProfileRecordSchema.nullable(),
+  searchProjection: z.object({
+    searchText: z.string(),
+    searchableKeywords: z.array(z.string()).default([]),
+    displaySkills: z.array(z.string()).default([]),
+    experienceHighlights: z.array(z.string()).default([]),
+    priorEmployers: z.array(z.string()).default([]),
+  }),
+  evidenceRecords: z.array(employerCandidateTraceEvidenceSchema),
+  visibleEmploymentRecords: z.array(recruiterEmploymentRecordViewDtoSchema),
+  shareProfile: z.object({
+    shareProfileId: z.string().nullable(),
+    publicShareToken: z.string().nullable(),
+    trustProfileUrl: z.string().nullable(),
+    shareUrl: z.string().nullable(),
+  }),
+  actions: z.object({
+    careerIdUrl: z.string().nullable(),
+    profileUrl: z.string().nullable(),
+    trustProfileUrl: z.string().nullable(),
+  }),
+  generatedAt: z.string().datetime(),
+});
+
 export type TrustSummary = z.infer<typeof trustSummarySchema>;
 export type RecruiterEmploymentRecordView = z.infer<
   typeof recruiterEmploymentRecordViewSchema
@@ -175,6 +290,21 @@ export type EmployerCandidateSearchResponseDto = z.infer<
 export type SearchEmployerCandidatesInput = z.infer<
   typeof searchEmployerCandidatesInputSchema
 >;
+export type RecruiterEmploymentRecordViewDto = z.infer<
+  typeof recruiterEmploymentRecordViewDtoSchema
+>;
+export type EmployerCandidateTraceInput = z.infer<
+  typeof employerCandidateTraceInputSchema
+>;
+export type EmployerCandidateTraceResolvedBy = z.infer<
+  typeof employerCandidateTraceResolvedBySchema
+>;
+export type EmployerCandidateTraceEvidenceDto = z.infer<
+  typeof employerCandidateTraceEvidenceSchema
+>;
+export type EmployerCandidateTraceResponseDto = z.infer<
+  typeof employerCandidateTraceResponseSchema
+>;
 
 export type TrustSummaryDto = {
   id: string;
@@ -188,24 +318,6 @@ export type TrustSummaryDto = {
   endorsementCount: number;
   lastVerifiedAtOptional: string | null;
   generatedAt: string;
-};
-
-export type RecruiterEmploymentRecordViewDto = {
-  claimId: string;
-  employerName: string;
-  roleTitle: string;
-  startDate: string;
-  endDateOptional: string | null;
-  currentlyEmployed: boolean;
-  verificationStatusOptional:
-    | z.infer<typeof verificationStatusSchema>
-    | null;
-  confidenceTierOptional:
-    | z.infer<typeof verificationConfidenceTierSchema>
-    | null;
-  sourceLabelOptional: string | null;
-  artifactCount: number;
-  lastUpdatedAt: string;
 };
 
 export type RecruiterTrustProfileDto = {

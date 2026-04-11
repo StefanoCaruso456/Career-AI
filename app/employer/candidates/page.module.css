@@ -158,6 +158,36 @@
   gap: 0.48rem;
 }
 
+.detailList {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.detailCard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.92rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detailHeader,
+.metaList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.56rem;
+}
+
+.detailHeader strong,
+.detailHeader span,
+.metaList span {
+  color: rgba(255, 245, 241, 0.84);
+  font-size: 0.8rem;
+}
+
 .panelSection h2,
 .emptyState h2 {
   margin: 0;
