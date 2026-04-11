@@ -542,7 +542,7 @@ describe("HeroComposer", () => {
       createMessage(
         "message_user_employer",
         "user",
-        "Find aligned candidates for a senior product manager in Austin with AI and SaaS experience",
+        "Find aligned candidates for a Senior Product Manager role in Austin, TX with AI, SaaS.",
       ),
       createMessage(
         "message_assistant_employer",
@@ -551,7 +551,7 @@ describe("HeroComposer", () => {
       ),
     ]);
     const candidatesResponse = createEmployerCandidateResponse(
-      "Find aligned candidates for a senior product manager in Austin with AI and SaaS experience",
+      "Find aligned candidates for a Senior Product Manager role in Austin, TX with AI, SaaS.",
     );
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
@@ -586,7 +586,18 @@ describe("HeroComposer", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Find software engineers" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Find aligned candidates" }));
+    fireEvent.change(await screen.findByLabelText("Title"), {
+      target: { value: "Senior Product Manager" },
+    });
+    fireEvent.change(screen.getByLabelText("Skills"), {
+      target: { value: "AI, SaaS" },
+    });
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "Austin, TX" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use brief" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByLabelText("Candidate sourcing panel")).toBeInTheDocument();
     expect(await screen.findByText("Alex Rivera")).toBeInTheDocument();
@@ -598,6 +609,81 @@ describe("HeroComposer", () => {
     ).toBe(true);
     expect(
       fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search"),
+    ).toBe(false);
+  });
+
+  it("keeps employer structured filters hidden until the recruiter opens them", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_employer", "Candidate pipeline")]);
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <HeroComposer
+        content={landingContentByPersona.employer.heroComposer}
+        persona="employer"
+      />,
+    );
+
+    expect(screen.queryByText("Tighten the sourcing brief")).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Find aligned candidates" }));
+
+    expect(await screen.findByText("Tighten the sourcing brief")).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat"),
+    ).toBe(false);
+  });
+
+  it("applies the employer sourcing brief into the composer without submitting", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_employer", "Candidate pipeline")]);
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <HeroComposer
+        content={landingContentByPersona.employer.heroComposer}
+        persona="employer"
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Find aligned candidates" }));
+    fireEvent.change(await screen.findByLabelText("Title"), {
+      target: { value: "Software Engineer" },
+    });
+    fireEvent.change(screen.getByLabelText("Skills"), {
+      target: { value: "Python, React" },
+    });
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "Austin, TX" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Use brief" }));
+
+    expect(screen.queryByText("Tighten the sourcing brief")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Message composer" })).toHaveValue(
+      "Find aligned candidates for a Software Engineer role in Austin, TX with Python, React.",
+    );
+    expect(
+      fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat"),
     ).toBe(false);
   });
 
