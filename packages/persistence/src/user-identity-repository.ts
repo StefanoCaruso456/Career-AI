@@ -6,6 +6,7 @@ import {
   queryRequired,
   withDatabaseTransaction,
 } from "./client";
+import { refreshPersistentRecruiterCandidateProjection } from "./recruiter-candidate-projection-repository";
 
 export type OnboardingStatus = "not_started" | "in_progress" | "completed";
 
@@ -615,13 +616,20 @@ export async function updatePersistentTalentIdentityProfile(args: {
       ],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "ci.id = $1",
       [args.talentIdentityId],
       args.correlationId,
       { talentIdentityId: args.talentIdentityId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 
@@ -746,13 +754,20 @@ export async function updatePersistentPrivacySettings(args: {
       ],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "ci.id = $1",
       [args.talentIdentityId],
       args.correlationId,
       { talentIdentityId: args.talentIdentityId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 
@@ -788,13 +803,20 @@ export async function updatePersistentSoulRecordReferences(args: {
       ],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "ci.id = $1",
       [args.talentIdentityId],
       args.correlationId,
       { talentIdentityId: args.talentIdentityId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 
@@ -848,13 +870,20 @@ export async function updateBasicProfileAndOnboarding(args: {
       [args.userId, fullName],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "u.id = $1",
       [args.userId],
       args.correlationId,
       { userId: args.userId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 
@@ -884,13 +913,20 @@ export async function updateRoleSelection(args: {
       [args.userId, args.roleType],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "u.id = $1",
       [args.userId],
       args.correlationId,
       { userId: args.userId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 
@@ -932,13 +968,20 @@ export async function updateCareerProfileBasics(args: {
       [args.userId, JSON.stringify(nextProfile)],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "u.id = $1",
       [args.userId],
       args.correlationId,
       { userId: args.userId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 
@@ -960,13 +1003,20 @@ export async function completePersistentOnboarding(args: {
       [args.userId],
     );
 
-    return requireContextByWhere(
+    const nextContext = await requireContextByWhere(
       client,
       "u.id = $1",
       [args.userId],
       args.correlationId,
       { userId: args.userId },
     );
+
+    await refreshPersistentRecruiterCandidateProjection({
+      careerIdentityId: nextContext.aggregate.talentIdentity.id,
+      queryable: client,
+    });
+
+    return nextContext;
   });
 }
 

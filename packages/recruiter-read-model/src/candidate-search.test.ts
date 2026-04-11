@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { resetArtifactStore } from "@/packages/artifact-domain/src";
+import { resetCredentialStore } from "@/packages/credential-domain/src";
 import {
   getPersistentCareerBuilderProfile,
+  listPersistentRecruiterCandidateProjections,
   provisionGoogleUser,
   updateCareerProfileBasics,
   updateRoleSelection,
@@ -8,7 +11,8 @@ import {
   upsertPersistentCareerBuilderProfile,
 } from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
-import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
+import { resetRecruiterReadModelStore, searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
+import { resetVerificationStore } from "@/packages/verification-domain/src";
 
 describe("searchEmployerCandidates", () => {
   beforeEach(async () => {
@@ -17,6 +21,10 @@ describe("searchEmployerCandidates", () => {
   });
 
   afterEach(async () => {
+    resetArtifactStore();
+    resetCredentialStore();
+    resetRecruiterReadModelStore();
+    resetVerificationStore();
     await resetTestDatabase();
   });
 
@@ -276,5 +284,87 @@ describe("searchEmployerCandidates", () => {
       visibleCandidate.context.aggregate.talentIdentity.id,
     );
     expect(privateLookup.candidates).toHaveLength(0);
+  });
+
+  it("keeps recruiter search DB-backed after runtime-only stores are reset", async () => {
+    const candidate = await provisionGoogleUser({
+      correlationId: "db-backed-search",
+      email: "db-backed-search@example.com",
+      emailVerified: true,
+      firstName: "Jordan",
+      fullName: "Jordan Vale",
+      lastName: "Vale",
+      providerUserId: "google-db-backed-search",
+    });
+    await updateRoleSelection({
+      correlationId: "db-backed-search-role",
+      roleType: "candidate",
+      userId: candidate.context.user.id,
+    });
+    await updateCareerProfileBasics({
+      correlationId: "db-backed-search-profile",
+      profilePatch: {
+        headline: "Senior Data Engineer",
+        intent: "Builds warehouse and orchestration systems for enterprise analytics teams.",
+        location: "Denver, CO",
+      },
+      userId: candidate.context.user.id,
+    });
+    await upsertPersistentCareerBuilderProfile({
+      careerIdentityId: candidate.context.aggregate.talentIdentity.id,
+      input: {
+        careerHeadline: "Senior Data Engineer",
+        coreNarrative:
+          "Owns ETL, data platform migrations, and analytics infrastructure for B2B products.",
+        legalName: "Jordan Vale",
+        location: "Denver, CO",
+        targetRole: "Staff Data Engineer",
+      },
+      soulRecordId: candidate.context.aggregate.soulRecord.id,
+    });
+    await upsertPersistentCareerBuilderEvidence({
+      careerIdentityId: candidate.context.aggregate.talentIdentity.id,
+      record: {
+        completionTier: "document",
+        createdAt: "2026-04-10T00:00:00.000Z",
+        files: [],
+        id: "evidence_data_platform_offer",
+        issuedOn: "2025-04-10",
+        soulRecordId: candidate.context.aggregate.soulRecord.id,
+        sourceOrIssuer: "Summit Analytics",
+        status: "COMPLETE",
+        talentIdentityId: candidate.context.aggregate.talentIdentity.id,
+        templateId: "offer-letters",
+        updatedAt: "2026-04-10T00:00:00.000Z",
+        validationContext: "Offer letter confirms data platform leadership and pipeline ownership.",
+        whyItMatters: "Shows verified data engineering leadership in a production analytics environment.",
+      },
+      soulRecordId: candidate.context.aggregate.soulRecord.id,
+    });
+
+    const persisted = await listPersistentRecruiterCandidateProjections({
+      limit: 10,
+      searchableOnly: false,
+    });
+
+    expect(
+      persisted.some(
+        (projection) =>
+          projection.candidateId === candidate.context.aggregate.talentIdentity.id &&
+          projection.searchable,
+      ),
+    ).toBe(true);
+
+    resetArtifactStore();
+    resetCredentialStore();
+    resetRecruiterReadModelStore();
+    resetVerificationStore();
+
+    const result = await searchEmployerCandidates({
+      prompt: "Senior data engineer for warehouse and analytics infrastructure in Denver",
+    });
+
+    expect(result.candidates[0]?.candidateId).toBe(candidate.context.aggregate.talentIdentity.id);
+    expect(result.candidates[0]?.fullName).toBe("Jordan Vale");
   });
 });
