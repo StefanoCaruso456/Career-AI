@@ -6,8 +6,11 @@ const chatOwnerCookieName = "career_ai_chat_owner";
 const fallbackChatSessionSecret = "career-ai-chat-dev-secret";
 
 export type ChatActor = {
+  actorType: "guest" | "session_user";
   cookieValue?: string;
   ownerId: string;
+  sessionId?: string | null;
+  userId?: string | null;
 };
 
 function getChatSessionSecret() {
@@ -64,14 +67,23 @@ export function getChatOwnerCookieName() {
 
 export async function resolveChatActor(existingCookieValue?: string | null): Promise<ChatActor> {
   const session = await auth();
+  const normalizedSessionEmail = session?.user?.email?.trim()?.toLowerCase() ?? null;
+  const sessionUserId =
+    session?.user?.appUserId?.trim() ||
+    session?.user?.talentIdentityId?.trim() ||
+    normalizedSessionEmail ||
+    null;
   const sessionOwnerId =
     session?.user?.talentIdentityId?.trim() ||
-    session?.user?.email?.trim()?.toLowerCase() ||
+    normalizedSessionEmail ||
     null;
 
   if (sessionOwnerId) {
     return {
+      actorType: "session_user",
       ownerId: `user:${sessionOwnerId}`,
+      sessionId: sessionUserId ?? `user:${sessionOwnerId}`,
+      userId: sessionUserId,
     };
   }
 
@@ -79,14 +91,20 @@ export async function resolveChatActor(existingCookieValue?: string | null): Pro
 
   if (existingOwnerId) {
     return {
+      actorType: "guest",
       ownerId: existingOwnerId,
+      sessionId: existingOwnerId,
+      userId: null,
     };
   }
 
   const ownerId = `guest:${crypto.randomUUID()}`;
 
   return {
+    actorType: "guest",
     cookieValue: serializeChatOwnerId(ownerId),
     ownerId,
+    sessionId: ownerId,
+    userId: null,
   };
 }

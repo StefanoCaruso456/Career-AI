@@ -1267,11 +1267,14 @@ export function HeroComposer({
     message: string;
     persona: Persona;
     projectId: string;
+    traceId: string;
   }) {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-request-id": args.clientRequestId,
+        "x-trace-id": args.traceId,
       },
       body: JSON.stringify({
         attachmentIds: args.attachmentIds,
@@ -1807,6 +1810,7 @@ export function HeroComposer({
         .map((attachment) => attachment.attachmentId)
         .filter((attachmentId): attachmentId is string => Boolean(attachmentId));
       const clientRequestId = createClientRequestId();
+      const traceId = createClientRequestId();
       let reply = await requestChatReply({
         attachmentIds,
         candidateSearchFilters: isEmployerMode ? candidateSearchFilters : undefined,
@@ -1815,6 +1819,7 @@ export function HeroComposer({
         message: prompt,
         persona,
         projectId: submitTarget.projectId,
+        traceId,
       });
       let payload = reply.payload;
 
@@ -1839,6 +1844,7 @@ export function HeroComposer({
             message: prompt,
             persona,
             projectId: recoveredSubmitTarget.projectId,
+            traceId,
           });
           payload = reply.payload;
         }
