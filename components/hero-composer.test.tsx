@@ -866,5 +866,12 @@ describe("HeroComposer", () => {
     expect(await screen.findByText("It helps candidates build a verifiable Career ID.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Find NEW Jobs" })).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(false);
+
+    const chatRequest = fetchMock.mock.calls.find(([input]) => getRequestUrl(input) === "/api/chat");
+    const chatRequestInit = chatRequest?.[1] as RequestInit | undefined;
+    const chatHeaders = chatRequestInit?.headers as Record<string, string> | undefined;
+
+    expect(chatHeaders?.["x-request-id"]).toEqual(expect.any(String));
+    expect(chatHeaders?.["x-trace-id"]).toEqual(expect.any(String));
   });
 });

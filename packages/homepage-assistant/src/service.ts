@@ -1,4 +1,5 @@
-import { getTracedOpenAIClient } from "@/lib/braintrust";
+import { getOpenAIClient as getSharedOpenAIClient } from "@/lib/braintrust";
+import { traceSpan } from "@/lib/tracing";
 import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
 const homepageInstructions =
@@ -24,14 +25,14 @@ export class OpenAIResponseError extends Error {
   }
 }
 
-function getOpenAIClient() {
+function getHomepageOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
 
   if (!apiKey) {
     throw new OpenAIConfigError("The server is missing OPENAI_API_KEY.");
   }
 
-  return getTracedOpenAIClient(apiKey);
+  return getSharedOpenAIClient(apiKey);
 }
 
 function getModel() {
@@ -77,43 +78,191 @@ function buildAssistantInput(message: string, attachments: HomepageAssistantAtta
   ].join("\n");
 }
 
+function buildReplyPreview(reply: string) {
+  return reply.slice(0, 160);
+}
+
+function getOpenAIErrorMetadata(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      error_message: error.message,
+      error_type: error.name,
+    };
+  }
+
+  return {
+    error_message: String(error),
+    error_type: typeof error,
+  };
+}
+
+async function runHomepageFallback(args: {
+  attachments: HomepageAssistantAttachment[];
+  error?: unknown;
+  message: string;
+  reason: "empty_response" | "missing_openai_api_key" | "openai_error";
+}) {
+  return traceSpan(
+    {
+      input: {
+        attachment_count: args.attachments.length,
+        message: args.message,
+        reason: args.reason,
+      },
+      metadata: args.error ? getOpenAIErrorMetadata(args.error) : undefined,
+      name: "llm.homepage.fallback",
+      output: (reply: string) => ({
+        output_preview: buildReplyPreview(reply),
+        output_text_length: reply.length,
+        reason: args.reason,
+      }),
+      tags: ["provider:fallback", "workflow:homepage_assistant"],
+      type: "function",
+    },
+    () => getFallbackHomepageReply(args.message, args.attachments),
+  );
+}
+
+type HomepageAssistantReplyResult = {
+  source:
+    | "matched_reply"
+    | "missing_openai_api_key_fallback"
+    | "openai"
+    | "openai_empty_fallback"
+    | "openai_error_fallback";
+  text: string;
+};
+
 export async function generateHomepageAssistantReply(
   message: string,
   attachments: HomepageAssistantAttachment[] = [],
 ) {
-  const matchedReply = getMatchedHomepageReply(message, attachments);
+  const result = await traceSpan<HomepageAssistantReplyResult>(
+    {
+      input: {
+        attachment_count: attachments.length,
+        message,
+        model: getModel(),
+      },
+      metadata: {
+        prompt_version: "homepage_assistant.v1",
+        workflow_id: "homepage_assistant.reply",
+      },
+      name: "workflow.homepage_assistant.reply",
+      output: (replyResult: HomepageAssistantReplyResult) => ({
+        output_preview: buildReplyPreview(replyResult.text),
+        output_text_length: replyResult.text.length,
+        source: replyResult.source,
+      }),
+      tags: ["workflow:homepage_assistant"],
+      type: "task",
+    },
+    async () => {
+      const matchedReply = getMatchedHomepageReply(message, attachments);
 
-  if (matchedReply) {
-    return matchedReply;
-  }
+      if (matchedReply) {
+        return {
+          source: "matched_reply" as const,
+          text: matchedReply,
+        };
+      }
 
-  if (!process.env.OPENAI_API_KEY?.trim()) {
-    return getFallbackHomepageReply(message, attachments);
-  }
+      if (!process.env.OPENAI_API_KEY?.trim()) {
+        return {
+          source: "missing_openai_api_key_fallback" as const,
+          text: await runHomepageFallback({
+            attachments,
+            message,
+            reason: "missing_openai_api_key",
+          }),
+        };
+      }
 
-  try {
-    const response = await getOpenAIClient().responses.create({
-      model: getModel(),
-      instructions: homepageInstructions,
-      input: buildAssistantInput(message, attachments),
-      store: false,
-    });
+      try {
+        const response = await traceSpan(
+          {
+            input: {
+              attachment_count: attachments.length,
+              input: buildAssistantInput(message, attachments),
+              instructions: homepageInstructions,
+              model: getModel(),
+            },
+            metadata: {
+              model_name: getModel(),
+              prompt_version: "homepage_assistant.v1",
+              provider: "openai",
+            },
+            name: "llm.openai.responses.create",
+            output: (openAIResponse: {
+              output_text?: string | null;
+              usage?: {
+                input_tokens?: number | null;
+                output_tokens?: number | null;
+                total_tokens?: number | null;
+              } | null;
+            }) => {
+              const output = openAIResponse.output_text?.trim() ?? "";
 
-    const output = response.output_text?.trim();
+              return {
+                input_tokens: openAIResponse.usage?.input_tokens ?? null,
+                model: getModel(),
+                output_preview: buildReplyPreview(output),
+                output_text_length: output.length,
+                output_tokens: openAIResponse.usage?.output_tokens ?? null,
+                provider: "openai",
+                total_tokens: openAIResponse.usage?.total_tokens ?? null,
+              };
+            },
+            tags: ["provider:openai", "workflow:homepage_assistant"],
+            type: "llm",
+          },
+          () =>
+            getHomepageOpenAIClient().responses.create({
+              model: getModel(),
+              instructions: homepageInstructions,
+              input: buildAssistantInput(message, attachments),
+              store: false,
+            }),
+        );
 
-    if (!output) {
-      return getFallbackHomepageReply(message, attachments);
-    }
+        const output = response.output_text?.trim();
 
-    return output;
-  } catch (error) {
-    console.error("Homepage assistant fell back after an OpenAI response failure", error);
-    return getFallbackHomepageReply(message, attachments);
-  }
+        if (!output) {
+          return {
+            source: "openai_empty_fallback" as const,
+            text: await runHomepageFallback({
+              attachments,
+              message,
+              reason: "empty_response",
+            }),
+          };
+        }
+
+        return {
+          source: "openai" as const,
+          text: output,
+        };
+      } catch (error) {
+        console.error("Homepage assistant fell back after an OpenAI response failure", error);
+
+        return {
+          source: "openai_error_fallback" as const,
+          text: await runHomepageFallback({
+            attachments,
+            error,
+            message,
+            reason: "openai_error",
+          }),
+        };
+      }
+    },
+  );
+
+  return result.text;
 }
 
 export async function transcribeHomepageAssistantAudio(file: File) {
-  const response = await getOpenAIClient().audio.transcriptions.create({
+  const response = await getHomepageOpenAIClient().audio.transcriptions.create({
     file,
     model: getTranscriptionModel(),
   });

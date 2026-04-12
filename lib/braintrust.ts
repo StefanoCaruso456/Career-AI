@@ -1,6 +1,6 @@
 import "server-only";
 
-import { flush, initLogger, type Logger, wrapOpenAI } from "braintrust";
+import { flush, initLogger, type Logger } from "braintrust";
 import OpenAI from "openai";
 
 const defaultBraintrustProjectName = "Career AI";
@@ -48,18 +48,18 @@ export function getBraintrustLogger() {
   return loggerSingleton;
 }
 
-export function getTracedOpenAIClient(apiKey: string) {
+export function getOpenAIClient(apiKey: string) {
   if (openAISingleton) {
     return openAISingleton;
   }
 
-  const client = new OpenAI({ apiKey });
-
   getBraintrustLogger();
-  openAISingleton = isBraintrustEnabled() ? wrapOpenAI(client) : client;
+  openAISingleton = new OpenAI({ apiKey });
 
   return openAISingleton;
 }
+
+export const getTracedOpenAIClient = getOpenAIClient;
 
 export async function flushBraintrust() {
   if (!isBraintrustEnabled()) {

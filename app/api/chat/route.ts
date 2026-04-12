@@ -2,7 +2,7 @@ import { z } from "zod";
 import { runJobSeekerAgent } from "@/packages/job-seeker-agent/src";
 import { searchJobsPanel } from "@/packages/jobs-domain/src";
 import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
-import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fallback";
+import { generateHomepageAssistantReply } from "@/packages/homepage-assistant/src";
 import { sendChatMessageInputSchema } from "@/packages/contracts/src";
 import {
   createAssistantChatMessage,
@@ -15,15 +15,61 @@ import {
   jsonChatErrorResponse,
   jsonChatResponse,
   resolveChatRouteContext,
+  traceSpan,
+  updateRequestTraceContext,
+  withTracedRoute,
 } from "./route-helpers";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request) {
-  const { actor, ownerId } = await resolveChatRouteContext(request);
+async function handleChatPost(request: Request) {
+  const routeContext = await traceSpan(
+    {
+      input: {
+        has_cookie_header: Boolean(request.headers.get("cookie")),
+      },
+      name: "auth.session.lookup",
+      output: (context: Awaited<ReturnType<typeof resolveChatRouteContext>>) => ({
+        actor_type: context.actor.actorType,
+        owner_id: context.ownerId,
+        session_id: context.sessionId,
+        user_id: context.userId,
+      }),
+      tags: ["stage:auth"],
+      type: "function",
+    },
+    () => resolveChatRouteContext(request),
+  );
+  const { actor, ownerId } = routeContext;
+
+  updateRequestTraceContext({
+    actorType: actor.actorType,
+    ownerId,
+    sessionId: routeContext.sessionId,
+    userId: routeContext.userId,
+  });
 
   try {
-    const payload = sendChatMessageInputSchema.parse(await request.json());
+    const payload = await traceSpan(
+      {
+        input: {
+          content_length: request.headers.get("content-length"),
+          content_type: request.headers.get("content-type"),
+        },
+        name: "http.parse.json",
+        output: (parsedPayload: z.infer<typeof sendChatMessageInputSchema>) => ({
+          attachment_count: parsedPayload.attachmentIds.length,
+          client_request_id: parsedPayload.clientRequestId ?? null,
+          conversation_id: parsedPayload.conversationId ?? null,
+          message_length: parsedPayload.message.length,
+          persona: parsedPayload.persona,
+          project_id: parsedPayload.projectId,
+        }),
+        tags: ["stage:parse"],
+        type: "function",
+      },
+      async () => sendChatMessageInputSchema.parse(await request.json()),
+    );
     const userMessageResult = await createUserChatMessage({
       attachmentIds: payload.attachmentIds,
       clientRequestId: payload.clientRequestId,
@@ -63,6 +109,11 @@ export async function POST(request: Request) {
         prompt: payload.message,
       });
       assistantReply = candidatePanel.assistantMessage;
+    } else if (payload.persona !== "employer" && !isJobIntent(payload.message)) {
+      assistantReply = await generateHomepageAssistantReply(
+        payload.message,
+        attachmentSummaries,
+      );
     } else if (payload.persona !== "employer") {
       try {
         const agentResult = await runJobSeekerAgent({
@@ -98,7 +149,10 @@ export async function POST(request: Request) {
             assistantReplyError = true;
           }
         } else {
-          assistantReply = getFallbackHomepageReply(payload.message, attachmentSummaries);
+          assistantReply = await generateHomepageAssistantReply(
+            payload.message,
+            attachmentSummaries,
+          );
         }
       }
     } else {
@@ -116,16 +170,16 @@ export async function POST(request: Request) {
     });
 
     return jsonChatResponse(
-        {
-          assistantMessage: assistantMessageResult.assistantMessage,
-          candidatePanel,
-          conversation: assistantMessageResult.conversation,
-          jobsPanel,
-          userMessage: userMessageResult.userMessage,
-          workspace: assistantMessageResult.workspace ?? userMessageResult.workspace,
-        },
-        actor,
-      );
+      {
+        assistantMessage: assistantMessageResult.assistantMessage,
+        candidatePanel,
+        conversation: assistantMessageResult.conversation,
+        jobsPanel,
+        userMessage: userMessageResult.userMessage,
+        workspace: assistantMessageResult.workspace ?? userMessageResult.workspace,
+      },
+      actor,
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return jsonChatResponse(
@@ -142,3 +196,12 @@ export async function POST(request: Request) {
     });
   }
 }
+
+export const POST = withTracedRoute(
+  {
+    name: "http.route.chat.post",
+    tags: ["route:chat"],
+    type: "task",
+  },
+  handleChatPost,
+);

@@ -1,9 +1,36 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createResponseMock, createTranscriptionMock, openAIConstructorMock } = vi.hoisted(() => ({
+const {
+  createResponseMock,
+  createTranscriptionMock,
+  openAIConstructorMock,
+  traceSpanMock,
+} = vi.hoisted(() => ({
   createResponseMock: vi.fn(),
   createTranscriptionMock: vi.fn(),
   openAIConstructorMock: vi.fn(),
+  traceSpanMock: vi.fn(),
+}));
+
+vi.mock("@/lib/tracing", () => ({
+  traceSpan: traceSpanMock,
+}));
+
+vi.mock("@/lib/braintrust", () => ({
+  getOpenAIClient: (apiKey: string) => {
+    openAIConstructorMock({ apiKey });
+
+    return {
+      audio: {
+        transcriptions: {
+          create: createTranscriptionMock,
+        },
+      },
+      responses: {
+        create: createResponseMock,
+      },
+    };
+  },
 }));
 
 vi.mock("openai", () => ({
@@ -39,6 +66,10 @@ describe("homepage assistant service", () => {
     createResponseMock.mockReset();
     createTranscriptionMock.mockReset();
     openAIConstructorMock.mockReset();
+    traceSpanMock.mockReset();
+    traceSpanMock.mockImplementation(
+      (_options: unknown, callback: () => Promise<unknown> | unknown) => callback(),
+    );
     process.env.OPENAI_API_KEY = "test-openai-key";
     delete process.env.OPENAI_MODEL;
   });
@@ -72,6 +103,12 @@ describe("homepage assistant service", () => {
       input: "Summarize the product",
       store: false,
     });
+    expect(traceSpanMock.mock.calls.map(([options]) => options.name)).toEqual(
+      expect.arrayContaining([
+        "workflow.homepage_assistant.reply",
+        "llm.openai.responses.create",
+      ]),
+    );
   });
 
   it("includes attachment metadata in the assistant input when files are attached", async () => {
@@ -108,9 +145,15 @@ describe("homepage assistant service", () => {
     delete process.env.OPENAI_API_KEY;
 
     await expect(
-      generateHomepageAssistantReply("How is this different from a resume builder?"),
-    ).resolves.toContain("Career AI helps you prove it");
+      generateHomepageAssistantReply("Summarize the product"),
+    ).resolves.toContain("Career AI");
     expect(openAIConstructorMock).not.toHaveBeenCalled();
+    expect(traceSpanMock.mock.calls.map(([options]) => options.name)).toEqual(
+      expect.arrayContaining([
+        "workflow.homepage_assistant.reply",
+        "llm.homepage.fallback",
+      ]),
+    );
   });
 
   it("falls back when the SDK returns an empty reply", async () => {

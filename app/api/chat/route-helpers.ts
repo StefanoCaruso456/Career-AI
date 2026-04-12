@@ -1,6 +1,20 @@
 import { NextResponse } from "next/server";
 import { getChatOwnerCookieName, type ChatActor, resolveChatActor } from "@/chat-session";
+import {
+  applyTraceResponseHeaders,
+  traceSpan,
+  updateRequestTraceContext,
+  withTracedRoute,
+} from "@/lib/tracing";
 import { ApiError } from "@/packages/contracts/src";
+
+function getPayloadKeys(payload: unknown) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return [];
+  }
+
+  return Object.keys(payload as Record<string, unknown>);
+}
 
 function readCookieValue(request: Request, cookieName: string) {
   const cookieHeader = request.headers.get("cookie");
@@ -40,11 +54,29 @@ export async function resolveChatRouteContext(request: Request) {
   return {
     actor,
     ownerId: actor.ownerId,
+    sessionId: actor.sessionId ?? actor.ownerId,
+    userId: actor.userId ?? null,
   };
 }
 
 export function jsonChatResponse(payload: unknown, actor: ChatActor, init?: ResponseInit) {
-  return withChatActorCookie(NextResponse.json(payload, init), actor);
+  return traceSpan(
+    {
+      input: {
+        payload_keys: getPayloadKeys(payload),
+        status: init?.status ?? 200,
+      },
+      name: "http.response.json",
+      output: (response: NextResponse) => ({
+        content_type: response.headers.get("content-type"),
+        ok: response.ok,
+        status: response.status,
+      }),
+      tags: ["stage:response"],
+      type: "function",
+    },
+    () => applyTraceResponseHeaders(withChatActorCookie(NextResponse.json(payload, init), actor)),
+  );
 }
 
 export function jsonChatErrorResponse(args: {
@@ -71,3 +103,5 @@ export function jsonChatErrorResponse(args: {
     { status: 500 },
   );
 }
+
+export { traceSpan, updateRequestTraceContext, withTracedRoute };
