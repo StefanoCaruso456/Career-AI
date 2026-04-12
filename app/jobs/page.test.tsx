@@ -6,6 +6,8 @@ const jobsDomainMocks = vi.hoisted(() => ({
   getJobsEnvironmentGuide: vi.fn(() => []),
   getJobsFeedSnapshot: vi.fn(),
   getSeededJobsCompanyOptions: vi.fn(() => [
+    "Figma",
+    "Stripe",
     "Autodesk",
     "Dell Technologies",
     "Hewlett Packard Enterprise (HPE)",
@@ -113,6 +115,8 @@ describe("JobsPage", () => {
     expect(screen.getAllByText("Second Feed")).toHaveLength(2);
     expect(screen.getByLabelText("Company")).toHaveTextContent("Connected Feed");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Second Feed");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Stripe");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Autodesk");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Dell Technologies");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Hewlett Packard Enterprise (HPE)");

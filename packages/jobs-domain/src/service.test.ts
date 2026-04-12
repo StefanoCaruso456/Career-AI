@@ -141,7 +141,7 @@ describe("jobs feed service", () => {
     ]);
   });
 
-  it("exposes the built-in Workday companies for UI filters", () => {
+  it("exposes the built-in companies for UI filters", () => {
     expect(getSeededJobsCompanyOptions()).toEqual([
       "Accenture",
       "Adobe",
@@ -149,11 +149,13 @@ describe("jobs feed service", () => {
       "Cisco",
       "CrowdStrike",
       "Dell Technologies",
+      "Figma",
       "Hewlett Packard Enterprise (HPE)",
       "NVIDIA",
       "Red Hat",
       "Salesforce",
       "Samsung Electronics",
+      "Stripe",
       "Workday",
     ]);
   });
