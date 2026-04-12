@@ -78,8 +78,8 @@ function createSnapshot(): JobsFeedResponseDto {
       },
     ],
     summary: {
-      totalJobs: 1,
-      directAtsJobs: 1,
+      totalJobs: 1689,
+      directAtsJobs: 1689,
       aggregatorJobs: 0,
       sourceCount: 3,
       connectedSourceCount: 2,

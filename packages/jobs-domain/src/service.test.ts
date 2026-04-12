@@ -464,9 +464,9 @@ describe("jobs feed service", () => {
     const snapshot = await getJobsFeedSnapshot({ limit: 10 });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(snapshot.summary.totalJobs).toBe(3);
+    expect(snapshot.summary.totalJobs).toBe(4);
     expect(snapshot.summary.directAtsJobs).toBe(2);
-    expect(snapshot.summary.aggregatorJobs).toBe(1);
+    expect(snapshot.summary.aggregatorJobs).toBe(2);
     expect(snapshot.summary.connectedSourceCount).toBe(3);
     expect(snapshot.jobs.map((job) => job.title)).toEqual([
       "Senior Product Designer",
@@ -484,6 +484,62 @@ describe("jobs feed service", () => {
       "not_configured",
     ]);
     expect(snapshot.storage.mode).toBe("ephemeral");
+  });
+
+  it("reports source totals even when the returned jobs window is truncated", async () => {
+    process.env.LEVER_SITE_NAMES = "Figma=figma";
+
+    const recentPage = Array.from({ length: 100 }, (_, index) => ({
+      id: `lever-${index + 1}`,
+      text: `Recent role ${index + 1}`,
+      categories: {
+        location: "Remote",
+        commitment: "Full-time",
+        team: "Sales",
+      },
+      hostedUrl: `https://jobs.figma.com/recent-${index + 1}`,
+      descriptionPlain: "Recent job from the first page.",
+      createdAt: Date.parse("2026-04-09T12:00:00.000Z"),
+      updatedAt: Date.parse("2026-04-10T12:00:00.000Z"),
+    }));
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://api.lever.co/v0/postings/figma?mode=json&limit=100&skip=0") {
+        return createJsonResponse(recentPage);
+      }
+
+      if (url === "https://api.lever.co/v0/postings/figma?mode=json&limit=100&skip=100") {
+        return createJsonResponse([
+          {
+            id: "lever-101",
+            text: "Recent role 101",
+            categories: {
+              location: "Remote",
+              commitment: "Full-time",
+              team: "Sales",
+            },
+            hostedUrl: "https://jobs.figma.com/recent-101",
+            descriptionPlain: "Recent job from the second page.",
+            createdAt: Date.parse("2026-04-08T12:00:00.000Z"),
+            updatedAt: Date.parse("2026-04-10T08:00:00.000Z"),
+          },
+        ]);
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10, windowDays: 7 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(snapshot.jobs).toHaveLength(10);
+    expect(snapshot.summary.totalJobs).toBe(101);
+    expect(snapshot.summary.directAtsJobs).toBe(101);
+    expect(snapshot.sources[0]?.jobCount).toBe(101);
   });
 
   it("ingests multiple named aggregator feeds with one shared API key", async () => {

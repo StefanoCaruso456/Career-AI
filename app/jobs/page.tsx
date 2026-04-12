@@ -50,7 +50,6 @@ export default async function JobsPage() {
   const companyOptions = Array.from(
     new Set([...getSeededJobsCompanyOptions(), ...visibleSources.map((source) => source.label)]),
   ).sort((left, right) => left.localeCompare(right));
-  const totalAvailableCount = visibleSources.reduce((sum, source) => sum + source.jobCount, 0);
 
   return (
     <main className={styles.page}>
@@ -73,7 +72,7 @@ export default async function JobsPage() {
               initialCount={INITIAL_ROLE_COUNT}
               initialCompanyOptions={companyOptions}
               initialRequestLimit={INITIAL_REQUEST_LIMIT}
-              initialTotalAvailableCount={totalAvailableCount}
+              initialTotalAvailableCount={snapshot.summary.totalJobs}
               jobs={snapshot.jobs}
               loadMoreCount={LOAD_MORE_INCREMENT}
             />
