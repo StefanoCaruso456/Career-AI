@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
-import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
+import {
+  getJobsEnvironmentGuide,
+  getJobsFeedSnapshot,
+  getSeededJobsCompanyOptions,
+} from "@/packages/jobs-domain/src";
 import { JobsResults } from "./jobs-results";
 import styles from "./page.module.css";
 
@@ -43,9 +47,9 @@ export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: INITIAL_REQUEST_LIMIT });
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
-  const companyOptions = Array.from(new Set(visibleSources.map((source) => source.label))).sort(
-    (left, right) => left.localeCompare(right),
-  );
+  const companyOptions = Array.from(
+    new Set([...getSeededJobsCompanyOptions(), ...visibleSources.map((source) => source.label)]),
+  ).sort((left, right) => left.localeCompare(right));
   const totalAvailableCount = visibleSources.reduce((sum, source) => sum + source.jobCount, 0);
 
   return (
