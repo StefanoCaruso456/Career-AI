@@ -96,8 +96,8 @@
 
 .candidateCard {
   display: grid;
-  gap: 0.82rem;
-  padding: 0.95rem;
+  gap: 0.68rem;
+  padding: 0.88rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 1.2rem;
   background:
@@ -109,12 +109,12 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: 0.85rem;
+  gap: 0.78rem;
 }
 
 .candidateCardPreview {
   display: grid;
-  gap: 0.75rem;
+  gap: 0.4rem;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -167,7 +167,7 @@
   display: grid;
   justify-items: end;
   align-content: start;
-  gap: 0.58rem;
+  gap: 0.46rem;
 }
 
 .credibilityBadge {
@@ -186,14 +186,16 @@
   line-height: 1.2;
 }
 
-.skillRow {
+.asideSkillStack {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.42rem;
+  max-width: 12rem;
 }
 
 .skillChip {
-  padding: 0.34rem 0.56rem;
+  padding: 0.3rem 0.52rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.82);
@@ -204,6 +206,7 @@
 .cardActions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.52rem;
 }
 
@@ -244,6 +247,21 @@
 .careerIdAction {
   min-height: 2rem;
   padding-inline: 0.78rem;
+}
+
+@media (max-width: 560px) {
+  .candidateCardTop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .candidateCardAside {
+    justify-items: start;
+  }
+
+  .asideSkillStack {
+    justify-content: flex-start;
+    max-width: none;
+  }
 }
 
 .secondaryActionDisabled {

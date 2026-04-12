@@ -41,19 +41,6 @@ export function EmployerCandidateCard({
               <p className={styles.candidateRoleLine}>{roleLine || "Career ID profile"}</p>
             </div>
           </div>
-
-          {previewSkills.length > 0 ? (
-            <div className={styles.skillRow}>
-              {previewSkills.map((skill) => (
-                <span className={styles.skillChip} key={skill}>
-                  {skill}
-                </span>
-              ))}
-              {overflowSkillCount > 0 ? (
-                <span className={styles.skillChip}>+{overflowSkillCount} more</span>
-              ) : null}
-            </div>
-          ) : null}
         </button>
 
         <div className={styles.candidateCardAside}>
@@ -64,6 +51,18 @@ export function EmployerCandidateCard({
           <Link className={[styles.secondaryAction, styles.careerIdAction].join(" ")} href={careerIdHref}>
             View Career ID
           </Link>
+          {previewSkills.length > 0 ? (
+            <div className={styles.asideSkillStack}>
+              {previewSkills.map((skill) => (
+                <span className={styles.skillChip} key={skill}>
+                  {skill}
+                </span>
+              ))}
+              {overflowSkillCount > 0 ? (
+                <span className={styles.skillChip}>+{overflowSkillCount} more</span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
