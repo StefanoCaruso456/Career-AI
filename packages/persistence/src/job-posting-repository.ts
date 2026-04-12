@@ -79,6 +79,16 @@ function formatIsoString(value: Date | string | null) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+function normalizeCompanyFilters(values: string[] | undefined) {
+  return Array.from(
+    new Set(
+      (values ?? [])
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.length > 0),
+    ),
+  );
+}
+
 function normalizeUrlForDeduping(value: string) {
   try {
     const url = new URL(value);
@@ -433,10 +443,13 @@ export async function persistSourcedJobs(args: {
 }
 
 export async function getPersistedJobsFeedSnapshot(args?: {
+  companies?: string[];
   limit?: number;
   windowDays?: number;
 }): Promise<PersistedJobsFeedSnapshot> {
   const limit = Math.max(1, Math.min(args?.limit ?? 18, MAX_PERSISTED_RESPONSE_LIMIT));
+  const companies = normalizeCompanyFilters(args?.companies);
+  const shouldFilterByCompanies = companies.length > 0;
   const windowDays = Number.isFinite(args?.windowDays)
     ? Math.max(1, Math.min(Math.floor(args?.windowDays ?? 1), 90))
     : null;
@@ -503,6 +516,10 @@ export async function getPersistedJobsFeedSnapshot(args?: {
         FROM job_postings
         WHERE is_active = true
           AND ($2::timestamptz IS NULL OR COALESCE(updated_at, posted_at, persisted_at) >= $2)
+          AND (
+            $3::boolean = false
+            OR COALESCE(normalized_company_name, LOWER(company_name)) = ANY($4::text[])
+          )
         ORDER BY
           COALESCE(trust_score, 0) DESC,
           CASE source_quality WHEN 'high_signal' THEN 0 ELSE 1 END,
@@ -510,7 +527,7 @@ export async function getPersistedJobsFeedSnapshot(args?: {
           title ASC
         LIMIT $1
       `,
-      [Math.min(Math.max(limit * 6, limit), 30_000), cutoffIso],
+      [Math.min(Math.max(limit * 6, limit), 30_000), cutoffIso, shouldFilterByCompanies, companies],
     ),
     queryOptional<{ last_synced_at: Date | string }>(
       pool,
