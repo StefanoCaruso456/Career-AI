@@ -225,9 +225,19 @@ export async function fetchObservedSpansForRoot(args: FetchObservedSpansArgs) {
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const payload = await fetchBraintrustJson<BraintrustProjectLogsResponse>(
-      `/v1/project_logs/${encodeURIComponent(projectId)}/fetch?limit=10`,
+      `/v1/project_logs/${encodeURIComponent(projectId)}/fetch`,
       {
-        method: "GET",
+        body: JSON.stringify({
+          filters: [
+            {
+              path: ["root_span_id"],
+              type: "path_lookup",
+              value: args.rootSpanId,
+            },
+          ],
+          limit: 1,
+        }),
+        method: "POST",
       },
     );
 
