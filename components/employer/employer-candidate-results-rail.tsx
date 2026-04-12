@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import type {
   EmployerCandidateMatchDto,
   EmployerCandidateSearchQueryDto,
@@ -12,6 +13,7 @@ type EmployerCandidateResultsRailProps = {
   errorMessage?: string | null;
   isLoading?: boolean;
   onOpenDetail?: (candidate: EmployerCandidateMatchDto) => void;
+  onClose?: () => void;
   onRefresh?: () => void;
   onShortlist?: (candidate: EmployerCandidateMatchDto) => void;
   query?: EmployerCandidateSearchQueryDto | null;
@@ -23,6 +25,7 @@ export function EmployerCandidateResultsRail({
   errorMessage = null,
   isLoading = false,
   onOpenDetail,
+  onClose,
   onRefresh,
   onShortlist,
   shortlistedCandidateIds = [],
@@ -30,16 +33,28 @@ export function EmployerCandidateResultsRail({
   return (
     <aside aria-label="Candidate sourcing panel" className={styles.resultsRail}>
       <div className={styles.resultsRailHeader}>
-        <button
-          className={styles.resultsRailRefresh}
-          disabled={isLoading}
-          onClick={() => {
-            onRefresh?.();
-          }}
-          type="button"
-        >
-          Find aligned candidates
-        </button>
+        <div className={styles.resultsRailHeaderActions}>
+          <button
+            className={styles.resultsRailRefresh}
+            disabled={isLoading}
+            onClick={() => {
+              onRefresh?.();
+            }}
+            type="button"
+          >
+            Find aligned candidates
+          </button>
+          <button
+            aria-label="Close candidate sourcing panel"
+            className={styles.resultsRailClose}
+            onClick={() => {
+              onClose?.();
+            }}
+            type="button"
+          >
+            <X aria-hidden="true" size={16} strokeWidth={2} />
+          </button>
+        </div>
         <p className={styles.resultsRailLead}>
           Search verified Career ID talent, then open a candidate only when you need the full recruiter-safe profile.
         </p>

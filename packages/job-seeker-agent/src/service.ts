@@ -2,7 +2,7 @@ import { traceSpan } from "@/lib/tracing";
 import { createLiveJobSeekerAgentModel } from "./model";
 import { createJobSeekerAgent } from "./runtime";
 import { createLiveJobSeekerToolSet } from "./tools";
-import type { JobSeekerAgentInput } from "./types";
+import type { JobSeekerAgentInput, JobSeekerAgentResult } from "./types";
 
 const liveJobSeekerAgent = createJobSeekerAgent({
   model: createLiveJobSeekerAgentModel(),
@@ -25,7 +25,7 @@ export async function runJobSeekerAgent(input: JobSeekerAgentInput) {
         workflow_id: "job_seeker_agent.run",
       },
       name: "workflow.job_seeker_agent.run",
-      output: (result) => ({
+      output: (result: JobSeekerAgentResult) => ({
         assistant_message_length: result.assistantMessage.length,
         has_jobs_panel: Boolean(result.jobsPanel),
         job_count: result.jobsPanel?.jobs.length ?? 0,
