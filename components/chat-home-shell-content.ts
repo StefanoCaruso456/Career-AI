@@ -472,7 +472,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
           label: "Start Building My Career ID",
         },
       ],
-      typingLabel: "Thinking through your verification workflow...",
+      typingLabel: "Thinking...",
     },
     heroTitle: "A trusted identity platform that gets candidates hired faster.",
     introPrimaryCta: "Explore the platform",
