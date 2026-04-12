@@ -1,7 +1,11 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getDatabasePool } from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
-import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
+import {
+  getJobsEnvironmentGuide,
+  getJobsFeedSnapshot,
+  getSeededJobsCompanyOptions,
+} from "@/packages/jobs-domain/src";
 
 function createJsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -134,6 +138,23 @@ describe("jobs feed service", () => {
       "JOBS_AGGREGATOR_API_KEY",
       "WORKABLE_XML_FEED_URL",
       "WORKDAY_JOB_SOURCES",
+    ]);
+  });
+
+  it("exposes the built-in Workday companies for UI filters", () => {
+    expect(getSeededJobsCompanyOptions()).toEqual([
+      "Accenture",
+      "Adobe",
+      "Autodesk",
+      "Cisco",
+      "CrowdStrike",
+      "Dell Technologies",
+      "Hewlett Packard Enterprise (HPE)",
+      "NVIDIA",
+      "Red Hat",
+      "Salesforce",
+      "Samsung Electronics",
+      "Workday",
     ]);
   });
 

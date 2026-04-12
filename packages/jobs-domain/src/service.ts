@@ -155,59 +155,59 @@ type WorkdayJob = {
   bulletFields?: string[];
 };
 
+const BUILTIN_WORKDAY_COMPANY_SPECS = [
+  {
+    label: "Accenture",
+    feedUrl: "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
+  },
+  {
+    label: "Adobe",
+    feedUrl: "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
+  },
+  {
+    label: "Autodesk",
+    feedUrl: "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs",
+  },
+  {
+    label: "Cisco",
+    feedUrl: "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
+  },
+  {
+    label: "CrowdStrike",
+    feedUrl: "https://crowdstrike.wd5.myworkdayjobs.com/wday/cxs/crowdstrike/crowdstrikecareers/jobs",
+  },
+  {
+    label: "Dell Technologies",
+    feedUrl: "https://dell.wd1.myworkdayjobs.com/wday/cxs/dell/External/jobs",
+  },
+  {
+    label: "Hewlett Packard Enterprise (HPE)",
+    feedUrl: "https://hpe.wd5.myworkdayjobs.com/wday/cxs/hpe/ACJobSite/jobs",
+  },
+  {
+    label: "NVIDIA",
+    feedUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/nvidiaexternalcareersite/jobs",
+  },
+  {
+    label: "Red Hat",
+    feedUrl: "https://redhat.wd5.myworkdayjobs.com/wday/cxs/redhat/jobs/jobs",
+  },
+  {
+    label: "Salesforce",
+    feedUrl: "https://salesforce.wd12.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs",
+  },
+  {
+    label: "Samsung Electronics",
+    feedUrl: "https://sec.wd3.myworkdayjobs.com/wday/cxs/sec/Samsung_Careers/jobs",
+  },
+  {
+    label: "Workday",
+    feedUrl: "https://workday.wd5.myworkdayjobs.com/wday/cxs/workday/Workday/jobs",
+  },
+] as const;
+
 const BUILTIN_WORKDAY_COMPANY_FEEDS =
-  process.env.NODE_ENV === "test"
-    ? []
-    : ([
-        {
-          label: "Accenture",
-          feedUrl: "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
-        },
-        {
-          label: "Adobe",
-          feedUrl: "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
-        },
-        {
-          label: "Autodesk",
-          feedUrl: "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs",
-        },
-        {
-          label: "Cisco",
-          feedUrl: "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
-        },
-        {
-          label: "CrowdStrike",
-          feedUrl: "https://crowdstrike.wd5.myworkdayjobs.com/wday/cxs/crowdstrike/crowdstrikecareers/jobs",
-        },
-        {
-          label: "Dell Technologies",
-          feedUrl: "https://dell.wd1.myworkdayjobs.com/wday/cxs/dell/External/jobs",
-        },
-        {
-          label: "Hewlett Packard Enterprise (HPE)",
-          feedUrl: "https://hpe.wd5.myworkdayjobs.com/wday/cxs/hpe/ACJobSite/jobs",
-        },
-        {
-          label: "NVIDIA",
-          feedUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/nvidiaexternalcareersite/jobs",
-        },
-        {
-          label: "Red Hat",
-          feedUrl: "https://redhat.wd5.myworkdayjobs.com/wday/cxs/redhat/jobs/jobs",
-        },
-        {
-          label: "Salesforce",
-          feedUrl: "https://salesforce.wd12.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs",
-        },
-        {
-          label: "Samsung Electronics",
-          feedUrl: "https://sec.wd3.myworkdayjobs.com/wday/cxs/sec/Samsung_Careers/jobs",
-        },
-        {
-          label: "Workday",
-          feedUrl: "https://workday.wd5.myworkdayjobs.com/wday/cxs/workday/Workday/jobs",
-        },
-      ] as const);
+  process.env.NODE_ENV === "test" ? [] : BUILTIN_WORKDAY_COMPANY_SPECS;
 
 const JOBS_ENVIRONMENT_GUIDE = [
   {
@@ -1833,6 +1833,12 @@ async function refreshJobsFeed(windowDays: number | null, syncedAt = new Date().
 
 export function getJobsEnvironmentGuide() {
   return JOBS_ENVIRONMENT_GUIDE;
+}
+
+export function getSeededJobsCompanyOptions() {
+  return [...BUILTIN_WORKDAY_COMPANY_SPECS]
+    .map(({ label }) => label)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 export async function getJobsFeedSnapshot(args?: {
