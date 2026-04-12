@@ -15,7 +15,7 @@ import {
 import { createEnrichedJobPosting } from "./metadata";
 
 const DEFAULT_RESPONSE_LIMIT = 18;
-const MAX_RESPONSE_LIMIT = 5_000;
+const MAX_RESPONSE_LIMIT = 30_000;
 const FETCH_TIMEOUT_MS = 4_500;
 const JOBS_SNAPSHOT_STALE_MS = 10 * 60 * 1000;
 const DEFAULT_WINDOW_DAYS = 7;
@@ -1489,7 +1489,7 @@ async function fetchWorkdayPostings(source: WorkdaySourceSpec) {
 
     if (
       payload.jobPostings.length < WORKDAY_PAGE_SIZE ||
-      (typeof payload.total === "number" && jobs.length >= payload.total)
+      (typeof payload.total === "number" && payload.total > 0 && jobs.length >= payload.total)
     ) {
       break;
     }
