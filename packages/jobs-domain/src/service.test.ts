@@ -231,6 +231,49 @@ describe("jobs feed service", () => {
     );
   });
 
+  it("keeps distinct Greenhouse jobs when the hosted URL differs only by gh_jid", async () => {
+    process.env.GREENHOUSE_BOARD = "Stripe=stripe";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 7532733,
+              title: "Account Executive, AI Sales",
+              absolute_url: "https://stripe.com/jobs/search?gh_jid=7532733",
+              content: "<p>Grow Stripe's AI revenue.</p>",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Sales" }],
+              updated_at: "2026-04-10T18:00:00.000Z",
+            },
+            {
+              id: 7746909,
+              title: "Account Executive, AI Startups - Existing Business",
+              absolute_url: "https://stripe.com/jobs/search?gh_jid=7746909",
+              content: "<p>Support AI startup customers.</p>",
+              location: { name: "New York, NY" },
+              departments: [{ name: "Sales" }],
+              updated_at: "2026-04-10T17:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(snapshot.sources[0]?.jobCount).toBe(2);
+    expect(snapshot.jobs).toHaveLength(2);
+    expect(snapshot.jobs.map((job) => job.externalId)).toEqual(["7532733", "7746909"]);
+  });
+
   it("ingests Ashby job boards as ATS-direct sources", async () => {
     process.env.ASHBY_JOB_BOARDS = "Linear=linear";
 

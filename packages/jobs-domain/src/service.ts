@@ -854,7 +854,7 @@ function normalizeUrlForDeduping(value: string) {
 }
 
 function createDedupeKey(job: JobPostingDto) {
-  return normalizeUrlForDeduping(job.applyUrl).toLowerCase();
+  return (job.dedupeFingerprint ?? normalizeUrlForDeduping(job.applyUrl)).toLowerCase();
 }
 
 function dedupeJobs(jobs: JobPostingDto[]) {

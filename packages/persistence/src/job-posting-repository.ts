@@ -119,7 +119,9 @@ function dedupeJobs(jobs: JobPostingDto[]) {
   const deduped: JobPostingDto[] = [];
 
   for (const job of sortJobs(jobs)) {
-    const dedupeKey = normalizeUrlForDeduping(job.canonicalApplyUrl ?? job.applyUrl).toLowerCase();
+    const dedupeKey = (
+      job.dedupeFingerprint ?? normalizeUrlForDeduping(job.canonicalApplyUrl ?? job.applyUrl)
+    ).toLowerCase();
 
     if (seenKeys.has(dedupeKey)) {
       continue;
