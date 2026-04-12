@@ -667,6 +667,9 @@ describe("HeroComposer", () => {
 
     expect(await screen.findByRole("dialog", { name: "Alex Rivera" })).toBeInTheDocument();
     expect(
+      screen.queryByText("Title overlap around Senior Product Manager. Skill overlap on AI, product, SaaS."),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText("Built AI workflow tooling for enterprise SaaS teams."),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review trust profile" })).toHaveAttribute(
