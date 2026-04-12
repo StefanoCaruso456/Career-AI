@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Search } from "lucide-react";
 import {
   jobsFeedResponseSchema,
   type JobPostingDto,
@@ -723,93 +723,108 @@ export function JobsResults({
         <div className={styles.filterRow}>
           <label className={styles.filterControl}>
             <span className={styles.filterLabel}>Role type</span>
-            <select
-              aria-label="Role type"
-              className={styles.filterSelect}
-              onChange={(event) => {
-                setRoleTypeFilter(event.target.value as "all" | RoleTypeFilter);
-              }}
-              value={roleTypeFilter}
-            >
-              <option value="all">All role types</option>
-              {ROLE_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {formatRoleTypeLabel(option)}
-                </option>
-              ))}
-            </select>
+            <span className={styles.filterSelectShell}>
+              <select
+                aria-label="Role type"
+                className={styles.filterSelect}
+                onChange={(event) => {
+                  setRoleTypeFilter(event.target.value as "all" | RoleTypeFilter);
+                }}
+                value={roleTypeFilter}
+              >
+                <option value="all">All role types</option>
+                {ROLE_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {formatRoleTypeLabel(option)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden="true" className={styles.filterSelectIcon} size={16} strokeWidth={2} />
+            </span>
           </label>
 
           <label className={styles.filterControl}>
             <span className={styles.filterLabel}>Date posted</span>
-            <select
-              aria-label="Date posted"
-              className={styles.filterSelect}
-              onChange={(event) => {
-                setDateFilter(event.target.value as DateFilter);
-              }}
-              value={dateFilter}
-            >
-              <option value="all">Any time</option>
-              <option value="1d">Past 24 hours</option>
-              <option value="7d">Past 7 days</option>
-              <option value="30d">Past 30 days</option>
-            </select>
+            <span className={styles.filterSelectShell}>
+              <select
+                aria-label="Date posted"
+                className={styles.filterSelect}
+                onChange={(event) => {
+                  setDateFilter(event.target.value as DateFilter);
+                }}
+                value={dateFilter}
+              >
+                <option value="all">Any time</option>
+                <option value="1d">Past 24 hours</option>
+                <option value="7d">Past 7 days</option>
+                <option value="30d">Past 30 days</option>
+              </select>
+              <ChevronDown aria-hidden="true" className={styles.filterSelectIcon} size={16} strokeWidth={2} />
+            </span>
           </label>
 
           <label className={styles.filterControl}>
             <span className={styles.filterLabel}>Workplace</span>
-            <select
-              aria-label="Workplace"
-              className={styles.filterSelect}
-              onChange={(event) => {
-                setWorkplaceFilter(event.target.value as WorkplaceFilter);
-              }}
-              value={workplaceFilter}
-            >
-              <option value="all">Any workplace</option>
-              <option value="remote">Remote</option>
-              <option value="hybrid">Hybrid</option>
-              <option value="onsite">On-site</option>
-            </select>
+            <span className={styles.filterSelectShell}>
+              <select
+                aria-label="Workplace"
+                className={styles.filterSelect}
+                onChange={(event) => {
+                  setWorkplaceFilter(event.target.value as WorkplaceFilter);
+                }}
+                value={workplaceFilter}
+              >
+                <option value="all">Any workplace</option>
+                <option value="remote">Remote</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="onsite">On-site</option>
+              </select>
+              <ChevronDown aria-hidden="true" className={styles.filterSelectIcon} size={16} strokeWidth={2} />
+            </span>
           </label>
 
           <label className={styles.filterControl}>
             <span className={styles.filterLabel}>Salary range</span>
-            <select
-              aria-label="Salary range"
-              className={styles.filterSelect}
-              onChange={(event) => {
-                setSalaryRangeFilter(event.target.value as SalaryRangeFilter);
-              }}
-              value={salaryRangeFilter}
-            >
-              <option value="all">Any salary</option>
-              {SALARY_RANGE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {formatSalaryRangeLabel(option)}
-                </option>
-              ))}
-            </select>
+            <span className={styles.filterSelectShell}>
+              <select
+                aria-label="Salary range"
+                className={styles.filterSelect}
+                onChange={(event) => {
+                  setSalaryRangeFilter(event.target.value as SalaryRangeFilter);
+                }}
+                value={salaryRangeFilter}
+              >
+                <option value="all">Any salary</option>
+                {SALARY_RANGE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {formatSalaryRangeLabel(option)}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden="true" className={styles.filterSelectIcon} size={16} strokeWidth={2} />
+            </span>
           </label>
 
           <label className={styles.filterControl}>
             <span className={styles.filterLabel}>Company</span>
-            <select
-              aria-label="Company"
-              className={styles.filterSelect}
-              onChange={(event) => {
-                setCompanyFilter(event.target.value);
-              }}
-              value={companyFilter}
-            >
-              <option value="all">All companies</option>
-              {companyOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+            <span className={styles.filterSelectShell}>
+              <select
+                aria-label="Company"
+                className={styles.filterSelect}
+                onChange={(event) => {
+                  setCompanyFilter(event.target.value);
+                }}
+                value={companyFilter}
+              >
+                <option value="all">All companies</option>
+                {companyOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown aria-hidden="true" className={styles.filterSelectIcon} size={16} strokeWidth={2} />
+            </span>
           </label>
         </div>
 
