@@ -15,6 +15,7 @@ import {
   buildGeneralResponsePrompt,
   buildPlannerPrompt,
   buildSearchResponsePrompt,
+  buildWebSearchResponsePrompt,
 } from "./prompts";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
 import type {
@@ -129,6 +130,33 @@ function buildSearchFallbackMessage(args: {
     .join("; ");
 
   return `${lead} Best fits: ${topMatches}.`;
+}
+
+function buildWebSearchFallbackMessage(args: {
+  freshness: string;
+  queryUsed: string;
+  results: Array<{
+    published_at?: string | null;
+    snippet: string;
+    source: string;
+    title: string;
+    url: string;
+  }>;
+}) {
+  if (args.results.length === 0) {
+    return "I couldn’t find grounded current public results for that question right now.";
+  }
+
+  const topSources = args.results
+    .slice(0, 3)
+    .map((result) => {
+      const publishedAt = result.published_at ? ` (${result.published_at})` : "";
+
+      return `${result.source}: ${result.title}${publishedAt}`;
+    })
+    .join("; ");
+
+  return `I searched the public web for ${args.queryUsed}. The strongest current signals came from ${topSources}.`;
 }
 
 function detectFallbackIntent(message: string) {
@@ -456,6 +484,55 @@ export function createLiveJobSeekerAgentModel(): JobSeekerAgentModel {
       }
 
       return buildSearchFallbackMessage(args);
+    },
+
+    async composeWebSearchResponse(args) {
+      if (!client) {
+        return buildWebSearchFallbackMessage(args);
+      }
+
+      const reply = await traceJobSeekerLLMCall<LangChainMessageLike>({
+        input: {
+          freshness: args.freshness,
+          query_used: args.queryUsed,
+          result_count: args.results.length,
+          user_query: args.userQuery,
+        },
+        messageForMetrics: (result) => result,
+        name: "llm.job_seeker.compose_web_search_response",
+        output: (result) => {
+          const content = typeof result.content === "string" ? result.content.trim() : "";
+
+          return {
+            freshness: args.freshness,
+            output_preview: buildReplyPreview(content),
+            output_text_length: content.length,
+            result_count: args.results.length,
+          };
+        },
+        promptVersion: "job_seeker.compose_web_search_response.v1",
+        tags: ["step:compose_web_search_response"],
+        work: () =>
+          client.invoke([
+            new SystemMessage(buildWebSearchResponsePrompt()),
+            new HumanMessage(
+              [
+                `Latest user request: ${args.userQuery}`,
+                `Freshness: ${args.freshness}`,
+                `Query used: ${args.queryUsed}`,
+                `Grounded public results: ${JSON.stringify(args.results)}`,
+              ].join("\n\n"),
+            ),
+          ]) as Promise<LangChainMessageLike>,
+      });
+
+      const content = typeof reply.content === "string" ? reply.content.trim() : "";
+
+      if (content) {
+        return content;
+      }
+
+      return buildWebSearchFallbackMessage(args);
     },
 
     async planAction(args) {

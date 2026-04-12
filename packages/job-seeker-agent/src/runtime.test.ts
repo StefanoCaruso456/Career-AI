@@ -5,6 +5,7 @@ import type {
   JobSearchRetrievalResultDto,
   JobSeekerProfileContextDto,
 } from "@/packages/contracts/src";
+import type { SearchWebToolOutput } from "./tool-registry";
 import { createJobSeekerAgent } from "./runtime";
 import type {
   JobSeekerAgentModel,
@@ -226,6 +227,7 @@ function createModel(overrides?: Partial<JobSeekerAgentModel>): JobSeekerAgentMo
     classifyIntent: vi.fn(async () => defaultClassification),
     composeGeneralResponse: vi.fn(async () => "General reply"),
     composeSearchResponse: vi.fn(async () => "Grounded jobs reply"),
+    composeWebSearchResponse: vi.fn(async () => "Current market summary"),
     planAction: vi.fn(async () => defaultPlan),
     ...overrides,
   };
@@ -233,9 +235,39 @@ function createModel(overrides?: Partial<JobSeekerAgentModel>): JobSeekerAgentMo
 
 function createTools(overrides?: Partial<JobSeekerToolSet>): JobSeekerToolSet {
   return {
+    browseLatestJobs: vi.fn(async () =>
+      createSearchCatalogResult({
+        jobs: [
+          createJob({
+            companyName: "OpenAI",
+            id: "job_openai_latest",
+            location: "Remote",
+            title: "Platform Engineer",
+          }),
+        ],
+        prompt: "latest jobs on our platform",
+      }),
+    ),
     findSimilarJobs: vi.fn(async () => null),
     getJobById: vi.fn(async () => null),
     getUserCareerProfile: vi.fn(async () => null),
+    searchWeb: vi.fn(async (): Promise<SearchWebToolOutput> => ({
+      query_used: "hottest jobs in tech | Freshness: month",
+      results: [
+        {
+          snippet: "AI engineers and applied scientists remain in high demand.",
+          source: "LinkedIn News",
+          title: "AI hiring stays hot",
+          url: "https://example.com/linkedin-ai-hiring",
+        },
+        {
+          snippet: "Product, data, and AI roles continue to lead technology hiring.",
+          source: "Indeed Hiring Lab",
+          title: "Tech job market update",
+          url: "https://example.com/indeed-tech-update",
+        },
+      ],
+    })),
     searchJobs: vi.fn(async () =>
       createSearchCatalogResult({
         jobs: [createJob({ companyName: "OpenAI", id: "job_openai_ml", location: "Remote", title: "Machine Learning Engineer" })],
@@ -247,6 +279,29 @@ function createTools(overrides?: Partial<JobSeekerToolSet>): JobSeekerToolSet {
 }
 
 describe("createJobSeekerAgent", () => {
+  it("uses search_web for current external market questions and does not fall back to internal job search", async () => {
+    const model = createModel({
+      classifyIntent: vi.fn(async () => ({
+        confidence: 0.72,
+        extractedFilters: null,
+        intent: "general_chat" as const,
+      })),
+    });
+    const tools = createTools();
+    const agent = createJobSeekerAgent({ model, tools });
+
+    const result = await agent.invoke({
+      messages: [{ content: "What are the hottest 10 jobs in tech right now?", role: "user" }],
+      userQuery: "What are the hottest 10 jobs in tech right now?",
+    });
+
+    expect(tools.searchWeb).toHaveBeenCalledTimes(1);
+    expect(tools.searchJobs).not.toHaveBeenCalled();
+    expect(result.jobsPanel).toBeNull();
+    expect(result.assistantMessage).toContain("Current market summary");
+    expect(result.assistantMessage).toContain("Sources:");
+  });
+
   it("uses the search tool for job-search requests and returns a grounded jobs panel", async () => {
     const model = createModel();
     const tools = createTools();
@@ -261,6 +316,27 @@ describe("createJobSeekerAgent", () => {
     expect(result.jobsPanel?.jobs[0]?.title).toBe("Machine Learning Engineer");
     expect(result.jobsPanel?.agent.selectedTool).toBe("searchJobs");
     expect(result.assistantMessage).toBe("Grounded jobs reply");
+  });
+
+  it("uses the internal latest-jobs tool for platform-specific freshest inventory questions", async () => {
+    const model = createModel({
+      classifyIntent: vi.fn(async () => ({
+        confidence: 0.76,
+        extractedFilters: null,
+        intent: "general_chat" as const,
+      })),
+    });
+    const tools = createTools();
+    const agent = createJobSeekerAgent({ model, tools });
+
+    const result = await agent.invoke({
+      messages: [{ content: "What are the latest jobs on our platform?", role: "user" }],
+      userQuery: "What are the latest jobs on our platform?",
+    });
+
+    expect(tools.browseLatestJobs).toHaveBeenCalledTimes(1);
+    expect(tools.searchWeb).not.toHaveBeenCalled();
+    expect(result.jobsPanel?.agent.selectedTool).toBe("browseLatestJobs");
   });
 
   it("loads Career ID context before planning a profile-aligned jobs search", async () => {

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   generateHomepageAssistantReply: vi.fn(),
   jsonChatErrorResponse: vi.fn(),
   jsonChatResponse: vi.fn(),
+  requiresCurrentExternalSearch: vi.fn(),
   resolveChatRouteContext: vi.fn(),
   runJobSeekerAgent: vi.fn(),
   searchEmployerCandidates: vi.fn(),
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/packages/job-seeker-agent/src", () => ({
+  requiresCurrentExternalSearch: mocks.requiresCurrentExternalSearch,
   runJobSeekerAgent: mocks.runJobSeekerAgent,
 }));
 
@@ -65,6 +67,7 @@ beforeEach(() => {
     userId: "app_user_123",
   });
   mocks.summarizeChatAttachmentsForAssistant.mockReturnValue([]);
+  mocks.requiresCurrentExternalSearch.mockReturnValue(false);
   mocks.createUserChatMessage.mockResolvedValue({
     assistantMessage: null,
     conversation: {
@@ -173,5 +176,35 @@ describe("POST /api/chat", () => {
     expect(payload.assistantMessage.content).toBe(
       "It helps candidates build a verifiable Career ID.",
     );
+  });
+
+  it("routes current external market prompts through the job seeker agent even when they are not internal job-search prompts", async () => {
+    mocks.requiresCurrentExternalSearch.mockReturnValue(true);
+    mocks.runJobSeekerAgent.mockResolvedValue({
+      assistantMessage: "Current market summary\n\nSources:\nExample: https://example.com/source",
+      jobsPanel: null,
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        body: JSON.stringify({
+          attachmentIds: [],
+          conversationId: null,
+          message: "What are current recruiting trends?",
+          persona: "job_seeker",
+          projectId: "project_123",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.runJobSeekerAgent).toHaveBeenCalledTimes(1);
+    expect(mocks.generateHomepageAssistantReply).not.toHaveBeenCalled();
+    expect(payload.assistantMessage.content).toContain("Current market summary");
   });
 });

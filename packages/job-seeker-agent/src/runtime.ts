@@ -12,6 +12,8 @@ import { getFallbackHomepageReply } from "@/packages/homepage-assistant/src/fall
 import { normalizeHumanLabel } from "@/packages/jobs-domain/src/metadata";
 import { parseJobSearchQuery } from "@/packages/jobs-domain/src";
 import { isJobIntent } from "@/lib/jobs/is-job-intent";
+import { classifyJobSeekerRouting, jobSeekerRoutingDecisionSchema } from "./query-routing";
+import { searchWebToolOutputSchema } from "./tool-registry";
 import type {
   JobSearchCatalogResult,
   JobSeekerAgentInput,
@@ -41,6 +43,7 @@ const jobSeekerAgentStateSchema = new StateSchema({
   intentConfidence: z.number().min(0).max(1).nullable(),
   lastSearchResult: z.any().nullable(),
   lastToolKind: jobSeekerToolNameSchema.nullable(),
+  lastWebSearchResult: searchWebToolOutputSchema.nullable(),
   loopCount: z.number().int().nonnegative(),
   maxLoops: z.number().int().nonnegative(),
   messages: z.array(
@@ -56,6 +59,7 @@ const jobSeekerAgentStateSchema = new StateSchema({
   profileContext: jobSeekerProfileContextSchema.nullable(),
   responsePayload: z.any().nullable(),
   resultQuality: jobSeekerResultQualitySchema.nullable(),
+  routingDecision: jobSeekerRoutingDecisionSchema.nullable(),
   selectedTool: jobSeekerToolNameSchema.nullable(),
   shouldTerminate: z.boolean(),
   terminationReason: z.string().nullable(),
@@ -444,6 +448,24 @@ function buildSearchToolArgs(state: JobSeekerAgentState, query: JobSearchCatalog
   };
 }
 
+function buildBrowseLatestJobsToolArgs(state: JobSeekerAgentState) {
+  return {
+    conversationId: state.conversationId,
+    limit: 8,
+    ownerId: state.ownerId,
+    prompt: state.userQuery,
+    refresh: state.loopCount === 0,
+  };
+}
+
+function buildSearchWebToolArgs(state: JobSeekerAgentState) {
+  return {
+    freshness: state.routingDecision?.freshness ?? "month",
+    query: state.userQuery.trim(),
+    top_k: 6,
+  };
+}
+
 function buildJobsPanel(
   state: JobSeekerAgentState,
   assistantMessage: string,
@@ -508,12 +530,19 @@ export function createJobSeekerAgent(deps: {
   tools: JobSeekerToolSet;
 }) {
   const observeContext = async (state: JobSeekerAgentState) => ({
-    debugTrace: appendTrace(state, "observe_context", "Normalized request and loaded prior search context.", {
-      ownerIdAvailable: Boolean(state.ownerId),
-      userQuery: state.userQuery,
-    }),
+    debugTrace: appendTrace(
+      state,
+      "observe_context",
+      "Normalized request and loaded prior search context.",
+      {
+        ownerIdAvailable: Boolean(state.ownerId),
+        routingBucket: classifyJobSeekerRouting(state.userQuery).bucket,
+        userQuery: state.userQuery,
+      },
+    ),
     normalizedQuery: normalizeHumanLabel(state.userQuery),
     priorJobSearchQuery: findPriorJobSearchQuery(state.messages, state.userQuery),
+    routingDecision: classifyJobSeekerRouting(state.userQuery),
   });
 
   const classifyIntent = async (state: JobSeekerAgentState) => {
@@ -551,6 +580,77 @@ export function createJobSeekerAgent(deps: {
   };
 
   const planNextAction = async (state: JobSeekerAgentState) => {
+    if (state.routingDecision?.preferredTool === "search_web") {
+      return {
+        debugTrace: appendTrace(
+          state,
+          "plan_next_action",
+          "Freshness routing selected search_web before response generation.",
+          {
+            freshness: state.routingDecision.freshness,
+            matchedSignals: state.routingDecision.matchedSignals,
+            reason: state.routingDecision.reason,
+            selectedTool: "search_web",
+          },
+        ),
+        selectedTool: "search_web" as const,
+        shouldTerminate: false,
+        terminationReason: null,
+        toolArgs: buildSearchWebToolArgs(state),
+      };
+    }
+
+    if (state.routingDecision?.preferredTool === "browseLatestJobs") {
+      return {
+        debugTrace: appendTrace(
+          state,
+          "plan_next_action",
+          "Internal platform routing selected browseLatestJobs.",
+          {
+            selectedTool: "browseLatestJobs",
+          },
+        ),
+        selectedTool: "browseLatestJobs" as const,
+        shouldTerminate: false,
+        terminationReason: null,
+        toolArgs: buildBrowseLatestJobsToolArgs(state),
+      };
+    }
+
+    if (state.intent === "profile_or_career_id" && state.profileContext) {
+      return {
+        debugTrace: appendTrace(
+          state,
+          "plan_next_action",
+          "Profile context is already loaded, so the agent can respond without another tool call.",
+        ),
+        selectedTool: null,
+        shouldTerminate: true,
+        terminationReason: "profile_context_ready",
+        toolArgs: null,
+      };
+    }
+
+    if (
+      state.routingDecision?.preferredTool === "getUserCareerProfile" &&
+      state.ownerId &&
+      !state.profileContext
+    ) {
+      return {
+        debugTrace: appendTrace(
+          state,
+          "plan_next_action",
+          "Routing selected getUserCareerProfile for user-specific context.",
+        ),
+        selectedTool: "getUserCareerProfile" as const,
+        shouldTerminate: false,
+        terminationReason: null,
+        toolArgs: {
+          ownerId: state.ownerId,
+        },
+      };
+    }
+
     if (state.intent === "general_chat" || state.intent === "application_help" || state.intent === "unsupported") {
       return {
         debugTrace: appendTrace(state, "plan_next_action", "No tool selected for non-search request.", {
@@ -563,7 +663,7 @@ export function createJobSeekerAgent(deps: {
       };
     }
 
-    if (state.intent === "profile_or_career_id" && state.ownerId) {
+    if (state.intent === "profile_or_career_id" && state.ownerId && !state.profileContext) {
       return {
         debugTrace: appendTrace(state, "plan_next_action", "Loading Career ID context for profile response."),
         selectedTool: "getUserCareerProfile" as const,
@@ -679,6 +779,23 @@ export function createJobSeekerAgent(deps: {
         };
       }
 
+      if (state.selectedTool === "browseLatestJobs") {
+        const toolArgs = state.toolArgs as ReturnType<typeof buildBrowseLatestJobsToolArgs>;
+        const result = await deps.tools.browseLatestJobs(toolArgs);
+
+        return {
+          debugTrace: appendTrace(state, "execute_tool", "Executed browseLatestJobs.", {
+            prompt: toolArgs.prompt,
+            resultCount: result.results.length,
+            totalMatches: result.totalCandidateCount,
+          }),
+          lastSearchResult: result,
+          lastToolKind: "browseLatestJobs" as const,
+          normalizedToolResult: result,
+          toolResult: result,
+        };
+      }
+
       if (state.selectedTool === "getJobById") {
         const toolArgs = state.toolArgs as { jobId: string };
         const job = await deps.tools.getJobById({
@@ -711,6 +828,23 @@ export function createJobSeekerAgent(deps: {
           }),
           lastSearchResult: result,
           lastToolKind: "findSimilarJobs" as const,
+          normalizedToolResult: result,
+          toolResult: result,
+        };
+      }
+
+      if (state.selectedTool === "search_web") {
+        const toolArgs = state.toolArgs as ReturnType<typeof buildSearchWebToolArgs>;
+        const result = await deps.tools.searchWeb(toolArgs);
+
+        return {
+          debugTrace: appendTrace(state, "execute_tool", "Executed search_web.", {
+            freshness: toolArgs.freshness,
+            queryUsed: result.query_used,
+            resultCount: result.results.length,
+          }),
+          lastToolKind: "search_web" as const,
+          lastWebSearchResult: result,
           normalizedToolResult: result,
           toolResult: result,
         };
@@ -756,6 +890,34 @@ export function createJobSeekerAgent(deps: {
         resultQuality: quality,
         shouldTerminate: true,
         terminationReason: quality === "empty" ? "job_not_found" : "job_lookup_completed",
+      };
+    }
+
+    if (state.selectedTool === "search_web") {
+      const result = state.lastWebSearchResult;
+      const quality =
+        !result || result.results.length === 0
+          ? "empty"
+          : result.results.length >= 3
+            ? "strong"
+            : "acceptable";
+
+      return {
+        debugTrace: appendTrace(
+          state,
+          "evaluate_tool_result",
+          `Evaluated search_web result as ${quality}.`,
+          {
+            freshness: state.routingDecision?.freshness ?? null,
+            resultCount: result?.results.length ?? 0,
+          },
+        ),
+        resultQuality: quality,
+        shouldTerminate: true,
+        terminationReason:
+          quality === "empty"
+            ? "search_web_empty"
+            : "search_web_grounded_results_ready",
       };
     }
 
@@ -880,6 +1042,43 @@ export function createJobSeekerAgent(deps: {
       };
     }
 
+    if (state.lastToolKind === "search_web" && state.lastWebSearchResult) {
+      let assistantMessage: string;
+      let usedFallback = false;
+
+      try {
+        assistantMessage = await deps.model.composeWebSearchResponse({
+          freshness: state.routingDecision?.freshness ?? "month",
+          queryUsed: state.lastWebSearchResult.query_used,
+          results: state.lastWebSearchResult.results,
+          userQuery: state.userQuery,
+        });
+      } catch {
+        assistantMessage = `I couldn’t fully synthesize the live web-search results, but I did find current sources for ${state.lastWebSearchResult.query_used}.`;
+        usedFallback = true;
+      }
+
+      const sources = state.lastWebSearchResult.results
+        .slice(0, 3)
+        .map((result) => `${result.source}: ${result.url}`)
+        .join("\n");
+      const groundedMessage = sources
+        ? `${assistantMessage}\n\nSources:\n${sources}`
+        : assistantMessage;
+
+      return {
+        debugTrace: appendTrace(state, "respond", "Generated grounded web-search response.", {
+          groundedInToolResults: state.lastWebSearchResult.results.length > 0,
+          queryUsed: state.lastWebSearchResult.query_used,
+          usedFallback,
+        }),
+        responsePayload: {
+          assistantMessage: groundedMessage,
+          jobsPanel: null,
+        } satisfies JobSeekerAgentResult,
+      };
+    }
+
     if (!state.lastSearchResult) {
       return {
         responsePayload: {
@@ -997,6 +1196,7 @@ export function createJobSeekerAgent(deps: {
         intentConfidence: null,
         lastSearchResult: null,
         lastToolKind: null,
+        lastWebSearchResult: null,
         loopCount: 0,
         maxLoops: 2,
         messages: input.messages,
@@ -1007,6 +1207,7 @@ export function createJobSeekerAgent(deps: {
         profileContext: null,
         responsePayload: null,
         resultQuality: null,
+        routingDecision: null,
         selectedTool: null,
         shouldTerminate: false,
         terminationReason: null,

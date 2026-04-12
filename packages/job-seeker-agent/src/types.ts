@@ -11,6 +11,8 @@ import type {
   JobSeekerToolName,
   JobsPanelResponseDto,
 } from "@/packages/contracts/src";
+import type { JobSeekerRoutingDecision } from "./query-routing";
+import type { SearchWebFreshness, SearchWebToolInput, SearchWebToolOutput } from "./tool-registry";
 
 export type HomepageAssistantAttachment = {
   mimeType: string;
@@ -30,6 +32,14 @@ export type SearchJobsToolInput = {
   refresh: boolean;
 };
 
+export type BrowseLatestJobsToolInput = {
+  conversationId: string | null;
+  limit: number;
+  ownerId: string | null;
+  prompt: string;
+  refresh: boolean;
+};
+
 export type GetJobByIdToolInput = {
   jobId: string;
 };
@@ -46,10 +56,12 @@ export type GetUserCareerProfileToolInput = {
 };
 
 export type JobSeekerToolInput =
+  | BrowseLatestJobsToolInput
   | SearchJobsToolInput
   | GetJobByIdToolInput
   | FindSimilarJobsToolInput
   | GetUserCareerProfileToolInput
+  | SearchWebToolInput
   | null;
 
 export type JobSearchCatalogResult = JobSearchRetrievalResultDto;
@@ -58,6 +70,7 @@ export type JobSeekerToolResult =
   | JobSearchCatalogResult
   | JobPostingDto
   | JobSeekerProfileContextDto
+  | SearchWebToolOutput
   | null;
 
 export type JobSeekerAgentInput = {
@@ -83,6 +96,7 @@ export type JobSeekerAgentState = {
   intentConfidence: number | null;
   lastSearchResult: JobSearchCatalogResult | null;
   lastToolKind: JobSeekerToolName | null;
+  lastWebSearchResult: SearchWebToolOutput | null;
   loopCount: number;
   maxLoops: number;
   messages: JobSeekerConversationMessage[];
@@ -93,6 +107,7 @@ export type JobSeekerAgentState = {
   profileContext: JobSeekerProfileContextDto | null;
   responsePayload: JobSeekerAgentResult | null;
   resultQuality: JobSeekerResultQuality | null;
+  routingDecision: JobSeekerRoutingDecision | null;
   selectedTool: JobSeekerToolName | null;
   shouldTerminate: boolean;
   terminationReason: string | null;
@@ -137,6 +152,12 @@ export type JobSeekerAgentModel = {
     resultQuality: JobSeekerResultQuality;
     userQuery: string;
   }): Promise<string>;
+  composeWebSearchResponse(args: {
+    freshness: SearchWebFreshness;
+    queryUsed: string;
+    results: SearchWebToolOutput["results"];
+    userQuery: string;
+  }): Promise<string>;
   planAction(args: {
     intent: JobSeekerIntent;
     messages: JobSeekerConversationMessage[];
@@ -147,8 +168,10 @@ export type JobSeekerAgentModel = {
 };
 
 export type JobSeekerToolSet = {
+  browseLatestJobs(input: BrowseLatestJobsToolInput): Promise<JobSearchCatalogResult>;
   findSimilarJobs(input: FindSimilarJobsToolInput): Promise<JobSearchCatalogResult | null>;
   getJobById(input: GetJobByIdToolInput): Promise<JobPostingDto | null>;
   getUserCareerProfile(input: GetUserCareerProfileToolInput): Promise<JobSeekerProfileContextDto | null>;
+  searchWeb(input: SearchWebToolInput): Promise<SearchWebToolOutput>;
   searchJobs(input: SearchJobsToolInput): Promise<JobSearchCatalogResult>;
 };
