@@ -26,7 +26,6 @@ export function JobListItem({ job, onApply }: JobListItemProps) {
         <p className={styles.jobCompany}>{job.company}</p>
         <p className={styles.jobTitle}>{job.title}</p>
         {meta ? <p className={styles.jobMeta}>{meta}</p> : null}
-        <p className={styles.jobReason}>{job.matchReason}</p>
       </div>
     </li>
   );
