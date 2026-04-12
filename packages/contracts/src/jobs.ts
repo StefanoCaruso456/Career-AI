@@ -44,6 +44,7 @@ export const jobSeekerToolNameSchema = z.enum([
   "getJobById",
   "findSimilarJobs",
   "getUserCareerProfile",
+  "search_web",
 ]);
 export const jobSearchRemotePreferenceSchema = z.enum([
   "remote_only",
