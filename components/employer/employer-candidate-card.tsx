@@ -54,8 +54,6 @@ export function EmployerCandidateCard({
               ) : null}
             </div>
           ) : null}
-
-          <p className={styles.matchReason}>{candidate.matchReason}</p>
         </button>
 
         <div className={styles.candidateCardAside}>

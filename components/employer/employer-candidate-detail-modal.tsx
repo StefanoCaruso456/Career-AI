@@ -115,11 +115,6 @@ export function EmployerCandidateDetailModal({
               <p className={styles.sectionBody}>{summary}</p>
             </section>
 
-            <section className={styles.section}>
-              <p className={styles.sectionLabel}>Why this candidate matched</p>
-              <p className={styles.sectionBody}>{candidate.matchReason}</p>
-            </section>
-
             {candidate.experienceHighlights.length > 0 ? (
               <section className={styles.section}>
                 <p className={styles.sectionLabel}>Experience highlights</p>

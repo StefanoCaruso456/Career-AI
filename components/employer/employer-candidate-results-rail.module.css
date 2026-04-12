@@ -201,17 +201,6 @@
   line-height: 1;
 }
 
-.matchReason {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 0.84rem;
-  line-height: 1.48;
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-
 .cardActions {
   display: flex;
   flex-wrap: wrap;
