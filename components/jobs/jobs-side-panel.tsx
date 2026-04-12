@@ -5,6 +5,7 @@ import { JobListItem } from "@/components/jobs/job-list-item";
 import styles from "./jobs-side-panel.module.css";
 
 type JobsSidePanelProps = {
+  emptyStateMessage?: string | null;
   errorMessage?: string | null;
   isLoading?: boolean;
   jobs: JobListing[];
@@ -13,6 +14,7 @@ type JobsSidePanelProps = {
 };
 
 export function JobsSidePanel({
+  emptyStateMessage = null,
   errorMessage = null,
   isLoading = false,
   jobs,
@@ -44,7 +46,9 @@ export function JobsSidePanel({
         ) : null}
 
         {!isLoading && !errorMessage && jobs.length === 0 ? (
-          <p className={styles.jobsRailEmpty}>No live jobs are available from the current jobs source yet.</p>
+          <p className={styles.jobsRailEmpty}>
+            {emptyStateMessage ?? "No live jobs are available from the current jobs source yet."}
+          </p>
         ) : null}
 
         {jobs.length > 0 ? (

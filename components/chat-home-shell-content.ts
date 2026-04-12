@@ -40,6 +40,11 @@ export type HeroComposerAction =
       kind: "prompt";
       label: string;
       value?: string;
+    }
+  | {
+      accent?: "jobs";
+      kind: "latest_jobs";
+      label: string;
     };
 
 export type HeroComposerContent = {
@@ -458,9 +463,8 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       starterActions: [
         {
           accent: "jobs",
-          kind: "prompt",
+          kind: "latest_jobs",
           label: "Find NEW Jobs",
-          value: "Find new jobs for me.",
         },
         { kind: "prompt", label: "What does the agent actually do?" },
         { kind: "prompt", label: "How is this different from a resume builder?" },
