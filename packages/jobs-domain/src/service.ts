@@ -1762,14 +1762,19 @@ async function collectWorkableXmlJobs(
   }
 }
 
-function buildSummary(args: {
-  jobs: JobPostingDto[];
-  sources: JobSourceSnapshotDto[];
-}) {
+function buildSummary(args: { sources: JobSourceSnapshotDto[] }) {
+  const totalJobs = args.sources.reduce((sum, source) => sum + source.jobCount, 0);
+  const directAtsJobs = args.sources
+    .filter((source) => source.lane === "ats_direct")
+    .reduce((sum, source) => sum + source.jobCount, 0);
+  const aggregatorJobs = args.sources
+    .filter((source) => source.lane === "aggregator")
+    .reduce((sum, source) => sum + source.jobCount, 0);
+
   return {
-    totalJobs: args.jobs.length,
-    directAtsJobs: args.jobs.filter((job) => job.sourceLane === "ats_direct").length,
-    aggregatorJobs: args.jobs.filter((job) => job.sourceLane === "aggregator").length,
+    totalJobs,
+    directAtsJobs,
+    aggregatorJobs,
     sourceCount: args.sources.length,
     connectedSourceCount: args.sources.filter((source) => source.status === "connected").length,
     highSignalSourceCount: args.sources.filter((source) => source.quality === "high_signal").length,
@@ -1788,7 +1793,6 @@ function buildJobsFeedResponse(args: {
     jobs: args.jobs,
     sources: args.sources,
     summary: buildSummary({
-      jobs: args.jobs,
       sources: args.sources,
     }),
     storage: args.storage,
