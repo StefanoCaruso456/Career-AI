@@ -229,4 +229,114 @@ describe("job posting repository", () => {
     expect(snapshot.jobs.map((job) => job.externalId)).toEqual(["7532733", "7746909"]);
     expect(snapshot.sources[0]?.jobCount).toBe(2);
   });
+
+  it("filters persisted jobs by company name before applying the response limit", async () => {
+    const syncedAt = "2026-04-11T22:00:00.000Z";
+
+    await persistSourcedJobs({
+      syncedAt,
+      sources: [
+        {
+          key: "greenhouse:cisco",
+          label: "Cisco",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 2,
+          endpointLabel: "boards-api.greenhouse.io/cisco",
+          lastSyncedAt: syncedAt,
+          message: "Cisco public jobs synced and ready to persist.",
+        },
+        {
+          key: "workday:red-hat",
+          label: "Red Hat",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 2,
+          endpointLabel: "redhat.wd1.myworkdayjobs.com/en-US/jobs",
+          lastSyncedAt: syncedAt,
+          message: "Red Hat public jobs synced and ready to persist.",
+        },
+      ],
+      jobs: [
+        {
+          id: "greenhouse:cisco:1",
+          externalId: "1",
+          title: "Cisco Role 1",
+          companyName: "Cisco",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "greenhouse:cisco",
+          sourceLabel: "Cisco",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://cisco.example/jobs/1",
+          postedAt: null,
+          updatedAt: "2026-04-11T21:59:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "greenhouse:cisco:2",
+          externalId: "2",
+          title: "Cisco Role 2",
+          companyName: "Cisco",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "greenhouse:cisco",
+          sourceLabel: "Cisco",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://cisco.example/jobs/2",
+          postedAt: null,
+          updatedAt: "2026-04-11T21:58:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "workday:red-hat:1",
+          externalId: "redhat-1",
+          title: "Red Hat Role 1",
+          companyName: "Red Hat",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "workday:red-hat",
+          sourceLabel: "Red Hat",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://redhat.example/jobs/1",
+          postedAt: null,
+          updatedAt: "2026-04-11T21:57:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "workday:red-hat:2",
+          externalId: "redhat-2",
+          title: "Red Hat Role 2",
+          companyName: "Red Hat",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "workday:red-hat",
+          sourceLabel: "Red Hat",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://redhat.example/jobs/2",
+          postedAt: null,
+          updatedAt: "2026-04-11T21:56:00.000Z",
+          descriptionSnippet: null,
+        },
+      ],
+    });
+
+    const snapshot = await getPersistedJobsFeedSnapshot({
+      companies: ["Red Hat"],
+      limit: 1,
+    });
+
+    expect(snapshot.jobs).toHaveLength(1);
+    expect(snapshot.jobs[0]?.companyName).toBe("Red Hat");
+  });
 });

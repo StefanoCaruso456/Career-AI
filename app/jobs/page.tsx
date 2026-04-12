@@ -73,6 +73,7 @@ export default async function JobsPage() {
               initialCompanyOptions={companyOptions}
               initialLastSyncAt={snapshot.storage.lastSyncAt}
               initialRequestLimit={INITIAL_REQUEST_LIMIT}
+              initialSources={snapshot.sources}
               initialStorageMode={snapshot.storage.mode}
               initialTotalAvailableCount={snapshot.summary.totalJobs}
               jobs={snapshot.jobs}

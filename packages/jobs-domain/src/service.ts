@@ -12,7 +12,7 @@ import {
   isDatabaseConfigured,
   persistSourcedJobs,
 } from "@/packages/persistence/src";
-import { createEnrichedJobPosting } from "./metadata";
+import { createEnrichedJobPosting, normalizeHumanLabel } from "./metadata";
 
 const DEFAULT_RESPONSE_LIMIT = 18;
 const MAX_RESPONSE_LIMIT = 30_000;
@@ -1782,6 +1782,60 @@ function buildSummary(args: { sources: JobSourceSnapshotDto[] }) {
   };
 }
 
+function normalizeCompanyFilters(companies: string[] | undefined) {
+  return Array.from(
+    new Set(
+      (companies ?? [])
+        .map((company) => normalizeHumanLabel(company))
+        .filter((company) => company.length > 0),
+    ),
+  );
+}
+
+function jobMatchesCompanyFilters(job: JobPostingDto, normalizedCompanies: string[]) {
+  if (normalizedCompanies.length === 0) {
+    return true;
+  }
+
+  const normalizedValues = [
+    job.companyName,
+    job.normalizedCompanyName,
+    job.sourceLabel,
+  ]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeHumanLabel(value));
+
+  return normalizedValues.some((value) => normalizedCompanies.includes(value));
+}
+
+function filterJobsFeedByCompanies(args: {
+  jobs: JobPostingDto[];
+  sources: JobSourceSnapshotDto[];
+  companies?: string[];
+}) {
+  const normalizedCompanies = normalizeCompanyFilters(args.companies);
+
+  if (normalizedCompanies.length === 0) {
+    return {
+      jobs: args.jobs,
+      sources: args.sources,
+    };
+  }
+
+  const jobs = args.jobs.filter((job) => jobMatchesCompanyFilters(job, normalizedCompanies));
+  const matchingSourceKeys = new Set(jobs.map((job) => job.sourceKey));
+  const sources = args.sources.filter((source) => {
+    return (
+      matchingSourceKeys.has(source.key) || normalizedCompanies.includes(normalizeHumanLabel(source.label))
+    );
+  });
+
+  return {
+    jobs,
+    sources,
+  };
+}
+
 function buildJobsFeedResponse(args: {
   generatedAt: string;
   jobs: JobPostingDto[];
@@ -1815,18 +1869,24 @@ async function collectLiveSourceCollections(windowDays: number | null) {
 }
 
 async function getLiveJobsFeedPreview(args: {
+  companies?: string[];
   generatedAt: string;
   limit: number;
   windowDays: number | null;
 }) {
   const liveCollections = await collectLiveSourceCollections(args.windowDays);
+  const filteredSnapshot = filterJobsFeedByCompanies({
+    jobs: dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)),
+    sources: [...liveCollections.map((collection) => collection.source), ...createNotConfiguredSources()],
+    companies: args.companies,
+  });
 
   return {
     collections: liveCollections,
     response: buildJobsFeedResponse({
       generatedAt: args.generatedAt,
-      jobs: dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, args.limit),
-      sources: [...liveCollections.map((collection) => collection.source), ...createNotConfiguredSources()],
+      jobs: filteredSnapshot.jobs.slice(0, args.limit),
+      sources: filteredSnapshot.sources,
       storage: {
         mode: "ephemeral",
         persistedJobs: 0,
@@ -1879,6 +1939,7 @@ export function getSeededJobsCompanyOptions() {
 }
 
 export async function getJobsFeedSnapshot(args?: {
+  companies?: string[];
   limit?: number;
   windowDays?: number;
   forceRefresh?: boolean;
@@ -1888,11 +1949,15 @@ export async function getJobsFeedSnapshot(args?: {
   const generatedAt = new Date().toISOString();
 
   if (!isDatabaseConfigured()) {
-    return (await getLiveJobsFeedPreview({ generatedAt, limit, windowDays })).response;
+    return (await getLiveJobsFeedPreview({ companies: args?.companies, generatedAt, limit, windowDays })).response;
   }
 
   try {
-    const persisted = await getPersistedJobsFeedSnapshot({ limit, windowDays: windowDays ?? undefined });
+    const persisted = await getPersistedJobsFeedSnapshot({
+      companies: args?.companies,
+      limit,
+      windowDays: windowDays ?? undefined,
+    });
     const hasPersistedSnapshot =
       persisted.jobs.length > 0 ||
       persisted.sources.length > 0 ||
@@ -1905,10 +1970,16 @@ export async function getJobsFeedSnapshot(args?: {
         });
       }
 
-      return buildJobsFeedResponse({
-        generatedAt,
+      const filteredPersisted = filterJobsFeedByCompanies({
         jobs: persisted.jobs,
         sources: [...persisted.sources, ...createNotConfiguredSources()],
+        companies: args?.companies,
+      });
+
+      return buildJobsFeedResponse({
+        generatedAt,
+        jobs: filteredPersisted.jobs,
+        sources: filteredPersisted.sources,
         storage: persisted.storage,
       });
     }
@@ -1916,19 +1987,30 @@ export async function getJobsFeedSnapshot(args?: {
     await refreshJobsFeed(windowDays, generatedAt);
 
     const refreshed = await getPersistedJobsFeedSnapshot({
+      companies: args?.companies,
       limit,
       windowDays: windowDays ?? undefined,
+    });
+    const filteredRefreshed = filterJobsFeedByCompanies({
+      jobs: refreshed.jobs,
+      sources: [...refreshed.sources, ...createNotConfiguredSources()],
+      companies: args?.companies,
     });
 
     return buildJobsFeedResponse({
       generatedAt,
-      jobs: refreshed.jobs,
-      sources: [...refreshed.sources, ...createNotConfiguredSources()],
+      jobs: filteredRefreshed.jobs,
+      sources: filteredRefreshed.sources,
       storage: refreshed.storage,
     });
   } catch (error) {
     console.error("Jobs persistence failed; falling back to live feed preview.", error);
 
-    return (await getLiveJobsFeedPreview({ generatedAt, limit, windowDays })).response;
+    return (await getLiveJobsFeedPreview({
+      companies: args?.companies,
+      generatedAt,
+      limit,
+      windowDays,
+    })).response;
   }
 }

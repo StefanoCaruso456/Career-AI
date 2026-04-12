@@ -16,6 +16,7 @@ type JobsResultsProps = {
   initialCount?: number;
   initialLastSyncAt?: string | null;
   initialRequestLimit?: number;
+  initialSources?: JobSourceSnapshotDto[];
   initialStorageMode?: "database" | "ephemeral";
   initialTotalAvailableCount?: number;
   loadMoreCount?: number;
@@ -32,6 +33,7 @@ const SALARY_RANGE_OPTIONS = [
 ] as const;
 type SalaryRangeFilter = "all" | (typeof SALARY_RANGE_OPTIONS)[number];
 const EMPTY_COMPANY_OPTIONS: string[] = [];
+const EMPTY_SOURCE_SNAPSHOTS: JobSourceSnapshotDto[] = [];
 const STALE_SNAPSHOT_MS = 10 * 60 * 1000;
 const ROLE_TYPE_OPTIONS = [
   "ai-ml-engineering",
@@ -323,6 +325,35 @@ function didHydrateFullJobsWindow(snapshot: JobsFeedResponseDto, requestedLimit:
   return snapshot.jobs.length < requestedLimit || snapshot.jobs.length >= totalAvailableCount;
 }
 
+function normalizeHumanLabel(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function matchesCompanyFilter(job: JobPostingDto, companyFilter: string) {
+  if (companyFilter === "all") {
+    return true;
+  }
+
+  const normalizedCompanyFilter = normalizeHumanLabel(companyFilter);
+
+  return [job.companyName, job.normalizedCompanyName, job.sourceLabel]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .some((value) => normalizeHumanLabel(value) === normalizedCompanyFilter);
+}
+
+function getCompanyAvailableCount(sources: JobSourceSnapshotDto[], companyFilter: string) {
+  if (companyFilter === "all") {
+    return null;
+  }
+
+  const normalizedCompanyFilter = normalizeHumanLabel(companyFilter);
+  const matchingSource = sources.find(
+    (source) => normalizeHumanLabel(source.label) === normalizedCompanyFilter,
+  );
+
+  return matchingSource?.jobCount ?? null;
+}
+
 function getCompanyOptions(
   jobs: JobPostingDto[],
   sources: JobSourceSnapshotDto[] = [],
@@ -535,14 +566,20 @@ export function JobsResults({
   initialCount = 24,
   initialLastSyncAt = null,
   initialRequestLimit = Number.MAX_SAFE_INTEGER,
+  initialSources = EMPTY_SOURCE_SNAPSHOTS,
   initialStorageMode = "ephemeral",
   initialTotalAvailableCount = jobs.length,
   loadMoreCount = 29,
 }: JobsResultsProps) {
   const [loadedJobs, setLoadedJobs] = useState(jobs);
+  const [sourceSnapshots, setSourceSnapshots] = useState(initialSources);
   const [companyOptions, setCompanyOptions] = useState(() =>
     getCompanyOptions(jobs, [], initialCompanyOptions),
   );
+  const [companyScopedSnapshot, setCompanyScopedSnapshot] = useState<JobsFeedResponseDto | null>(null);
+  const [companyScopeError, setCompanyScopeError] = useState<string | null>(null);
+  const [loadedCompanyScopeKey, setLoadedCompanyScopeKey] = useState<string | null>(null);
+  const [isLoadingCompanyScope, setIsLoadingCompanyScope] = useState(false);
   const [totalAvailableCount, setTotalAvailableCount] = useState(initialTotalAvailableCount);
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
@@ -566,10 +603,20 @@ export function JobsResults({
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const fullWindowHydrationInFlight = useRef(false);
   const snapshotRefreshInFlight = useRef(false);
+  const companyScopeRequestInFlight = useRef(false);
+  const companyScopedExpectedCount = getCompanyAvailableCount(sourceSnapshots, companyFilter);
+  const companyScopeKey = companyFilter === "all" ? null : companyFilter;
+  const activeJobs = companyFilter === "all" ? loadedJobs : (companyScopedSnapshot?.jobs ?? []);
+  const activeTotalAvailableCount =
+    companyFilter === "all"
+      ? totalAvailableCount
+      : companyScopedSnapshot
+        ? getTotalAvailableCount(companyScopedSnapshot.sources)
+        : companyScopedExpectedCount ?? 0;
   const fullJobsWindowLimit = Math.max(totalAvailableCount, loadedJobs.length);
-  const filteredJobs = loadedJobs.filter((job) => {
+  const filteredJobs = activeJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
-    const matchesCompany = companyFilter === "all" || job.companyName === companyFilter;
+    const matchesCompany = matchesCompanyFilter(job, companyFilter);
     const matchesWorkplace =
       workplaceFilter === "all" || inferWorkplaceMode(job.location) === workplaceFilter;
     const matchesSalary = matchesSalaryRange(job, salaryRangeFilter);
@@ -594,13 +641,16 @@ export function JobsResults({
     salaryRangeFilter !== "all" ||
     dateFilter !== "all";
   const canHydrateFullWindow =
+    companyFilter === "all" &&
     initialRequestLimit !== Number.MAX_SAFE_INTEGER &&
     !hasHydratedFullWindow &&
     !needsFreshSnapshot &&
     !isRefreshingSnapshot &&
     fullJobsWindowLimit > loadedJobs.length;
-  const isSearchingAllJobs = hasActiveFilters && (canHydrateFullWindow || isRefreshingSnapshot);
-  const showLoadMore = canRevealLoadedJobs || hasMoreAvailable;
+  const isSearchingAllJobs = companyFilter === "all" && hasActiveFilters && (canHydrateFullWindow || isRefreshingSnapshot);
+  const isLoadingCompanyResults = companyFilter !== "all" && isLoadingCompanyScope;
+  const showLoadMore =
+    companyFilter === "all" ? canRevealLoadedJobs || hasMoreAvailable : canRevealLoadedJobs;
 
   useEffect(() => {
     setVisibleCount(Math.min(initialCount, filteredJobs.length || initialCount));
@@ -616,7 +666,12 @@ export function JobsResults({
 
   useEffect(() => {
     setLoadedJobs(jobs);
+    setSourceSnapshots(initialSources);
     setCompanyOptions(getCompanyOptions(jobs, [], initialCompanyOptions));
+    setCompanyScopedSnapshot(null);
+    setCompanyScopeError(null);
+    setLoadedCompanyScopeKey(null);
+    setIsLoadingCompanyScope(false);
     setHasMoreAvailable(jobs.length >= initialRequestLimit);
     setHasHydratedFullWindow(
       initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
@@ -626,6 +681,7 @@ export function JobsResults({
     setIsRefreshingSnapshot(false);
     fullWindowHydrationInFlight.current = false;
     snapshotRefreshInFlight.current = false;
+    companyScopeRequestInFlight.current = false;
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
@@ -633,15 +689,20 @@ export function JobsResults({
     initialCompanyOptions,
     initialLastSyncAt,
     initialRequestLimit,
+    initialSources,
     initialStorageMode,
     initialTotalAvailableCount,
     jobs,
   ]);
 
-  async function fetchJobsWindow(limit: number, options?: { refresh?: boolean }) {
+  async function fetchJobsWindow(limit: number, options?: { company?: string; refresh?: boolean }) {
     const searchParams = new URLSearchParams({
       limit: String(limit),
     });
+
+    if (options?.company) {
+      searchParams.set("company", options.company);
+    }
 
     if (options?.refresh) {
       searchParams.set("refresh", "1");
@@ -669,7 +730,8 @@ export function JobsResults({
   ) {
     startTransition(() => {
       setLoadedJobs(snapshot.jobs);
-      setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources));
+      setSourceSnapshots(snapshot.sources);
+      setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources, initialCompanyOptions));
       setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
 
       if (typeof options?.hasHydratedFullWindow === "boolean") {
@@ -681,6 +743,75 @@ export function JobsResults({
       }
     });
   }
+
+  useEffect(() => {
+    if (companyFilter === "all") {
+      companyScopeRequestInFlight.current = false;
+      setCompanyScopedSnapshot(null);
+      setCompanyScopeError(null);
+      setLoadedCompanyScopeKey(null);
+      setIsLoadingCompanyScope(false);
+      return;
+    }
+
+    if (companyScopeRequestInFlight.current || (companyScopeKey && loadedCompanyScopeKey === companyScopeKey)) {
+      return;
+    }
+
+    let isCancelled = false;
+    const requestLimit =
+      companyScopedExpectedCount && companyScopedExpectedCount > 0
+        ? companyScopedExpectedCount
+        : Math.max(activeTotalAvailableCount, loadedJobs.length, initialRequestLimit);
+
+    companyScopeRequestInFlight.current = true;
+    setCompanyScopeError(null);
+    setIsLoadingCompanyScope(true);
+    setCompanyScopedSnapshot(null);
+
+    void fetchJobsWindow(requestLimit, {
+      company: companyFilter,
+      refresh: needsFreshSnapshot,
+    })
+      .then((snapshot) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setCompanyScopedSnapshot(snapshot);
+        setLoadedCompanyScopeKey(companyScopeKey);
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setCompanyScopeError(
+          error instanceof Error ? error.message : `${companyFilter} jobs could not be loaded right now.`,
+        );
+      })
+      .finally(() => {
+        companyScopeRequestInFlight.current = false;
+
+        if (isCancelled) {
+          return;
+        }
+
+        setIsLoadingCompanyScope(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    companyFilter,
+    companyScopeKey,
+    companyScopedExpectedCount,
+    initialRequestLimit,
+    loadedCompanyScopeKey,
+    loadedJobs.length,
+    needsFreshSnapshot,
+  ]);
 
   useEffect(() => {
     if (!needsFreshSnapshot || snapshotRefreshInFlight.current) {
@@ -728,11 +859,12 @@ export function JobsResults({
         console.error("Jobs snapshot refresh failed.", error);
       })
       .finally(() => {
+        snapshotRefreshInFlight.current = false;
+
         if (isCancelled) {
           return;
         }
 
-        snapshotRefreshInFlight.current = false;
         setIsRefreshingSnapshot(false);
       });
 
@@ -975,11 +1107,17 @@ export function JobsResults({
               Clear filters
             </button>
             <p className={styles.filterHint}>
-              {isRefreshingSnapshot
-                ? "Refreshing the latest jobs snapshot so filters expand against current source totals."
-                : isSearchingAllJobs
-                ? `Checking all ${formatCount(totalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
-                : `Filters automatically expand to all ${formatCount(totalAvailableCount)} available jobs.`}
+              {isLoadingCompanyResults
+                ? `Loading all ${companyFilter} roles directly from the jobs snapshot.`
+                : companyScopeError
+                  ? companyScopeError
+                : companyFilter !== "all"
+                  ? `Showing all ${formatCount(activeTotalAvailableCount)} ${companyFilter} jobs available in the snapshot.`
+                : isRefreshingSnapshot
+                  ? "Refreshing the latest jobs snapshot so filters expand against current source totals."
+                  : isSearchingAllJobs
+                    ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
+                    : `Filters automatically expand to all ${formatCount(activeTotalAvailableCount)} available jobs.`}
             </p>
           </div>
         ) : null}
@@ -987,14 +1125,16 @@ export function JobsResults({
 
       <div className={styles.resultsHeader}>
         <p className={styles.resultsSummary}>
-          {isRefreshingSnapshot
+          {isLoadingCompanyResults
+            ? `Loading ${companyFilter} roles...`
+            : isRefreshingSnapshot
             ? "Refreshing the jobs snapshot so counts stay in sync with the latest source totals..."
             : isSearchingAllJobs
-            ? `Checking all ${formatCount(totalAvailableCount)} available jobs for matches...`
-            : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${loadedJobs.length} loaded.`}
+            ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs for matches...`
+            : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded.`}
         </p>
         <p className={styles.resultsTotal}>
-          {formatCount(totalAvailableCount)} jobs available
+          {formatCount(activeTotalAvailableCount)} jobs available
         </p>
       </div>
 
@@ -1025,10 +1165,56 @@ export function JobsResults({
             </article>
           ))}
         </div>
+      ) : isLoadingCompanyResults ? (
+        <article className={styles.noResultsState}>
+          <p className={styles.filterEyebrow}>Loading company roles</p>
+          <h3>Loading all {companyFilter} jobs from the snapshot.</h3>
+          <p>
+            Career AI is pulling the current {companyFilter} roles directly so the company filter
+            can return results without waiting for the full jobs catalog to hydrate.
+          </p>
+          <button
+            className={styles.clearFiltersButton}
+            onClick={() => {
+              setKeyword("");
+              setRoleTypeFilter("all");
+              setCompanyFilter("all");
+              setWorkplaceFilter("all");
+              setSalaryRangeFilter("all");
+              setDateFilter("all");
+            }}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </article>
+      ) : companyScopeError ? (
+        <article className={styles.noResultsState}>
+          <p className={styles.filterEyebrow}>Company filter issue</p>
+          <h3>{companyFilter} jobs could not be loaded right now.</h3>
+          <p>
+            The company-specific request failed before results came back. Clear the filter or try
+            again in a moment.
+          </p>
+          <button
+            className={styles.clearFiltersButton}
+            onClick={() => {
+              setKeyword("");
+              setRoleTypeFilter("all");
+              setCompanyFilter("all");
+              setWorkplaceFilter("all");
+              setSalaryRangeFilter("all");
+              setDateFilter("all");
+            }}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </article>
       ) : isSearchingAllJobs ? (
         <article className={styles.noResultsState}>
           <p className={styles.filterEyebrow}>Searching all jobs</p>
-          <h3>Checking all {formatCount(totalAvailableCount)} available jobs for matches.</h3>
+          <h3>Checking all {formatCount(activeTotalAvailableCount)} available jobs for matches.</h3>
           <p>
             The first {formatCount(loadedJobs.length)} roles loaded instantly. Career AI is
             expanding the rest of the jobs snapshot in the background so your filters can search
