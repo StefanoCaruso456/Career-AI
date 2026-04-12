@@ -15,7 +15,7 @@ import {
   withDatabaseTransaction,
 } from "./client";
 
-const MAX_PERSISTED_RESPONSE_LIMIT = 5_000;
+const MAX_PERSISTED_RESPONSE_LIMIT = 30_000;
 
 type JobSourceRow = {
   source_key: string;

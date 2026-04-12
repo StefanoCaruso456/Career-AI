@@ -432,6 +432,70 @@ describe("jobs feed service", () => {
     );
   });
 
+  it("continues paging Workday feeds when later pages incorrectly report total zero", async () => {
+    process.env.WORKDAY_JOB_SOURCES =
+      "Autodesk=https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs";
+
+    const buildPage = (start: number, count: number) => ({
+      total: start === 0 ? 60 : 0,
+      jobPostings: Array.from({ length: count }, (_, index) => {
+        const roleNumber = start + index + 1;
+
+        return {
+          title: `Role ${roleNumber}`,
+          externalPath: `/job/Remote/Role-${roleNumber}_R${roleNumber}`,
+          locationsText: "Remote",
+          postedOn: "Posted Yesterday",
+          timeType: "Full time",
+          bulletFields: [`R${roleNumber}`],
+        };
+      }),
+    });
+
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url !== "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs") {
+        throw new Error(`Unexpected URL ${url}`);
+      }
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as { offset?: number };
+
+      if (body.offset === 0) {
+        return createJsonResponse(buildPage(0, 20));
+      }
+
+      if (body.offset === 20) {
+        return createJsonResponse(buildPage(20, 20));
+      }
+
+      if (body.offset === 40) {
+        return createJsonResponse(buildPage(40, 20));
+      }
+
+      if (body.offset === 60) {
+        return createJsonResponse({
+          total: 0,
+          jobPostings: [],
+        });
+      }
+
+      throw new Error(`Unexpected Workday offset ${body.offset}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 100, windowDays: null });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(snapshot.sources[0]?.key).toBe("workday:autodesk");
+    expect(snapshot.sources[0]?.jobCount).toBe(60);
+    expect(snapshot.summary.totalJobs).toBe(60);
+    expect(snapshot.summary.directAtsJobs).toBe(60);
+    expect(snapshot.jobs).toHaveLength(60);
+    expect(snapshot.jobs.some((job) => job.title === "Role 60")).toBe(true);
+  });
+
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {
     process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
     process.env.LEVER_SITE_NAMES = "Orbit=orbit";
