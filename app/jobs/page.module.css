@@ -147,6 +147,7 @@
   display: grid;
   gap: 0.42rem;
   padding: 0.8rem 0.88rem;
+  min-width: 0;
   border-radius: 1.2rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background:
@@ -163,10 +164,38 @@
 }
 
 .filterSelect {
+  width: 100%;
+  min-width: 0;
   border: 0;
   background: transparent;
   color: var(--text-primary);
-  padding: 0;
+  padding: 0 2rem 0 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.filterSelectShell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.filterSelectIcon {
+  position: absolute;
+  right: 0.02rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(208, 219, 235, 0.76);
+  pointer-events: none;
+}
+
+.filterControl:focus-within {
+  border-color: rgba(242, 246, 252, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
 }
 
 .filterSelect:focus {
@@ -189,7 +218,7 @@
 }
 
 .clearFiltersButton:focus-visible,
-.filterSelect:focus-visible,
+.filterControl:focus-within,
 .searchField:focus-within {
   outline: 2px solid rgba(242, 246, 252, 0.95);
   outline-offset: 3px;
@@ -542,5 +571,9 @@
 
   .filterRow {
     grid-template-columns: 1fr;
+  }
+
+  .filterSelect {
+    font-size: 0.98rem;
   }
 }
