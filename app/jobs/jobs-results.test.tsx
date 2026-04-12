@@ -150,6 +150,148 @@ describe("JobsResults", () => {
     expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
   });
 
+  it("refreshes stale snapshots before hydrating the larger jobs window", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Cisco",
+      sourceKey: "greenhouse:cisco",
+      sourceLabel: "Cisco",
+    }));
+    const refreshedJobs = initialJobs;
+    const expandedJobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (fetchMock.mock.calls.length === 1) {
+        expect(url).toBe("/api/v1/jobs?limit=24&refresh=1");
+
+        return new Response(
+          JSON.stringify({
+            generatedAt: "2026-04-11T12:45:00.000Z",
+            jobs: refreshedJobs,
+            sources: [
+              {
+                key: "greenhouse:cisco",
+                label: "Cisco",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: 24,
+                endpointLabel: "boards-api.greenhouse.io/cisco",
+                lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                message: "Cisco public jobs synced and ready to persist.",
+              },
+              {
+                key: "greenhouse:figma",
+                label: "Figma",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: 29,
+                endpointLabel: "boards-api.greenhouse.io/figma",
+                lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                message: "Figma public jobs synced and ready to persist.",
+              },
+            ],
+            summary: {
+              totalJobs: 53,
+              directAtsJobs: 53,
+              aggregatorJobs: 0,
+              sourceCount: 2,
+              connectedSourceCount: 2,
+              highSignalSourceCount: 2,
+              coverageSourceCount: 0,
+            },
+            storage: {
+              mode: "database",
+              persistedJobs: refreshedJobs.length,
+              persistedSources: 2,
+              lastSyncAt: "2026-04-11T12:45:00.000Z",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      expect(url).toBe("/api/v1/jobs?limit=53");
+
+      return new Response(
+        JSON.stringify({
+          generatedAt: "2026-04-11T12:45:00.000Z",
+          jobs: expandedJobs,
+          sources: [
+            {
+              key: "greenhouse:cisco",
+              label: "Cisco",
+              lane: "ats_direct",
+              quality: "high_signal",
+              status: "connected",
+              jobCount: 24,
+              endpointLabel: "boards-api.greenhouse.io/cisco",
+              lastSyncedAt: "2026-04-11T12:45:00.000Z",
+              message: "Cisco public jobs synced and ready to persist.",
+            },
+            {
+              key: "greenhouse:figma",
+              label: "Figma",
+              lane: "ats_direct",
+              quality: "high_signal",
+              status: "connected",
+              jobCount: 29,
+              endpointLabel: "boards-api.greenhouse.io/figma",
+              lastSyncedAt: "2026-04-11T12:45:00.000Z",
+              message: "Figma public jobs synced and ready to persist.",
+            },
+          ],
+          summary: {
+            totalJobs: 53,
+            directAtsJobs: 53,
+            aggregatorJobs: 0,
+            sourceCount: 2,
+            connectedSourceCount: 2,
+            highSignalSourceCount: 2,
+            coverageSourceCount: 0,
+          },
+          storage: {
+            mode: "database",
+            persistedJobs: expandedJobs.length,
+            persistedSources: 2,
+            lastSyncAt: "2026-04-11T12:45:00.000Z",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        initialLastSyncAt="2026-04-10T12:45:00.000Z"
+        initialRequestLimit={24}
+        initialStorageMode="database"
+        initialTotalAvailableCount={24}
+        jobs={initialJobs}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
+    });
+    expect(screen.getByText("53 jobs available")).toBeInTheDocument();
+  });
+
   it("checks the full jobs window before declaring no matches for active filters", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),

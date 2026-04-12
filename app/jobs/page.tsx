@@ -71,7 +71,9 @@ export default async function JobsPage() {
             <JobsResults
               initialCount={INITIAL_ROLE_COUNT}
               initialCompanyOptions={companyOptions}
+              initialLastSyncAt={snapshot.storage.lastSyncAt}
               initialRequestLimit={INITIAL_REQUEST_LIMIT}
+              initialStorageMode={snapshot.storage.mode}
               initialTotalAvailableCount={snapshot.summary.totalJobs}
               jobs={snapshot.jobs}
               loadMoreCount={LOAD_MORE_INCREMENT}
