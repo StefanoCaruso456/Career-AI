@@ -347,6 +347,7 @@ export function withTracedRoute(
       }
 
       response.headers.set("x-braintrust-observed-root-span-id", routeContext.braintrustRootSpanId);
+      response.headers.set("x-braintrust-observed-project-id", observed.projectId);
       response.headers.set("x-braintrust-observed-span-count", String(observed.spans.length));
 
       if (observed.spans.length > 0) {

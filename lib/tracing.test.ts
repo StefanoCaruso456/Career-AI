@@ -115,6 +115,7 @@ describe("withTracedRoute", () => {
     expect(response.headers.get("x-braintrust-observed-root-span-id")).toBe(
       "root-span-123",
     );
+    expect(response.headers.get("x-braintrust-observed-project-id")).toBe("project_123");
     expect(response.headers.get("x-braintrust-observed-span-count")).toBe("2");
     expect(response.headers.get("x-braintrust-observed-span-names")).toBe(
       "http.route.chat.post,workflow.homepage_assistant.reply",
