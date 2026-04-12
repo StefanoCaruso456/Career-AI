@@ -4,6 +4,7 @@ import { startTransition, useDeferredValue, useEffect, useRef, useState } from "
 import { ArrowUpRight, ChevronDown, Search } from "lucide-react";
 import {
   jobsFeedResponseSchema,
+  type JobsFeedResponseDto,
   type JobPostingDto,
   type JobSourceSnapshotDto,
 } from "@/packages/contracts/src";
@@ -13,7 +14,9 @@ type JobsResultsProps = {
   jobs: JobPostingDto[];
   initialCompanyOptions?: string[];
   initialCount?: number;
+  initialLastSyncAt?: string | null;
   initialRequestLimit?: number;
+  initialStorageMode?: "database" | "ephemeral";
   initialTotalAvailableCount?: number;
   loadMoreCount?: number;
 };
@@ -29,6 +32,7 @@ const SALARY_RANGE_OPTIONS = [
 ] as const;
 type SalaryRangeFilter = "all" | (typeof SALARY_RANGE_OPTIONS)[number];
 const EMPTY_COMPANY_OPTIONS: string[] = [];
+const STALE_SNAPSHOT_MS = 10 * 60 * 1000;
 const ROLE_TYPE_OPTIONS = [
   "ai-ml-engineering",
   "software-engineering",
@@ -292,6 +296,33 @@ function getTotalAvailableCount(sources: JobSourceSnapshotDto[]) {
     .reduce((sum, source) => sum + source.jobCount, 0);
 }
 
+function isSnapshotStale(
+  storageMode: JobsResultsProps["initialStorageMode"],
+  lastSyncAt: string | null | undefined,
+) {
+  if (storageMode !== "database") {
+    return false;
+  }
+
+  if (!lastSyncAt) {
+    return true;
+  }
+
+  const timestamp = Date.parse(lastSyncAt);
+
+  if (Number.isNaN(timestamp)) {
+    return true;
+  }
+
+  return Date.now() - timestamp > STALE_SNAPSHOT_MS;
+}
+
+function didHydrateFullJobsWindow(snapshot: JobsFeedResponseDto, requestedLimit: number) {
+  const totalAvailableCount = getTotalAvailableCount(snapshot.sources);
+
+  return snapshot.jobs.length < requestedLimit || snapshot.jobs.length >= totalAvailableCount;
+}
+
 function getCompanyOptions(
   jobs: JobPostingDto[],
   sources: JobSourceSnapshotDto[] = [],
@@ -502,7 +533,9 @@ export function JobsResults({
   jobs,
   initialCompanyOptions = EMPTY_COMPANY_OPTIONS,
   initialCount = 24,
+  initialLastSyncAt = null,
   initialRequestLimit = Number.MAX_SAFE_INTEGER,
+  initialStorageMode = "ephemeral",
   initialTotalAvailableCount = jobs.length,
   loadMoreCount = 29,
 }: JobsResultsProps) {
@@ -524,10 +557,15 @@ export function JobsResults({
     () =>
       initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
   );
+  const [needsFreshSnapshot, setNeedsFreshSnapshot] = useState(() =>
+    isSnapshotStale(initialStorageMode, initialLastSyncAt),
+  );
   const [isHydratingFullWindow, setIsHydratingFullWindow] = useState(false);
+  const [isRefreshingSnapshot, setIsRefreshingSnapshot] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const fullWindowHydrationInFlight = useRef(false);
+  const snapshotRefreshInFlight = useRef(false);
   const fullJobsWindowLimit = Math.max(totalAvailableCount, loadedJobs.length);
   const filteredJobs = loadedJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
@@ -558,8 +596,10 @@ export function JobsResults({
   const canHydrateFullWindow =
     initialRequestLimit !== Number.MAX_SAFE_INTEGER &&
     !hasHydratedFullWindow &&
+    !needsFreshSnapshot &&
+    !isRefreshingSnapshot &&
     fullJobsWindowLimit > loadedJobs.length;
-  const isSearchingAllJobs = hasActiveFilters && canHydrateFullWindow;
+  const isSearchingAllJobs = hasActiveFilters && (canHydrateFullWindow || isRefreshingSnapshot);
   const showLoadMore = canRevealLoadedJobs || hasMoreAvailable;
 
   useEffect(() => {
@@ -581,15 +621,33 @@ export function JobsResults({
     setHasHydratedFullWindow(
       initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
     );
+    setNeedsFreshSnapshot(isSnapshotStale(initialStorageMode, initialLastSyncAt));
     setIsHydratingFullWindow(false);
+    setIsRefreshingSnapshot(false);
     fullWindowHydrationInFlight.current = false;
+    snapshotRefreshInFlight.current = false;
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
-  }, [initialCompanyOptions, initialRequestLimit, initialTotalAvailableCount, jobs]);
+  }, [
+    initialCompanyOptions,
+    initialLastSyncAt,
+    initialRequestLimit,
+    initialStorageMode,
+    initialTotalAvailableCount,
+    jobs,
+  ]);
 
-  async function fetchJobsWindow(limit: number) {
-    const response = await fetch(`/api/v1/jobs?limit=${limit}`, {
+  async function fetchJobsWindow(limit: number, options?: { refresh?: boolean }) {
+    const searchParams = new URLSearchParams({
+      limit: String(limit),
+    });
+
+    if (options?.refresh) {
+      searchParams.set("refresh", "1");
+    }
+
+    const response = await fetch(`/api/v1/jobs?${searchParams.toString()}`, {
       cache: "no-store",
       method: "GET",
     });
@@ -603,7 +661,7 @@ export function JobsResults({
   }
 
   function applySnapshot(
-    snapshot: Awaited<ReturnType<typeof fetchJobsWindow>>,
+    snapshot: JobsFeedResponseDto,
     options?: {
       hasHydratedFullWindow?: boolean;
       hasMoreAvailable?: boolean;
@@ -624,10 +682,70 @@ export function JobsResults({
     });
   }
 
+  useEffect(() => {
+    if (!needsFreshSnapshot || snapshotRefreshInFlight.current) {
+      return;
+    }
+
+    let isCancelled = false;
+    const refreshLimit = Math.max(initialRequestLimit, loadedJobs.length);
+
+    snapshotRefreshInFlight.current = true;
+    setIsRefreshingSnapshot(true);
+
+    void fetchJobsWindow(refreshLimit, { refresh: true })
+      .then(async (snapshot) => {
+        if (isCancelled) {
+          return;
+        }
+
+        let hydratedFullWindow = didHydrateFullJobsWindow(snapshot, refreshLimit);
+
+        applySnapshot(snapshot, {
+          hasHydratedFullWindow: hydratedFullWindow,
+          hasMoreAvailable: !hydratedFullWindow,
+        });
+
+        if (!hydratedFullWindow) {
+          const expandedLimit = Math.max(getTotalAvailableCount(snapshot.sources), snapshot.jobs.length);
+          const expandedSnapshot = await fetchJobsWindow(expandedLimit);
+
+          if (isCancelled) {
+            return;
+          }
+
+          hydratedFullWindow = didHydrateFullJobsWindow(expandedSnapshot, expandedLimit);
+
+          applySnapshot(expandedSnapshot, {
+            hasHydratedFullWindow: hydratedFullWindow,
+            hasMoreAvailable: !hydratedFullWindow,
+          });
+        }
+
+        setNeedsFreshSnapshot(false);
+      })
+      .catch((error) => {
+        console.error("Jobs snapshot refresh failed.", error);
+      })
+      .finally(() => {
+        if (isCancelled) {
+          return;
+        }
+
+        snapshotRefreshInFlight.current = false;
+        setIsRefreshingSnapshot(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialRequestLimit, loadedJobs.length, needsFreshSnapshot]);
+
   async function hydrateFullJobsWindow(requestedLimit = fullJobsWindowLimit) {
     if (
       requestedLimit <= loadedJobs.length ||
       hasHydratedFullWindow ||
+      needsFreshSnapshot ||
       fullWindowHydrationInFlight.current
     ) {
       return;
@@ -638,10 +756,11 @@ export function JobsResults({
 
     try {
       const snapshot = await fetchJobsWindow(requestedLimit);
+      const hydratedFullWindow = didHydrateFullJobsWindow(snapshot, requestedLimit);
 
       applySnapshot(snapshot, {
-        hasHydratedFullWindow: true,
-        hasMoreAvailable: false,
+        hasHydratedFullWindow: hydratedFullWindow,
+        hasMoreAvailable: !hydratedFullWindow,
       });
     } catch (error) {
       console.error("Jobs full-window hydration failed.", error);
@@ -652,7 +771,7 @@ export function JobsResults({
   }
 
   useEffect(() => {
-    if (!canHydrateFullWindow || isHydratingFullWindow) {
+    if (!canHydrateFullWindow || isHydratingFullWindow || isRefreshingSnapshot) {
       return;
     }
 
@@ -663,15 +782,21 @@ export function JobsResults({
     return () => {
       window.clearTimeout(timer);
     };
-  }, [canHydrateFullWindow, fullJobsWindowLimit, isHydratingFullWindow]);
+  }, [canHydrateFullWindow, fullJobsWindowLimit, isHydratingFullWindow, isRefreshingSnapshot]);
 
   useEffect(() => {
-    if (!hasActiveFilters || !canHydrateFullWindow || isHydratingFullWindow) {
+    if (!hasActiveFilters || !canHydrateFullWindow || isHydratingFullWindow || isRefreshingSnapshot) {
       return;
     }
 
     void hydrateFullJobsWindow(fullJobsWindowLimit);
-  }, [canHydrateFullWindow, fullJobsWindowLimit, hasActiveFilters, isHydratingFullWindow]);
+  }, [
+    canHydrateFullWindow,
+    fullJobsWindowLimit,
+    hasActiveFilters,
+    isHydratingFullWindow,
+    isRefreshingSnapshot,
+  ]);
 
   async function handleLoadMore() {
     if (canRevealLoadedJobs) {
@@ -679,7 +804,7 @@ export function JobsResults({
       return;
     }
 
-    if (!hasMoreAvailable || isLoadingMore || isHydratingFullWindow) {
+    if (!hasMoreAvailable || isLoadingMore || isHydratingFullWindow || isRefreshingSnapshot) {
       return;
     }
 
@@ -690,10 +815,15 @@ export function JobsResults({
 
     try {
       const snapshot = await fetchJobsWindow(nextLimit);
+      const hydratedFullWindow = didHydrateFullJobsWindow(snapshot, nextLimit);
 
-      applySnapshot(snapshot);
-      setVisibleCount((current) => Math.min(Math.max(current, loadedJobs.length) + loadMoreCount, snapshot.jobs.length));
-      setHasMoreAvailable(snapshot.jobs.length >= nextLimit);
+      applySnapshot(snapshot, {
+        hasHydratedFullWindow: hydratedFullWindow,
+        hasMoreAvailable: !hydratedFullWindow,
+      });
+      setVisibleCount((current) =>
+        Math.min(Math.max(current, loadedJobs.length) + loadMoreCount, snapshot.jobs.length),
+      );
     } catch (error) {
       setLoadMoreError(
         error instanceof Error ? error.message : "More jobs could not be loaded right now.",
@@ -845,7 +975,9 @@ export function JobsResults({
               Clear filters
             </button>
             <p className={styles.filterHint}>
-              {isSearchingAllJobs
+              {isRefreshingSnapshot
+                ? "Refreshing the latest jobs snapshot so filters expand against current source totals."
+                : isSearchingAllJobs
                 ? `Checking all ${formatCount(totalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
                 : `Filters automatically expand to all ${formatCount(totalAvailableCount)} available jobs.`}
             </p>
@@ -855,7 +987,9 @@ export function JobsResults({
 
       <div className={styles.resultsHeader}>
         <p className={styles.resultsSummary}>
-          {isSearchingAllJobs
+          {isRefreshingSnapshot
+            ? "Refreshing the jobs snapshot so counts stay in sync with the latest source totals..."
+            : isSearchingAllJobs
             ? `Checking all ${formatCount(totalAvailableCount)} available jobs for matches...`
             : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${loadedJobs.length} loaded.`}
         </p>
