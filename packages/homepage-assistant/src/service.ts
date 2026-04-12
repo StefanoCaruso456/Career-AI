@@ -1,4 +1,5 @@
 import { getOpenAIClient as getSharedOpenAIClient } from "@/lib/braintrust";
+import { buildOpenAIResponseMetrics } from "@/lib/braintrust-metrics";
 import { traceSpan } from "@/lib/tracing";
 import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
@@ -179,6 +180,8 @@ export async function generateHomepageAssistantReply(
       }
 
       try {
+        const startedAtMs = Date.now();
+        let endedAtMs = startedAtMs;
         const response = await traceSpan(
           {
             input: {
@@ -192,37 +195,50 @@ export async function generateHomepageAssistantReply(
               prompt_version: "homepage_assistant.v1",
               provider: "openai",
             },
+            metrics: (openAIResponse: {
+              usage?: {
+                input_tokens?: number | null;
+                input_tokens_details?: {
+                  cached_tokens?: number | null;
+                } | null;
+                output_tokens?: number | null;
+                output_tokens_details?: {
+                  reasoning_tokens?: number | null;
+                } | null;
+                total_tokens?: number | null;
+              } | null;
+            }) =>
+              buildOpenAIResponseMetrics(openAIResponse.usage, {
+                endedAtMs,
+                startedAtMs,
+              }),
             name: "llm.openai.responses.create",
             output: (openAIResponse: {
               output_text?: string | null;
-              usage?: {
-                input_tokens?: number | null;
-                output_tokens?: number | null;
-                total_tokens?: number | null;
-              } | null;
             }) => {
               const output = openAIResponse.output_text?.trim() ?? "";
 
               return {
-                input_tokens: openAIResponse.usage?.input_tokens ?? null,
                 model: getModel(),
                 output_preview: buildReplyPreview(output),
                 output_text_length: output.length,
-                output_tokens: openAIResponse.usage?.output_tokens ?? null,
                 provider: "openai",
-                total_tokens: openAIResponse.usage?.total_tokens ?? null,
               };
             },
             tags: ["provider:openai", "workflow:homepage_assistant"],
             type: "llm",
           },
-          () =>
-            getHomepageOpenAIClient().responses.create({
+          async () => {
+            const openAIResponse = await getHomepageOpenAIClient().responses.create({
               model: getModel(),
               instructions: homepageInstructions,
               input: buildAssistantInput(message, attachments),
               store: false,
-            }),
+            });
+
+            endedAtMs = Date.now();
+            return openAIResponse;
+          },
         );
 
         const output = response.output_text?.trim();

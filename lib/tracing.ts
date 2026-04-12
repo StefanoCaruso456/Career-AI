@@ -7,6 +7,7 @@ import { flushBraintrust, getBraintrustLogger } from "@/lib/braintrust";
 type TraceSpanType = "function" | "llm" | "task";
 
 type JsonRecord = Record<string, unknown>;
+type TraceMetricRecord = Record<string, number>;
 
 export type RequestTraceContext = {
   actorType: string | null;
@@ -24,6 +25,7 @@ export type RequestTraceContext = {
 type TraceSpanOptions<TResult> = {
   input?: unknown;
   metadata?: JsonRecord;
+  metrics?: TraceMetricRecord | ((result: TResult) => TraceMetricRecord | undefined);
   name: string;
   output?: unknown | ((result: TResult) => unknown);
   tags?: string[];
@@ -111,18 +113,40 @@ function buildTraceTags(tags: string[] = []) {
   return [...tagSet];
 }
 
+function filterTraceMetrics(metrics?: Record<string, number | null | undefined>) {
+  if (!metrics) {
+    return undefined;
+  }
+
+  const normalizedEntries = Object.entries(metrics).filter(
+    (entry): entry is [string, number] =>
+      typeof entry[1] === "number" && Number.isFinite(entry[1]),
+  );
+
+  if (!normalizedEntries.length) {
+    return undefined;
+  }
+
+  return Object.fromEntries(normalizedEntries);
+}
+
 function logSpanOutput<TResult>(options: TraceSpanOptions<TResult>, span: Span, result: TResult) {
   const output =
     typeof options.output === "function"
       ? options.output(result)
       : options.output;
+  const metrics =
+    typeof options.metrics === "function"
+      ? filterTraceMetrics(options.metrics(result))
+      : filterTraceMetrics(options.metrics);
 
-  if (output === undefined) {
+  if (output === undefined && metrics === undefined) {
     return result;
   }
 
   span.log({
     metadata: buildTraceMetadata(options.metadata),
+    metrics,
     output,
     tags: buildTraceTags(options.tags),
   });
