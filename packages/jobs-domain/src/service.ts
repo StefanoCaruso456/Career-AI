@@ -155,6 +155,17 @@ type WorkdayJob = {
   bulletFields?: string[];
 };
 
+const BUILTIN_GREENHOUSE_COMPANY_SPECS = [
+  {
+    label: "Figma",
+    token: "figma",
+  },
+  {
+    label: "Stripe",
+    token: "stripe",
+  },
+] as const;
+
 const BUILTIN_WORKDAY_COMPANY_SPECS = [
   {
     label: "Accenture",
@@ -208,6 +219,8 @@ const BUILTIN_WORKDAY_COMPANY_SPECS = [
 
 const BUILTIN_WORKDAY_COMPANY_FEEDS =
   process.env.NODE_ENV === "test" ? [] : BUILTIN_WORKDAY_COMPANY_SPECS;
+const BUILTIN_GREENHOUSE_COMPANY_FEEDS =
+  process.env.NODE_ENV === "test" ? [] : BUILTIN_GREENHOUSE_COMPANY_SPECS;
 
 const JOBS_ENVIRONMENT_GUIDE = [
   {
@@ -507,7 +520,7 @@ function createSourceSnapshot(args: {
 }
 
 function getDirectSourceSpecs() {
-  const greenhouseBoards = parseNamedSpecs(getGreenhouseBoardsRaw()).map(
+  const configuredGreenhouseBoards = parseNamedSpecs(getGreenhouseBoardsRaw()).map(
     ({ label, value }) =>
       ({
         key: `greenhouse:${slugify(value)}`,
@@ -518,6 +531,26 @@ function getDirectSourceSpecs() {
         token: value,
       }) as DirectSourceSpec & { token: string },
   );
+  const builtinGreenhouseBoards = BUILTIN_GREENHOUSE_COMPANY_FEEDS.map(
+    ({ label, token }) =>
+      ({
+        key: `greenhouse:${slugify(token)}`,
+        label,
+        lane: "ats_direct",
+        quality: "high_signal",
+        endpointLabel: `boards-api.greenhouse.io/${token}`,
+        token,
+      }) as DirectSourceSpec & { token: string },
+  );
+  const seenGreenhouseTokens = new Set<string>();
+  const greenhouseBoards = [...builtinGreenhouseBoards, ...configuredGreenhouseBoards].filter((spec) => {
+    if (seenGreenhouseTokens.has(spec.token)) {
+      return false;
+    }
+
+    seenGreenhouseTokens.add(spec.token);
+    return true;
+  });
 
   const leverSites = parseNamedSpecs(process.env.LEVER_SITE_NAMES).map(
     ({ label, value }) =>
@@ -1836,7 +1869,7 @@ export function getJobsEnvironmentGuide() {
 }
 
 export function getSeededJobsCompanyOptions() {
-  return [...BUILTIN_WORKDAY_COMPANY_SPECS]
+  return [...BUILTIN_GREENHOUSE_COMPANY_SPECS, ...BUILTIN_WORKDAY_COMPANY_SPECS]
     .map(({ label }) => label)
     .sort((left, right) => left.localeCompare(right));
 }
