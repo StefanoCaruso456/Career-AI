@@ -175,6 +175,13 @@ export async function getBraintrustProjectId() {
   }
 
   projectIdSingleton = (async () => {
+    const logger = getBraintrustLogger();
+    const loggerProjectId = logger ? (await logger.id)?.trim() : null;
+
+    if (loggerProjectId) {
+      return loggerProjectId;
+    }
+
     const payload = await fetchBraintrustJson<BraintrustProjectListResponse>("/v1/project");
     const match = payload.objects?.find(
       (project) => project.name?.trim() === braintrustProjectName,
@@ -202,8 +209,8 @@ export async function fetchObservedSpansForRoot(args: FetchObservedSpansArgs) {
     );
   }
 
-  const maxAttempts = args.maxAttempts ?? 6;
-  const retryDelayMs = args.retryDelayMs ?? 250;
+  const maxAttempts = args.maxAttempts ?? 12;
+  const retryDelayMs = args.retryDelayMs ?? 500;
   let latestSpans: BraintrustObservedSpan[] = [];
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -221,7 +228,7 @@ export async function fetchObservedSpansForRoot(args: FetchObservedSpansArgs) {
             span_attributes.type AS type,
             metadata.request_id AS request_id
           FROM project_logs('${escapeBtqlString(projectId)}', shape => 'spans')
-          WHERE metadata.request_id = '${escapeBtqlString(args.requestId)}'
+          WHERE root_span_id = '${escapeBtqlString(args.rootSpanId)}'
           ORDER BY created ASC
         `,
         query_source: "career-ai.trace-debug",
@@ -243,7 +250,7 @@ export async function fetchObservedSpansForRoot(args: FetchObservedSpansArgs) {
       break;
     }
 
-    await waitFor(retryDelayMs * (attempt + 1));
+    await waitFor(retryDelayMs);
   }
 
   return {
