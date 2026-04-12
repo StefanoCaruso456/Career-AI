@@ -28,7 +28,7 @@ vi.mock("@/packages/persistence/src", () => ({
   recordJobValidationEvents: (...args: unknown[]) => recordJobValidationEventsMock(...args),
 }));
 
-import { searchJobsCatalog, searchJobsPanel } from "./search";
+import { browseLatestJobsPanel, searchJobsCatalog, searchJobsPanel } from "./search";
 
 function createJob(args: {
   companyName: string;
@@ -272,6 +272,37 @@ describe("jobs search service", () => {
     expect(result.assistantMessage).toContain("newest live jobs across all connected sources");
     expect(result.jobs[0]?.companyName).toBe("Cisco");
     expect(result.jobs[1]?.companyName).toBe("NVIDIA");
+  });
+
+  it("exposes a dedicated latest-jobs panel flow without clarification", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "Cisco",
+          id: "job_cisco_newest",
+          location: "Austin, TX",
+          postedAt: "2026-04-10T12:00:00.000Z",
+          title: "Software Engineer",
+        }),
+        createJob({
+          companyName: "Adobe",
+          id: "job_adobe_newer",
+          location: "Remote",
+          postedAt: "2026-04-09T12:00:00.000Z",
+          title: "Product Designer",
+        }),
+      ],
+      sources: [{ key: "workday:cisco" }, { key: "workday:adobe" }],
+    });
+
+    const result = await browseLatestJobsPanel();
+
+    expect(result.agent.selectedTool).toBe("browseLatestJobs");
+    expect(result.agent.clarificationQuestion).toBeNull();
+    expect(result.agent.terminationReason).toBe("latest_jobs_browse_completed");
+    expect(result.assistantMessage).toContain("newest live jobs across all connected sources");
+    expect(result.jobs[0]?.companyName).toBe("Cisco");
   });
 
   it("retrieves semantic role variants and explains why they matched", async () => {

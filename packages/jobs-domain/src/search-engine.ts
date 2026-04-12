@@ -224,6 +224,30 @@ function isFreshnessFirstBrowseInterpretation(interpretation: JobSearchQueryInte
   );
 }
 
+function isDeterministicLatestBrowseQuery(query: JobSearchQueryDto) {
+  return (
+    !query.usedCareerIdDefaults &&
+    query.filters.companies.length === 0 &&
+    query.filters.employmentType === null &&
+    query.filters.exclusions.length === 0 &&
+    query.filters.industries.length === 0 &&
+    query.filters.keywords.length === 0 &&
+    query.filters.location === null &&
+    query.filters.locations.length === 0 &&
+    query.filters.postedWithinDays === null &&
+    query.filters.role === null &&
+    query.filters.roleFamilies.length === 0 &&
+    query.filters.remotePreference === null &&
+    query.filters.salaryMax === null &&
+    query.filters.salaryMin === null &&
+    query.filters.seniority === null &&
+    query.filters.skills.length === 0 &&
+    query.filters.targetJobId === null &&
+    query.filters.workplaceType === null &&
+    query.filters.rankingBoosts.includes("freshness")
+  );
+}
+
 type SearchJobDocument = {
   dedupeFingerprint: string;
   fullText: string;
@@ -628,6 +652,33 @@ function buildQueryInterpretation(args: {
 }) {
   const rawQuery = args.rawQuery.trim();
   const normalizedQuery = normalizeHumanLabel(rawQuery);
+
+  if (isDeterministicLatestBrowseQuery(args.query)) {
+    return {
+      adjacentRoles: [],
+      companyTerms: [],
+      employmentType: null,
+      excludeTerms: [],
+      industries: [],
+      locations: [],
+      normalizedQuery,
+      normalizedRoles: [],
+      profileSignalsUsed: [],
+      rankingBoosts: uniq([
+        ...args.query.filters.rankingBoosts,
+        "trusted_source",
+      ]) as JobSearchRankingBoost[],
+      rawQuery,
+      remotePreference: null,
+      salaryMax: null,
+      salaryMin: null,
+      semanticThemes: [],
+      seniority: null,
+      skills: [],
+      workplaceType: null,
+    } satisfies JobSearchQueryInterpretationDto;
+  }
+
   const companies = uniq([...args.query.filters.companies]);
   const locations = uniq([...args.query.filters.locations, args.query.filters.location]);
   const roleSeeds = uniq([

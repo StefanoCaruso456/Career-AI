@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const DEFAULT_LATEST_JOBS_PROMPT = "Find new jobs for me.";
+
 export const jobSourceLaneSchema = z.enum(["ats_direct", "aggregator"]);
 export const jobSourceQualitySchema = z.enum(["high_signal", "coverage"]);
 export const jobSourceStatusSchema = z.enum(["connected", "degraded", "not_configured"]);
@@ -37,6 +39,7 @@ export const jobSeekerIntentSchema = z.enum([
 ]);
 export const jobSeekerResultQualitySchema = z.enum(["strong", "acceptable", "weak", "empty"]);
 export const jobSeekerToolNameSchema = z.enum([
+  "browseLatestJobs",
   "searchJobs",
   "getJobById",
   "findSimilarJobs",
@@ -391,6 +394,12 @@ export const searchJobsInputSchema = z.object({
   refresh: z.boolean().optional(),
 });
 
+export const browseLatestJobsInputSchema = z.object({
+  conversationId: z.string().trim().min(1).nullable().optional(),
+  limit: z.number().int().positive().max(24).optional(),
+  refresh: z.boolean().optional(),
+});
+
 export const recordJobApplyClickInputSchema = z.object({
   canonicalApplyUrl: z.string().url().optional(),
   conversationId: z.string().trim().min(1).nullable().optional(),
@@ -439,5 +448,6 @@ export type JobSeekerAgentTraceEntryDto = z.infer<typeof jobSeekerAgentTraceEntr
 export type JobSeekerAgentMetadataDto = z.infer<typeof jobSeekerAgentMetadataSchema>;
 export type JobsPanelResponseDto = z.infer<typeof jobsPanelResponseSchema>;
 export type SearchJobsInput = z.infer<typeof searchJobsInputSchema>;
+export type BrowseLatestJobsInput = z.infer<typeof browseLatestJobsInputSchema>;
 export type RecordJobApplyClickInput = z.infer<typeof recordJobApplyClickInputSchema>;
 export type ValidateJobsInput = z.infer<typeof validateJobsInputSchema>;

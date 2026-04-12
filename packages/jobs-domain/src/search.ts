@@ -1,11 +1,14 @@
 import type {
   JobPostingDto,
+  JobSeekerToolName,
   JobSearchQueryDto,
   JobSearchRetrievalResultDto,
   JobsPanelResponseDto,
 } from "@/packages/contracts/src";
 import { jobsPanelResponseSchema } from "@/packages/contracts/src";
 import {
+  browseLatestJobsCatalog,
+  buildLatestJobsBrowseQuery,
   buildJobRailCards,
   findSimilarJobsCatalog,
   getJobPostingDetails,
@@ -95,6 +98,51 @@ function buildAssistantMessage(args: {
   return `I found ${args.jobs.length} grounded${workplaceSegment}${roleSegment} job matches${locationSegment}${companySegment}.${personalizationSegment} Best fits: ${topMatches}.`;
 }
 
+function buildJobsPanelResponse(args: {
+  result: Awaited<ReturnType<typeof searchJobsCatalog>>;
+  selectedTool: JobSeekerToolName;
+  terminationReason: string;
+}) {
+  const resultQuality = inferResultQuality(args.result);
+  const assistantMessage = buildAssistantMessage({
+    jobs: args.result.results,
+    query: args.result.query,
+  });
+  const isNewestBrowse = isNewestJobsBrowseQuery(args.result.query);
+
+  return jobsPanelResponseSchema.parse({
+    agent: {
+      clarificationQuestion:
+        resultQuality === "empty" && !isNewestBrowse
+          ? "Do you want me to widen the title, location, or workplace preference?"
+          : null,
+      intent: "job_search",
+      intentConfidence: 1,
+      loopCount: 0,
+      maxLoops: 0,
+      resultQuality,
+      selectedTool: args.selectedTool,
+      terminationReason: args.terminationReason,
+    },
+    assistantMessage,
+    debugTrace: [],
+    diagnostics: args.result.diagnostics,
+    generatedAt: args.result.generatedAt,
+    jobs: args.result.results,
+    panelCount: args.result.returnedCount,
+    profileContext: args.result.profileContext,
+    query: args.result.query,
+    rail: {
+      cards: buildJobRailCards(args.result.results),
+      emptyState:
+        resultQuality === "empty" && isNewestBrowse
+          ? assistantMessage
+          : args.result.rail.emptyState,
+    },
+    totalMatches: args.result.totalCandidateCount,
+  });
+}
+
 export async function searchJobsPanel(args: {
   conversationId?: string | null;
   limit?: number;
@@ -111,43 +159,46 @@ export async function searchJobsPanel(args: {
     prompt: args.prompt,
     refresh: args.refresh,
   });
-  const resultQuality = inferResultQuality(result);
 
-  return jobsPanelResponseSchema.parse({
-    agent: {
-      clarificationQuestion:
-        result.results.length === 0 && !isNewestJobsBrowseQuery(result.query)
-          ? "Do you want me to widen the title, location, or workplace preference?"
-          : null,
-      intent: "job_search",
-      intentConfidence: 1,
-      loopCount: 0,
-      maxLoops: 0,
-      resultQuality,
-      selectedTool: "searchJobs",
-      terminationReason:
-        resultQuality === "empty" ? "jobs_search_completed_empty" : "jobs_search_completed",
-    },
-    assistantMessage: buildAssistantMessage({
-      jobs: result.results,
-      query: result.query,
-    }),
-    debugTrace: [],
-    diagnostics: result.diagnostics,
-    generatedAt: result.generatedAt,
-    jobs: result.results,
-    panelCount: result.returnedCount,
-    profileContext: result.profileContext,
-    query: result.query,
-    rail: {
-      cards: buildJobRailCards(result.results),
-      emptyState: result.rail.emptyState,
-    },
-    totalMatches: result.totalCandidateCount,
+  return buildJobsPanelResponse({
+    result,
+    selectedTool: "searchJobs",
+    terminationReason:
+      inferResultQuality(result) === "empty"
+        ? "jobs_search_completed_empty"
+        : "jobs_search_completed",
+  });
+}
+
+export async function browseLatestJobsPanel(args?: {
+  conversationId?: string | null;
+  limit?: number;
+  ownerId?: string | null;
+  prompt?: string;
+  refresh?: boolean;
+}): Promise<JobsPanelResponseDto> {
+  const result = await browseLatestJobsCatalog({
+    conversationId: args?.conversationId,
+    limit: args?.limit,
+    origin: args?.refresh ? "panel_refresh" : "cta",
+    ownerId: args?.ownerId,
+    prompt: args?.prompt,
+    refresh: args?.refresh,
+  });
+
+  return buildJobsPanelResponse({
+    result,
+    selectedTool: "browseLatestJobs",
+    terminationReason:
+      inferResultQuality(result) === "empty"
+        ? "latest_jobs_browse_empty"
+        : "latest_jobs_browse_completed",
   });
 }
 
 export {
+  browseLatestJobsCatalog,
+  buildLatestJobsBrowseQuery,
   buildJobRailCards,
   findSimilarJobsCatalog,
   getJobPostingDetails,

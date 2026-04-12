@@ -7,7 +7,10 @@ import type {
   JobSearchRetrievalResultDto,
   JobSeekerProfileContextDto,
 } from "@/packages/contracts/src";
-import { jobSearchRetrievalResultSchema } from "@/packages/contracts/src";
+import {
+  DEFAULT_LATEST_JOBS_PROMPT,
+  jobSearchRetrievalResultSchema,
+} from "@/packages/contracts/src";
 import {
   findPersistentContextByEmail,
   findPersistentContextByTalentIdentityId,
@@ -350,6 +353,39 @@ export function parseJobSearchQuery(args: {
     conversationContext: null,
     effectivePrompt: prompt,
     filters,
+    normalizedPrompt,
+    prompt,
+    usedCareerIdDefaults: false,
+  };
+}
+
+export function buildLatestJobsBrowseQuery(prompt = DEFAULT_LATEST_JOBS_PROMPT): JobSearchQueryDto {
+  const normalizedPrompt = normalizeHumanLabel(prompt);
+
+  return {
+    careerIdSignals: [],
+    conversationContext: null,
+    effectivePrompt: prompt,
+    filters: {
+      companies: [],
+      employmentType: null,
+      exclusions: [],
+      industries: [],
+      keywords: [],
+      location: null,
+      locations: [],
+      postedWithinDays: null,
+      role: null,
+      roleFamilies: [],
+      rankingBoosts: ["freshness", "trusted_source"],
+      remotePreference: null,
+      salaryMax: null,
+      salaryMin: null,
+      seniority: null,
+      skills: [],
+      targetJobId: null,
+      workplaceType: null,
+    },
     normalizedPrompt,
     prompt,
     usedCareerIdDefaults: false,
@@ -939,6 +975,25 @@ export async function searchJobsCatalog(args: {
     results: searchResult.results,
     returnedCount: searchResult.results.length,
     totalCandidateCount: searchResult.totalCandidateCount,
+  });
+}
+
+export async function browseLatestJobsCatalog(args?: {
+  conversationId?: string | null;
+  limit?: number;
+  origin?: JobSearchOrigin;
+  ownerId?: string | null;
+  prompt?: string;
+  refresh?: boolean;
+}) {
+  return searchJobsCatalog({
+    conversationId: args?.conversationId,
+    limit: args?.limit,
+    origin: args?.origin,
+    ownerId: args?.ownerId,
+    profileContext: null,
+    query: buildLatestJobsBrowseQuery(args?.prompt),
+    refresh: args?.refresh,
   });
 }
 
