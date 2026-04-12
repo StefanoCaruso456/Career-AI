@@ -37,8 +37,8 @@ type BraintrustProjectListResponse = {
   objects?: BraintrustProjectSummary[];
 };
 
-type BraintrustBtqlResponse = {
-  rows?: Array<Record<string, unknown>>;
+type BraintrustProjectLogsResponse = {
+  events?: Array<Record<string, unknown>>;
 };
 
 export type BraintrustObservedSpan = {
@@ -68,13 +68,18 @@ function getBraintrustAuthHeaders() {
   };
 }
 
-function escapeBtqlString(value: string) {
-  return value.replace(/'/g, "''");
-}
-
 function normalizeObservedSpan(row: Record<string, unknown>): BraintrustObservedSpan | null {
   const spanId = typeof row.span_id === "string" ? row.span_id : null;
-  const name = typeof row.name === "string" ? row.name : null;
+  const spanAttributes =
+    row.span_attributes && typeof row.span_attributes === "object"
+      ? (row.span_attributes as Record<string, unknown>)
+      : null;
+  const name =
+    typeof row.name === "string"
+      ? row.name
+      : typeof spanAttributes?.name === "string"
+        ? spanAttributes.name
+        : null;
 
   if (!spanId || !name) {
     return null;
@@ -90,7 +95,12 @@ function normalizeObservedSpan(row: Record<string, unknown>): BraintrustObserved
     rootSpanId: typeof row.root_span_id === "string" ? row.root_span_id : null,
     spanId,
     spanParents,
-    type: typeof row.type === "string" ? row.type : null,
+    type:
+      typeof row.type === "string"
+        ? row.type
+        : typeof spanAttributes?.type === "string"
+          ? spanAttributes.type
+          : null,
   };
 }
 
@@ -214,30 +224,14 @@ export async function fetchObservedSpansForRoot(args: FetchObservedSpansArgs) {
   let latestSpans: BraintrustObservedSpan[] = [];
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const payload = await fetchBraintrustJson<BraintrustBtqlResponse>("/btql", {
-      body: JSON.stringify({
-        brainstore_realtime: true,
-        brainstore_skip_backfill_check: true,
-        fmt: "json",
-        query: `
-          SELECT
-            span_id,
-            root_span_id,
-            span_parents,
-            span_attributes.name AS name,
-            span_attributes.type AS type,
-            metadata.request_id AS request_id
-          FROM project_logs('${escapeBtqlString(projectId)}', shape => 'spans')
-          WHERE root_span_id = '${escapeBtqlString(args.rootSpanId)}'
-          ORDER BY created ASC
-        `,
-        query_source: "career-ai.trace-debug",
-        scope_to_root_span_id: args.rootSpanId,
-      }),
-      method: "POST",
-    });
+    const payload = await fetchBraintrustJson<BraintrustProjectLogsResponse>(
+      `/v1/project_logs/${encodeURIComponent(projectId)}/fetch?limit=10`,
+      {
+        method: "GET",
+      },
+    );
 
-    latestSpans = (payload.rows ?? [])
+    latestSpans = (payload.events ?? [])
       .map(normalizeObservedSpan)
       .filter((span): span is BraintrustObservedSpan => Boolean(span))
       .filter((span) => span.rootSpanId === args.rootSpanId);
