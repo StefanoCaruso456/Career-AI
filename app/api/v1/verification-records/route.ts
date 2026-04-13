@@ -3,8 +3,8 @@ import { createVerificationRecordInputSchema } from "@/packages/contracts/src";
 import {
   assertReviewerAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { createVerificationRecord } from "@/packages/verification-domain/src";
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertReviewerAccess(actor, correlationId, "create verification records");
     const body = createVerificationRecordInputSchema.parse(await request.json());
     const record = createVerificationRecord({

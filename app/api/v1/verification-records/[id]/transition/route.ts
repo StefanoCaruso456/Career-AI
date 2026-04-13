@@ -3,8 +3,8 @@ import { verificationTransitionInputSchema } from "@/packages/contracts/src";
 import {
   assertReviewerAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { transitionVerificationRecord } from "@/packages/verification-domain/src";
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertReviewerAccess(actor, correlationId, "transition verification records");
     const { id } = await context.params;
     const body = verificationTransitionInputSchema.parse(await request.json());
