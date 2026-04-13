@@ -50,6 +50,7 @@ describe("HeaderAuthControls", () => {
       "href",
       "/employer/settings",
     );
+    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
@@ -88,6 +89,38 @@ describe("HeaderAuthControls", () => {
     expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
       "href",
       "/employer/settings",
+    );
+    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
+  });
+
+  it("shows access requests for a candidate account", () => {
+    window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
+    mockUsePathname.mockReturnValue("/account");
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          currentStep: 4,
+          email: "casey@example.com",
+          name: "Casey Candidate",
+          onboardingStatus: "completed",
+          roleType: "candidate",
+        },
+      },
+      status: "authenticated",
+    });
+
+    render(<HeaderAuthControls />);
+
+    fireEvent.click(screen.getByRole("button", { name: /casey candidate/i }));
+
+    expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/account");
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.getByRole("menuitem", { name: /access requests/i })).toHaveAttribute(
+      "href",
+      "/account/access-requests",
     );
   });
 });
