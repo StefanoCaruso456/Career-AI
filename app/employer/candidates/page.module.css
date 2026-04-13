@@ -1,6 +1,9 @@
 .page {
   min-height: 100vh;
-  padding: 2rem 1.25rem 3rem;
+  padding:
+    calc(var(--site-header-clearance) + 1rem)
+    clamp(1rem, 2.6vw, 1.35rem)
+    3rem;
   background:
     radial-gradient(circle at top, rgba(255, 168, 125, 0.12), transparent 32%),
     linear-gradient(180deg, #120f0e, #1c1716 34%, #0f0f10 100%);
