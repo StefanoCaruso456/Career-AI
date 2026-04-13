@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getPersonaFromRoleType, getPostAuthRoute } from "@/lib/personas";
 import type { PersistentTalentIdentityContext } from "@/packages/persistence/src";
 import {
   completePersistentOnboarding,
@@ -31,7 +32,13 @@ export const careerProfileBasicsInputSchema = z.object({
 export function resolveAuthenticatedDestination(
   context: Pick<PersistentTalentIdentityContext, "onboarding">,
 ) {
-  return context.onboarding.status === "completed" ? "/account" : "/onboarding";
+  if (context.onboarding.status !== "completed") {
+    return "/onboarding";
+  }
+
+  const destinationPersona = getPersonaFromRoleType(context.onboarding.roleType);
+
+  return destinationPersona ? getPostAuthRoute(destinationPersona) : "/account";
 }
 
 export function resolveOnboardingStep(
