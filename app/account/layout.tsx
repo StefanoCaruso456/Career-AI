@@ -1,25 +1,18 @@
 import type { ReactNode } from "react";
-import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
 import { WorkspaceShell } from "@/components/workspace-shell";
-import { getPersonaSignInRoute } from "@/lib/personas";
 import { workspaceShellByPersona } from "@/lib/workspace-navigation";
 
 export default async function AccountLayout({ children }: { children: ReactNode }) {
   const session = await auth();
 
   if (!session?.user?.email) {
-    redirect(
-      getPersonaSignInRoute({
-        callbackUrl: "/account",
-        persona: "job_seeker",
-      }),
-    );
+    return <>{children}</>;
   }
 
-  const { context } = await ensurePersistentCareerIdentityForSessionUser({
+  await ensurePersistentCareerIdentityForSessionUser({
     user: {
       appUserId: session.user.appUserId,
       authProvider: session.user.authProvider,
@@ -30,10 +23,6 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     },
     correlationId: `account_layout_${session.user.appUserId ?? session.user.email ?? "unknown"}`,
   });
-
-  if (context.onboarding.status !== "completed") {
-    redirect("/onboarding");
-  }
 
   return (
     <>

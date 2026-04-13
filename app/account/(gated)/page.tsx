@@ -8,7 +8,7 @@ import {
   getDisplayNameForContext,
 } from "@/auth-identity";
 import { getPersonaSignInRoute } from "@/lib/personas";
-import styles from "./page.module.css";
+import styles from "../page.module.css";
 
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat("en-US", {
