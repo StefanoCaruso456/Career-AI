@@ -57,7 +57,7 @@
 
 .heroIntro {
   display: grid;
-  gap: 1.15rem;
+  gap: 1.7rem;
   max-width: 42rem;
 }
 
@@ -940,7 +940,7 @@
   }
 
   .heroIntro {
-    gap: 0.95rem;
+    gap: 1.2rem;
   }
 
   .heroContextBlock {
