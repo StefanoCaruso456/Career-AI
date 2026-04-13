@@ -3,8 +3,8 @@ import {
   assertAllowedActorTypes,
   assertTalentIdentityAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { getArtifactMetadata } from "@/packages/artifact-domain/src";
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     const { artifactId } = await context.params;
     const artifact = getArtifactMetadata({
       artifactId,

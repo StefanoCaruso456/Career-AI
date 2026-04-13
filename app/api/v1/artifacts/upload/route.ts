@@ -3,8 +3,8 @@ import { ApiError } from "@/packages/contracts/src";
 import {
   assertAllowedActorTypes,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { uploadArtifact } from "@/packages/artifact-domain/src";
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertAllowedActorTypes(
       actor,
       ["talent_user", "system_service"],

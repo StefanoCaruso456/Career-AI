@@ -55,14 +55,51 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mocks.resolveChatRouteContext.mockResolvedValue({
+    agentContext: {
+      actor: {
+        id: "user:tal_123",
+        kind: "authenticated_user",
+        preferredPersona: "job_seeker",
+        roleType: "candidate",
+      },
+      ownerId: "user:test",
+      preferredPersona: "job_seeker",
+      roleType: "candidate",
+      run: {
+        correlationId: "corr-123",
+        runId: "run-123",
+        traceRoot: {
+          braintrustRootSpanId: "braintrust-root-123",
+          requestId: "request-123",
+          routeName: "http.route.chat.post",
+          traceId: "trace-123",
+        },
+      },
+    },
     actor: {
       actorType: "session_user",
       cookieValue: null,
+      identity: {
+        id: "user:tal_123",
+        kind: "authenticated_user",
+        preferredPersona: "job_seeker",
+        roleType: "candidate",
+      },
       ownerId: "user:test",
       sessionId: "session:test",
       userId: "app_user_123",
     },
     ownerId: "user:test",
+    runContext: {
+      correlationId: "corr-123",
+      runId: "run-123",
+      traceRoot: {
+        braintrustRootSpanId: "braintrust-root-123",
+        requestId: "request-123",
+        routeName: "http.route.chat.post",
+        traceId: "trace-123",
+      },
+    },
     sessionId: "session:test",
     userId: "app_user_123",
   });
@@ -171,6 +208,14 @@ describe("POST /api/chat", () => {
     expect(mocks.generateHomepageAssistantReply).toHaveBeenCalledWith(
       "What does the agent actually do?",
       [],
+      expect.objectContaining({
+        agentContext: expect.objectContaining({
+          ownerId: "user:test",
+          run: expect.objectContaining({
+            runId: "run-123",
+          }),
+        }),
+      }),
     );
     expect(mocks.runJobSeekerAgent).not.toHaveBeenCalled();
     expect(payload.assistantMessage.content).toBe(

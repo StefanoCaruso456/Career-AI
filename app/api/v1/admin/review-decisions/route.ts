@@ -3,8 +3,8 @@ import { reviewDecisionInputSchema } from "@/packages/contracts/src";
 import {
   assertReviewerAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { submitReviewDecision } from "@/packages/admin-ops/src";
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertReviewerAccess(actor, correlationId, "submit review decisions");
     const body = reviewDecisionInputSchema.parse(await request.json());
     const decision = submitReviewDecision({

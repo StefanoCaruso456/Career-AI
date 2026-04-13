@@ -184,6 +184,10 @@ export function getAuditActorTypeForActorIdentity(identity: ActorIdentity): Acto
     return "system_service";
   }
 
+  if (identity.roleType === "reviewer_admin") {
+    return "reviewer_admin";
+  }
+
   if (identity.roleType === "recruiter") {
     return "recruiter_user";
   }
@@ -193,4 +197,16 @@ export function getAuditActorTypeForActorIdentity(identity: ActorIdentity): Acto
   }
 
   return "talent_user";
+}
+
+export function getRequestActorIdForActorIdentity(identity: ActorIdentity): string {
+  if (identity.kind === "internal_service") {
+    return identity.serviceActorId;
+  }
+
+  if (identity.kind === "guest_user") {
+    return identity.guestSessionId;
+  }
+
+  return identity.talentIdentityId ?? identity.appUserId ?? identity.email ?? identity.id;
 }

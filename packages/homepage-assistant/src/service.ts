@@ -1,6 +1,7 @@
 import { getOpenAIClient as getSharedOpenAIClient } from "@/lib/braintrust";
 import { buildOpenAIResponseMetrics } from "@/lib/braintrust-metrics";
 import { traceSpan } from "@/lib/tracing";
+import type { AgentContext } from "@/packages/agent-runtime/src";
 import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
 const homepageInstructions =
@@ -97,6 +98,19 @@ function getOpenAIErrorMetadata(error: unknown) {
   };
 }
 
+function getAgentContextMetadata(agentContext?: AgentContext | null) {
+  if (!agentContext) {
+    return undefined;
+  }
+
+  return {
+    actor_kind: agentContext.actor.kind,
+    preferred_persona: agentContext.preferredPersona,
+    role_type: agentContext.roleType,
+    run_id: agentContext.run.runId,
+  };
+}
+
 async function runHomepageFallback(args: {
   attachments: HomepageAssistantAttachment[];
   error?: unknown;
@@ -137,6 +151,7 @@ type HomepageAssistantReplyResult = {
 export async function generateHomepageAssistantReply(
   message: string,
   attachments: HomepageAssistantAttachment[] = [],
+  options?: { agentContext?: AgentContext | null },
 ) {
   const result = await traceSpan<HomepageAssistantReplyResult>(
     {
@@ -146,6 +161,7 @@ export async function generateHomepageAssistantReply(
         model: getModel(),
       },
       metadata: {
+        ...getAgentContextMetadata(options?.agentContext),
         prompt_version: "homepage_assistant.v1",
         workflow_id: "homepage_assistant.reply",
       },
@@ -192,6 +208,7 @@ export async function generateHomepageAssistantReply(
             },
             metadata: {
               model_name: getModel(),
+              ...getAgentContextMetadata(options?.agentContext),
               prompt_version: "homepage_assistant.v1",
               provider: "openai",
             },

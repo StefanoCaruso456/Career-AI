@@ -2,8 +2,8 @@ import { type NextRequest } from "next/server";
 import {
   assertReviewerAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { getClaimAuditTrail } from "@/packages/admin-ops/src";
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertReviewerAccess(actor, correlationId, "view claim audit trails");
     const { claimId } = await context.params;
     const trail = await getClaimAuditTrail({

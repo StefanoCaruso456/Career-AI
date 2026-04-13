@@ -1,8 +1,8 @@
 import { type NextRequest } from "next/server";
 import {
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { getRecruiterTrustProfileByToken } from "@/packages/recruiter-read-model/src";
@@ -17,8 +17,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId, {
-      allowAnonymousSystemActor: true,
+    const actor = await resolveVerifiedActor(request, correlationId, {
+      allowPublic: true,
     });
     const { shareProfileKey } = await context.params;
     const profile = await getRecruiterTrustProfileByToken({
