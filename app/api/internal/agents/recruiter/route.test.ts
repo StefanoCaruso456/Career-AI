@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetAuditStore } from "@/packages/audit-security/src";
+import { resetInternalAgentRateLimitStore } from "@/lib/internal-agents/rate-limit";
 
 const mocks = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -6,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   findPersistentContextByUserId: vi.fn(),
   generateHomepageAssistantReplyDetailed: vi.fn(),
   listOrganizationMembershipContextsForUser: vi.fn(),
+  traceSpan: vi.fn((_options: unknown, callback: () => Promise<unknown>) => callback()),
+  updateRequestTraceContext: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -15,7 +19,8 @@ vi.mock("@/auth", () => ({
 vi.mock("@/lib/tracing", () => ({
   applyTraceResponseHeaders: <T extends Response>(response: T) => response,
   getRequestTraceContext: vi.fn(() => null),
-  updateRequestTraceContext: vi.fn(),
+  traceSpan: mocks.traceSpan,
+  updateRequestTraceContext: mocks.updateRequestTraceContext,
   withTracedRoute: vi.fn(
     (_options: unknown, handler: (request: Request) => Promise<Response>) => handler,
   ),
@@ -80,6 +85,9 @@ function createRecruiterContext() {
 describe("POST /api/internal/agents/recruiter", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetAuditStore();
+    resetInternalAgentRateLimitStore();
+    delete process.env.INTERNAL_AGENT_RECRUITER_ALLOWED_SERVICES;
     mocks.authMock.mockResolvedValue(null);
     mocks.findPersistentContextByUserId.mockResolvedValue(createRecruiterContext());
     mocks.listOrganizationMembershipContextsForUser.mockResolvedValue([
@@ -147,9 +155,16 @@ describe("POST /api/internal/agents/recruiter", () => {
 
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
+      agentType: "recruiter",
+      ok: true,
+      operation: "respond",
+      payload: expect.objectContaining({
+        reply: "Recruiter sourcing reply",
+      }),
       reply: "Recruiter sourcing reply",
       role: "recruiter",
       stopReason: "completed",
+      version: "v1",
     });
     expect(mocks.generateHomepageAssistantReplyDetailed).toHaveBeenCalledWith(
       "Find me strong backend candidates",
@@ -170,5 +185,35 @@ describe("POST /api/internal/agents/recruiter", () => {
         workflowId: "internal_recruiter_agent",
       }),
     );
+  });
+
+  it("denies a verified internal service that is not on the recruiter allowlist", async () => {
+    process.env.INTERNAL_AGENT_RECRUITER_ALLOWED_SERVICES = "approved-recruiter-service";
+
+    const response = await POST(
+      new Request("http://localhost/api/internal/agents/recruiter", {
+        body: JSON.stringify({
+          message: "Find me strong backend candidates",
+          userId: "user_456",
+        }),
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload).toMatchObject({
+      agentType: "recruiter",
+      error_code: "FORBIDDEN",
+      ok: false,
+      error: expect.objectContaining({
+        code: "FORBIDDEN",
+      }),
+    });
+    expect(mocks.generateHomepageAssistantReplyDetailed).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import { withTracedRoute } from "@/lib/tracing";
+import { getInternalAgentRouteDefinition } from "@/lib/internal-agents/registry";
 import { defaultW3CPresentationAdapter } from "@/packages/agent-runtime/src";
 import {
   filterAgentToolRegistry,
@@ -10,15 +11,18 @@ import {
   buildVerifierAgentContext,
   createInternalAgentErrorResponse,
   createInternalAgentResponse,
+  logInternalAgentRequestReceived,
+  parseInternalAgentRequest,
+  reserveInternalAgentQuota,
   resolveInternalAgentRouteContext,
+  traceInternalAgentInvocation,
 } from "../_shared";
 
-const verifierToolRegistry = filterAgentToolRegistry(homepageAssistantToolRegistry, [
-  "get_claim_details",
-  "get_verification_record",
-  "list_provenance_records",
-  "get_career_id_summary",
-]);
+const verifierDefinition = getInternalAgentRouteDefinition("verifier");
+const verifierToolRegistry = filterAgentToolRegistry(
+  homepageAssistantToolRegistry,
+  verifierDefinition.allowedTools,
+);
 
 function buildPresentationContextPreamble(presentationSummary: ReturnType<typeof defaultW3CPresentationAdapter.summarize>) {
   if (!presentationSummary) {
@@ -35,50 +39,91 @@ function buildPresentationContextPreamble(presentationSummary: ReturnType<typeof
   ].join("\n");
 }
 
-const verifierInstructions =
-  "You are the internal verifier agent for Career AI. Focus on claims, verification records, provenance, and trustworthy evidence handling. Treat any W3C presentation summary as advisory internal context only, and do not claim external verification that has not happened.";
-
 export const runtime = "nodejs";
 
 async function handleVerifierAgentPost(request: Request) {
+  let requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  let quota = null;
+  let routeContext:
+    | Awaited<ReturnType<typeof resolveInternalAgentRouteContext>>
+    | null = null;
+
   try {
-    const routeContext = await resolveInternalAgentRouteContext(
+    routeContext = await resolveInternalAgentRouteContext(request, "verifier");
+    const activeRouteContext = routeContext;
+    const parsedRequest = await parseInternalAgentRequest({
+      definition: activeRouteContext.definition,
+      fallbackRequestId: activeRouteContext.fallbackRequestId,
+      legacySchema: verifierAgentRequestSchema,
       request,
-      "invoke internal verifier agent endpoint",
-    );
-    const payload = verifierAgentRequestSchema.parse(await request.json());
+    });
+    requestId = parsedRequest.requestId;
+    quota = reserveInternalAgentQuota({
+      correlationId: activeRouteContext.correlationId,
+      definition: activeRouteContext.definition,
+      requestId: parsedRequest.requestId,
+      runId: activeRouteContext.runContext.runId,
+      serviceActor: activeRouteContext.serviceActor,
+    });
+
+    logInternalAgentRequestReceived({
+      correlationId: activeRouteContext.correlationId,
+      definition: activeRouteContext.definition,
+      requestId: parsedRequest.requestId,
+      runId: activeRouteContext.runContext.runId,
+      serviceActor: activeRouteContext.serviceActor,
+      version: parsedRequest.version,
+    });
+
     const agentContext = buildVerifierAgentContext({
-      runContext: routeContext.runContext,
-      serviceActor: routeContext.serviceActor,
+      runContext: activeRouteContext.runContext,
+      serviceActor: activeRouteContext.serviceActor,
     });
     const presentationSummary = defaultW3CPresentationAdapter.summarize(
-      payload.presentation ?? null,
+      parsedRequest.payload.presentation ?? null,
     );
-    const result = await generateHomepageAssistantReplyDetailed(payload.message, [], {
-      agentContext,
-      contextPreamble: buildPresentationContextPreamble(presentationSummary),
-      conversationMessages: payload.messages,
-      instructions: verifierInstructions,
-      runtimeMode: "bounded_loop",
-      toolRegistry: verifierToolRegistry,
-      workflowId: "internal_verifier_agent",
+    const result = await traceInternalAgentInvocation({
+      definition: activeRouteContext.definition,
+      invoke: () =>
+        generateHomepageAssistantReplyDetailed(parsedRequest.payload.message, [], {
+          agentContext,
+          contextPreamble: buildPresentationContextPreamble(presentationSummary),
+          conversationMessages: parsedRequest.payload.messages,
+          instructions: activeRouteContext.definition.instructions,
+          runtimeMode: "bounded_loop",
+          toolRegistry: verifierToolRegistry,
+          workflowId: activeRouteContext.definition.workflowId,
+        }),
+      requestId: parsedRequest.requestId,
+      serviceActor: activeRouteContext.serviceActor,
+      version: parsedRequest.version,
     });
 
     return createInternalAgentResponse({
-      correlationId: routeContext.correlationId,
+      correlationId: activeRouteContext.correlationId,
+      definition: activeRouteContext.definition,
+      durationMs: Date.now() - activeRouteContext.startedAt,
       presentationSummary,
+      quota,
       reply: result.text,
-      role: "verifier",
+      requestId: parsedRequest.requestId,
       runId: agentContext.run.runId,
+      serviceActor: activeRouteContext.serviceActor,
       stepsUsed: result.stepsUsed,
       stopReason: result.stopReason,
       toolCallsUsed: result.toolCallsUsed,
     });
   } catch (error) {
-    return createInternalAgentErrorResponse(
+    return createInternalAgentErrorResponse({
+      correlationId: routeContext?.correlationId ?? (request.headers.get("x-correlation-id") ?? crypto.randomUUID()),
+      definition: routeContext?.definition ?? verifierDefinition,
+      durationMs: routeContext ? Date.now() - routeContext.startedAt : 0,
       error,
-      request.headers.get("x-correlation-id") ?? crypto.randomUUID(),
-    );
+      quota,
+      requestId,
+      runId: routeContext?.runContext.runId ?? null,
+      serviceActor: routeContext?.serviceActor ?? null,
+    });
   }
 }
 

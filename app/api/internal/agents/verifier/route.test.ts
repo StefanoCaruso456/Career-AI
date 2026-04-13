@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { resetAuditStore } from "@/packages/audit-security/src";
+import { resetInternalAgentRateLimitStore } from "@/lib/internal-agents/rate-limit";
 
 const mocks = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -6,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   findPersistentContextByUserId: vi.fn(),
   generateHomepageAssistantReplyDetailed: vi.fn(),
   listOrganizationMembershipContextsForUser: vi.fn(),
+  traceSpan: vi.fn((_options: unknown, callback: () => Promise<unknown>) => callback()),
+  updateRequestTraceContext: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -15,7 +19,8 @@ vi.mock("@/auth", () => ({
 vi.mock("@/lib/tracing", () => ({
   applyTraceResponseHeaders: <T extends Response>(response: T) => response,
   getRequestTraceContext: vi.fn(() => null),
-  updateRequestTraceContext: vi.fn(),
+  traceSpan: mocks.traceSpan,
+  updateRequestTraceContext: mocks.updateRequestTraceContext,
   withTracedRoute: vi.fn(
     (_options: unknown, handler: (request: Request) => Promise<Response>) => handler,
   ),
@@ -40,6 +45,8 @@ import { POST } from "./route";
 describe("POST /api/internal/agents/verifier", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetAuditStore();
+    resetInternalAgentRateLimitStore();
     mocks.authMock.mockResolvedValue(null);
     mocks.generateHomepageAssistantReplyDetailed.mockResolvedValue({
       source: "openai_bounded_loop",
@@ -55,16 +62,22 @@ describe("POST /api/internal/agents/verifier", () => {
     const response = await POST(
       new Request("http://localhost/api/internal/agents/verifier", {
         body: JSON.stringify({
-          message: "Inspect the verification context",
-          presentation: {
-            definitionId: "presentation_def_1",
-            descriptorIds: ["employment_vc"],
-            format: "jwt_vp",
-            holderDid: "did:example:holder-123",
+          agentType: "verifier",
+          operation: "respond",
+          payload: {
+            message: "Inspect the verification context",
             presentation: {
-              id: "vp_123",
+              definitionId: "presentation_def_1",
+              descriptorIds: ["employment_vc"],
+              format: "jwt_vp",
+              holderDid: "did:example:holder-123",
+              presentation: {
+                id: "vp_123",
+              },
             },
           },
+          requestId: "req_verifier_123",
+          version: "v1",
         }),
         headers: {
           authorization: "Bearer secret-token",
@@ -77,6 +90,12 @@ describe("POST /api/internal/agents/verifier", () => {
 
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
+      agentType: "verifier",
+      ok: true,
+      operation: "respond",
+      payload: expect.objectContaining({
+        reply: "Verifier analysis reply",
+      }),
       presentationSummary: {
         definitionId: "presentation_def_1",
         descriptorIds: ["employment_vc"],
@@ -85,8 +104,10 @@ describe("POST /api/internal/agents/verifier", () => {
         holderDid: "did:example:holder-123",
       },
       reply: "Verifier analysis reply",
+      requestId: "req_verifier_123",
       role: "verifier",
       stopReason: "completed",
+      version: "v1",
     });
     expect(mocks.generateHomepageAssistantReplyDetailed).toHaveBeenCalledWith(
       "Inspect the verification context",
