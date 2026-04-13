@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { runJobSeekerAgent } from "@/packages/job-seeker-agent/src";
+import {
+  requiresCurrentExternalSearch,
+  runJobSeekerAgent,
+} from "@/packages/job-seeker-agent/src";
 import { searchJobsPanel } from "@/packages/jobs-domain/src";
 import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
 import { generateHomepageAssistantReply } from "@/packages/homepage-assistant/src";
@@ -94,6 +97,11 @@ async function handleChatPost(request: Request) {
     const attachmentSummaries = summarizeChatAttachmentsForAssistant(
       userMessageResult.userMessage.attachments,
     );
+    const requiresFreshExternalInfo =
+      payload.persona !== "employer" && requiresCurrentExternalSearch(payload.message);
+    const shouldUseJobSeekerAgent =
+      payload.persona !== "employer" &&
+      (isJobIntent(payload.message) || requiresFreshExternalInfo);
     let assistantReply: string;
     let assistantReplyError = false;
     let candidatePanel: Awaited<ReturnType<typeof searchEmployerCandidates>> | null = null;
@@ -109,7 +117,7 @@ async function handleChatPost(request: Request) {
         prompt: payload.message,
       });
       assistantReply = candidatePanel.assistantMessage;
-    } else if (payload.persona !== "employer" && !isJobIntent(payload.message)) {
+    } else if (!shouldUseJobSeekerAgent) {
       assistantReply = await generateHomepageAssistantReply(
         payload.message,
         attachmentSummaries,
@@ -132,7 +140,11 @@ async function handleChatPost(request: Request) {
       } catch (error) {
         console.error("Job seeker agent failed; using deterministic fallback.", error);
 
-        if (isJobIntent(payload.message)) {
+        if (requiresFreshExternalInfo) {
+          assistantReply =
+            "I couldn’t complete a grounded live web search right now. Please try again in a moment.";
+          assistantReplyError = true;
+        } else if (isJobIntent(payload.message)) {
           try {
             jobsPanel = await searchJobsPanel({
               conversationId: userMessageResult.conversation.id,

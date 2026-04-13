@@ -45,7 +45,7 @@ describe("JobsResults", () => {
     expect(screen.getByText("Showing 53 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
     expect(screen.getByText("Role 53")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More..." })).not.toBeInTheDocument();
-  });
+  }, 15_000);
 
   it("shows company options from the full available snapshot, not just the loaded window", () => {
     const jobs = Array.from({ length: 24 }, (_, index) => ({
@@ -68,6 +68,113 @@ describe("JobsResults", () => {
     expect(companySelect).toHaveTextContent("Cisco");
     expect(companySelect).toHaveTextContent("Figma");
     expect(companySelect).toHaveTextContent("Stripe");
+  });
+
+  it("loads company-filtered results directly instead of hydrating the full catalog", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Cisco",
+      sourceKey: "greenhouse:cisco",
+      sourceLabel: "Cisco",
+    }));
+    const redHatJobs = Array.from({ length: 3 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Red Hat",
+      sourceKey: "workday:red-hat",
+      sourceLabel: "Red Hat",
+      title: `Red Hat Role ${index + 1}`,
+    }));
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        expect(url).toBe("/api/v1/jobs?limit=3&company=Red+Hat");
+
+        return new Response(
+          JSON.stringify({
+            generatedAt: "2026-04-11T12:45:00.000Z",
+            jobs: redHatJobs,
+            sources: [
+              {
+                key: "workday:red-hat",
+                label: "Red Hat",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: redHatJobs.length,
+                endpointLabel: "redhat.wd1.myworkdayjobs.com/en-US/jobs",
+                lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                message: "Red Hat public jobs synced and ready to persist.",
+              },
+            ],
+            summary: {
+              totalJobs: redHatJobs.length,
+              directAtsJobs: redHatJobs.length,
+              aggregatorJobs: 0,
+              sourceCount: 1,
+              connectedSourceCount: 1,
+              highSignalSourceCount: 1,
+              coverageSourceCount: 0,
+            },
+            storage: {
+              mode: "database",
+              persistedJobs: redHatJobs.length,
+              persistedSources: 1,
+              lastSyncAt: "2026-04-11T12:45:00.000Z",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    render(
+      <JobsResults
+        initialCompanyOptions={["Cisco", "Red Hat"]}
+        initialRequestLimit={24}
+        initialSources={[
+          {
+            key: "greenhouse:cisco",
+            label: "Cisco",
+            lane: "ats_direct",
+            quality: "high_signal",
+            status: "connected",
+            jobCount: 24,
+            endpointLabel: "boards-api.greenhouse.io/cisco",
+            lastSyncedAt: "2026-04-11T12:45:00.000Z",
+            message: "Cisco public jobs synced and ready to persist.",
+          },
+          {
+            key: "workday:red-hat",
+            label: "Red Hat",
+            lane: "ats_direct",
+            quality: "high_signal",
+            status: "connected",
+            jobCount: redHatJobs.length,
+            endpointLabel: "redhat.wd1.myworkdayjobs.com/en-US/jobs",
+            lastSyncedAt: "2026-04-11T12:45:00.000Z",
+            message: "Red Hat public jobs synced and ready to persist.",
+          },
+        ]}
+        initialTotalAvailableCount={27}
+        jobs={initialJobs}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Red Hat" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Showing 3 of 3 matching roles from 3 loaded.")).toBeInTheDocument();
+    });
+    expect(screen.getByText("3 jobs available")).toBeInTheDocument();
+    expect(screen.queryByText(/Checking all 27 available jobs for matches/i)).not.toBeInTheDocument();
   });
 
   it("hydrates the full jobs window in the background after the first page renders", async () => {
@@ -141,13 +248,158 @@ describe("JobsResults", () => {
       <JobsResults initialRequestLimit={24} initialTotalAvailableCount={53} jobs={initialJobs} />,
     );
 
-    await waitFor(() => {
-      expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
+      },
+      { timeout: 5_000 },
+    );
     expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Company")).toHaveTextContent("Cisco");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
+  }, 15_000);
+
+  it("refreshes stale snapshots before hydrating the larger jobs window", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Cisco",
+      sourceKey: "greenhouse:cisco",
+      sourceLabel: "Cisco",
+    }));
+    const refreshedJobs = initialJobs;
+    const expandedJobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (fetchMock.mock.calls.length === 1) {
+        expect(url).toBe("/api/v1/jobs?limit=24&refresh=1");
+
+        return new Response(
+          JSON.stringify({
+            generatedAt: "2026-04-11T12:45:00.000Z",
+            jobs: refreshedJobs,
+            sources: [
+              {
+                key: "greenhouse:cisco",
+                label: "Cisco",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: 24,
+                endpointLabel: "boards-api.greenhouse.io/cisco",
+                lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                message: "Cisco public jobs synced and ready to persist.",
+              },
+              {
+                key: "greenhouse:figma",
+                label: "Figma",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: 29,
+                endpointLabel: "boards-api.greenhouse.io/figma",
+                lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                message: "Figma public jobs synced and ready to persist.",
+              },
+            ],
+            summary: {
+              totalJobs: 53,
+              directAtsJobs: 53,
+              aggregatorJobs: 0,
+              sourceCount: 2,
+              connectedSourceCount: 2,
+              highSignalSourceCount: 2,
+              coverageSourceCount: 0,
+            },
+            storage: {
+              mode: "database",
+              persistedJobs: refreshedJobs.length,
+              persistedSources: 2,
+              lastSyncAt: "2026-04-11T12:45:00.000Z",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }
+
+      expect(url).toBe("/api/v1/jobs?limit=53");
+
+      return new Response(
+        JSON.stringify({
+          generatedAt: "2026-04-11T12:45:00.000Z",
+          jobs: expandedJobs,
+          sources: [
+            {
+              key: "greenhouse:cisco",
+              label: "Cisco",
+              lane: "ats_direct",
+              quality: "high_signal",
+              status: "connected",
+              jobCount: 24,
+              endpointLabel: "boards-api.greenhouse.io/cisco",
+              lastSyncedAt: "2026-04-11T12:45:00.000Z",
+              message: "Cisco public jobs synced and ready to persist.",
+            },
+            {
+              key: "greenhouse:figma",
+              label: "Figma",
+              lane: "ats_direct",
+              quality: "high_signal",
+              status: "connected",
+              jobCount: 29,
+              endpointLabel: "boards-api.greenhouse.io/figma",
+              lastSyncedAt: "2026-04-11T12:45:00.000Z",
+              message: "Figma public jobs synced and ready to persist.",
+            },
+          ],
+          summary: {
+            totalJobs: 53,
+            directAtsJobs: 53,
+            aggregatorJobs: 0,
+            sourceCount: 2,
+            connectedSourceCount: 2,
+            highSignalSourceCount: 2,
+            coverageSourceCount: 0,
+          },
+          storage: {
+            mode: "database",
+            persistedJobs: expandedJobs.length,
+            persistedSources: 2,
+            lastSyncAt: "2026-04-11T12:45:00.000Z",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        initialLastSyncAt="2026-04-10T12:45:00.000Z"
+        initialRequestLimit={24}
+        initialStorageMode="database"
+        initialTotalAvailableCount={24}
+        jobs={initialJobs}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Showing 24 of 53 matching roles from 53 loaded.")).toBeInTheDocument();
+    });
+    expect(screen.getByText("53 jobs available")).toBeInTheDocument();
   });
 
   it("checks the full jobs window before declaring no matches for active filters", async () => {

@@ -2,7 +2,11 @@ import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import { currentSpan, traced as braintrustTraced, type Span } from "braintrust";
-import { flushBraintrust, getBraintrustLogger } from "@/lib/braintrust";
+import {
+  fetchObservedSpansForRoot,
+  flushBraintrust,
+  getBraintrustLogger,
+} from "@/lib/braintrust";
 
 type TraceSpanType = "function" | "llm" | "task";
 
@@ -18,6 +22,7 @@ export type RequestTraceContext = {
   requestId: string;
   routeName: string;
   sessionId: string | null;
+  traceDebugRequested: boolean;
   traceId: string;
   userId: string | null;
 };
@@ -59,6 +64,11 @@ function normalizeUrlPath(url: string) {
 
 function createTraceIdentifier() {
   return crypto.randomUUID();
+}
+
+function isTraceDebugRequested(request: Request) {
+  const value = readHeader(request, "x-trace-debug")?.toLowerCase();
+  return value === "1" || value === "true";
 }
 
 function serializeError(error: unknown): JsonRecord {
@@ -174,7 +184,10 @@ export function getRequestTraceContext() {
 
 export function updateRequestTraceContext(
   patch: Partial<
-    Omit<RequestTraceContext, "method" | "path" | "requestId" | "routeName" | "traceId">
+    Omit<
+      RequestTraceContext,
+      "method" | "path" | "requestId" | "routeName" | "traceDebugRequested" | "traceId"
+    >
   >,
 ) {
   const context = getRequestTraceContext();
@@ -239,6 +252,7 @@ export function withTracedRoute(
 
     const requestId = readHeader(request, "x-request-id") ?? createTraceIdentifier();
     const traceId = readHeader(request, "x-trace-id") ?? requestId;
+    const traceDebugRequested = isTraceDebugRequested(request);
     const routeContext: RequestTraceContext = {
       actorType: null,
       braintrustRootSpanId: null,
@@ -248,18 +262,20 @@ export function withTracedRoute(
       requestId,
       routeName: options.name,
       sessionId: null,
+      traceDebugRequested,
       traceId,
       userId: null,
     };
 
+    let response!: Response;
+
     try {
-      return await braintrustTraced(
+      response = await braintrustTraced(
         async (rootSpan) =>
           requestTraceContextStorage.run(
-            {
-              ...routeContext,
+            Object.assign(routeContext, {
               braintrustRootSpanId: rootSpan.rootSpanId,
-            },
+            }),
             async () => {
               rootSpan.log({
                 input: {
@@ -303,17 +319,49 @@ export function withTracedRoute(
         },
       );
     } finally {
-      if (process.env.NODE_ENV === "production") {
-        void flushBraintrust().catch((error) => {
-          console.error("Braintrust flush failed after route completion.", error);
-        });
-      } else {
-        try {
-          await flushBraintrust();
-        } catch (error) {
-          console.error("Braintrust flush failed after route completion.", error);
-        }
+      try {
+        await flushBraintrust();
+      } catch (error) {
+        console.error("Braintrust flush failed after route completion.", error);
       }
+    }
+
+    if (!traceDebugRequested) {
+      return response;
+    }
+
+    try {
+      if (!routeContext.braintrustRootSpanId) {
+        response.headers.set("x-braintrust-observed-error", "missing_root_span_id");
+        return response;
+      }
+
+      const observed = await fetchObservedSpansForRoot({
+        requestId: routeContext.requestId,
+        rootSpanId: routeContext.braintrustRootSpanId,
+      });
+
+      if (!observed) {
+        response.headers.set("x-braintrust-observed-error", "braintrust_disabled");
+        return response;
+      }
+
+      response.headers.set("x-braintrust-observed-root-span-id", routeContext.braintrustRootSpanId);
+      response.headers.set("x-braintrust-observed-project-id", observed.projectId);
+      response.headers.set("x-braintrust-observed-span-count", String(observed.spans.length));
+
+      if (observed.spans.length > 0) {
+        response.headers.set(
+          "x-braintrust-observed-span-names",
+          observed.spans.map((span) => span.name).join(","),
+        );
+      }
+
+      return response;
+    } catch (error) {
+      console.error("Braintrust live trace verification failed.", error);
+      response.headers.set("x-braintrust-observed-error", "trace_query_failed");
+      return response;
     }
   };
 }

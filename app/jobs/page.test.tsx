@@ -5,6 +5,15 @@ import type { JobPostingDto, JobsFeedResponseDto } from "@/packages/contracts/sr
 const jobsDomainMocks = vi.hoisted(() => ({
   getJobsEnvironmentGuide: vi.fn(() => []),
   getJobsFeedSnapshot: vi.fn(),
+  getSeededJobsCompanyOptions: vi.fn(() => [
+    "Figma",
+    "Stripe",
+    "Autodesk",
+    "Dell Technologies",
+    "Hewlett Packard Enterprise (HPE)",
+    "Samsung Electronics",
+    "Workday",
+  ]),
 }));
 
 vi.mock("@/packages/jobs-domain/src", () => jobsDomainMocks);
@@ -69,8 +78,8 @@ function createSnapshot(): JobsFeedResponseDto {
       },
     ],
     summary: {
-      totalJobs: 1,
-      directAtsJobs: 1,
+      totalJobs: 1689,
+      directAtsJobs: 1689,
       aggregatorJobs: 0,
       sourceCount: 3,
       connectedSourceCount: 2,
@@ -106,6 +115,13 @@ describe("JobsPage", () => {
     expect(screen.getAllByText("Second Feed")).toHaveLength(2);
     expect(screen.getByLabelText("Company")).toHaveTextContent("Connected Feed");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Second Feed");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Stripe");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Autodesk");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Dell Technologies");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Hewlett Packard Enterprise (HPE)");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Samsung Electronics");
+    expect(screen.getByLabelText("Company")).toHaveTextContent("Workday");
     expect(screen.getByText("1,689 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Broken Feed")).not.toBeInTheDocument();
   });

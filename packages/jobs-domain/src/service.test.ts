@@ -1,7 +1,11 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getDatabasePool } from "@/packages/persistence/src";
+import { getDatabasePool, persistSourcedJobs } from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
-import { getJobsEnvironmentGuide, getJobsFeedSnapshot } from "@/packages/jobs-domain/src";
+import {
+  getJobsEnvironmentGuide,
+  getJobsFeedSnapshot,
+  getSeededJobsCompanyOptions,
+} from "@/packages/jobs-domain/src";
 
 function createJsonResponse(body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -137,6 +141,25 @@ describe("jobs feed service", () => {
     ]);
   });
 
+  it("exposes the built-in companies for UI filters", () => {
+    expect(getSeededJobsCompanyOptions()).toEqual([
+      "Accenture",
+      "Adobe",
+      "Autodesk",
+      "Cisco",
+      "CrowdStrike",
+      "Dell Technologies",
+      "Figma",
+      "Hewlett Packard Enterprise (HPE)",
+      "NVIDIA",
+      "Red Hat",
+      "Salesforce",
+      "Samsung Electronics",
+      "Stripe",
+      "Workday",
+    ]);
+  });
+
   it("accepts GREENHOUSE_BOARD as the primary Greenhouse environment key", async () => {
     process.env.GREENHOUSE_BOARD = "Figma=figma";
 
@@ -206,6 +229,49 @@ describe("jobs feed service", () => {
     expect(snapshot.jobs[0]?.descriptionSnippet).toBe(
       "Stripe is a financial infrastructure platform for businesses.",
     );
+  });
+
+  it("keeps distinct Greenhouse jobs when the hosted URL differs only by gh_jid", async () => {
+    process.env.GREENHOUSE_BOARD = "Stripe=stripe";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://boards-api.greenhouse.io/v1/boards/stripe/jobs?content=true") {
+        return createJsonResponse({
+          jobs: [
+            {
+              id: 7532733,
+              title: "Account Executive, AI Sales",
+              absolute_url: "https://stripe.com/jobs/search?gh_jid=7532733",
+              content: "<p>Grow Stripe's AI revenue.</p>",
+              location: { name: "San Francisco, CA" },
+              departments: [{ name: "Sales" }],
+              updated_at: "2026-04-10T18:00:00.000Z",
+            },
+            {
+              id: 7746909,
+              title: "Account Executive, AI Startups - Existing Business",
+              absolute_url: "https://stripe.com/jobs/search?gh_jid=7746909",
+              content: "<p>Support AI startup customers.</p>",
+              location: { name: "New York, NY" },
+              departments: [{ name: "Sales" }],
+              updated_at: "2026-04-10T17:00:00.000Z",
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(snapshot.sources[0]?.jobCount).toBe(2);
+    expect(snapshot.jobs).toHaveLength(2);
+    expect(snapshot.jobs.map((job) => job.externalId)).toEqual(["7532733", "7746909"]);
   });
 
   it("ingests Ashby job boards as ATS-direct sources", async () => {
@@ -366,6 +432,70 @@ describe("jobs feed service", () => {
     );
   });
 
+  it("continues paging Workday feeds when later pages incorrectly report total zero", async () => {
+    process.env.WORKDAY_JOB_SOURCES =
+      "Autodesk=https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs";
+
+    const buildPage = (start: number, count: number) => ({
+      total: start === 0 ? 60 : 0,
+      jobPostings: Array.from({ length: count }, (_, index) => {
+        const roleNumber = start + index + 1;
+
+        return {
+          title: `Role ${roleNumber}`,
+          externalPath: `/job/Remote/Role-${roleNumber}_R${roleNumber}`,
+          locationsText: "Remote",
+          postedOn: "Posted Yesterday",
+          timeType: "Full time",
+          bulletFields: [`R${roleNumber}`],
+        };
+      }),
+    });
+
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url !== "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs") {
+        throw new Error(`Unexpected URL ${url}`);
+      }
+
+      const body = JSON.parse(String(init?.body ?? "{}")) as { offset?: number };
+
+      if (body.offset === 0) {
+        return createJsonResponse(buildPage(0, 20));
+      }
+
+      if (body.offset === 20) {
+        return createJsonResponse(buildPage(20, 20));
+      }
+
+      if (body.offset === 40) {
+        return createJsonResponse(buildPage(40, 20));
+      }
+
+      if (body.offset === 60) {
+        return createJsonResponse({
+          total: 0,
+          jobPostings: [],
+        });
+      }
+
+      throw new Error(`Unexpected Workday offset ${body.offset}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 100, windowDays: null });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(snapshot.sources[0]?.key).toBe("workday:autodesk");
+    expect(snapshot.sources[0]?.jobCount).toBe(60);
+    expect(snapshot.summary.totalJobs).toBe(60);
+    expect(snapshot.summary.directAtsJobs).toBe(60);
+    expect(snapshot.jobs).toHaveLength(60);
+    expect(snapshot.jobs.some((job) => job.title === "Role 60")).toBe(true);
+  });
+
   it("merges ATS direct feeds with an aggregator feed and prefers the ATS copy on duplicates", async () => {
     process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
     process.env.LEVER_SITE_NAMES = "Orbit=orbit";
@@ -441,9 +571,9 @@ describe("jobs feed service", () => {
     const snapshot = await getJobsFeedSnapshot({ limit: 10 });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(snapshot.summary.totalJobs).toBe(3);
+    expect(snapshot.summary.totalJobs).toBe(4);
     expect(snapshot.summary.directAtsJobs).toBe(2);
-    expect(snapshot.summary.aggregatorJobs).toBe(1);
+    expect(snapshot.summary.aggregatorJobs).toBe(2);
     expect(snapshot.summary.connectedSourceCount).toBe(3);
     expect(snapshot.jobs.map((job) => job.title)).toEqual([
       "Senior Product Designer",
@@ -461,6 +591,62 @@ describe("jobs feed service", () => {
       "not_configured",
     ]);
     expect(snapshot.storage.mode).toBe("ephemeral");
+  });
+
+  it("reports source totals even when the returned jobs window is truncated", async () => {
+    process.env.LEVER_SITE_NAMES = "Figma=figma";
+
+    const recentPage = Array.from({ length: 100 }, (_, index) => ({
+      id: `lever-${index + 1}`,
+      text: `Recent role ${index + 1}`,
+      categories: {
+        location: "Remote",
+        commitment: "Full-time",
+        team: "Sales",
+      },
+      hostedUrl: `https://jobs.figma.com/recent-${index + 1}`,
+      descriptionPlain: "Recent job from the first page.",
+      createdAt: Date.parse("2026-04-09T12:00:00.000Z"),
+      updatedAt: Date.parse("2026-04-10T12:00:00.000Z"),
+    }));
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === "https://api.lever.co/v0/postings/figma?mode=json&limit=100&skip=0") {
+        return createJsonResponse(recentPage);
+      }
+
+      if (url === "https://api.lever.co/v0/postings/figma?mode=json&limit=100&skip=100") {
+        return createJsonResponse([
+          {
+            id: "lever-101",
+            text: "Recent role 101",
+            categories: {
+              location: "Remote",
+              commitment: "Full-time",
+              team: "Sales",
+            },
+            hostedUrl: "https://jobs.figma.com/recent-101",
+            descriptionPlain: "Recent job from the second page.",
+            createdAt: Date.parse("2026-04-08T12:00:00.000Z"),
+            updatedAt: Date.parse("2026-04-10T08:00:00.000Z"),
+          },
+        ]);
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10, windowDays: 7 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(snapshot.jobs).toHaveLength(10);
+    expect(snapshot.summary.totalJobs).toBe(101);
+    expect(snapshot.summary.directAtsJobs).toBe(101);
+    expect(snapshot.sources[0]?.jobCount).toBe(101);
   });
 
   it("ingests multiple named aggregator feeds with one shared API key", async () => {
@@ -788,5 +974,138 @@ describe("jobs feed service", () => {
     expect(snapshot.storage.mode).toBe("database");
     expect(snapshot.jobs).toHaveLength(1);
     expect(snapshot.sources[0]?.status).toBe("degraded");
+  });
+
+  it("returns company-filtered persisted snapshots for the jobs page", async () => {
+    const syncedAt = "2026-04-11T22:15:00.000Z";
+
+    await installTestDatabase();
+    process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
+
+    await persistSourcedJobs({
+      syncedAt,
+      sources: [
+        {
+          key: "greenhouse:cisco",
+          label: "Cisco",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 2,
+          endpointLabel: "boards-api.greenhouse.io/cisco",
+          lastSyncedAt: syncedAt,
+          message: "Cisco public jobs synced and ready to persist.",
+        },
+        {
+          key: "workday:red-hat",
+          label: "Red Hat",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 3,
+          endpointLabel: "redhat.wd1.myworkdayjobs.com/en-US/jobs",
+          lastSyncedAt: syncedAt,
+          message: "Red Hat public jobs synced and ready to persist.",
+        },
+      ],
+      jobs: [
+        {
+          id: "greenhouse:cisco:1",
+          externalId: "1",
+          title: "Cisco Role 1",
+          companyName: "Cisco",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "greenhouse:cisco",
+          sourceLabel: "Cisco",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://cisco.example/jobs/1",
+          postedAt: null,
+          updatedAt: "2026-04-11T22:14:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "greenhouse:cisco:2",
+          externalId: "2",
+          title: "Cisco Role 2",
+          companyName: "Cisco",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "greenhouse:cisco",
+          sourceLabel: "Cisco",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://cisco.example/jobs/2",
+          postedAt: null,
+          updatedAt: "2026-04-11T22:13:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "workday:red-hat:1",
+          externalId: "redhat-1",
+          title: "Red Hat Role 1",
+          companyName: "Red Hat",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "workday:red-hat",
+          sourceLabel: "Red Hat",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://redhat.example/jobs/1",
+          postedAt: null,
+          updatedAt: "2026-04-11T22:12:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "workday:red-hat:2",
+          externalId: "redhat-2",
+          title: "Red Hat Role 2",
+          companyName: "Red Hat",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "workday:red-hat",
+          sourceLabel: "Red Hat",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://redhat.example/jobs/2",
+          postedAt: null,
+          updatedAt: "2026-04-11T22:11:00.000Z",
+          descriptionSnippet: null,
+        },
+        {
+          id: "workday:red-hat:3",
+          externalId: "redhat-3",
+          title: "Red Hat Role 3",
+          companyName: "Red Hat",
+          location: "Remote",
+          department: "Engineering",
+          commitment: null,
+          sourceKey: "workday:red-hat",
+          sourceLabel: "Red Hat",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://redhat.example/jobs/3",
+          postedAt: null,
+          updatedAt: "2026-04-11T22:10:00.000Z",
+          descriptionSnippet: null,
+        },
+      ],
+    });
+
+    const snapshot = await getJobsFeedSnapshot({
+      companies: ["Red Hat"],
+      limit: 10,
+    });
+
+    expect(snapshot.jobs).toHaveLength(3);
+    expect(snapshot.jobs.every((job) => job.companyName === "Red Hat")).toBe(true);
+    expect(snapshot.summary.totalJobs).toBe(3);
+    expect(snapshot.sources).toHaveLength(1);
+    expect(snapshot.sources[0]?.label).toBe("Red Hat");
   });
 });

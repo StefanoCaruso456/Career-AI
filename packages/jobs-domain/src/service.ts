@@ -12,10 +12,10 @@ import {
   isDatabaseConfigured,
   persistSourcedJobs,
 } from "@/packages/persistence/src";
-import { createEnrichedJobPosting } from "./metadata";
+import { createEnrichedJobPosting, normalizeHumanLabel } from "./metadata";
 
 const DEFAULT_RESPONSE_LIMIT = 18;
-const MAX_RESPONSE_LIMIT = 5_000;
+const MAX_RESPONSE_LIMIT = 30_000;
 const FETCH_TIMEOUT_MS = 4_500;
 const JOBS_SNAPSHOT_STALE_MS = 10 * 60 * 1000;
 const DEFAULT_WINDOW_DAYS = 7;
@@ -155,35 +155,72 @@ type WorkdayJob = {
   bulletFields?: string[];
 };
 
+const BUILTIN_GREENHOUSE_COMPANY_SPECS = [
+  {
+    label: "Figma",
+    token: "figma",
+  },
+  {
+    label: "Stripe",
+    token: "stripe",
+  },
+] as const;
+
+const BUILTIN_WORKDAY_COMPANY_SPECS = [
+  {
+    label: "Accenture",
+    feedUrl: "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
+  },
+  {
+    label: "Adobe",
+    feedUrl: "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
+  },
+  {
+    label: "Autodesk",
+    feedUrl: "https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs",
+  },
+  {
+    label: "Cisco",
+    feedUrl: "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
+  },
+  {
+    label: "CrowdStrike",
+    feedUrl: "https://crowdstrike.wd5.myworkdayjobs.com/wday/cxs/crowdstrike/crowdstrikecareers/jobs",
+  },
+  {
+    label: "Dell Technologies",
+    feedUrl: "https://dell.wd1.myworkdayjobs.com/wday/cxs/dell/External/jobs",
+  },
+  {
+    label: "Hewlett Packard Enterprise (HPE)",
+    feedUrl: "https://hpe.wd5.myworkdayjobs.com/wday/cxs/hpe/ACJobSite/jobs",
+  },
+  {
+    label: "NVIDIA",
+    feedUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/nvidiaexternalcareersite/jobs",
+  },
+  {
+    label: "Red Hat",
+    feedUrl: "https://redhat.wd5.myworkdayjobs.com/wday/cxs/redhat/jobs/jobs",
+  },
+  {
+    label: "Salesforce",
+    feedUrl: "https://salesforce.wd12.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs",
+  },
+  {
+    label: "Samsung Electronics",
+    feedUrl: "https://sec.wd3.myworkdayjobs.com/wday/cxs/sec/Samsung_Careers/jobs",
+  },
+  {
+    label: "Workday",
+    feedUrl: "https://workday.wd5.myworkdayjobs.com/wday/cxs/workday/Workday/jobs",
+  },
+] as const;
+
 const BUILTIN_WORKDAY_COMPANY_FEEDS =
-  process.env.NODE_ENV === "test"
-    ? []
-    : ([
-        {
-          label: "Accenture",
-          feedUrl: "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
-        },
-        {
-          label: "Adobe",
-          feedUrl: "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
-        },
-        {
-          label: "Cisco",
-          feedUrl: "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
-        },
-        {
-          label: "CrowdStrike",
-          feedUrl: "https://crowdstrike.wd5.myworkdayjobs.com/wday/cxs/crowdstrike/crowdstrikecareers/jobs",
-        },
-        {
-          label: "NVIDIA",
-          feedUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/nvidiaexternalcareersite/jobs",
-        },
-        {
-          label: "Salesforce",
-          feedUrl: "https://salesforce.wd12.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs",
-        },
-      ] as const);
+  process.env.NODE_ENV === "test" ? [] : BUILTIN_WORKDAY_COMPANY_SPECS;
+const BUILTIN_GREENHOUSE_COMPANY_FEEDS =
+  process.env.NODE_ENV === "test" ? [] : BUILTIN_GREENHOUSE_COMPANY_SPECS;
 
 const JOBS_ENVIRONMENT_GUIDE = [
   {
@@ -483,7 +520,7 @@ function createSourceSnapshot(args: {
 }
 
 function getDirectSourceSpecs() {
-  const greenhouseBoards = parseNamedSpecs(getGreenhouseBoardsRaw()).map(
+  const configuredGreenhouseBoards = parseNamedSpecs(getGreenhouseBoardsRaw()).map(
     ({ label, value }) =>
       ({
         key: `greenhouse:${slugify(value)}`,
@@ -494,6 +531,26 @@ function getDirectSourceSpecs() {
         token: value,
       }) as DirectSourceSpec & { token: string },
   );
+  const builtinGreenhouseBoards = BUILTIN_GREENHOUSE_COMPANY_FEEDS.map(
+    ({ label, token }) =>
+      ({
+        key: `greenhouse:${slugify(token)}`,
+        label,
+        lane: "ats_direct",
+        quality: "high_signal",
+        endpointLabel: `boards-api.greenhouse.io/${token}`,
+        token,
+      }) as DirectSourceSpec & { token: string },
+  );
+  const seenGreenhouseTokens = new Set<string>();
+  const greenhouseBoards = [...builtinGreenhouseBoards, ...configuredGreenhouseBoards].filter((spec) => {
+    if (seenGreenhouseTokens.has(spec.token)) {
+      return false;
+    }
+
+    seenGreenhouseTokens.add(spec.token);
+    return true;
+  });
 
   const leverSites = parseNamedSpecs(process.env.LEVER_SITE_NAMES).map(
     ({ label, value }) =>
@@ -797,7 +854,7 @@ function normalizeUrlForDeduping(value: string) {
 }
 
 function createDedupeKey(job: JobPostingDto) {
-  return normalizeUrlForDeduping(job.applyUrl).toLowerCase();
+  return (job.dedupeFingerprint ?? normalizeUrlForDeduping(job.applyUrl)).toLowerCase();
 }
 
 function dedupeJobs(jobs: JobPostingDto[]) {
@@ -1432,7 +1489,7 @@ async function fetchWorkdayPostings(source: WorkdaySourceSpec) {
 
     if (
       payload.jobPostings.length < WORKDAY_PAGE_SIZE ||
-      (typeof payload.total === "number" && jobs.length >= payload.total)
+      (typeof payload.total === "number" && payload.total > 0 && jobs.length >= payload.total)
     ) {
       break;
     }
@@ -1705,18 +1762,77 @@ async function collectWorkableXmlJobs(
   }
 }
 
-function buildSummary(args: {
-  jobs: JobPostingDto[];
-  sources: JobSourceSnapshotDto[];
-}) {
+function buildSummary(args: { sources: JobSourceSnapshotDto[] }) {
+  const totalJobs = args.sources.reduce((sum, source) => sum + source.jobCount, 0);
+  const directAtsJobs = args.sources
+    .filter((source) => source.lane === "ats_direct")
+    .reduce((sum, source) => sum + source.jobCount, 0);
+  const aggregatorJobs = args.sources
+    .filter((source) => source.lane === "aggregator")
+    .reduce((sum, source) => sum + source.jobCount, 0);
+
   return {
-    totalJobs: args.jobs.length,
-    directAtsJobs: args.jobs.filter((job) => job.sourceLane === "ats_direct").length,
-    aggregatorJobs: args.jobs.filter((job) => job.sourceLane === "aggregator").length,
+    totalJobs,
+    directAtsJobs,
+    aggregatorJobs,
     sourceCount: args.sources.length,
     connectedSourceCount: args.sources.filter((source) => source.status === "connected").length,
     highSignalSourceCount: args.sources.filter((source) => source.quality === "high_signal").length,
     coverageSourceCount: args.sources.filter((source) => source.quality === "coverage").length,
+  };
+}
+
+function normalizeCompanyFilters(companies: string[] | undefined) {
+  return Array.from(
+    new Set(
+      (companies ?? [])
+        .map((company) => normalizeHumanLabel(company))
+        .filter((company) => company.length > 0),
+    ),
+  );
+}
+
+function jobMatchesCompanyFilters(job: JobPostingDto, normalizedCompanies: string[]) {
+  if (normalizedCompanies.length === 0) {
+    return true;
+  }
+
+  const normalizedValues = [
+    job.companyName,
+    job.normalizedCompanyName,
+    job.sourceLabel,
+  ]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => normalizeHumanLabel(value));
+
+  return normalizedValues.some((value) => normalizedCompanies.includes(value));
+}
+
+function filterJobsFeedByCompanies(args: {
+  jobs: JobPostingDto[];
+  sources: JobSourceSnapshotDto[];
+  companies?: string[];
+}) {
+  const normalizedCompanies = normalizeCompanyFilters(args.companies);
+
+  if (normalizedCompanies.length === 0) {
+    return {
+      jobs: args.jobs,
+      sources: args.sources,
+    };
+  }
+
+  const jobs = args.jobs.filter((job) => jobMatchesCompanyFilters(job, normalizedCompanies));
+  const matchingSourceKeys = new Set(jobs.map((job) => job.sourceKey));
+  const sources = args.sources.filter((source) => {
+    return (
+      matchingSourceKeys.has(source.key) || normalizedCompanies.includes(normalizeHumanLabel(source.label))
+    );
+  });
+
+  return {
+    jobs,
+    sources,
   };
 }
 
@@ -1731,7 +1847,6 @@ function buildJobsFeedResponse(args: {
     jobs: args.jobs,
     sources: args.sources,
     summary: buildSummary({
-      jobs: args.jobs,
       sources: args.sources,
     }),
     storage: args.storage,
@@ -1754,18 +1869,24 @@ async function collectLiveSourceCollections(windowDays: number | null) {
 }
 
 async function getLiveJobsFeedPreview(args: {
+  companies?: string[];
   generatedAt: string;
   limit: number;
   windowDays: number | null;
 }) {
   const liveCollections = await collectLiveSourceCollections(args.windowDays);
+  const filteredSnapshot = filterJobsFeedByCompanies({
+    jobs: dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)),
+    sources: [...liveCollections.map((collection) => collection.source), ...createNotConfiguredSources()],
+    companies: args.companies,
+  });
 
   return {
     collections: liveCollections,
     response: buildJobsFeedResponse({
       generatedAt: args.generatedAt,
-      jobs: dedupeJobs(liveCollections.flatMap((collection) => collection.jobs)).slice(0, args.limit),
-      sources: [...liveCollections.map((collection) => collection.source), ...createNotConfiguredSources()],
+      jobs: filteredSnapshot.jobs.slice(0, args.limit),
+      sources: filteredSnapshot.sources,
       storage: {
         mode: "ephemeral",
         persistedJobs: 0,
@@ -1811,7 +1932,14 @@ export function getJobsEnvironmentGuide() {
   return JOBS_ENVIRONMENT_GUIDE;
 }
 
+export function getSeededJobsCompanyOptions() {
+  return [...BUILTIN_GREENHOUSE_COMPANY_SPECS, ...BUILTIN_WORKDAY_COMPANY_SPECS]
+    .map(({ label }) => label)
+    .sort((left, right) => left.localeCompare(right));
+}
+
 export async function getJobsFeedSnapshot(args?: {
+  companies?: string[];
   limit?: number;
   windowDays?: number;
   forceRefresh?: boolean;
@@ -1821,11 +1949,15 @@ export async function getJobsFeedSnapshot(args?: {
   const generatedAt = new Date().toISOString();
 
   if (!isDatabaseConfigured()) {
-    return (await getLiveJobsFeedPreview({ generatedAt, limit, windowDays })).response;
+    return (await getLiveJobsFeedPreview({ companies: args?.companies, generatedAt, limit, windowDays })).response;
   }
 
   try {
-    const persisted = await getPersistedJobsFeedSnapshot({ limit, windowDays: windowDays ?? undefined });
+    const persisted = await getPersistedJobsFeedSnapshot({
+      companies: args?.companies,
+      limit,
+      windowDays: windowDays ?? undefined,
+    });
     const hasPersistedSnapshot =
       persisted.jobs.length > 0 ||
       persisted.sources.length > 0 ||
@@ -1838,10 +1970,16 @@ export async function getJobsFeedSnapshot(args?: {
         });
       }
 
-      return buildJobsFeedResponse({
-        generatedAt,
+      const filteredPersisted = filterJobsFeedByCompanies({
         jobs: persisted.jobs,
         sources: [...persisted.sources, ...createNotConfiguredSources()],
+        companies: args?.companies,
+      });
+
+      return buildJobsFeedResponse({
+        generatedAt,
+        jobs: filteredPersisted.jobs,
+        sources: filteredPersisted.sources,
         storage: persisted.storage,
       });
     }
@@ -1849,19 +1987,30 @@ export async function getJobsFeedSnapshot(args?: {
     await refreshJobsFeed(windowDays, generatedAt);
 
     const refreshed = await getPersistedJobsFeedSnapshot({
+      companies: args?.companies,
       limit,
       windowDays: windowDays ?? undefined,
+    });
+    const filteredRefreshed = filterJobsFeedByCompanies({
+      jobs: refreshed.jobs,
+      sources: [...refreshed.sources, ...createNotConfiguredSources()],
+      companies: args?.companies,
     });
 
     return buildJobsFeedResponse({
       generatedAt,
-      jobs: refreshed.jobs,
-      sources: [...refreshed.sources, ...createNotConfiguredSources()],
+      jobs: filteredRefreshed.jobs,
+      sources: filteredRefreshed.sources,
       storage: refreshed.storage,
     });
   } catch (error) {
     console.error("Jobs persistence failed; falling back to live feed preview.", error);
 
-    return (await getLiveJobsFeedPreview({ generatedAt, limit, windowDays })).response;
+    return (await getLiveJobsFeedPreview({
+      companies: args?.companies,
+      generatedAt,
+      limit,
+      windowDays,
+    })).response;
   }
 }

@@ -135,7 +135,7 @@ Jobs feed examples:
 
 Reserved placeholder domains such as `example.com` are ignored by the jobs service so accidental sample values do not show up as production sources.
 
-Career AI also seeds verified built-in Workday feeds for Adobe and Cisco outside the test environment so those company job pipelines can appear without extra setup.
+Career AI also seeds verified built-in Workday feeds for Accenture, Adobe, Autodesk, Cisco, CrowdStrike, Dell Technologies, Hewlett Packard Enterprise (HPE), NVIDIA, Red Hat, Salesforce, Samsung Electronics, and Workday outside the test environment so those company job pipelines can appear without extra setup.
 
 ## Deployment
 
