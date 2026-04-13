@@ -99,6 +99,10 @@ async function handleChatPost(request: Request) {
     const attachmentSummaries = summarizeChatAttachmentsForAssistant(
       userMessageResult.userMessage.attachments,
     );
+    const conversationMessages = userMessageResult.conversation.messages.map((message) => ({
+      content: message.content,
+      role: message.role,
+    }));
     const requiresFreshExternalInfo =
       payload.persona !== "employer" && requiresCurrentExternalSearch(payload.message);
     const shouldUseJobSeekerAgent =
@@ -123,7 +127,10 @@ async function handleChatPost(request: Request) {
       assistantReply = await generateHomepageAssistantReply(
         payload.message,
         attachmentSummaries,
-        { agentContext },
+        {
+          agentContext,
+          conversationMessages,
+        },
       );
     } else if (payload.persona !== "employer") {
       try {
@@ -167,7 +174,10 @@ async function handleChatPost(request: Request) {
           assistantReply = await generateHomepageAssistantReply(
             payload.message,
             attachmentSummaries,
-            { agentContext },
+            {
+              agentContext,
+              conversationMessages,
+            },
           );
         }
       }

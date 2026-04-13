@@ -1,7 +1,16 @@
 import { getOpenAIClient as getSharedOpenAIClient } from "@/lib/braintrust";
 import { buildOpenAIResponseMetrics } from "@/lib/braintrust-metrics";
 import { traceSpan } from "@/lib/tracing";
-import type { AgentContext } from "@/packages/agent-runtime/src";
+import {
+  buildAgentModelContext,
+  type AgentContext,
+  type AgentConversationMessage,
+} from "@/packages/agent-runtime/src";
+import {
+  executeAgentToolCall,
+  homepageAssistantToolRegistry,
+  listAgentToolsAsOpenAIFunctions,
+} from "@/packages/agent-runtime/src/tools";
 import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
 const homepageInstructions =
@@ -80,6 +89,26 @@ function buildAssistantInput(message: string, attachments: HomepageAssistantAtta
   ].join("\n");
 }
 
+function buildHomepageModelInput(args: {
+  agentContext?: AgentContext | null;
+  attachments: HomepageAssistantAttachment[];
+  message: string;
+  messages?: AgentConversationMessage[] | null;
+}) {
+  const baseInput = buildAssistantInput(args.message, args.attachments);
+  const modelContext = buildAgentModelContext({
+    agentContext: args.agentContext,
+    currentMessage: args.message,
+    messages: args.messages,
+  });
+
+  if (!modelContext) {
+    return baseInput;
+  }
+
+  return [modelContext, "", "Current user request:", baseInput].join("\n");
+}
+
 function buildReplyPreview(reply: string) {
   return reply.slice(0, 160);
 }
@@ -109,6 +138,45 @@ function getAgentContextMetadata(agentContext?: AgentContext | null) {
     role_type: agentContext.roleType,
     run_id: agentContext.run.runId,
   };
+}
+
+function extractSingleFunctionToolCall(response: { output?: unknown[] | null }) {
+  const toolCalls =
+    response.output?.filter(
+      (item): item is { arguments: string; call_id: string; name: string; type: "function_call" } =>
+        typeof item === "object" &&
+        item !== null &&
+        "type" in item &&
+        item.type === "function_call" &&
+        "arguments" in item &&
+        typeof item.arguments === "string" &&
+        "call_id" in item &&
+        typeof item.call_id === "string" &&
+        "name" in item &&
+        typeof item.name === "string",
+    ) ?? [];
+
+  if (toolCalls.length === 0) {
+    return null;
+  }
+
+  if (toolCalls.length > 1) {
+    throw new OpenAIResponseError(
+      "Homepage assistant only supports one function tool call per response.",
+    );
+  }
+
+  return toolCalls[0];
+}
+
+function buildToolOutputInput(args: { callId: string; output: unknown }) {
+  return [
+    {
+      call_id: args.callId,
+      output: JSON.stringify(args.output),
+      type: "function_call_output" as const,
+    },
+  ];
 }
 
 async function runHomepageFallback(args: {
@@ -151,12 +219,16 @@ type HomepageAssistantReplyResult = {
 export async function generateHomepageAssistantReply(
   message: string,
   attachments: HomepageAssistantAttachment[] = [],
-  options?: { agentContext?: AgentContext | null },
+  options?: {
+    agentContext?: AgentContext | null;
+    conversationMessages?: AgentConversationMessage[] | null;
+  },
 ) {
   const result = await traceSpan<HomepageAssistantReplyResult>(
     {
       input: {
         attachment_count: attachments.length,
+        conversation_message_count: options?.conversationMessages?.length ?? 0,
         message,
         model: getModel(),
       },
@@ -198,13 +270,23 @@ export async function generateHomepageAssistantReply(
       try {
         const startedAtMs = Date.now();
         let endedAtMs = startedAtMs;
+        const firstInput = buildHomepageModelInput({
+          agentContext: options?.agentContext,
+          attachments,
+          message,
+          messages: options?.conversationMessages,
+        });
+        const tools = options?.agentContext
+          ? listAgentToolsAsOpenAIFunctions(homepageAssistantToolRegistry)
+          : [];
         const response = await traceSpan(
           {
             input: {
               attachment_count: attachments.length,
-              input: buildAssistantInput(message, attachments),
+              input: firstInput,
               instructions: homepageInstructions,
               model: getModel(),
+              tool_count: tools.length,
             },
             metadata: {
               model_name: getModel(),
@@ -247,9 +329,10 @@ export async function generateHomepageAssistantReply(
           },
           async () => {
             const openAIResponse = await getHomepageOpenAIClient().responses.create({
-              model: getModel(),
+              ...(tools.length > 0 ? { tools } : {}),
+              input: firstInput,
               instructions: homepageInstructions,
-              input: buildAssistantInput(message, attachments),
+              model: getModel(),
               store: false,
             });
 
@@ -257,6 +340,100 @@ export async function generateHomepageAssistantReply(
             return openAIResponse;
           },
         );
+
+        const toolCall = extractSingleFunctionToolCall(response);
+
+        if (toolCall && options?.agentContext) {
+          const toolOutput = await executeAgentToolCall({
+            agentContext: options.agentContext,
+            registry: homepageAssistantToolRegistry,
+            toolCall,
+          });
+          const followUpResponse = await traceSpan(
+            {
+              input: {
+                model: getModel(),
+                previous_response_id: response.id,
+                tool_name: toolCall.name,
+              },
+              metadata: {
+                model_name: getModel(),
+                ...getAgentContextMetadata(options?.agentContext),
+                prompt_version: "homepage_assistant.v1",
+                provider: "openai",
+              },
+              metrics: (openAIResponse: {
+                usage?: {
+                  input_tokens?: number | null;
+                  input_tokens_details?: {
+                    cached_tokens?: number | null;
+                  } | null;
+                  output_tokens?: number | null;
+                  output_tokens_details?: {
+                    reasoning_tokens?: number | null;
+                  } | null;
+                  total_tokens?: number | null;
+                } | null;
+              }) =>
+                buildOpenAIResponseMetrics(openAIResponse.usage, {
+                  endedAtMs,
+                  startedAtMs,
+                }),
+              name: "llm.openai.responses.create.tool_follow_up",
+              output: (openAIResponse: {
+                output_text?: string | null;
+              }) => {
+                const output = openAIResponse.output_text?.trim() ?? "";
+
+                return {
+                  model: getModel(),
+                  output_preview: buildReplyPreview(output),
+                  output_text_length: output.length,
+                  provider: "openai",
+                  tool_name: toolCall.name,
+                };
+              },
+              tags: [
+                "provider:openai",
+                "workflow:homepage_assistant",
+                `tool:${toolCall.name}`,
+              ],
+              type: "llm",
+            },
+            async () => {
+              const openAIResponse = await getHomepageOpenAIClient().responses.create({
+                input: buildToolOutputInput({
+                  callId: toolCall.call_id,
+                  output: toolOutput,
+                }),
+                instructions: homepageInstructions,
+                model: getModel(),
+                previous_response_id: response.id,
+                store: false,
+              });
+
+              endedAtMs = Date.now();
+              return openAIResponse;
+            },
+          );
+          const followUpOutput = followUpResponse.output_text?.trim();
+
+          if (!followUpOutput) {
+            return {
+              source: "openai_empty_fallback" as const,
+              text: await runHomepageFallback({
+                attachments,
+                message,
+                reason: "empty_response",
+              }),
+            };
+          }
+
+          return {
+            source: "openai" as const,
+            text: followUpOutput,
+          };
+        }
 
         const output = response.output_text?.trim();
 

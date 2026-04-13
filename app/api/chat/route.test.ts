@@ -215,6 +215,12 @@ describe("POST /api/chat", () => {
             runId: "run-123",
           }),
         }),
+        conversationMessages: [
+          {
+            content: "find software engineers",
+            role: "user",
+          },
+        ],
       }),
     );
     expect(mocks.runJobSeekerAgent).not.toHaveBeenCalled();
