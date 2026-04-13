@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { ArrowUpRight, ChevronDown, Search } from "lucide-react";
 import {
   jobsFeedResponseSchema,
@@ -240,8 +240,26 @@ const ROLE_TYPE_KEYWORDS: Array<{
     roleType: "product-design",
     keywords: [
       "product designer",
+      "product design",
+      "content designer",
+      "content design",
       "ux designer",
+      "user experience designer",
+      "ux researcher",
+      "user researcher",
       "ui designer",
+      "visual designer",
+      "interaction designer",
+      "service designer",
+      "conversation designer",
+      "design manager",
+      "design director",
+      "design lead",
+      "staff designer",
+      "principal designer",
+      "ux writer",
+      "content strategist",
+      "experience designer",
       "ux/ui",
       "design systems",
     ],
@@ -546,7 +564,7 @@ function matchesKeyword(job: JobPostingDto, keyword: string) {
 }
 
 function inferRoleType(job: JobPostingDto): RoleTypeFilter | "other" {
-  const searchText = [job.normalizedTitle, job.title, job.department]
+  const searchText = [job.normalizedTitle, job.title, job.department, job.descriptionSnippet]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -601,6 +619,8 @@ export function JobsResults({
   const [isRefreshingSnapshot, setIsRefreshingSnapshot] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [snapshotRefreshError, setSnapshotRefreshError] = useState<string | null>(null);
+  const [fullWindowHydrationError, setFullWindowHydrationError] = useState<string | null>(null);
   const fullWindowHydrationInFlight = useRef(false);
   const snapshotRefreshInFlight = useRef(false);
   const companyScopeRequestInFlight = useRef(false);
@@ -644,16 +664,29 @@ export function JobsResults({
     companyFilter === "all" &&
     initialRequestLimit !== Number.MAX_SAFE_INTEGER &&
     !hasHydratedFullWindow &&
-    !needsFreshSnapshot &&
-    !isRefreshingSnapshot &&
+    !fullWindowHydrationError &&
     fullJobsWindowLimit > loadedJobs.length;
-  const isSearchingAllJobs = companyFilter === "all" && hasActiveFilters && (canHydrateFullWindow || isRefreshingSnapshot);
+  const isSearchingAllJobs =
+    companyFilter === "all" &&
+    hasActiveFilters &&
+    filteredJobs.length === 0 &&
+    (canHydrateFullWindow || isHydratingFullWindow);
   const isLoadingCompanyResults = companyFilter !== "all" && isLoadingCompanyScope;
   const showLoadMore =
     companyFilter === "all" ? canRevealLoadedJobs || hasMoreAvailable : canRevealLoadedJobs;
 
+  function clearAllFilters() {
+    setKeyword("");
+    setRoleTypeFilter("all");
+    setCompanyFilter("all");
+    setWorkplaceFilter("all");
+    setSalaryRangeFilter("all");
+    setDateFilter("all");
+  }
+
   useEffect(() => {
     setVisibleCount(Math.min(initialCount, filteredJobs.length || initialCount));
+    setFullWindowHydrationError(null);
   }, [
     companyFilter,
     dateFilter,
@@ -679,6 +712,8 @@ export function JobsResults({
     setNeedsFreshSnapshot(isSnapshotStale(initialStorageMode, initialLastSyncAt));
     setIsHydratingFullWindow(false);
     setIsRefreshingSnapshot(false);
+    setSnapshotRefreshError(null);
+    setFullWindowHydrationError(null);
     fullWindowHydrationInFlight.current = false;
     snapshotRefreshInFlight.current = false;
     companyScopeRequestInFlight.current = false;
@@ -728,20 +763,18 @@ export function JobsResults({
       hasMoreAvailable?: boolean;
     },
   ) {
-    startTransition(() => {
-      setLoadedJobs(snapshot.jobs);
-      setSourceSnapshots(snapshot.sources);
-      setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources, initialCompanyOptions));
-      setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
+    setLoadedJobs(snapshot.jobs);
+    setSourceSnapshots(snapshot.sources);
+    setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources, initialCompanyOptions));
+    setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
 
-      if (typeof options?.hasHydratedFullWindow === "boolean") {
-        setHasHydratedFullWindow(options.hasHydratedFullWindow);
-      }
+    if (typeof options?.hasHydratedFullWindow === "boolean") {
+      setHasHydratedFullWindow(options.hasHydratedFullWindow);
+    }
 
-      if (typeof options?.hasMoreAvailable === "boolean") {
-        setHasMoreAvailable(options.hasMoreAvailable);
-      }
-    });
+    if (typeof options?.hasMoreAvailable === "boolean") {
+      setHasMoreAvailable(options.hasMoreAvailable);
+    }
   }
 
   useEffect(() => {
@@ -823,6 +856,7 @@ export function JobsResults({
 
     snapshotRefreshInFlight.current = true;
     setIsRefreshingSnapshot(true);
+    setSnapshotRefreshError(null);
 
     void fetchJobsWindow(refreshLimit, { refresh: true })
       .then(async (snapshot) => {
@@ -857,6 +891,12 @@ export function JobsResults({
       })
       .catch((error) => {
         console.error("Jobs snapshot refresh failed.", error);
+        setSnapshotRefreshError(
+          error instanceof Error
+            ? error.message
+            : "The latest jobs snapshot could not be refreshed right now.",
+        );
+        setNeedsFreshSnapshot(false);
       })
       .finally(() => {
         snapshotRefreshInFlight.current = false;
@@ -877,7 +917,6 @@ export function JobsResults({
     if (
       requestedLimit <= loadedJobs.length ||
       hasHydratedFullWindow ||
-      needsFreshSnapshot ||
       fullWindowHydrationInFlight.current
     ) {
       return;
@@ -885,6 +924,7 @@ export function JobsResults({
 
     fullWindowHydrationInFlight.current = true;
     setIsHydratingFullWindow(true);
+    setFullWindowHydrationError(null);
 
     try {
       const snapshot = await fetchJobsWindow(requestedLimit);
@@ -896,6 +936,11 @@ export function JobsResults({
       });
     } catch (error) {
       console.error("Jobs full-window hydration failed.", error);
+      setFullWindowHydrationError(
+        error instanceof Error
+          ? error.message
+          : "The expanded jobs search could not be loaded right now.",
+      );
     } finally {
       fullWindowHydrationInFlight.current = false;
       setIsHydratingFullWindow(false);
@@ -903,7 +948,7 @@ export function JobsResults({
   }
 
   useEffect(() => {
-    if (!canHydrateFullWindow || isHydratingFullWindow || isRefreshingSnapshot) {
+    if (!canHydrateFullWindow || isHydratingFullWindow) {
       return;
     }
 
@@ -914,10 +959,10 @@ export function JobsResults({
     return () => {
       window.clearTimeout(timer);
     };
-  }, [canHydrateFullWindow, fullJobsWindowLimit, isHydratingFullWindow, isRefreshingSnapshot]);
+  }, [canHydrateFullWindow, fullJobsWindowLimit, isHydratingFullWindow]);
 
   useEffect(() => {
-    if (!hasActiveFilters || !canHydrateFullWindow || isHydratingFullWindow || isRefreshingSnapshot) {
+    if (!hasActiveFilters || !canHydrateFullWindow || isHydratingFullWindow) {
       return;
     }
 
@@ -927,7 +972,6 @@ export function JobsResults({
     fullJobsWindowLimit,
     hasActiveFilters,
     isHydratingFullWindow,
-    isRefreshingSnapshot,
   ]);
 
   async function handleLoadMore() {
@@ -1095,12 +1139,7 @@ export function JobsResults({
             <button
               className={styles.clearFiltersButton}
               onClick={() => {
-                setKeyword("");
-                setRoleTypeFilter("all");
-                setCompanyFilter("all");
-                setWorkplaceFilter("all");
-                setSalaryRangeFilter("all");
-                setDateFilter("all");
+                clearAllFilters();
               }}
               type="button"
             >
@@ -1114,7 +1153,9 @@ export function JobsResults({
                 : companyFilter !== "all"
                   ? `Showing all ${formatCount(activeTotalAvailableCount)} ${companyFilter} jobs available in the snapshot.`
                 : isRefreshingSnapshot
-                  ? "Refreshing the latest jobs snapshot so filters expand against current source totals."
+                  ? "Refreshing the latest jobs snapshot in the background while filters keep working from the saved catalog."
+                  : snapshotRefreshError
+                    ? "Using the saved jobs snapshot while the latest source totals are temporarily unavailable."
                   : isSearchingAllJobs
                     ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
                     : `Filters automatically expand to all ${formatCount(activeTotalAvailableCount)} available jobs.`}
@@ -1127,10 +1168,10 @@ export function JobsResults({
         <p className={styles.resultsSummary}>
           {isLoadingCompanyResults
             ? `Loading ${companyFilter} roles...`
-            : isRefreshingSnapshot
-            ? "Refreshing the jobs snapshot so counts stay in sync with the latest source totals..."
             : isSearchingAllJobs
             ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs for matches...`
+            : isRefreshingSnapshot
+            ? `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded while the snapshot refreshes...`
             : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded.`}
         </p>
         <p className={styles.resultsTotal}>
@@ -1176,12 +1217,7 @@ export function JobsResults({
           <button
             className={styles.clearFiltersButton}
             onClick={() => {
-              setKeyword("");
-              setRoleTypeFilter("all");
-              setCompanyFilter("all");
-              setWorkplaceFilter("all");
-              setSalaryRangeFilter("all");
-              setDateFilter("all");
+              clearAllFilters();
             }}
             type="button"
           >
@@ -1199,16 +1235,30 @@ export function JobsResults({
           <button
             className={styles.clearFiltersButton}
             onClick={() => {
-              setKeyword("");
-              setRoleTypeFilter("all");
-              setCompanyFilter("all");
-              setWorkplaceFilter("all");
-              setSalaryRangeFilter("all");
-              setDateFilter("all");
+              clearAllFilters();
             }}
             type="button"
           >
             Clear filters
+          </button>
+        </article>
+      ) : fullWindowHydrationError ? (
+        <article className={styles.noResultsState}>
+          <p className={styles.filterEyebrow}>Expanded search unavailable</p>
+          <h3>The full jobs catalog could not be expanded right now.</h3>
+          <p>
+            Career AI could not load the larger jobs snapshot for this filter yet. Retry the
+            expanded search or clear filters to go back to the current loaded window.
+          </p>
+          <button
+            className={styles.clearFiltersButton}
+            onClick={() => {
+              setFullWindowHydrationError(null);
+              void hydrateFullJobsWindow(fullJobsWindowLimit);
+            }}
+            type="button"
+          >
+            Retry search all jobs
           </button>
         </article>
       ) : isSearchingAllJobs ? (
@@ -1223,12 +1273,7 @@ export function JobsResults({
           <button
             className={styles.clearFiltersButton}
             onClick={() => {
-              setKeyword("");
-              setRoleTypeFilter("all");
-              setCompanyFilter("all");
-              setWorkplaceFilter("all");
-              setSalaryRangeFilter("all");
-              setDateFilter("all");
+              clearAllFilters();
             }}
             type="button"
           >
@@ -1246,12 +1291,7 @@ export function JobsResults({
           <button
             className={styles.clearFiltersButton}
             onClick={() => {
-              setKeyword("");
-              setRoleTypeFilter("all");
-              setCompanyFilter("all");
-              setWorkplaceFilter("all");
-              setSalaryRangeFilter("all");
-              setDateFilter("all");
+              clearAllFilters();
             }}
             type="button"
           >
