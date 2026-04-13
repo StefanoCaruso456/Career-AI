@@ -41,7 +41,7 @@ function buildShareUrl(baseUrlOptional: string | undefined, publicShareToken: st
 }
 
 function toEmploymentView(args: {
-  details: ReturnType<typeof listClaimDetails>[number];
+  details: Awaited<ReturnType<typeof listClaimDetails>>[number];
   showStatusLabels: boolean;
 }): RecruiterEmploymentRecordView {
   return {
@@ -67,7 +67,7 @@ function toEmploymentView(args: {
 
 function buildTrustSummary(args: {
   soulRecordId: string;
-  claimDetails: ReturnType<typeof listClaimDetails>;
+  claimDetails: Awaited<ReturnType<typeof listClaimDetails>>;
   trustSummaryIdOptional?: string;
 }): TrustSummary {
   const generatedAt = new Date().toISOString();
@@ -108,7 +108,7 @@ async function refreshRecruiterTrustProfileProjection(args: {
     talentIdentityId: args.profile.talent_identity_id,
     correlationId: args.correlationId,
   });
-  const claimDetails = listClaimDetails({
+  const claimDetails = await listClaimDetails({
     correlationId: args.correlationId,
     soulRecordIdOptional: aggregate.soulRecord.id,
   });
@@ -244,7 +244,7 @@ async function generateRecruiterTrustProfileAsync(args: {
     });
   }
 
-  const claimDetails = listClaimDetails({
+  const claimDetails = await listClaimDetails({
     correlationId: args.correlationId,
     soulRecordIdOptional: aggregate.soulRecord.id,
   });

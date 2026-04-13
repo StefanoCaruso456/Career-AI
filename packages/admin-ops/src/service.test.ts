@@ -54,7 +54,7 @@ describe("admin operations service", () => {
     expect(queue).toHaveLength(1);
     expect(queue[0]?.verificationRecordId).toBe(created.verificationRecord.id);
 
-    submitReviewDecision({
+    await submitReviewDecision({
       input: {
         verificationRecordId: created.verificationRecord.id,
         targetStatus: "REVIEWED",
@@ -99,7 +99,7 @@ describe("admin operations service", () => {
       correlationId: "corr-2",
     });
 
-    addProvenanceRecord({
+    await addProvenanceRecord({
       verificationRecordId: created.verificationRecord.id,
       input: {
         sourceActorType: "reviewer_admin",

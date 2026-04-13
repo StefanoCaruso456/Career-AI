@@ -1,3 +1,7 @@
+import {
+  getAuditActorTypeForActorIdentity,
+  getRequestActorIdForActorIdentity,
+} from "@/actor-identity";
 import { ApiError, type AccessScope, type ActorType } from "@/packages/contracts/src";
 import type { AgentContext } from "@/packages/agent-runtime/src";
 import {
@@ -93,6 +97,7 @@ function logAccessAuditEvent(args: {
 function logToolAccessDenied(args: {
   actor: AgentContext["actor"];
   correlationId: string;
+  metadataJson?: Record<string, unknown>;
   reason: string;
   runId: string;
   toolName: string;
@@ -118,6 +123,7 @@ function logToolAccessDenied(args: {
     eventType: "security.tool_access.denied",
     metadataJson: {
       actor_kind: args.actor.kind,
+      ...args.metadataJson,
       reason: args.reason,
       role_type: args.actor.roleType ?? null,
       tool_name: args.toolName,
@@ -179,6 +185,31 @@ export async function assertAgentToolPermission(args: {
       errorCode: "FORBIDDEN",
       status: 403,
       message: "Only recruiter or hiring-manager actors can search candidates.",
+      details: { toolName: args.toolName },
+      correlationId: args.agentContext.run.correlationId,
+    });
+  }
+
+  if (
+    args.toolName === "get_claim_details" ||
+    args.toolName === "get_verification_record" ||
+    args.toolName === "list_provenance_records"
+  ) {
+    if (actor.kind !== "guest_user") {
+      return;
+    }
+
+    logToolAccessDenied({
+      actor,
+      correlationId: args.agentContext.run.correlationId,
+      reason: "guest_actor",
+      runId: args.agentContext.run.runId,
+      toolName: args.toolName,
+    });
+    throw new ApiError({
+      errorCode: "FORBIDDEN",
+      status: 403,
+      message: "Guests cannot access private verification data tools.",
       details: { toolName: args.toolName },
       correlationId: args.agentContext.run.correlationId,
     });
@@ -478,6 +509,10 @@ export async function hasScopedCandidateAccess(args: {
     return true;
   }
 
+  if (args.actor.actorType === "reviewer_admin") {
+    return true;
+  }
+
   if (args.actor.actorType === "talent_user" && args.actor.actorId === args.subjectTalentIdentityId) {
     return true;
   }
@@ -505,4 +540,64 @@ export async function hasScopedCandidateAccess(args: {
   }
 
   return false;
+}
+
+function toAuthenticatedActorFromAgentContext(agentContext: AgentContext): AuthenticatedActor | null {
+  const { actor } = agentContext;
+
+  if (actor.kind === "guest_user") {
+    return null;
+  }
+
+  return {
+    actorId: getRequestActorIdForActorIdentity(actor),
+    actorType: getAuditActorTypeForActorIdentity(actor),
+    authMethod: actor.kind === "internal_service" ? "internal_service" : "session",
+    identity: actor,
+  };
+}
+
+export async function assertAgentCandidatePrivateAccess(args: {
+  agentContext: AgentContext;
+  scope?: AccessScope;
+  subjectTalentIdentityId: string;
+  toolName: string;
+}) {
+  const actor = toAuthenticatedActorFromAgentContext(args.agentContext);
+
+  if (
+    actor &&
+    (await hasScopedCandidateAccess({
+      actor,
+      correlationId: args.agentContext.run.correlationId,
+      scope: args.scope ?? "candidate_private_profile",
+      subjectTalentIdentityId: args.subjectTalentIdentityId,
+    }))
+  ) {
+    return;
+  }
+
+  logToolAccessDenied({
+    actor: args.agentContext.actor,
+    correlationId: args.agentContext.run.correlationId,
+    metadataJson: {
+      scope: args.scope ?? "candidate_private_profile",
+      subject_talent_identity_id: args.subjectTalentIdentityId,
+    },
+    reason: actor ? "missing_candidate_private_access_grant" : "guest_actor",
+    runId: args.agentContext.run.runId,
+    toolName: args.toolName,
+  });
+
+  throw new ApiError({
+    errorCode: "FORBIDDEN",
+    status: 403,
+    message: "The actor does not have permission to access private candidate verification data.",
+    details: {
+      scope: args.scope ?? "candidate_private_profile",
+      subjectTalentIdentityId: args.subjectTalentIdentityId,
+      toolName: args.toolName,
+    },
+    correlationId: args.agentContext.run.correlationId,
+  });
 }

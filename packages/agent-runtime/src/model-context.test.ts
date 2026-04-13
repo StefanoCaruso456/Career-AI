@@ -16,6 +16,21 @@ const authenticatedAgentContext: AgentContext = {
     roleType: "candidate",
     talentIdentityId: "tal_123",
   },
+  organizationContext: {
+    activeMembershipCount: 1,
+    memberships: [
+      {
+        organizationId: "org_1",
+        organizationName: "Acme Recruiting",
+        role: "admin",
+      },
+    ],
+    primaryOrganization: {
+      organizationId: "org_1",
+      organizationName: "Acme Recruiting",
+      role: "admin",
+    },
+  },
   ownerId: "user:tal_123",
   preferredPersona: "job_seeker",
   roleType: "candidate",
@@ -47,6 +62,7 @@ describe("buildAgentModelContext", () => {
     expect(context).toContain("actor_kind: authenticated_user");
     expect(context).toContain("role_type: candidate");
     expect(context).toContain("preferred_persona: job_seeker");
+    expect(context).toContain("organization_name: Acme Recruiting");
     expect(context).toContain("Recent chat history:");
     expect(context).toContain("- user: Hello there");
     expect(context).not.toContain("Find me backend roles");
@@ -63,6 +79,7 @@ describe("buildAgentModelContext", () => {
           preferredPersona: "employer",
           roleType: null,
         },
+        organizationContext: null,
         ownerId: "guest:guest_123",
         preferredPersona: "employer",
         roleType: null,

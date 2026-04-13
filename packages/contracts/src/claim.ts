@@ -70,6 +70,18 @@ export const employmentRecordSchema = z.object({
   updated_at: z.string().datetime(),
 });
 
+export const claimDetailsDtoSchema = z.object({
+  claimId: z.string(),
+  claimType: z.literal("EMPLOYMENT"),
+  title: z.string(),
+  summary: z.string(),
+  verification: verificationRecordSchema,
+  employmentRecord: employmentRecordSchema,
+  artifactIds: z.array(z.string()),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
 export const createEmploymentClaimInputSchema = z.object({
   soulRecordId: z.string(),
   employerName: z.string().trim().min(1),
@@ -118,15 +130,4 @@ export type CreateEmploymentClaimInput = z.infer<typeof createEmploymentClaimInp
 export type CreateVerificationRecordInput = z.infer<typeof createVerificationRecordInputSchema>;
 export type VerificationTransitionInput = z.infer<typeof verificationTransitionInputSchema>;
 export type AddProvenanceInput = z.infer<typeof addProvenanceInputSchema>;
-
-export type ClaimDetailsDto = {
-  claimId: string;
-  claimType: "EMPLOYMENT";
-  title: string;
-  summary: string;
-  verification: VerificationRecord;
-  employmentRecord: EmploymentRecord;
-  artifactIds: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+export type ClaimDetailsDto = z.infer<typeof claimDetailsDtoSchema>;

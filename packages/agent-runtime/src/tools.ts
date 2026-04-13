@@ -4,8 +4,14 @@ import type {
 } from "openai/resources/responses/responses";
 import { z, type ZodTypeAny } from "zod";
 import { traceSpan } from "@/lib/tracing";
-import { assertAgentToolPermission } from "@/packages/audit-security/src";
-import { ApiError } from "@/packages/contracts/src";
+import { assertAgentCandidatePrivateAccess, assertAgentToolPermission } from "@/packages/audit-security/src";
+import {
+  ApiError,
+  claimDetailsDtoSchema,
+  provenanceRecordSchema,
+  verificationRecordSchema,
+} from "@/packages/contracts/src";
+import { getClaimDetails, getClaimOwnerIdentityId } from "@/packages/credential-domain/src";
 import { searchJobsCatalog } from "@/packages/jobs-domain/src";
 import {
   findPersistentContextByTalentIdentityId,
@@ -16,6 +22,7 @@ import {
   type PersistentRecruiterCandidateProjection,
 } from "@/packages/persistence/src";
 import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
+import { getVerificationRecord, listProvenanceRecords } from "@/packages/verification-domain/src";
 import type { AgentContext } from "./context";
 
 type AgentToolTraceOptions<TResult> = {
@@ -161,6 +168,34 @@ const searchCandidatesToolOutputSchema = z.object({
   totalResults: z.number().int().nonnegative(),
 });
 
+export const getClaimDetailsToolInputSchema = z.object({
+  claimId: z.string().trim().min(1),
+});
+
+const getClaimDetailsToolOutputSchema = z.object({
+  claimDetails: claimDetailsDtoSchema.nullable(),
+  found: z.boolean(),
+});
+
+export const getVerificationRecordToolInputSchema = z.object({
+  verificationRecordId: z.string().trim().min(1),
+});
+
+const getVerificationRecordToolOutputSchema = z.object({
+  found: z.boolean(),
+  verificationRecord: verificationRecordSchema.nullable(),
+});
+
+export const listProvenanceRecordsToolInputSchema = z.object({
+  verificationRecordId: z.string().trim().min(1),
+});
+
+const listProvenanceRecordsToolOutputSchema = z.object({
+  found: z.boolean(),
+  provenance: z.array(provenanceRecordSchema),
+  verificationRecordId: z.string(),
+});
+
 function buildSearchPrompt(input: z.output<typeof searchJobsToolInputSchema>) {
   if (input.location) {
     return `${input.query} in ${input.location}`;
@@ -210,6 +245,10 @@ function normalizeText(value: string | null | undefined) {
   const normalized = value?.replace(/\s+/g, " ").trim();
 
   return normalized ? normalized : null;
+}
+
+function isNotFoundApiError(error: unknown) {
+  return error instanceof ApiError && error.status === 404;
 }
 
 function normalizeRecruiterVisibility(value: unknown): RecruiterVisibility | null {
@@ -546,10 +585,20 @@ export async function executeAgentToolCall<TResult = unknown>(args: {
         throw error;
       }
 
-      const authorized = await tool.isAuthorized?.({
-        agentContext: args.agentContext,
-        input: input.data,
-      });
+      let authorized: boolean | undefined;
+
+      try {
+        authorized = await tool.isAuthorized?.({
+          agentContext: args.agentContext,
+          input: input.data,
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 403) {
+          throw new AgentToolPermissionError(tool.name);
+        }
+
+        throw error;
+      }
 
       if (authorized === false) {
         throw new AgentToolPermissionError(tool.name);
@@ -561,6 +610,40 @@ export async function executeAgentToolCall<TResult = unknown>(args: {
       }) as Promise<TResult> | TResult;
     },
   );
+}
+
+async function assertVerificationToolAccessByClaimId(args: {
+  agentContext: AgentContext;
+  claimId: string;
+  toolName: string;
+}) {
+  const subjectTalentIdentityId = await getClaimOwnerIdentityId({
+    claimId: args.claimId,
+    correlationId: args.agentContext.run.correlationId,
+  });
+
+  await assertAgentCandidatePrivateAccess({
+    agentContext: args.agentContext,
+    subjectTalentIdentityId,
+    toolName: args.toolName,
+  });
+}
+
+async function assertVerificationToolAccessByVerificationRecordId(args: {
+  agentContext: AgentContext;
+  toolName: string;
+  verificationRecordId: string;
+}) {
+  const verificationRecord = await getVerificationRecord({
+    verificationRecordId: args.verificationRecordId,
+    correlationId: args.agentContext.run.correlationId,
+  });
+
+  await assertVerificationToolAccessByClaimId({
+    agentContext: args.agentContext,
+    claimId: verificationRecord.claim_id,
+    toolName: args.toolName,
+  });
 }
 
 export const searchJobsTool: AgentToolDefinition<
@@ -722,8 +805,197 @@ export const searchCandidatesTool: AgentToolDefinition<
   },
 };
 
+export const getClaimDetailsTool: AgentToolDefinition<
+  typeof getClaimDetailsToolInputSchema,
+  z.infer<typeof getClaimDetailsToolOutputSchema>
+> = {
+  description:
+    "Read the full claim details for a specific claim when the actor has private candidate access.",
+  execute: async ({
+    agentContext,
+    input,
+  }: {
+    agentContext: AgentContext;
+    input: z.output<typeof getClaimDetailsToolInputSchema>;
+  }) => {
+    try {
+      const claimDetails = await getClaimDetails({
+        claimId: input.claimId,
+        correlationId: agentContext.run.correlationId,
+      });
+
+      return getClaimDetailsToolOutputSchema.parse({
+        claimDetails,
+        found: true,
+      });
+    } catch (error) {
+      if (isNotFoundApiError(error)) {
+        return getClaimDetailsToolOutputSchema.parse({
+          claimDetails: null,
+          found: false,
+        });
+      }
+
+      throw error;
+    }
+  },
+  inputSchema: getClaimDetailsToolInputSchema,
+  isAuthorized: async ({ agentContext, input }) => {
+    try {
+      await assertVerificationToolAccessByClaimId({
+        agentContext,
+        claimId: input.claimId,
+        toolName: "get_claim_details",
+      });
+      return true;
+    } catch (error) {
+      if (isNotFoundApiError(error)) {
+        return true;
+      }
+
+      throw error;
+    }
+  },
+  name: "get_claim_details",
+  trace: {
+    output: (result: z.infer<typeof getClaimDetailsToolOutputSchema>) => ({
+      found: result.found,
+    }),
+    tags: ["workflow:homepage_assistant"],
+  },
+};
+
+export const getVerificationRecordTool: AgentToolDefinition<
+  typeof getVerificationRecordToolInputSchema,
+  z.infer<typeof getVerificationRecordToolOutputSchema>
+> = {
+  description:
+    "Read a verification record by id when the actor has private candidate access to the linked claim.",
+  execute: async ({
+    agentContext,
+    input,
+  }: {
+    agentContext: AgentContext;
+    input: z.output<typeof getVerificationRecordToolInputSchema>;
+  }) => {
+    try {
+      const verificationRecord = await getVerificationRecord({
+        verificationRecordId: input.verificationRecordId,
+        correlationId: agentContext.run.correlationId,
+      });
+
+      return getVerificationRecordToolOutputSchema.parse({
+        found: true,
+        verificationRecord,
+      });
+    } catch (error) {
+      if (isNotFoundApiError(error)) {
+        return getVerificationRecordToolOutputSchema.parse({
+          found: false,
+          verificationRecord: null,
+        });
+      }
+
+      throw error;
+    }
+  },
+  inputSchema: getVerificationRecordToolInputSchema,
+  isAuthorized: async ({ agentContext, input }) => {
+    try {
+      await assertVerificationToolAccessByVerificationRecordId({
+        agentContext,
+        toolName: "get_verification_record",
+        verificationRecordId: input.verificationRecordId,
+      });
+      return true;
+    } catch (error) {
+      if (isNotFoundApiError(error)) {
+        return true;
+      }
+
+      throw error;
+    }
+  },
+  name: "get_verification_record",
+  trace: {
+    output: (result: z.infer<typeof getVerificationRecordToolOutputSchema>) => ({
+      found: result.found,
+    }),
+    tags: ["workflow:homepage_assistant"],
+  },
+};
+
+export const listProvenanceRecordsTool: AgentToolDefinition<
+  typeof listProvenanceRecordsToolInputSchema,
+  z.infer<typeof listProvenanceRecordsToolOutputSchema>
+> = {
+  description:
+    "List provenance records for a verification record when the actor has private candidate access.",
+  execute: async ({
+    agentContext,
+    input,
+  }: {
+    agentContext: AgentContext;
+    input: z.output<typeof listProvenanceRecordsToolInputSchema>;
+  }) => {
+    try {
+      await getVerificationRecord({
+        verificationRecordId: input.verificationRecordId,
+        correlationId: agentContext.run.correlationId,
+      });
+      const provenance = await listProvenanceRecords({
+        verificationRecordId: input.verificationRecordId,
+      });
+
+      return listProvenanceRecordsToolOutputSchema.parse({
+        found: true,
+        provenance,
+        verificationRecordId: input.verificationRecordId,
+      });
+    } catch (error) {
+      if (isNotFoundApiError(error)) {
+        return listProvenanceRecordsToolOutputSchema.parse({
+          found: false,
+          provenance: [],
+          verificationRecordId: input.verificationRecordId,
+        });
+      }
+
+      throw error;
+    }
+  },
+  inputSchema: listProvenanceRecordsToolInputSchema,
+  isAuthorized: async ({ agentContext, input }) => {
+    try {
+      await assertVerificationToolAccessByVerificationRecordId({
+        agentContext,
+        toolName: "list_provenance_records",
+        verificationRecordId: input.verificationRecordId,
+      });
+      return true;
+    } catch (error) {
+      if (isNotFoundApiError(error)) {
+        return true;
+      }
+
+      throw error;
+    }
+  },
+  name: "list_provenance_records",
+  trace: {
+    output: (result: z.infer<typeof listProvenanceRecordsToolOutputSchema>) => ({
+      found: result.found,
+      provenance_count: result.provenance.length,
+    }),
+    tags: ["workflow:homepage_assistant"],
+  },
+};
+
 export const homepageAssistantToolRegistry = createAgentToolRegistry([
   searchJobsTool,
   getCareerIdSummaryTool,
   searchCandidatesTool,
+  getClaimDetailsTool,
+  getVerificationRecordTool,
+  listProvenanceRecordsTool,
 ]);

@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     return successResponse(
-      getClaimDetails({
+      await getClaimDetails({
         claimId,
         correlationId,
       }),

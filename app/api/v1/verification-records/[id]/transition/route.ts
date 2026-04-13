@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     assertReviewerAccess(actor, correlationId, "transition verification records");
     const { id } = await context.params;
     const body = verificationTransitionInputSchema.parse(await request.json());
-    const record = transitionVerificationRecord({
+    const record = await transitionVerificationRecord({
       verificationRecordId: id,
       targetStatus: body.targetStatus,
       reason: body.reason,

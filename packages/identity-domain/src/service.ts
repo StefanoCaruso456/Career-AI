@@ -114,12 +114,14 @@ export async function updatePrivacySettings(args: {
   actorType: "talent_user" | "system_service";
   actorId: string;
   correlationId: string;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   const input = updatePrivacySettingsInputSchema.parse(args.input);
   const context = await updatePersistentPrivacySettings({
     talentIdentityId: args.talentIdentityId,
     input,
     correlationId: args.correlationId,
+    skipProjectionRefreshOptional: args.skipProjectionRefreshOptional,
   });
 
   logAuditEvent({

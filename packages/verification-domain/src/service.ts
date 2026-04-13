@@ -10,6 +10,16 @@ import {
   type VerificationStatus,
 } from "@/packages/contracts/src";
 import { logAuditEvent } from "@/packages/audit-security/src";
+import {
+  createPersistentProvenanceRecord,
+  createPersistentVerificationRecord,
+  findPersistentVerificationRecordByClaimId,
+  findPersistentVerificationRecordById,
+  getPersistentClaimVerificationMetrics,
+  isDurableTrustStorageEnabled,
+  listPersistentProvenanceRecords,
+  updatePersistentVerificationRecord,
+} from "@/packages/persistence/src";
 import { getVerificationStore } from "./store";
 
 const allowedTransitions: Partial<Record<VerificationStatus, VerificationStatus[]>> = {
@@ -54,18 +64,44 @@ export function createVerificationRecord(args: {
   actorType: ActorType;
   actorId: string;
   correlationId: string;
-}): VerificationRecord {
-  const input = createVerificationRecordInputSchema.parse(args.input);
-  const store = getVerificationStore();
+}) {
+  return createVerificationRecordAsync(args);
+}
 
-  if (store.recordIdByClaimId.has(input.claimId)) {
-    throw new ApiError({
-      errorCode: "CONFLICT",
-      status: 409,
-      message: "Claim already has a verification record.",
-      details: { claimId: input.claimId },
-      correlationId: args.correlationId,
+async function createVerificationRecordAsync(args: {
+  input: CreateVerificationRecordInput;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}): Promise<VerificationRecord> {
+  const input = createVerificationRecordInputSchema.parse(args.input);
+
+  if (isDurableTrustStorageEnabled()) {
+    const existing = await findPersistentVerificationRecordByClaimId({
+      claimId: input.claimId,
     });
+
+    if (existing) {
+      throw new ApiError({
+        errorCode: "CONFLICT",
+        status: 409,
+        message: "Claim already has a verification record.",
+        details: { claimId: input.claimId },
+        correlationId: args.correlationId,
+      });
+    }
+  } else {
+    const store = getVerificationStore();
+
+    if (store.recordIdByClaimId.has(input.claimId)) {
+      throw new ApiError({
+        errorCode: "CONFLICT",
+        status: 409,
+        message: "Claim already has a verification record.",
+        details: { claimId: input.claimId },
+        correlationId: args.correlationId,
+      });
+    }
   }
 
   const now = new Date().toISOString();
@@ -85,9 +121,16 @@ export function createVerificationRecord(args: {
     updated_at: now,
   };
 
-  store.recordsById.set(record.id, record);
-  store.recordIdByClaimId.set(record.claim_id, record.id);
-  store.provenanceByVerificationId.set(record.id, []);
+  if (isDurableTrustStorageEnabled()) {
+    await createPersistentVerificationRecord({
+      record,
+    });
+  } else {
+    const store = getVerificationStore();
+    store.recordsById.set(record.id, record);
+    store.recordIdByClaimId.set(record.claim_id, record.id);
+    store.provenanceByVerificationId.set(record.id, []);
+  }
 
   logAuditEvent({
     eventType: "verification.record.created",
@@ -108,7 +151,32 @@ export function createVerificationRecord(args: {
 export function getVerificationRecord(args: {
   verificationRecordId: string;
   correlationId: string;
-}): VerificationRecord {
+}) {
+  return getVerificationRecordAsync(args);
+}
+
+async function getVerificationRecordAsync(args: {
+  verificationRecordId: string;
+  correlationId: string;
+}): Promise<VerificationRecord> {
+  if (isDurableTrustStorageEnabled()) {
+    const record = await findPersistentVerificationRecordById({
+      verificationRecordId: args.verificationRecordId,
+    });
+
+    if (!record) {
+      throw new ApiError({
+        errorCode: "NOT_FOUND",
+        status: 404,
+        message: "Verification record was not found.",
+        details: { verificationRecordId: args.verificationRecordId },
+        correlationId: args.correlationId,
+      });
+    }
+
+    return record;
+  }
+
   const record = getVerificationStore().recordsById.get(args.verificationRecordId);
 
   if (!record) {
@@ -127,7 +195,41 @@ export function getVerificationRecord(args: {
 export function getVerificationRecordForClaim(args: {
   claimId: string;
   correlationId: string;
-}): VerificationRecord {
+}) {
+  return getVerificationRecordForClaimAsync(args);
+}
+
+export function markEvidenceSubmittedForClaim(args: {
+  claimId: string;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}) {
+  return markEvidenceSubmittedForClaimAsync(args);
+}
+
+async function getVerificationRecordForClaimAsync(args: {
+  claimId: string;
+  correlationId: string;
+}): Promise<VerificationRecord> {
+  if (isDurableTrustStorageEnabled()) {
+    const record = await findPersistentVerificationRecordByClaimId({
+      claimId: args.claimId,
+    });
+
+    if (!record) {
+      throw new ApiError({
+        errorCode: "NOT_FOUND",
+        status: 404,
+        message: "Verification record for claim was not found.",
+        details: { claimId: args.claimId },
+        correlationId: args.correlationId,
+      });
+    }
+
+    return record;
+  }
+
   const store = getVerificationStore();
   const recordId = store.recordIdByClaimId.get(args.claimId);
 
@@ -147,14 +249,13 @@ export function getVerificationRecordForClaim(args: {
   });
 }
 
-export function markEvidenceSubmittedForClaim(args: {
+async function markEvidenceSubmittedForClaimAsync(args: {
   claimId: string;
   actorType: ActorType;
   actorId: string;
   correlationId: string;
 }) {
-  const store = getVerificationStore();
-  const record = getVerificationRecordForClaim({
+  const record = await getVerificationRecordForClaim({
     claimId: args.claimId,
     correlationId: args.correlationId,
   });
@@ -166,7 +267,14 @@ export function markEvidenceSubmittedForClaim(args: {
     updated_at: new Date().toISOString(),
   };
 
-  store.recordsById.set(updatedRecord.id, updatedRecord);
+  if (isDurableTrustStorageEnabled()) {
+    await updatePersistentVerificationRecord({
+      record: updatedRecord,
+    });
+  } else {
+    const store = getVerificationStore();
+    store.recordsById.set(updatedRecord.id, updatedRecord);
+  }
 
   logAuditEvent({
     eventType: "verification.evidence.submitted",
@@ -192,9 +300,20 @@ export function transitionVerificationRecord(args: {
   actorType: ActorType;
   actorId: string;
   correlationId: string;
-}): VerificationRecord {
-  const store = getVerificationStore();
-  const current = getVerificationRecord({
+}) {
+  return transitionVerificationRecordAsync(args);
+}
+
+async function transitionVerificationRecordAsync(args: {
+  verificationRecordId: string;
+  targetStatus: VerificationStatus;
+  reason: string;
+  reviewerActorId: string;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}): Promise<VerificationRecord> {
+  const current = await getVerificationRecord({
     verificationRecordId: args.verificationRecordId,
     correlationId: args.correlationId,
   });
@@ -223,7 +342,14 @@ export function transitionVerificationRecord(args: {
     updated_at: new Date().toISOString(),
   };
 
-  store.recordsById.set(updatedRecord.id, updatedRecord);
+  if (isDurableTrustStorageEnabled()) {
+    await updatePersistentVerificationRecord({
+      record: updatedRecord,
+    });
+  } else {
+    const store = getVerificationStore();
+    store.recordsById.set(updatedRecord.id, updatedRecord);
+  }
 
   logAuditEvent({
     eventType: "verification.status.changed",
@@ -291,9 +417,18 @@ export function addProvenanceRecord(args: {
   actorType: ActorType;
   actorId: string;
   correlationId: string;
-}): ProvenanceRecord {
-  const store = getVerificationStore();
-  getVerificationRecord({
+}) {
+  return addProvenanceRecordAsync(args);
+}
+
+async function addProvenanceRecordAsync(args: {
+  verificationRecordId: string;
+  input: AddProvenanceInput;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}): Promise<ProvenanceRecord> {
+  await getVerificationRecord({
     verificationRecordId: args.verificationRecordId,
     correlationId: args.correlationId,
   });
@@ -309,8 +444,15 @@ export function addProvenanceRecord(args: {
     created_at: new Date().toISOString(),
   };
 
-  const records = store.provenanceByVerificationId.get(args.verificationRecordId) ?? [];
-  store.provenanceByVerificationId.set(args.verificationRecordId, [...records, provenanceRecord]);
+  if (isDurableTrustStorageEnabled()) {
+    await createPersistentProvenanceRecord({
+      record: provenanceRecord,
+    });
+  } else {
+    const store = getVerificationStore();
+    const records = store.provenanceByVerificationId.get(args.verificationRecordId) ?? [];
+    store.provenanceByVerificationId.set(args.verificationRecordId, [...records, provenanceRecord]);
+  }
 
   logAuditEvent({
     eventType: "verification.provenance.attached",
@@ -350,10 +492,35 @@ export function rejectVerificationRecord(args: {
 export function listProvenanceRecords(args: {
   verificationRecordId: string;
 }) {
+  return listProvenanceRecordsAsync(args);
+}
+
+async function listProvenanceRecordsAsync(args: {
+  verificationRecordId: string;
+}) {
+  if (isDurableTrustStorageEnabled()) {
+    return listPersistentProvenanceRecords({
+      verificationRecordId: args.verificationRecordId,
+    });
+  }
+
   return [...(getVerificationStore().provenanceByVerificationId.get(args.verificationRecordId) ?? [])];
 }
 
 export function getVerificationServiceMetrics() {
+  return getVerificationServiceMetricsAsync();
+}
+
+async function getVerificationServiceMetricsAsync() {
+  if (isDurableTrustStorageEnabled()) {
+    const metrics = await getPersistentClaimVerificationMetrics();
+
+    return {
+      verificationRecords: metrics.verificationRecords,
+      provenanceEntries: metrics.provenanceEntries,
+    };
+  }
+
   const store = getVerificationStore();
 
   return {

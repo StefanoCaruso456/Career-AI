@@ -3,22 +3,34 @@ import { z } from "zod";
 import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
 
 const {
+  findActiveAccessGrantMock,
   findPersistentContextByTalentIdentityIdMock,
   findPersistentRecruiterCandidateProjectionByLookupMock,
   findPersistentSharedRecruiterCandidateProjectionByLookupMock,
+  getClaimDetailsMock,
+  getClaimOwnerIdentityIdMock,
   getPersistentCareerBuilderProfileMock,
+  getVerificationRecordMock,
   isDatabaseConfiguredMock,
+  listOrganizationMembershipsForUserMock,
   listPersistentCareerBuilderEvidenceMock,
+  listProvenanceRecordsMock,
   searchEmployerCandidatesMock,
   searchJobsCatalogMock,
   traceSpanMock,
 } = vi.hoisted(() => ({
+  findActiveAccessGrantMock: vi.fn(),
   findPersistentContextByTalentIdentityIdMock: vi.fn(),
   findPersistentRecruiterCandidateProjectionByLookupMock: vi.fn(),
   findPersistentSharedRecruiterCandidateProjectionByLookupMock: vi.fn(),
+  getClaimDetailsMock: vi.fn(),
+  getClaimOwnerIdentityIdMock: vi.fn(),
   getPersistentCareerBuilderProfileMock: vi.fn(),
+  getVerificationRecordMock: vi.fn(),
   isDatabaseConfiguredMock: vi.fn(),
+  listOrganizationMembershipsForUserMock: vi.fn(),
   listPersistentCareerBuilderEvidenceMock: vi.fn(),
+  listProvenanceRecordsMock: vi.fn(),
   searchEmployerCandidatesMock: vi.fn(),
   searchJobsCatalogMock: vi.fn(),
   traceSpanMock: vi.fn(),
@@ -35,6 +47,7 @@ vi.mock("@/packages/jobs-domain/src", () => ({
 vi.mock("@/packages/persistence/src", () => ({
   countPersistedAuditEvents: vi.fn(),
   createAuditEventRecord: vi.fn(),
+  findActiveAccessGrant: findActiveAccessGrantMock,
   findPersistentContextByTalentIdentityId: findPersistentContextByTalentIdentityIdMock,
   findPersistentRecruiterCandidateProjectionByLookup:
     findPersistentRecruiterCandidateProjectionByLookupMock,
@@ -42,11 +55,22 @@ vi.mock("@/packages/persistence/src", () => ({
     findPersistentSharedRecruiterCandidateProjectionByLookupMock,
   getPersistentCareerBuilderProfile: getPersistentCareerBuilderProfileMock,
   isDatabaseConfigured: isDatabaseConfiguredMock,
+  listOrganizationMembershipsForUser: listOrganizationMembershipsForUserMock,
   listPersistentCareerBuilderEvidence: listPersistentCareerBuilderEvidenceMock,
 }));
 
 vi.mock("@/packages/recruiter-read-model/src", () => ({
   searchEmployerCandidates: searchEmployerCandidatesMock,
+}));
+
+vi.mock("@/packages/credential-domain/src", () => ({
+  getClaimDetails: getClaimDetailsMock,
+  getClaimOwnerIdentityId: getClaimOwnerIdentityIdMock,
+}));
+
+vi.mock("@/packages/verification-domain/src", () => ({
+  getVerificationRecord: getVerificationRecordMock,
+  listProvenanceRecords: listProvenanceRecordsMock,
 }));
 
 import type { AgentContext } from "./context";
@@ -73,6 +97,7 @@ const candidateAgentContext: AgentContext = {
     roleType: "candidate",
     talentIdentityId: "tal_123",
   },
+  organizationContext: null,
   ownerId: "user:tal_123",
   preferredPersona: "job_seeker",
   roleType: "candidate",
@@ -117,6 +142,7 @@ const guestAgentContext: AgentContext = {
     roleType: null,
   },
   ownerId: "guest:guest_123",
+  organizationContext: null,
   preferredPersona: "job_seeker",
   roleType: null,
   run: candidateAgentContext.run,
@@ -124,12 +150,18 @@ const guestAgentContext: AgentContext = {
 
 describe("agent tools", () => {
   beforeEach(() => {
+    findActiveAccessGrantMock.mockReset();
     findPersistentContextByTalentIdentityIdMock.mockReset();
     findPersistentRecruiterCandidateProjectionByLookupMock.mockReset();
     findPersistentSharedRecruiterCandidateProjectionByLookupMock.mockReset();
+    getClaimDetailsMock.mockReset();
+    getClaimOwnerIdentityIdMock.mockReset();
     getPersistentCareerBuilderProfileMock.mockReset();
+    getVerificationRecordMock.mockReset();
     isDatabaseConfiguredMock.mockReset();
+    listOrganizationMembershipsForUserMock.mockReset();
     listPersistentCareerBuilderEvidenceMock.mockReset();
+    listProvenanceRecordsMock.mockReset();
     searchEmployerCandidatesMock.mockReset();
     searchJobsCatalogMock.mockReset();
     traceSpanMock.mockReset();
@@ -137,6 +169,7 @@ describe("agent tools", () => {
       (_options: unknown, callback: () => Promise<unknown> | unknown) => callback(),
     );
     isDatabaseConfiguredMock.mockReturnValue(false);
+    listOrganizationMembershipsForUserMock.mockResolvedValue([]);
     resetAuditStore();
   });
 
@@ -157,6 +190,21 @@ describe("agent tools", () => {
         }),
         expect.objectContaining({
           name: "search_candidates",
+          strict: true,
+          type: "function",
+        }),
+        expect.objectContaining({
+          name: "get_claim_details",
+          strict: true,
+          type: "function",
+        }),
+        expect.objectContaining({
+          name: "get_verification_record",
+          strict: true,
+          type: "function",
+        }),
+        expect.objectContaining({
+          name: "list_provenance_records",
           strict: true,
           type: "function",
         }),
@@ -496,5 +544,177 @@ describe("agent tools", () => {
         },
       }),
     ).rejects.toBeInstanceOf(AgentToolPermissionError);
+  });
+
+  it("returns private claim details for the owning candidate", async () => {
+    getClaimOwnerIdentityIdMock.mockResolvedValue("tal_123");
+    getClaimDetailsMock.mockResolvedValue({
+      artifactIds: ["art_123"],
+      claimId: "claim_123",
+      claimType: "EMPLOYMENT",
+      createdAt: "2026-04-13T00:00:00.000Z",
+      employmentRecord: {
+        claim_id: "claim_123",
+        company_letterhead_detected_optional: true,
+        created_at: "2026-04-13T00:00:00.000Z",
+        currently_employed: false,
+        document_date_optional: "2024-01-01",
+        employer_domain_optional: "acme.com",
+        employer_name: "Acme",
+        employment_type_optional: "Full-time",
+        end_date_optional: "2024-01-01",
+        id: "emp_123",
+        location_optional: "Austin, TX",
+        role_title: "Senior Engineer",
+        signatory_name_optional: "Alex HR",
+        signatory_title_optional: "HR Director",
+        start_date: "2021-01-01",
+        updated_at: "2026-04-13T00:00:00.000Z",
+      },
+      summary: "Acme employment from 2021-01-01",
+      title: "Senior Engineer at Acme",
+      updatedAt: "2026-04-13T00:00:00.000Z",
+      verification: {
+        claim_id: "claim_123",
+        confidence_tier: "REVIEWED",
+        created_at: "2026-04-13T00:00:00.000Z",
+        expires_at_optional: null,
+        id: "ver_123",
+        notes_optional: "Reviewed",
+        primary_method: "USER_UPLOAD",
+        reviewed_at_optional: "2026-04-13T01:00:00.000Z",
+        reviewer_actor_id_optional: "admin_1",
+        source_label: "candidate_self_report",
+        source_reference_optional: null,
+        status: "REVIEWED",
+        updated_at: "2026-04-13T01:00:00.000Z",
+      },
+    });
+
+    await expect(
+      executeAgentToolCall({
+        agentContext: candidateAgentContext,
+        registry: homepageAssistantToolRegistry,
+        toolCall: {
+          arguments: JSON.stringify({ claimId: "claim_123" }),
+          name: "get_claim_details",
+        },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        found: true,
+      }),
+    );
+  });
+
+  it("denies recruiters from reading private claim details without a grant", async () => {
+    getClaimOwnerIdentityIdMock.mockResolvedValue("tal_candidate_1");
+
+    await expect(
+      executeAgentToolCall({
+        agentContext: recruiterAgentContext,
+        registry: homepageAssistantToolRegistry,
+        toolCall: {
+          arguments: JSON.stringify({ claimId: "claim_private_1" }),
+          name: "get_claim_details",
+        },
+      }),
+    ).rejects.toBeInstanceOf(AgentToolPermissionError);
+  });
+
+  it("allows recruiters with an active grant to read verification data", async () => {
+    listOrganizationMembershipsForUserMock.mockResolvedValue([
+      {
+        createdAt: "2026-04-13T00:00:00.000Z",
+        id: "org_mem_1",
+        organizationId: "org_1",
+        role: "admin",
+        status: "active",
+        updatedAt: "2026-04-13T00:00:00.000Z",
+        userId: "app_user_123",
+      },
+    ]);
+    findActiveAccessGrantMock.mockResolvedValue({
+      accessRequestId: "access_req_1",
+      createdAt: "2026-04-13T00:00:00.000Z",
+      expiresAt: null,
+      grantedByActorId: "tal_candidate_1",
+      grantedByActorType: "talent_user",
+      id: "access_grant_1",
+      metadataJson: {},
+      organizationId: "org_1",
+      revokedAt: null,
+      scope: "candidate_private_profile",
+      status: "active",
+      subjectTalentIdentityId: "tal_candidate_1",
+      updatedAt: "2026-04-13T00:00:00.000Z",
+    });
+    getVerificationRecordMock.mockResolvedValue({
+      claim_id: "claim_private_1",
+      confidence_tier: "REVIEWED",
+      created_at: "2026-04-13T00:00:00.000Z",
+      expires_at_optional: null,
+      id: "ver_private_1",
+      notes_optional: null,
+      primary_method: "USER_UPLOAD",
+      reviewed_at_optional: "2026-04-13T01:00:00.000Z",
+      reviewer_actor_id_optional: "admin_1",
+      source_label: "candidate_self_report",
+      source_reference_optional: null,
+      status: "REVIEWED",
+      updated_at: "2026-04-13T01:00:00.000Z",
+    });
+    getClaimOwnerIdentityIdMock.mockResolvedValue("tal_candidate_1");
+    listProvenanceRecordsMock.mockResolvedValue([
+      {
+        artifact_id_optional: "art_private_1",
+        created_at: "2026-04-13T01:05:00.000Z",
+        id: "prov_1",
+        source_actor_id_optional: "admin_1",
+        source_actor_type: "reviewer_admin",
+        source_details_json: {
+          note: "Offer letter matched.",
+        },
+        source_method: "INTERNAL_REVIEW",
+        verification_record_id: "ver_private_1",
+      },
+    ]);
+
+    await expect(
+      executeAgentToolCall({
+        agentContext: recruiterAgentContext,
+        registry: homepageAssistantToolRegistry,
+        toolCall: {
+          arguments: JSON.stringify({ verificationRecordId: "ver_private_1" }),
+          name: "get_verification_record",
+        },
+      }),
+    ).resolves.toEqual({
+      found: true,
+      verificationRecord: expect.objectContaining({
+        id: "ver_private_1",
+        status: "REVIEWED",
+      }),
+    });
+
+    await expect(
+      executeAgentToolCall({
+        agentContext: recruiterAgentContext,
+        registry: homepageAssistantToolRegistry,
+        toolCall: {
+          arguments: JSON.stringify({ verificationRecordId: "ver_private_1" }),
+          name: "list_provenance_records",
+        },
+      }),
+    ).resolves.toEqual({
+      found: true,
+      provenance: [
+        expect.objectContaining({
+          id: "prov_1",
+          source_method: "INTERNAL_REVIEW",
+        }),
+      ],
+      verificationRecordId: "ver_private_1",
+    });
   });
 });

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const actor = await resolveVerifiedActor(request, correlationId);
     assertReviewerAccess(actor, correlationId, "create verification records");
     const body = createVerificationRecordInputSchema.parse(await request.json());
-    const record = createVerificationRecord({
+    const record = await createVerificationRecord({
       input: body,
       actorType: actor.actorType,
       actorId: actor.actorId,

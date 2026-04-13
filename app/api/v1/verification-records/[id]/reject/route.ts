@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     assertReviewerAccess(actor, correlationId, "reject verification records");
     const { id } = await context.params;
     const body = rejectVerificationInputSchema.parse(await request.json());
-    const record = rejectVerificationRecord({
+    const record = await rejectVerificationRecord({
       verificationRecordId: id,
       reason: body.reason,
       reviewerActorId: body.reviewerActorId,

@@ -73,6 +73,24 @@ type AccessGrantRow = {
   updated_at: Date | string;
 };
 
+type OrganizationMembershipContextRow = {
+  membership_created_at: Date | string;
+  membership_id: string;
+  membership_role: OrganizationMembershipRole;
+  membership_status: OrganizationMembershipStatus;
+  membership_updated_at: Date | string;
+  organization_created_at: Date | string;
+  organization_id: string;
+  organization_name: string;
+  organization_updated_at: Date | string;
+  user_id: string;
+};
+
+export type OrganizationMembershipContext = {
+  membership: OrganizationMembership;
+  organization: Organization;
+};
+
 function toIsoString(value: Date | string | null) {
   if (!value) {
     return null;
@@ -139,6 +157,28 @@ function mapAccessGrantRow(row: AccessGrantRow): AccessGrant {
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   });
+}
+
+function mapOrganizationMembershipContextRow(
+  row: OrganizationMembershipContextRow,
+): OrganizationMembershipContext {
+  return {
+    membership: mapMembershipRow({
+      id: row.membership_id,
+      organization_id: row.organization_id,
+      user_id: row.user_id,
+      role: row.membership_role,
+      status: row.membership_status,
+      created_at: row.membership_created_at,
+      updated_at: row.membership_updated_at,
+    }),
+    organization: mapOrganizationRow({
+      id: row.organization_id,
+      name: row.organization_name,
+      created_at: row.organization_created_at,
+      updated_at: row.organization_updated_at,
+    }),
+  };
 }
 
 async function insertOrganization(
@@ -276,6 +316,35 @@ export async function listOrganizationMembershipsForUser(args: {
   );
 
   return result.rows.map(mapMembershipRow);
+}
+
+export async function listOrganizationMembershipContextsForUser(args: {
+  userId: string;
+  status?: OrganizationMembershipStatus;
+}) {
+  const result = await getDatabasePool().query<OrganizationMembershipContextRow>(
+    `
+      SELECT
+        om.id AS membership_id,
+        om.organization_id,
+        om.user_id,
+        om.role AS membership_role,
+        om.status AS membership_status,
+        om.created_at AS membership_created_at,
+        om.updated_at AS membership_updated_at,
+        o.name AS organization_name,
+        o.created_at AS organization_created_at,
+        o.updated_at AS organization_updated_at
+      FROM organization_memberships om
+      INNER JOIN organizations o ON o.id = om.organization_id
+      WHERE om.user_id = $1
+        AND om.status = COALESCE($2, om.status)
+      ORDER BY om.created_at ASC, om.id ASC
+    `,
+    [args.userId, args.status ?? null],
+  );
+
+  return result.rows.map(mapOrganizationMembershipContextRow);
 }
 
 export async function ensurePrimaryOrganizationForUser(args: {

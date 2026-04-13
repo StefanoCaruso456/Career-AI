@@ -181,7 +181,7 @@ describe("recruiter read model service", () => {
       correlationId: "corr-4",
     });
 
-    transitionVerificationRecord({
+    await transitionVerificationRecord({
       verificationRecordId: created.verificationRecord.id,
       targetStatus: "REVIEWED",
       reason: "Updated after review",

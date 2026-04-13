@@ -485,7 +485,7 @@ describe("jobs feed service", () => {
 
     vi.stubGlobal("fetch", fetchMock);
 
-    const snapshot = await getJobsFeedSnapshot({ limit: 100, windowDays: null });
+    const snapshot = await getJobsFeedSnapshot({ limit: 100, windowDays: undefined });
 
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(snapshot.sources[0]?.key).toBe("workday:autodesk");

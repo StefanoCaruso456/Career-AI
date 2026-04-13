@@ -27,6 +27,16 @@ function trimToLength(value: string, maxLength: number) {
 }
 
 function buildIdentityLines(agentContext: AgentContext) {
+  const organizationLines =
+    agentContext.organizationContext?.primaryOrganization
+      ? [
+          `organization_id: ${agentContext.organizationContext.primaryOrganization.organizationId}`,
+          `organization_name: ${agentContext.organizationContext.primaryOrganization.organizationName}`,
+          `organization_role: ${agentContext.organizationContext.primaryOrganization.role}`,
+          `organization_membership_count: ${agentContext.organizationContext.activeMembershipCount}`,
+        ]
+      : [];
+
   switch (agentContext.actor.kind) {
     case "authenticated_user":
       return [
@@ -35,6 +45,7 @@ function buildIdentityLines(agentContext: AgentContext) {
         `name: ${agentContext.actor.name ?? "unknown"}`,
         `role_type: ${agentContext.roleType ?? "none"}`,
         `preferred_persona: ${agentContext.preferredPersona ?? "none"}`,
+        ...organizationLines,
       ];
     case "guest_user":
       return [
@@ -49,6 +60,7 @@ function buildIdentityLines(agentContext: AgentContext) {
         `service_actor_id: ${agentContext.actor.serviceActorId}`,
         `role_type: ${agentContext.roleType ?? "none"}`,
         `preferred_persona: ${agentContext.preferredPersona ?? "none"}`,
+        ...organizationLines,
       ];
     default:
       return [];

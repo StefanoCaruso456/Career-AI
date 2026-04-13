@@ -61,7 +61,11 @@ export async function GET() {
   const databaseHealth = await getDatabaseHealth();
   const databaseBackedServiceStatus =
     databaseHealth.status === "up" ? "up" : "degraded";
-  const auditEventCount = await getAuditEventCount();
+  const [auditEventCount, credentialMetrics, verificationMetrics] = await Promise.all([
+    getAuditEventCount(),
+    getCredentialServiceMetrics(),
+    getVerificationServiceMetrics(),
+  ]);
 
   return NextResponse.json({
     status: databaseHealth.status === "up" ? "ok" : "degraded",
@@ -78,8 +82,8 @@ export async function GET() {
     metrics: {
       identity: databaseHealth.identityMetrics,
       artifact: getArtifactServiceMetrics(),
-      credential: getCredentialServiceMetrics(),
-      verification: getVerificationServiceMetrics(),
+      credential: credentialMetrics,
+      verification: verificationMetrics,
       recruiterReadModel: getRecruiterReadModelMetrics(),
       adminOps: databaseHealth.adminOpsMetrics,
       auditEvents: auditEventCount,
