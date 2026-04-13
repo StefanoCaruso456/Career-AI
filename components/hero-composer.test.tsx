@@ -584,6 +584,11 @@ describe("HeroComposer", () => {
     expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
     expect(await screen.findByText("Figma")).toBeInTheDocument();
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close jobs panel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Jobs assist panel")).not.toBeInTheDocument();
+    });
 
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(true);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat/latest-jobs")).toBe(false);
@@ -740,6 +745,12 @@ describe("HeroComposer", () => {
     expect(
       fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search"),
     ).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close candidate sourcing panel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Candidate sourcing panel")).not.toBeInTheDocument();
+    });
   });
 
   it("resolves direct Career ID lookups into the employer candidate rail", async () => {

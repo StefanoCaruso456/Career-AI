@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import { JobListItem } from "@/components/jobs/job-list-item";
 import styles from "./jobs-side-panel.module.css";
@@ -10,6 +11,7 @@ type JobsSidePanelProps = {
   isLoading?: boolean;
   jobs: JobListing[];
   onApply?: (job: JobListing) => void;
+  onClose?: () => void;
   onRefresh?: () => void;
 };
 
@@ -19,6 +21,7 @@ export function JobsSidePanel({
   isLoading = false,
   jobs,
   onApply,
+  onClose,
   onRefresh,
 }: JobsSidePanelProps) {
   return (
@@ -33,6 +36,16 @@ export function JobsSidePanel({
           type="button"
         >
           Find NEW Jobs
+        </button>
+        <button
+          aria-label="Close jobs panel"
+          className={styles.jobsRailClose}
+          onClick={() => {
+            onClose?.();
+          }}
+          type="button"
+        >
+          <X aria-hidden="true" size={16} strokeWidth={2} />
         </button>
       </div>
 

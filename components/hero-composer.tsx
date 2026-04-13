@@ -419,24 +419,24 @@ function buildThreadPreview(thread: ChatThread) {
   return `${normalizedPreview.slice(0, 93)}...`;
 }
 
-function getLatestJobPrompt(entries: TranscriptEntry[]) {
+function getLatestJobPromptEntry(entries: TranscriptEntry[]) {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index];
 
     if (entry.role === "user" && entry.content.trim() && isJobIntent(entry.content)) {
-      return entry.content.trim();
+      return entry;
     }
   }
 
   return null;
 }
 
-function getLatestCandidatePrompt(entries: TranscriptEntry[]) {
+function getLatestCandidatePromptEntry(entries: TranscriptEntry[]) {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index];
 
     if (entry.role === "user" && entry.content.trim() && isEmployerCandidateSearchIntent(entry.content)) {
-      return entry.content.trim();
+      return entry;
     }
   }
 
@@ -650,12 +650,14 @@ export function HeroComposer({
   const [candidateAssistLoadedRequestKey, setCandidateAssistLoadedRequestKey] =
     useState<string | null>(null);
   const [candidateAssistRefreshKey, setCandidateAssistRefreshKey] = useState(0);
+  const [isCandidateAssistDismissed, setIsCandidateAssistDismissed] = useState(false);
   const [jobsAssistListings, setJobsAssistListings] = useState<JobListing[]>([]);
   const [jobsAssistEmptyState, setJobsAssistEmptyState] = useState<string | null>(null);
   const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
   const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
   const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
+  const [isJobsAssistDismissed, setIsJobsAssistDismissed] = useState(false);
   const [selectedCandidateDetail, setSelectedCandidateDetail] =
     useState<EmployerCandidateMatchDto | null>(null);
   const [shortlistedCandidateIds, setShortlistedCandidateIds] = useState<string[]>([]);
@@ -726,10 +728,12 @@ export function HeroComposer({
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
-  const latestCandidatePrompt =
-    isEmployerMode && !isProjectHomeVisible ? getLatestCandidatePrompt(transcript) : null;
-  const latestJobPrompt =
-    !isEmployerMode && !isProjectHomeVisible ? getLatestJobPrompt(transcript) : null;
+  const latestCandidatePromptEntry =
+    isEmployerMode && !isProjectHomeVisible ? getLatestCandidatePromptEntry(transcript) : null;
+  const latestJobPromptEntry =
+    !isEmployerMode && !isProjectHomeVisible ? getLatestJobPromptEntry(transcript) : null;
+  const latestCandidatePrompt = latestCandidatePromptEntry?.content.trim() ?? null;
+  const latestJobPrompt = latestJobPromptEntry?.content.trim() ?? null;
   const jobsAssistMode =
     !isEmployerMode && !isProjectHomeVisible
       ? deriveJobsAssistMode(latestJobPrompt)
@@ -744,8 +748,8 @@ export function HeroComposer({
     jobsAssistMode && jobsAssistPrompt
       ? createJobsAssistRequestKey(jobsAssistMode, jobsAssistPrompt, jobsAssistRefreshKey)
       : null;
-  const isCandidateAssistVisible = Boolean(latestCandidatePrompt);
-  const isJobsAssistVisible = Boolean(jobsAssistMode && jobsAssistPrompt);
+  const isCandidateAssistVisible = Boolean(latestCandidatePrompt) && !isCandidateAssistDismissed;
+  const isJobsAssistVisible = Boolean(jobsAssistMode && jobsAssistPrompt) && !isJobsAssistDismissed;
   const isAssistRailVisible = isEmployerMode ? isCandidateAssistVisible : isJobsAssistVisible;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
@@ -765,6 +769,14 @@ export function HeroComposer({
   useEffect(() => {
     onConversationStateChange?.(hasActiveConversation);
   }, [hasActiveConversation, onConversationStateChange]);
+
+  useEffect(() => {
+    setIsCandidateAssistDismissed(false);
+  }, [latestCandidatePromptEntry?.id]);
+
+  useEffect(() => {
+    setIsJobsAssistDismissed(false);
+  }, [latestJobPromptEntry?.id]);
 
   useEffect(() => {
     if (!latestCandidatePrompt) {
@@ -1408,6 +1420,7 @@ export function HeroComposer({
     );
     setCandidateAssistError(null);
     setIsCandidateAssistLoading(false);
+    setIsCandidateAssistDismissed(false);
   }
 
   function applyJobsAssistResponse(
@@ -1425,6 +1438,7 @@ export function HeroComposer({
     );
     setJobsAssistError(null);
     setIsJobsAssistLoading(false);
+    setIsJobsAssistDismissed(false);
   }
 
   useEffect(() => {
@@ -3302,6 +3316,9 @@ export function HeroComposer({
                 candidates={candidateAssistListings}
                 errorMessage={candidateAssistError}
                 isLoading={isCandidateAssistLoading}
+                onClose={() => {
+                  setIsCandidateAssistDismissed(true);
+                }}
                 onOpenDetail={handleOpenCandidateDetail}
                 onRefresh={() => {
                   setCandidateAssistRefreshKey((currentKey) => currentKey + 1);
@@ -3321,6 +3338,9 @@ export function HeroComposer({
                 isLoading={isJobsAssistLoading}
                 jobs={jobsAssistListings}
                 onApply={handleApplyJob}
+                onClose={() => {
+                  setIsJobsAssistDismissed(true);
+                }}
                 onRefresh={() => {
                   setJobsAssistRefreshKey((currentKey) => currentKey + 1);
                 }}
