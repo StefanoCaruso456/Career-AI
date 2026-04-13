@@ -29,7 +29,7 @@ vi.mock("@/lib/braintrust", () => ({
   getBraintrustLogger: mocks.getBraintrustLogger,
 }));
 
-import { withTracedRoute } from "./tracing";
+import { applyTraceResponseHeaders, updateRequestTraceContext, withTracedRoute } from "./tracing";
 
 describe("withTracedRoute", () => {
   beforeEach(() => {
@@ -144,5 +144,33 @@ describe("withTracedRoute", () => {
     expect(mocks.flushBraintrust).toHaveBeenCalledTimes(1);
     expect(mocks.fetchObservedSpansForRoot).not.toHaveBeenCalled();
     expect(response.headers.get("x-braintrust-observed-span-count")).toBeNull();
+  });
+
+  it("adds the run id to traced responses when the request context is updated", async () => {
+    const tracedHandler = withTracedRoute(
+      {
+        name: "http.route.chat.post",
+        type: "task",
+      },
+      async () => {
+        updateRequestTraceContext({
+          runId: "run-123",
+        });
+
+        return applyTraceResponseHeaders(Response.json({ ok: true }));
+      },
+    );
+
+    const response = await tracedHandler(
+      new Request("http://localhost/api/chat", {
+        headers: {
+          "x-request-id": "req-123",
+          "x-trace-id": "trace-123",
+        },
+        method: "POST",
+      }),
+    );
+
+    expect(response.headers.get("x-run-id")).toBe("run-123");
   });
 });

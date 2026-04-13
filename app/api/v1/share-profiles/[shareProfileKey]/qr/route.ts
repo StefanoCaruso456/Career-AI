@@ -4,8 +4,8 @@ import {
   assertAllowedActorTypes,
   assertTalentIdentityAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import {
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertAllowedActorTypes(
       actor,
       ["talent_user", "system_service"],

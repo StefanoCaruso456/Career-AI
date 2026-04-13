@@ -21,6 +21,7 @@ export type RequestTraceContext = {
   path: string;
   requestId: string;
   routeName: string;
+  runId: string | null;
   sessionId: string | null;
   traceDebugRequested: boolean;
   traceId: string;
@@ -97,6 +98,7 @@ function buildTraceMetadata(metadata?: JsonRecord) {
     owner_id: context?.ownerId ?? null,
     request_id: context?.requestId ?? null,
     route_name: context?.routeName ?? null,
+    run_id: context?.runId ?? null,
     session_id: context?.sessionId ?? null,
     trace_id: context?.traceId ?? null,
     user_id: context?.userId ?? null,
@@ -261,6 +263,7 @@ export function withTracedRoute(
       path: normalizeUrlPath(request.url),
       requestId,
       routeName: options.name,
+      runId: null,
       sessionId: null,
       traceDebugRequested,
       traceId,
@@ -375,6 +378,10 @@ export function applyTraceResponseHeaders<T extends Response>(response: T) {
 
   response.headers.set("x-request-id", context.requestId);
   response.headers.set("x-trace-id", context.traceId);
+
+  if (context.runId) {
+    response.headers.set("x-run-id", context.runId);
+  }
 
   if (context.braintrustRootSpanId) {
     response.headers.set("x-braintrust-root-span-id", context.braintrustRootSpanId);

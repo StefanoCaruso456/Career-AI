@@ -2,8 +2,8 @@ import { type NextRequest } from "next/server";
 import { createTalentIdentityInputSchema } from "@/packages/contracts/src";
 import {
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { createTalentIdentity, toTalentIdentitySummaryDto } from "@/packages/identity-domain/src";
@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId, {
-      allowAnonymousSystemActor: true,
+    const actor = await resolveVerifiedActor(request, correlationId, {
+      allowPublic: true,
     });
     const body = createTalentIdentityInputSchema.parse(await request.json());
     const aggregate = await createTalentIdentity({

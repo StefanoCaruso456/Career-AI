@@ -3,8 +3,8 @@ import { updatePrivacySettingsInputSchema } from "@/packages/contracts/src";
 import {
   assertTalentIdentityAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { toTalentIdentityDetailsDto, updatePrivacySettings } from "@/packages/identity-domain/src";
@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     const { id } = await context.params;
     assertTalentIdentityAccess(actor, id, correlationId);
     const body = updatePrivacySettingsInputSchema.parse(await request.json());

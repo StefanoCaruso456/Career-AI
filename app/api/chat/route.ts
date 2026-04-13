@@ -35,6 +35,7 @@ async function handleChatPost(request: Request) {
       output: (context: Awaited<ReturnType<typeof resolveChatRouteContext>>) => ({
         actor_type: context.actor.actorType,
         owner_id: context.ownerId,
+        run_id: context.runContext.runId,
         session_id: context.sessionId,
         user_id: context.userId,
       }),
@@ -43,11 +44,12 @@ async function handleChatPost(request: Request) {
     },
     () => resolveChatRouteContext(request),
   );
-  const { actor, ownerId } = routeContext;
+  const { actor, agentContext, ownerId, runContext } = routeContext;
 
   updateRequestTraceContext({
     actorType: actor.actorType,
     ownerId,
+    runId: runContext.runId,
     sessionId: routeContext.sessionId,
     userId: routeContext.userId,
   });
@@ -121,6 +123,7 @@ async function handleChatPost(request: Request) {
       assistantReply = await generateHomepageAssistantReply(
         payload.message,
         attachmentSummaries,
+        { agentContext },
       );
     } else if (payload.persona !== "employer") {
       try {
@@ -164,6 +167,7 @@ async function handleChatPost(request: Request) {
           assistantReply = await generateHomepageAssistantReply(
             payload.message,
             attachmentSummaries,
+            { agentContext },
           );
         }
       }

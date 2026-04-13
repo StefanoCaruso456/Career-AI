@@ -6,6 +6,8 @@ import {
   updateRequestTraceContext,
   withTracedRoute,
 } from "@/lib/tracing";
+import { createAgentContext, createRunContext } from "@/packages/agent-runtime/src";
+import { getCorrelationId } from "@/packages/audit-security/src";
 import { ApiError } from "@/packages/contracts/src";
 
 function getPayloadKeys(payload: unknown) {
@@ -50,10 +52,19 @@ export function withChatActorCookie(response: NextResponse, actor: ChatActor) {
 
 export async function resolveChatRouteContext(request: Request) {
   const actor = await resolveChatActor(readCookieValue(request, getChatOwnerCookieName()));
+  const runContext = createRunContext({
+    correlationId: getCorrelationId(request.headers),
+  });
 
   return {
+    agentContext: createAgentContext({
+      actor: actor.identity,
+      ownerId: actor.ownerId,
+      run: runContext,
+    }),
     actor,
     ownerId: actor.ownerId,
+    runContext,
     sessionId: actor.sessionId ?? actor.ownerId,
     userId: actor.userId ?? null,
   };

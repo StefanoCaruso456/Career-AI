@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createInternalServiceActorIdentity,
+  getAuditActorTypeForActorIdentity,
+  getRequestActorIdForActorIdentity,
   resolveActorIdentity,
   resolveAuthenticatedActorIdentity,
 } from "@/actor-identity";
@@ -64,5 +66,18 @@ describe("actor identity helpers", () => {
       serviceActorId: "verifier-runtime",
       serviceName: "verifier",
     });
+  });
+
+  it("maps reviewer admins and request actor ids for verified route auth", () => {
+    const identity = resolveAuthenticatedActorIdentity({
+      appUserId: "user_123",
+      email: "reviewer@example.com",
+      roleType: "reviewer_admin",
+      talentIdentityId: "tal_789",
+    });
+
+    expect(identity).not.toBeNull();
+    expect(getAuditActorTypeForActorIdentity(identity!)).toBe("reviewer_admin");
+    expect(getRequestActorIdForActorIdentity(identity!)).toBe("tal_789");
   });
 });
