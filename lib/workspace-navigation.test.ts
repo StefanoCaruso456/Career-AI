@@ -14,4 +14,9 @@ describe("workspaceShellByPersona", () => {
       workspaceShellByPersona.job_seeker.tabs.some((tab) => tab.label === "Agent Sorcerer"),
     ).toBe(false);
   });
+
+  it("keeps route implementation details out of workspace shell copy", () => {
+    expect(workspaceShellByPersona.job_seeker.summary).not.toContain("/account/*");
+    expect(workspaceShellByPersona.employer.summary).not.toContain("/employer/*");
+  });
 });
