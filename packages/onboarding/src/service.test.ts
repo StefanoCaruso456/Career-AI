@@ -39,7 +39,6 @@ describe("onboarding service", () => {
       input: {
         firstName: "Onboarding",
         lastName: "User",
-        imageUrl: "https://example.com/onboarding.png",
       },
       correlationId: "corr-2",
     });
@@ -88,7 +87,6 @@ describe("onboarding service", () => {
       input: {
         firstName: "Complete",
         lastName: "User",
-        imageUrl: "",
       },
       correlationId: "corr-2",
     });

@@ -13,15 +13,9 @@ export const onboardingRoleTypeSchema = z.enum([
   "hiring_manager",
 ]);
 
-const optionalUrlSchema = z
-  .union([z.string().trim().url(), z.literal("")])
-  .optional()
-  .transform((value) => (value ? value : null));
-
 export const basicProfileInputSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
-  imageUrl: optionalUrlSchema,
 });
 
 export const roleSelectionInputSchema = z.object({
@@ -59,7 +53,6 @@ export async function saveBasicProfile(args: {
     userId: args.userId,
     firstName: input.firstName,
     lastName: input.lastName,
-    imageUrl: input.imageUrl,
     correlationId: args.correlationId,
   });
 }
