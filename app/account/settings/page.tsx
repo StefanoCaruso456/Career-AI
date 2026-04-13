@@ -1,36 +1,73 @@
-import { WorkspaceRouteScaffold } from "@/components/workspace-route-scaffold";
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
+import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
+import { CandidateNotificationPreferencesCard } from "@/components/access-requests/candidate-notification-preferences-card";
+import { ProfileAccountDetailsCard } from "@/components/profile-account-details-card";
+import { getPersonaSignInRoute } from "@/lib/personas";
+import { getCandidateNotificationPreferences } from "@/packages/access-request-domain/src";
+import styles from "@/components/access-requests/access-request-workflow.module.css";
 
-export default function AccountSettingsPage() {
+export default async function AccountSettingsPage() {
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    redirect(
+      getPersonaSignInRoute({
+        callbackUrl: "/account/settings",
+        persona: "job_seeker",
+      }),
+    );
+  }
+
+  const { context } = await ensurePersistentCareerIdentityForSessionUser({
+    user: {
+      appUserId: session.user.appUserId,
+      authProvider: session.user.authProvider,
+      email: session.user.email,
+      emailVerified: true,
+      image: session.user.image,
+      name: session.user.name,
+      providerUserId: session.user.providerUserId,
+    },
+    correlationId: `account_settings_page_${session.user.appUserId ?? session.user.email ?? "unknown"}`,
+  });
+  const notificationPreferences = await getCandidateNotificationPreferences({
+    correlationId: `account_settings_notifications_${context.aggregate.talentIdentity.id}`,
+    talentIdentityId: context.aggregate.talentIdentity.id,
+  });
+
   return (
-    <WorkspaceRouteScaffold
-      cards={[
-        {
-          eyebrow: "Profile type",
-          title: "Persist job seeker identity cleanly",
-          copy:
-            "This surface is ready to read the saved persona record once profile persistence becomes the source of truth for routing and defaults.",
-        },
-        {
-          eyebrow: "Sharing",
-          title: "Control how trust proof leaves the workspace",
-          copy:
-            "Keep future export, recruiter visibility, and verification-sharing preferences in one account-owned settings surface.",
-        },
-        {
-          eyebrow: "Preferences",
-          title: "Separate user controls from employer workflows",
-          copy:
-            "Job seeker-specific defaults can now evolve here without colliding with the employer client navigation or settings model.",
-        },
-      ]}
-      description="This account-owned settings route is the first dedicated /account/* settings surface, so future profile and privacy controls have a clean home."
-      eyebrow="Job seeker settings"
-      metrics={[
-        { label: "Persona source", value: "Profile-ready" },
-        { label: "Auth flow", value: "Google" },
-        { label: "Route scope", value: "/account/*" },
-      ]}
-      title="Keep account controls inside the job seeker client."
-    />
+    <main className={styles.page}>
+      <div className={styles.pageShell}>
+        <section className={styles.pageHero}>
+          <span className={styles.eyebrow}>Job seeker settings</span>
+          <h1>Profile and alert controls</h1>
+          <p className={styles.lead}>
+            Manage your owned profile details here and decide whether Career ID access requests can
+            also reach you by text message.
+          </p>
+        </section>
+
+        <div className={styles.split}>
+          <ProfileAccountDetailsCard
+            initialCountryCode={context.aggregate.talentIdentity.country_code}
+            initialDisplayName={context.user.fullName || context.aggregate.talentIdentity.display_name}
+            initialEmail={context.user.email}
+            initialFirstName={context.user.firstName}
+            initialLastName={context.user.lastName}
+            initialPhoneOptional={context.aggregate.talentIdentity.phone_optional}
+            readOnlyRows={[
+              { label: "Career AI ID", value: context.aggregate.talentIdentity.talent_agent_id, isIdentifier: true },
+              { label: "Role", value: context.onboarding.roleType ?? "Candidate" },
+            ]}
+          />
+
+          <CandidateNotificationPreferencesCard
+            initialPhoneOptional={context.aggregate.talentIdentity.phone_optional}
+            initialPreferences={notificationPreferences}
+          />
+        </div>
+      </div>
+    </main>
   );
 }

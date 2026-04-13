@@ -69,6 +69,14 @@ export const createAccessRequestInputSchema = z.object({
   scope: accessScopeSchema.default("candidate_private_profile"),
   subjectTalentIdentityId: z.string().trim().min(1),
   justification: z.string().trim().min(1).max(1000),
+  requestedDurationDaysOptional: z
+    .number()
+    .int()
+    .positive()
+    .max(365)
+    .nullable()
+    .optional()
+    .default(null),
 });
 
 export const resolveAccessRequestInputSchema = z.object({

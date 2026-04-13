@@ -21,7 +21,22 @@ function createEmptyArtifactDatabase(): ArtifactDatabase {
 }
 
 export function getArtifactStorageRoot(baseDir = process.cwd()) {
-  return process.env.CAREER_AI_ARTIFACT_STORAGE_ROOT?.trim() || join(baseDir, ".artifacts", "artifacts");
+  const configuredRoot = process.env.CAREER_AI_ARTIFACT_STORAGE_ROOT?.trim();
+
+  if (configuredRoot) {
+    return configuredRoot;
+  }
+
+  if (process.env.NODE_ENV === "test") {
+    const workerSuffix =
+      process.env.VITEST_WORKER_ID?.trim() ||
+      process.env.VITEST_POOL_ID?.trim() ||
+      String(process.pid);
+
+    return join(baseDir, ".artifacts", `artifacts-${workerSuffix}`);
+  }
+
+  return join(baseDir, ".artifacts", "artifacts");
 }
 
 function getArtifactManifestPath(baseDir = process.cwd()) {

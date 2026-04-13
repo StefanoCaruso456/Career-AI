@@ -176,6 +176,9 @@ export function EmployerCandidateDetailModal({
                 <Link className={styles.secondaryAction} href={careerIdHref}>
                   View Career ID
                 </Link>
+                <Link className={styles.secondaryAction} href={`${careerIdHref}#private-access`}>
+                  Request Career ID Access
+                </Link>
                 {candidate.actions.trustProfileUrl ? (
                   <Link className={styles.secondaryAction} href={candidate.actions.trustProfileUrl}>
                     Review trust profile

@@ -19,6 +19,13 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/packages/recruiter-read-model/src", () => recruiterReadModelMocks);
+vi.mock("@/components/access-requests/recruiter-access-request-panel", () => ({
+  RecruiterAccessRequestPanel: ({
+    candidateName,
+  }: {
+    candidateName: string;
+  }) => <div>Private access panel for {candidateName}</div>,
+}));
 
 describe("EmployerCandidatesPage", () => {
   beforeEach(() => {

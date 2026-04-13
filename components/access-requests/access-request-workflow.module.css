@@ -1,0 +1,252 @@
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  background: rgba(10, 18, 34, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+  padding: 1.25rem;
+}
+
+.card h2,
+.card h3 {
+  margin: 0;
+}
+
+.lead {
+  color: rgba(226, 232, 240, 0.78);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.metaGrid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.metaCard {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+}
+
+.metaLabel {
+  color: rgba(148, 163, 184, 0.88);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metaValue {
+  color: #f8fafc;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.field label {
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: rgba(15, 23, 42, 0.74);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  color: #f8fafc;
+  font: inherit;
+  padding: 0.8rem 0.9rem;
+}
+
+.field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.primaryButton,
+.secondaryButton,
+.linkButton {
+  align-items: center;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 600;
+  gap: 0.4rem;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.7rem 1.1rem;
+  text-decoration: none;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  border: none;
+  color: #04111f;
+}
+
+.secondaryButton {
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #e2e8f0;
+}
+
+.linkButton {
+  background: transparent;
+  border: none;
+  color: #7dd3fc;
+  padding-left: 0;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.statusMessage {
+  border-radius: 14px;
+  padding: 0.8rem 0.95rem;
+}
+
+.statusMessageSuccess {
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  color: #a7f3d0;
+}
+
+.statusMessageError {
+  background: rgba(248, 113, 113, 0.14);
+  border: 1px solid rgba(248, 113, 113, 0.24);
+  color: #fecaca;
+}
+
+.list {
+  display: grid;
+  gap: 0.85rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.listItem {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.95rem 1rem;
+}
+
+.listHeader {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.pill {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.7rem;
+  text-transform: uppercase;
+}
+
+.pillPending {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+}
+
+.pillGranted {
+  background: rgba(16, 185, 129, 0.14);
+  color: #a7f3d0;
+}
+
+.pillRejected {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+}
+
+.muted {
+  color: rgba(226, 232, 240, 0.72);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.page {
+  color: #f8fafc;
+  min-height: 100%;
+  padding: 2rem 1rem 3rem;
+}
+
+.pageShell {
+  display: grid;
+  gap: 1.2rem;
+  margin: 0 auto;
+  max-width: 1120px;
+}
+
+.pageHero {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.eyebrow {
+  color: #7dd3fc;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.split {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.smallNote {
+  color: rgba(148, 163, 184, 0.95);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.toggleRow {
+  align-items: center;
+  display: flex;
+  gap: 0.85rem;
+  justify-content: space-between;
+}
+
+.emptyState {
+  color: rgba(226, 232, 240, 0.74);
+  margin: 0;
+}

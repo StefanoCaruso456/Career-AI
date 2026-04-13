@@ -31,6 +31,7 @@ export const workspaceShellByPersona: Record<Persona, WorkspaceShellConfig> = {
       "Anchor your authenticated workspace inside /account/* while the broader Career AI surfaces continue to evolve around it.",
     tabs: [
       { href: "/account", label: "Overview" },
+      { href: "/account/access-requests", label: "Access requests" },
       { href: "/account/settings", label: "Settings" },
     ],
   },

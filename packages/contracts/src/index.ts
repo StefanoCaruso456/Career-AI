@@ -1,5 +1,6 @@
 export * from "./admin";
 export * from "./access-control";
+export * from "./access-request-product";
 export * from "./agent-internal";
 export * from "./audit";
 export * from "./artifact";
