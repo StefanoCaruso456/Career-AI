@@ -7,7 +7,7 @@ import {
   resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
-import { getArtifactMetadata } from "@/packages/artifact-domain/src";
+import { deleteArtifact, getArtifactMetadata } from "@/packages/artifact-domain/src";
 
 type RouteContext = {
   params: Promise<{
@@ -16,6 +16,36 @@ type RouteContext = {
 };
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  const correlationId = getCorrelationId(request.headers);
+
+  try {
+    const actor = await resolveVerifiedActor(request, correlationId);
+    const { artifactId } = await context.params;
+    const artifact = getArtifactMetadata({
+      actorId: actor.actorId,
+      actorType: actor.actorType,
+      artifactId,
+      correlationId,
+    });
+
+    if (actor.actorType === "talent_user") {
+      assertTalentIdentityAccess(actor, artifact.owner_talent_id, correlationId);
+    } else {
+      assertAllowedActorTypes(
+        actor,
+        ["reviewer_admin", "system_service"],
+        correlationId,
+        "view artifact metadata",
+      );
+    }
+
+    return successResponse(artifact, correlationId);
+  } catch (error) {
+    return errorResponse(error, correlationId);
+  }
+}
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
@@ -33,11 +63,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
         actor,
         ["reviewer_admin", "system_service"],
         correlationId,
-        "view artifact metadata",
+        "delete artifacts",
       );
     }
 
-    return successResponse(artifact, correlationId);
+    deleteArtifact({
+      actorId: actor.actorId,
+      actorType: actor.actorType,
+      artifactId,
+      correlationId,
+    });
+
+    return successResponse(
+      {
+        artifactId,
+        deleted: true,
+      },
+      correlationId,
+    );
   } catch (error) {
     return errorResponse(error, correlationId);
   }

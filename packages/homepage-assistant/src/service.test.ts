@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createResponseMock,
   createTranscriptionMock,
+  createAuditEventRecordMock,
+  countPersistedAuditEventsMock,
   findPersistentContextByTalentIdentityIdMock,
   findPersistentRecruiterCandidateProjectionByLookupMock,
   findPersistentSharedRecruiterCandidateProjectionByLookupMock,
   getPersistentCareerBuilderProfileMock,
+  isDatabaseConfiguredMock,
   openAIConstructorMock,
   searchEmployerCandidatesMock,
   searchJobsCatalogMock,
@@ -15,10 +18,13 @@ const {
 } = vi.hoisted(() => ({
   createResponseMock: vi.fn(),
   createTranscriptionMock: vi.fn(),
+  createAuditEventRecordMock: vi.fn(),
+  countPersistedAuditEventsMock: vi.fn(),
   findPersistentContextByTalentIdentityIdMock: vi.fn(),
   findPersistentRecruiterCandidateProjectionByLookupMock: vi.fn(),
   findPersistentSharedRecruiterCandidateProjectionByLookupMock: vi.fn(),
   getPersistentCareerBuilderProfileMock: vi.fn(),
+  isDatabaseConfiguredMock: vi.fn(),
   openAIConstructorMock: vi.fn(),
   searchEmployerCandidatesMock: vi.fn(),
   searchJobsCatalogMock: vi.fn(),
@@ -52,12 +58,15 @@ vi.mock("@/packages/jobs-domain/src", () => ({
 }));
 
 vi.mock("@/packages/persistence/src", () => ({
+  countPersistedAuditEvents: countPersistedAuditEventsMock,
+  createAuditEventRecord: createAuditEventRecordMock,
   findPersistentContextByTalentIdentityId: findPersistentContextByTalentIdentityIdMock,
   findPersistentRecruiterCandidateProjectionByLookup:
     findPersistentRecruiterCandidateProjectionByLookupMock,
   findPersistentSharedRecruiterCandidateProjectionByLookup:
     findPersistentSharedRecruiterCandidateProjectionByLookupMock,
   getPersistentCareerBuilderProfile: getPersistentCareerBuilderProfileMock,
+  isDatabaseConfigured: isDatabaseConfiguredMock,
   listPersistentCareerBuilderEvidence: listPersistentCareerBuilderEvidenceMock,
 }));
 
@@ -142,10 +151,13 @@ describe("homepage assistant service", () => {
   beforeEach(() => {
     createResponseMock.mockReset();
     createTranscriptionMock.mockReset();
+    createAuditEventRecordMock.mockReset();
+    countPersistedAuditEventsMock.mockReset();
     findPersistentContextByTalentIdentityIdMock.mockReset();
     findPersistentRecruiterCandidateProjectionByLookupMock.mockReset();
     findPersistentSharedRecruiterCandidateProjectionByLookupMock.mockReset();
     getPersistentCareerBuilderProfileMock.mockReset();
+    isDatabaseConfiguredMock.mockReset();
     openAIConstructorMock.mockReset();
     searchEmployerCandidatesMock.mockReset();
     searchJobsCatalogMock.mockReset();
@@ -154,6 +166,7 @@ describe("homepage assistant service", () => {
     traceSpanMock.mockImplementation(
       (_options: unknown, callback: () => Promise<unknown> | unknown) => callback(),
     );
+    isDatabaseConfiguredMock.mockReturnValue(false);
     process.env.OPENAI_API_KEY = "test-openai-key";
     delete process.env.OPENAI_MODEL;
   });

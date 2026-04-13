@@ -27,6 +27,6 @@ export function getArtifactStore(): ArtifactStore {
   return globalThis.__taidArtifactStore;
 }
 
-export function resetArtifactStore() {
+export function resetInMemoryArtifactStore() {
   globalThis.__taidArtifactStore = createStore();
 }

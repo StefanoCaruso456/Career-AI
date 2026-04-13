@@ -1,7 +1,8 @@
 import type { CareerEvidenceTemplateId, VerificationStatus } from "@/packages/contracts/src";
 import {
   attachArtifactToClaim,
-  getArtifactStore,
+  getArtifactContentByteLength,
+  getArtifactMetadata,
   listArtifactsForClaim,
   uploadArtifact,
 } from "@/packages/artifact-domain/src";
@@ -1095,16 +1096,23 @@ function getExistingShareProfile(args: { talentIdentityId: string }) {
 }
 
 function getArtifactReferencesForClaim(args: { claimId: string }) {
-  const store = getArtifactStore();
-
   return listArtifactsForClaim(args.claimId)
-    .map((artifactId) => store.artifactsById.get(artifactId))
+    .map((artifactId) =>
+      getArtifactMetadata({
+        artifactId,
+        correlationId: `artifact_reference:${artifactId}`,
+      }),
+    )
     .filter((artifact): artifact is NonNullable<typeof artifact> => Boolean(artifact))
     .map((artifact) => ({
       artifactId: artifact.artifact_id,
       mimeType: artifact.mime_type,
       name: artifact.original_filename,
-      sizeLabel: formatBytes(store.contentsById.get(artifact.artifact_id)?.byteLength ?? 0),
+      sizeLabel: formatBytes(
+        getArtifactContentByteLength({
+          artifactId: artifact.artifact_id,
+        }),
+      ),
       uploadedAt: artifact.uploaded_at,
     }));
 }

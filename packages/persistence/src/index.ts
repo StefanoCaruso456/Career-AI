@@ -1,3 +1,4 @@
+export * from "./access-control-repository";
 export * from "./audit-log-repository";
 export * from "./client";
 export * from "./career-builder-repository";

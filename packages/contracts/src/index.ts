@@ -1,4 +1,5 @@
 export * from "./admin";
+export * from "./access-control";
 export * from "./audit";
 export * from "./artifact";
 export * from "./chat";

@@ -4,6 +4,8 @@ import type {
 } from "openai/resources/responses/responses";
 import { z, type ZodTypeAny } from "zod";
 import { traceSpan } from "@/lib/tracing";
+import { assertAgentToolPermission } from "@/packages/audit-security/src";
+import { ApiError } from "@/packages/contracts/src";
 import { searchJobsCatalog } from "@/packages/jobs-domain/src";
 import {
   findPersistentContextByTalentIdentityId,
@@ -529,6 +531,19 @@ export async function executeAgentToolCall<TResult = unknown>(args: {
 
       if (!input.success) {
         throw new AgentToolInputError(input.error.issues[0]?.message ?? "Invalid tool arguments.");
+      }
+
+      try {
+        await assertAgentToolPermission({
+          agentContext: args.agentContext,
+          toolName: tool.name,
+        });
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 403) {
+          throw new AgentToolPermissionError(tool.name);
+        }
+
+        throw error;
       }
 
       const authorized = await tool.isAuthorized?.({
