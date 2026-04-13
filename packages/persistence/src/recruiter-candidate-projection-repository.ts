@@ -759,3 +759,51 @@ export async function findPersistentRecruiterCandidateProjectionByLookup(args: {
 
   return row ? mapProjectionRow(row) : null;
 }
+
+export async function findPersistentSharedRecruiterCandidateProjectionByLookup(args: {
+  lookup: string;
+}) {
+  const trimmedLookup = args.lookup.replace(/\s+/g, " ").trim();
+
+  if (!trimmedLookup) {
+    return null;
+  }
+
+  const row = await queryOptional<ProjectionRow>(
+    getDatabasePool(),
+    `
+      SELECT
+        career_identity_id,
+        talent_agent_id,
+        role_type,
+        recruiter_visibility,
+        is_searchable,
+        display_name,
+        headline,
+        target_role,
+        location,
+        profile_summary,
+        current_employer,
+        prior_employers_json,
+        search_text,
+        search_keywords_json,
+        display_skills_json,
+        experience_highlights_json,
+        evidence_count,
+        verified_experience_count,
+        credibility_score,
+        verification_signal,
+        share_profile_id,
+        public_share_token,
+        updated_at
+      FROM recruiter_candidate_projections
+      WHERE share_profile_id = $1
+        OR LOWER(COALESCE(public_share_token, '')) = LOWER($2)
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `,
+    [trimmedLookup.toLowerCase(), trimmedLookup],
+  );
+
+  return row ? mapProjectionRow(row) : null;
+}

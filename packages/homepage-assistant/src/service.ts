@@ -7,6 +7,8 @@ import {
   type AgentConversationMessage,
 } from "@/packages/agent-runtime/src";
 import {
+  AgentToolInputError,
+  AgentToolPermissionError,
   executeAgentToolCall,
   homepageAssistantToolRegistry,
   listAgentToolsAsOpenAIFunctions,
@@ -14,7 +16,7 @@ import {
 import { getFallbackHomepageReply, getMatchedHomepageReply } from "./fallback";
 
 const homepageInstructions =
-  "You are the homepage assistant for Career AI. Reply with concise, high-signal answers focused on hiring verification, candidate identity, recruiter trust, and product workflows. When users ask what the agent does, explain that it turns their Career ID into a recruiter-ready trust layer by referencing identity, work history, education, and supporting proof so HR teams and recruiters can understand the candidate, ask better questions, and trust what they see faster. Keep answers clear and direct.";
+  "You are the homepage assistant for Career AI. Reply with concise, high-signal answers focused on hiring verification, candidate identity, recruiter trust, and product workflows. When users ask what the agent does, explain that it turns their Career ID into a recruiter-ready trust layer by referencing identity, work history, education, and supporting proof so HR teams and recruiters can understand the candidate, ask better questions, and trust what they see faster. Use available tools for live jobs, Career ID summaries, and public/shared candidate lookups instead of guessing. Keep answers clear and direct.";
 
 export type HomepageAssistantAttachment = {
   mimeType: string;
@@ -177,6 +179,30 @@ function buildToolOutputInput(args: { callId: string; output: unknown }) {
       type: "function_call_output" as const,
     },
   ];
+}
+
+function buildKnownToolErrorOutput(error: unknown) {
+  if (error instanceof AgentToolPermissionError) {
+    return {
+      error: {
+        code: "forbidden",
+        message: error.message,
+      },
+      ok: false,
+    };
+  }
+
+  if (error instanceof AgentToolInputError) {
+    return {
+      error: {
+        code: "invalid_input",
+        message: error.message,
+      },
+      ok: false,
+    };
+  }
+
+  return null;
 }
 
 async function runHomepageFallback(args: {
@@ -344,11 +370,23 @@ export async function generateHomepageAssistantReply(
         const toolCall = extractSingleFunctionToolCall(response);
 
         if (toolCall && options?.agentContext) {
-          const toolOutput = await executeAgentToolCall({
-            agentContext: options.agentContext,
-            registry: homepageAssistantToolRegistry,
-            toolCall,
-          });
+          let toolOutput: unknown;
+
+          try {
+            toolOutput = await executeAgentToolCall({
+              agentContext: options.agentContext,
+              registry: homepageAssistantToolRegistry,
+              toolCall,
+            });
+          } catch (error) {
+            const knownToolErrorOutput = buildKnownToolErrorOutput(error);
+
+            if (!knownToolErrorOutput) {
+              throw error;
+            }
+
+            toolOutput = knownToolErrorOutput;
+          }
           const followUpResponse = await traceSpan(
             {
               input: {

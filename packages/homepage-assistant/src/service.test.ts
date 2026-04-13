@@ -3,14 +3,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
   createResponseMock,
   createTranscriptionMock,
+  findPersistentContextByTalentIdentityIdMock,
+  findPersistentRecruiterCandidateProjectionByLookupMock,
+  findPersistentSharedRecruiterCandidateProjectionByLookupMock,
+  getPersistentCareerBuilderProfileMock,
   openAIConstructorMock,
+  searchEmployerCandidatesMock,
   searchJobsCatalogMock,
+  listPersistentCareerBuilderEvidenceMock,
   traceSpanMock,
 } = vi.hoisted(() => ({
   createResponseMock: vi.fn(),
   createTranscriptionMock: vi.fn(),
+  findPersistentContextByTalentIdentityIdMock: vi.fn(),
+  findPersistentRecruiterCandidateProjectionByLookupMock: vi.fn(),
+  findPersistentSharedRecruiterCandidateProjectionByLookupMock: vi.fn(),
+  getPersistentCareerBuilderProfileMock: vi.fn(),
   openAIConstructorMock: vi.fn(),
+  searchEmployerCandidatesMock: vi.fn(),
   searchJobsCatalogMock: vi.fn(),
+  listPersistentCareerBuilderEvidenceMock: vi.fn(),
   traceSpanMock: vi.fn(),
 }));
 
@@ -37,6 +49,20 @@ vi.mock("@/lib/braintrust", () => ({
 
 vi.mock("@/packages/jobs-domain/src", () => ({
   searchJobsCatalog: searchJobsCatalogMock,
+}));
+
+vi.mock("@/packages/persistence/src", () => ({
+  findPersistentContextByTalentIdentityId: findPersistentContextByTalentIdentityIdMock,
+  findPersistentRecruiterCandidateProjectionByLookup:
+    findPersistentRecruiterCandidateProjectionByLookupMock,
+  findPersistentSharedRecruiterCandidateProjectionByLookup:
+    findPersistentSharedRecruiterCandidateProjectionByLookupMock,
+  getPersistentCareerBuilderProfile: getPersistentCareerBuilderProfileMock,
+  listPersistentCareerBuilderEvidence: listPersistentCareerBuilderEvidenceMock,
+}));
+
+vi.mock("@/packages/recruiter-read-model/src", () => ({
+  searchEmployerCandidates: searchEmployerCandidatesMock,
 }));
 
 vi.mock("openai", () => ({
@@ -94,6 +120,21 @@ const agentContext: AgentContext = {
   },
 };
 
+const guestAgentContext: AgentContext = {
+  actor: {
+    authSource: "chat_owner_cookie",
+    guestSessionId: "guest_123",
+    id: "guest:guest_123",
+    kind: "guest_user",
+    preferredPersona: "job_seeker",
+    roleType: null,
+  },
+  ownerId: "guest:guest_123",
+  preferredPersona: "job_seeker",
+  roleType: null,
+  run: agentContext.run,
+};
+
 describe("homepage assistant service", () => {
   const originalApiKey = process.env.OPENAI_API_KEY;
   const originalModel = process.env.OPENAI_MODEL;
@@ -101,8 +142,14 @@ describe("homepage assistant service", () => {
   beforeEach(() => {
     createResponseMock.mockReset();
     createTranscriptionMock.mockReset();
+    findPersistentContextByTalentIdentityIdMock.mockReset();
+    findPersistentRecruiterCandidateProjectionByLookupMock.mockReset();
+    findPersistentSharedRecruiterCandidateProjectionByLookupMock.mockReset();
+    getPersistentCareerBuilderProfileMock.mockReset();
     openAIConstructorMock.mockReset();
+    searchEmployerCandidatesMock.mockReset();
     searchJobsCatalogMock.mockReset();
+    listPersistentCareerBuilderEvidenceMock.mockReset();
     traceSpanMock.mockReset();
     traceSpanMock.mockImplementation(
       (_options: unknown, callback: () => Promise<unknown> | unknown) => callback(),
@@ -229,12 +276,20 @@ describe("homepage assistant service", () => {
     expect(createResponseMock).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.stringContaining("User context:"),
-        tools: [
+        tools: expect.arrayContaining([
           expect.objectContaining({
             name: "search_jobs",
             type: "function",
           }),
-        ],
+          expect.objectContaining({
+            name: "get_career_id_summary",
+            type: "function",
+          }),
+          expect.objectContaining({
+            name: "search_candidates",
+            type: "function",
+          }),
+        ]),
       }),
     );
     expect(createResponseMock).toHaveBeenCalledWith(
@@ -338,6 +393,43 @@ describe("homepage assistant service", () => {
     ).resolves.toBe(getFallbackHomepageReply("Find backend engineer jobs"));
 
     consoleErrorMock.mockRestore();
+  });
+
+  it("passes known tool permission errors back through the model follow-up round", async () => {
+    createResponseMock
+      .mockResolvedValueOnce({
+        id: "resp_1",
+        output: [
+          {
+            arguments: JSON.stringify({}),
+            call_id: "call_1",
+            name: "get_career_id_summary",
+            type: "function_call",
+          },
+        ],
+        output_text: "",
+      })
+      .mockResolvedValueOnce({
+        output_text: "  Please sign in to access your Career ID summary.  ",
+      });
+
+    await expect(
+      generateHomepageAssistantReply("Summarize my Career ID", [], {
+        agentContext: guestAgentContext,
+      }),
+    ).resolves.toBe("Please sign in to access your Career ID summary.");
+
+    expect(createResponseMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        input: [
+          expect.objectContaining({
+            output: expect.stringContaining("\"code\":\"forbidden\""),
+            type: "function_call_output",
+          }),
+        ],
+      }),
+    );
   });
 
   it("mentions attached files in the fallback response", async () => {
