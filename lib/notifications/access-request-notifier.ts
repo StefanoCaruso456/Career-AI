@@ -147,8 +147,8 @@ export async function deliverAccessRequestCreatedNotifications(args: {
     });
 
     try {
-      const result = await sendAccessRequestEmail(
-        buildEmailBody({
+      const result = await sendAccessRequestEmail({
+        ...buildEmailBody({
           justification: requestRecord.justification,
           organizationName: requestRecord.organizationName,
           requestId: args.requestId,
@@ -157,7 +157,8 @@ export async function deliverAccessRequestCreatedNotifications(args: {
           reviewUrl: emailUrl,
           scopeLabel: requestRecord.scope.replaceAll("_", " "),
         }),
-      );
+        to: subjectContext.user.email,
+      });
 
       logNotificationAudit({
         actor: args.actor,

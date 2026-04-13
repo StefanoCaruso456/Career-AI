@@ -15,14 +15,21 @@ import {
   successResponse,
 } from "@/packages/audit-security/src";
 
+function getAuthenticatedTalentIdentityId(
+  actor: ReturnType<typeof resolveSessionAuthenticatedActor>,
+) {
+  return actor?.identity?.kind === "authenticated_user" ? actor.identity.talentIdentityId : null;
+}
+
 export async function GET(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
     const session = await auth();
     const actor = resolveSessionAuthenticatedActor(session?.user);
+    const talentIdentityId = getAuthenticatedTalentIdentityId(actor);
 
-    if (!actor?.identity?.talentIdentityId) {
+    if (!actor || !talentIdentityId) {
       throw new ApiError({
         errorCode: "UNAUTHORIZED",
         status: 401,
@@ -34,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const preferences = await getCandidateNotificationPreferences({
       correlationId,
-      talentIdentityId: actor.identity.talentIdentityId,
+      talentIdentityId,
     });
 
     return successResponse(preferences, correlationId);
@@ -49,8 +56,9 @@ export async function PATCH(request: NextRequest) {
   try {
     const session = await auth();
     const actor = resolveSessionAuthenticatedActor(session?.user);
+    const talentIdentityId = getAuthenticatedTalentIdentityId(actor);
 
-    if (!actor?.identity?.talentIdentityId) {
+    if (!actor || !talentIdentityId) {
       throw new ApiError({
         errorCode: "UNAUTHORIZED",
         status: 401,
@@ -65,7 +73,7 @@ export async function PATCH(request: NextRequest) {
       actor,
       correlationId,
       input: payload,
-      talentIdentityId: actor.identity.talentIdentityId,
+      talentIdentityId,
     });
 
     return successResponse(preferences, correlationId);
