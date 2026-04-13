@@ -227,6 +227,10 @@
   max-width: 1120px;
 }
 
+.pageShellHeaderOffset {
+  padding-top: max(3.5rem, calc(var(--site-header-clearance) - 3rem));
+}
+
 .pageHero {
   display: grid;
   gap: 0.75rem;

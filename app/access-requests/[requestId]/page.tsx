@@ -88,7 +88,7 @@ export default async function AccessRequestReviewPage({
 
     return (
       <main className={styles.page}>
-        <div className={styles.pageShell}>
+        <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
           <section className={styles.pageHero}>
             <span className={styles.eyebrow}>Secure review</span>
             <h1>Review Career ID access request</h1>
@@ -196,7 +196,7 @@ export default async function AccessRequestReviewPage({
 
     return (
       <main className={styles.page}>
-        <div className={styles.pageShell}>
+        <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
           <section className={styles.card}>
             <div className={styles.stack}>
               <span className={styles.eyebrow}>Review unavailable</span>
