@@ -62,13 +62,13 @@ export default async function EmployerCandidatesPage({
             <p className={styles.subtitle}>
               {trace
                 ? "Review the recruiter-safe Career ID trace, including persisted profile data, visibility-aware evidence, and current trust-link access for this single job seeker."
-                : "Use a Career ID, candidate identifier, or trust-profile lookup from the employer sourcer rail to open recruiter-safe candidate detail here."}
+                : "Use a Career ID, candidate identifier, or trust-profile lookup from the employer workspace to open recruiter-safe candidate detail here."}
             </p>
           </div>
 
           <div className={styles.heroActions}>
             <Link className={styles.primaryAction} href="/employer">
-              Back to employer sourcer
+              Back to employer workspace
             </Link>
             {trace?.actions.trustProfileUrl ? (
               <Link className={styles.secondaryAction} href={trace.actions.trustProfileUrl}>
@@ -83,7 +83,7 @@ export default async function EmployerCandidatesPage({
             <h2>No recruiter-safe candidate matched that lookup.</h2>
             <p>
               We did not find a Career ID candidate for <strong>{lookupValue}</strong>. Return to
-              the employer sourcer and try another identifier.
+              the employer workspace and try another identifier.
             </p>
           </section>
         ) : null}

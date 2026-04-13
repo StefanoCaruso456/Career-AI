@@ -36,23 +36,23 @@ describe("HeaderCenterTab", () => {
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
   });
 
-  it("renders Agent Sorcerer in the floating header for employer routes", () => {
+  it("renders Candidates in the floating header for employer routes", () => {
     mockUsePathname.mockReturnValue("/employer");
 
     render(<HeaderCenterTab />);
 
-    const link = screen.getByRole("link", { name: "Agent Sorcerer" });
-    expect(link).toHaveAttribute("href", "/employer/agent-sorcerer");
+    const link = screen.getByRole("link", { name: "Candidates" });
+    expect(link).toHaveAttribute("href", "/employer/candidates");
     expect(link).not.toHaveAttribute("aria-current");
   });
 
-  it("marks Agent Sorcerer as current on the employer agent route", () => {
-    mockUsePathname.mockReturnValue("/employer/agent-sorcerer");
+  it("marks Candidates as current on the employer candidates route", () => {
+    mockUsePathname.mockReturnValue("/employer/candidates");
 
     render(<HeaderCenterTab />);
 
-    const link = screen.getByRole("link", { name: "Agent Sorcerer" });
-    expect(link).toHaveAttribute("href", "/employer/agent-sorcerer");
+    const link = screen.getByRole("link", { name: "Candidates" });
+    expect(link).toHaveAttribute("href", "/employer/candidates");
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.navTabCurrent);
   });
@@ -75,7 +75,7 @@ describe("HeaderCenterTab", () => {
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
-    expect(screen.queryByRole("link", { name: "Agent Sorcerer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Candidates" })).not.toBeInTheDocument();
   });
 
   it("keeps onboarding routes on the public navigation tabs", () => {
@@ -85,6 +85,6 @@ describe("HeaderCenterTab", () => {
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
-    expect(screen.queryByRole("link", { name: "Agent Sorcerer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Candidates" })).not.toBeInTheDocument();
   });
 });

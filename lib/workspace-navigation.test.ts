@@ -2,17 +2,20 @@ import { describe, expect, it } from "vitest";
 import { workspaceShellByPersona } from "@/lib/workspace-navigation";
 
 describe("workspaceShellByPersona", () => {
-  it("keeps Agent Sorcerer inside the employer client tabs", () => {
+  it("keeps Candidates inside the employer workspace tabs", () => {
     expect(workspaceShellByPersona.employer.tabs).toContainEqual({
-      href: "/employer/agent-sorcerer",
-      label: "Agent Sorcerer",
+      href: "/employer/candidates",
+      label: "Candidates",
     });
   });
 
-  it("does not rename the shared job seeker builder tab through employer nav config", () => {
-    expect(
-      workspaceShellByPersona.job_seeker.tabs.some((tab) => tab.label === "Agent Sorcerer"),
-    ).toBe(false);
+  it("does not keep the retired Agent Sorcerer tab in employer or job seeker nav", () => {
+    expect(workspaceShellByPersona.employer.tabs.some((tab) => tab.label === "Agent Sorcerer")).toBe(
+      false,
+    );
+    expect(workspaceShellByPersona.job_seeker.tabs.some((tab) => tab.label === "Agent Sorcerer")).toBe(
+      false,
+    );
   });
 
   it("keeps route implementation details out of workspace shell copy", () => {

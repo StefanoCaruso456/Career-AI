@@ -20,7 +20,6 @@ export const workspaceShellByPersona: Record<Persona, WorkspaceShellConfig> = {
     tabs: [
       { href: "/employer", label: "Overview" },
       { href: "/employer/candidates", label: "Candidates" },
-      { href: "/employer/agent-sorcerer", label: "Agent Sorcerer" },
       { href: "/employer/roles", label: "Roles" },
       { href: "/employer/settings", label: "Settings" },
     ],
