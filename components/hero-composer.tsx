@@ -2864,6 +2864,7 @@ export function HeroComposer({
     const isRenaming = sidebarRenameDraft?.id === id && sidebarRenameDraft.type === type;
     const entityLabel = getSidebarEntityLabel(type);
     const menuId = `${sidebarId}-${type}-${id}-menu`;
+    const shouldPersistMenuTriggerVisibility = type === "project" && isActive;
 
     return (
       <div
@@ -2952,23 +2953,27 @@ export function HeroComposer({
                 ) : null}
               </span>
             </button>
-            {supplementalAction}
-            <button
-              aria-controls={menuId}
-              aria-expanded={isMenuOpen}
-              aria-haspopup="menu"
-              aria-label={`${capitalizeLabel(entityLabel)} actions`}
-              className={[
-                styles.chatSidebarItemMenuTrigger,
-                isMenuOpen ? styles.chatSidebarItemMenuTriggerVisible : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => toggleSidebarActionMenu(type, id)}
-              type="button"
-            >
-              <Ellipsis aria-hidden="true" size={16} strokeWidth={2.1} />
-            </button>
+            <div className={styles.chatSidebarItemActions}>
+              {supplementalAction}
+              <button
+                aria-controls={menuId}
+                aria-expanded={isMenuOpen}
+                aria-haspopup="menu"
+                aria-label={`${capitalizeLabel(entityLabel)} actions`}
+                className={[
+                  styles.chatSidebarItemMenuTrigger,
+                  isMenuOpen || shouldPersistMenuTriggerVisibility
+                    ? styles.chatSidebarItemMenuTriggerVisible
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => toggleSidebarActionMenu(type, id)}
+                type="button"
+              >
+                <Ellipsis aria-hidden="true" size={16} strokeWidth={2.1} />
+              </button>
+            </div>
 
             {isMenuOpen ? (
               <div

@@ -522,6 +522,40 @@ describe("HeroComposer", () => {
     expect(screen.getByRole("button", { name: "Hiring intro chat" })).toBeInTheDocument();
   });
 
+  it("opens project rename mode from the active project actions menu", async () => {
+    const project = createProject("project_verified_profile", "Verified profile");
+    const conversation = {
+      ...createConversation("conversation_sidebar", project.id, [
+        createMessage("message_sidebar_user", "user", "Show me the latest updates."),
+      ]),
+      label: "Hiring intro chat",
+    };
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(createWorkspaceSnapshot([project], [conversation]));
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Expand conversation sidebar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Project actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Rename project" }));
+
+    const renameInput = await screen.findByRole("textbox", {
+      name: "Rename project",
+    });
+
+    expect(renameInput).toHaveValue("Verified profile");
+  });
+
   it("shows Find NEW Jobs first in the landing pill stack and uses it to open jobs assist", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
     const conversation = createConversation("conversation_jobs", "project_jobs", [
