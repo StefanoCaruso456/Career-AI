@@ -48,7 +48,6 @@ export async function submitBasicProfile(formData: FormData) {
     input: {
       firstName: String(formData.get("firstName") ?? ""),
       lastName: String(formData.get("lastName") ?? ""),
-      imageUrl: String(formData.get("imageUrl") ?? ""),
     },
   });
 

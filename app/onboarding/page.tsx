@@ -147,15 +147,6 @@ export default async function OnboardingPage() {
                   <span>Last name</span>
                   <input defaultValue={context.user.lastName} name="lastName" required type="text" />
                 </label>
-                <label className={styles.field}>
-                  <span>Avatar URL</span>
-                  <input
-                    defaultValue={context.user.imageUrl ?? ""}
-                    name="imageUrl"
-                    placeholder="https://..."
-                    type="url"
-                  />
-                </label>
                 <button className={styles.primaryAction} type="submit">
                   Save and continue
                 </button>
