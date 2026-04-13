@@ -7,8 +7,8 @@ const mocks = vi.hoisted(() => ({
   getIdentityServiceMetrics: vi.fn(),
   getRecruiterReadModelMetrics: vi.fn(),
   getVerificationServiceMetrics: vi.fn(),
+  getAuditEventCount: vi.fn(),
   isDatabaseConfigured: vi.fn(),
-  listAuditEvents: vi.fn(),
 }));
 
 vi.mock("@/packages/admin-ops/src", () => ({
@@ -16,7 +16,7 @@ vi.mock("@/packages/admin-ops/src", () => ({
 }));
 
 vi.mock("@/packages/audit-security/src", () => ({
-  listAuditEvents: mocks.listAuditEvents,
+  getAuditEventCount: mocks.getAuditEventCount,
 }));
 
 vi.mock("@/packages/artifact-domain/src", () => ({
@@ -50,9 +50,9 @@ beforeEach(() => {
 
   mocks.getArtifactServiceMetrics.mockReturnValue({ artifacts: 0 });
   mocks.getCredentialServiceMetrics.mockReturnValue({ claims: 0 });
+  mocks.getAuditEventCount.mockResolvedValue(0);
   mocks.getRecruiterReadModelMetrics.mockReturnValue({ recruiterProfiles: 0 });
   mocks.getVerificationServiceMetrics.mockReturnValue({ records: 0 });
-  mocks.listAuditEvents.mockReturnValue([]);
 });
 
 describe("GET /api/v1/health", () => {

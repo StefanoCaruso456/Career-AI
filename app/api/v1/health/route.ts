@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminOpsMetrics } from "@/packages/admin-ops/src";
-import { listAuditEvents } from "@/packages/audit-security/src";
+import { getAuditEventCount } from "@/packages/audit-security/src";
 import { getArtifactServiceMetrics } from "@/packages/artifact-domain/src";
 import { getCredentialServiceMetrics } from "@/packages/credential-domain/src";
 import { getIdentityServiceMetrics } from "@/packages/identity-domain/src";
@@ -61,6 +61,7 @@ export async function GET() {
   const databaseHealth = await getDatabaseHealth();
   const databaseBackedServiceStatus =
     databaseHealth.status === "up" ? "up" : "degraded";
+  const auditEventCount = await getAuditEventCount();
 
   return NextResponse.json({
     status: databaseHealth.status === "up" ? "ok" : "degraded",
@@ -81,7 +82,7 @@ export async function GET() {
       verification: getVerificationServiceMetrics(),
       recruiterReadModel: getRecruiterReadModelMetrics(),
       adminOps: databaseHealth.adminOpsMetrics,
-      auditEvents: listAuditEvents().length,
+      auditEvents: auditEventCount,
     },
     warnings: databaseHealth.reason ? [databaseHealth.reason] : [],
     generatedAt: new Date().toISOString(),

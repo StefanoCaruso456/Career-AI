@@ -9,6 +9,7 @@ export const auditEventSchema = z.object({
   target_type: z.string(),
   target_id: z.string(),
   correlation_id: z.string(),
+  run_id: z.string().nullable().optional(),
   occurred_at: z.string().datetime(),
   metadata_json: z.record(z.string(), z.unknown()),
 });
