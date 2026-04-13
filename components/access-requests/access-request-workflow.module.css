@@ -228,7 +228,7 @@
 }
 
 .pageShellHeaderOffset {
-  padding-top: max(3.5rem, calc(var(--site-header-clearance) - 3rem));
+  padding-top: max(5.75rem, calc(var(--site-header-clearance) - 0.5rem));
 }
 
 .pageHero {
