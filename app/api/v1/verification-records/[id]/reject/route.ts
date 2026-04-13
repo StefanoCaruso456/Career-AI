@@ -3,8 +3,8 @@ import { z } from "zod";
 import {
   assertReviewerAccess,
   errorResponse,
-  getAuthenticatedActor,
   getCorrelationId,
+  resolveVerifiedActor,
   successResponse,
 } from "@/packages/audit-security/src";
 import { rejectVerificationRecord } from "@/packages/verification-domain/src";
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const correlationId = getCorrelationId(request.headers);
 
   try {
-    const actor = getAuthenticatedActor(request.headers, correlationId);
+    const actor = await resolveVerifiedActor(request, correlationId);
     assertReviewerAccess(actor, correlationId, "reject verification records");
     const { id } = await context.params;
     const body = rejectVerificationInputSchema.parse(await request.json());
