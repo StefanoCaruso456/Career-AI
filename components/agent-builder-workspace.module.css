@@ -50,8 +50,11 @@
 }
 
 .heroCopy {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+  min-height: 100%;
   gap: 0;
 }
 
@@ -64,7 +67,8 @@
 .heroContextBlock {
   display: grid;
   gap: 1.45rem;
-  margin-top: clamp(5.6rem, 13vw, 11.25rem);
+  margin-top: auto;
+  padding-top: clamp(7.5rem, 14vw, 12rem);
 }
 
 .sectionEyebrow {
@@ -848,7 +852,7 @@
   }
 
   .heroContextBlock {
-    margin-top: clamp(4rem, 9vw, 6.75rem);
+    padding-top: clamp(4.75rem, 10vw, 7rem);
   }
 
   .supportPanel {
@@ -944,7 +948,7 @@
   }
 
   .heroContextBlock {
-    margin-top: 3.2rem;
+    padding-top: 3.5rem;
     gap: 1.15rem;
   }
 }
