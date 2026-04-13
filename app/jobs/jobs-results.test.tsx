@@ -402,6 +402,144 @@ describe("JobsResults", () => {
     expect(screen.getByText("53 jobs available")).toBeInTheDocument();
   });
 
+  it("keeps role filters working from the saved catalog while a stale snapshot refresh is still pending", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      title: `Account Executive ${index + 1}`,
+      department: "Sales",
+      companyName: "Cisco",
+      sourceKey: "greenhouse:cisco",
+      sourceLabel: "Cisco",
+    }));
+    const expandedJobs = [
+      ...initialJobs,
+      {
+        ...createJob(25),
+        title: "Content Designer Advisor",
+        department: "Design",
+        companyName: "Dell Technologies",
+        sourceKey: "workday:dell",
+        sourceLabel: "Dell Technologies",
+      },
+    ];
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        if (url === "/api/v1/jobs?limit=24&refresh=1") {
+          return new Promise<Response>(() => {});
+        }
+
+        if (url === "/api/v1/jobs?limit=25") {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                generatedAt: "2026-04-12T12:45:00.000Z",
+                jobs: expandedJobs,
+                sources: [
+                  {
+                    key: "greenhouse:cisco",
+                    label: "Cisco",
+                    lane: "ats_direct",
+                    quality: "high_signal",
+                    status: "connected",
+                    jobCount: initialJobs.length,
+                    endpointLabel: "boards-api.greenhouse.io/cisco",
+                    lastSyncedAt: "2026-04-12T12:45:00.000Z",
+                    message: "Cisco public jobs synced and ready to persist.",
+                  },
+                  {
+                    key: "workday:dell",
+                    label: "Dell Technologies",
+                    lane: "ats_direct",
+                    quality: "high_signal",
+                    status: "connected",
+                    jobCount: 1,
+                    endpointLabel: "dell.wd1.myworkdayjobs.com",
+                    lastSyncedAt: "2026-04-12T12:45:00.000Z",
+                    message: "Dell public jobs synced and ready to persist.",
+                  },
+                ],
+                summary: {
+                  totalJobs: expandedJobs.length,
+                  directAtsJobs: expandedJobs.length,
+                  aggregatorJobs: 0,
+                  sourceCount: 2,
+                  connectedSourceCount: 2,
+                  highSignalSourceCount: 2,
+                  coverageSourceCount: 0,
+                },
+                storage: {
+                  mode: "database",
+                  persistedJobs: expandedJobs.length,
+                  persistedSources: 2,
+                  lastSyncAt: "2026-04-12T12:45:00.000Z",
+                },
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            ),
+          );
+        }
+
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }),
+    );
+
+    render(
+      <JobsResults
+        initialLastSyncAt="2026-04-10T12:45:00.000Z"
+        initialRequestLimit={24}
+        initialStorageMode="database"
+        initialTotalAvailableCount={25}
+        jobs={initialJobs}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Role type"), {
+      target: { value: "product-design" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Content Designer Advisor")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText("Showing 1 of 1 matching role from 25 loaded while the snapshot refreshes..."),
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces an expanded search error instead of staying stuck on the checking state forever", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      title: `Account Executive ${index + 1}`,
+      department: "Sales",
+    }));
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("Expanded snapshot request failed.");
+      }),
+    );
+
+    render(
+      <JobsResults initialRequestLimit={24} initialTotalAvailableCount={25} jobs={initialJobs} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Role type"), {
+      target: { value: "product-design" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("The full jobs catalog could not be expanded right now.")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Retry search all jobs" })).toBeInTheDocument();
+  });
+
   it("checks the full jobs window before declaring no matches for active filters", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),
@@ -541,6 +679,40 @@ describe("JobsResults", () => {
     expect(screen.getByText("Machine Learning Engineer")).toBeInTheDocument();
     expect(screen.getByText("Frontend Engineer")).toBeInTheDocument();
     expect(screen.getByText("Product Manager, AI Platform")).toBeInTheDocument();
+  });
+
+  it("maps broader design titles into the product design role filter", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        title: "Content Designer Advisor",
+        companyName: "Dell Technologies",
+        department: "Design",
+      },
+      {
+        ...createJob(2),
+        title: "UX Researcher",
+        companyName: "Adobe",
+        department: "Design",
+      },
+      {
+        ...createJob(3),
+        title: "Software Engineer",
+        companyName: "Cisco",
+        department: "Engineering",
+      },
+    ];
+
+    render(<JobsResults jobs={jobs} />);
+
+    fireEvent.change(screen.getByLabelText("Role type"), {
+      target: { value: "product-design" },
+    });
+
+    expect(screen.getByText("Content Designer Advisor")).toBeInTheDocument();
+    expect(screen.getByText("UX Researcher")).toBeInTheDocument();
+    expect(screen.queryByText("Software Engineer")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 matching roles from 3 loaded.")).toBeInTheDocument();
   });
 
   it("filters salary text into annualized salary bands", () => {
