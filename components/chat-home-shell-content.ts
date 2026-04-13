@@ -220,7 +220,8 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTagline: "Clearer proof. Faster reviews. Better hiring confidence.",
     footerTitle: "Give every hiring team one recruiter-safe trust surface to review.",
     heroComposer: {
-      composerPlaceholder: "Ask about candidate credibility, screening friction, or hiring alignment.",
+      composerPlaceholder:
+        "Search jobs, learn how to build your Career ID, search Career IDs, or source candidates.",
       expandedComposerPlaceholder:
         "Paste a job description or describe the candidate you want to find.",
       initialProjects: [
@@ -454,7 +455,8 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTagline: "Portable identity. Explicit trust. Audit-ready hiring.",
     footerTitle: "Make candidate identity portable, verified, and recruiter-readable.",
     heroComposer: {
-      composerPlaceholder: "Ask about verification workflows, recruiter trust views, or candidate proof.",
+      composerPlaceholder:
+        "Search jobs, learn how to build your Career ID, search Career IDs, or source candidates.",
       initialProjects: [
         { id: "project-verified-profile", label: "Verified profile" },
         { id: "project-career-story", label: "Career story" },
