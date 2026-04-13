@@ -55,6 +55,30 @@ function buildDefaultOrganizationName(name: string | null | undefined, email: st
   return "Recruiting Workspace";
 }
 
+function parseRequestedDurationDays(metadataJson: Record<string, unknown> | null | undefined) {
+  const value = metadataJson?.requested_duration_days;
+
+  if (typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 365) {
+    return value;
+  }
+
+  return null;
+}
+
+function buildRequestedExpiryFromRequestMetadata(
+  metadataJson: Record<string, unknown> | null | undefined,
+) {
+  const requestedDurationDays = parseRequestedDurationDays(metadataJson);
+
+  if (!requestedDurationDays) {
+    return null;
+  }
+
+  const expiresAt = new Date();
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + requestedDurationDays);
+  return expiresAt.toISOString();
+}
+
 function requireSessionUserId(actor: AuthenticatedActor, correlationId: string) {
   if (actor.identity?.kind === "authenticated_user" && actor.identity.appUserId) {
     return actor.identity.appUserId;
@@ -220,6 +244,7 @@ export async function createScopedAccessRequest(args: {
   actor: AuthenticatedActor;
   correlationId: string;
   justification: string;
+  metadataJsonOptional?: Record<string, unknown>;
   organizationId?: string | null;
   scope: AccessScope;
   subjectTalentIdentityId: string;
@@ -288,6 +313,7 @@ export async function createScopedAccessRequest(args: {
   const request = await createAccessRequestRecord({
     justification: args.justification,
     metadataJson: {
+      ...(args.metadataJsonOptional ?? {}),
       requester_actor_id: args.actor.actorId,
     },
     organizationId: membership.organizationId,
@@ -390,12 +416,19 @@ export async function grantScopedAccessRequest(args: {
     subjectTalentIdentityId: request.subjectTalentIdentityId,
   });
 
+  const effectiveExpiresAt =
+    args.expiresAt ?? buildRequestedExpiryFromRequestMetadata(request.metadataJson);
+  const nextMetadataJson = {
+    ...(request.metadataJson ?? {}),
+    ...(args.note ? { resolution_note: args.note } : {}),
+  };
+
   const grant = await createAccessGrantRecord({
     accessRequestId: request.id,
-    expiresAt: args.expiresAt ?? null,
+    expiresAt: effectiveExpiresAt ?? null,
     grantedByActorId: args.actor.actorId,
     grantedByActorType: args.actor.actorType,
-    metadataJson: args.note ? { note: args.note } : {},
+    metadataJson: nextMetadataJson,
     organizationId: request.organizationId,
     scope: request.scope,
     subjectTalentIdentityId: request.subjectTalentIdentityId,
@@ -404,7 +437,7 @@ export async function grantScopedAccessRequest(args: {
   await markAccessRequestGranted({
     grantedByActorId: args.actor.actorId,
     grantedByActorType: args.actor.actorType,
-    metadataJson: args.note ? { note: args.note } : {},
+    metadataJson: nextMetadataJson,
     requestId: request.id,
   });
 
@@ -465,8 +498,13 @@ export async function rejectScopedAccessRequest(args: {
     subjectTalentIdentityId: request.subjectTalentIdentityId,
   });
 
+  const nextMetadataJson = {
+    ...(request.metadataJson ?? {}),
+    ...(args.note ? { resolution_note: args.note } : {}),
+  };
+
   const updatedRequest = await markAccessRequestRejected({
-    metadataJson: args.note ? { note: args.note } : {},
+    metadataJson: nextMetadataJson,
     rejectedByActorId: args.actor.actorId,
     rejectedByActorType: args.actor.actorType,
     requestId: request.id,

@@ -53,6 +53,25 @@ function toAuthenticatedActor(identity: ActorIdentity, authMethod: Exclude<AuthM
   };
 }
 
+export function createAuthenticatedActorFromIdentity(
+  identity: ActorIdentity,
+  authMethod: Exclude<AuthMethod, "public"> = identity.kind === "internal_service"
+    ? "internal_service"
+    : "session",
+): AuthenticatedActor {
+  return toAuthenticatedActor(identity, authMethod);
+}
+
+export function resolveSessionAuthenticatedActor(user: Parameters<typeof resolveAuthenticatedActorIdentity>[0]) {
+  const identity = resolveAuthenticatedActorIdentity(user);
+
+  if (!identity) {
+    return null;
+  }
+
+  return createAuthenticatedActorFromIdentity(identity, "session");
+}
+
 function parseInternalServiceCredential(entry: string): InternalServiceCredential | null {
   const normalizedEntry = entry.trim();
 

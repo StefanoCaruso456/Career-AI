@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RecruiterAccessRequestPanel } from "@/components/access-requests/recruiter-access-request-panel";
 import { ApiError } from "@/packages/contracts/src";
 import { getEmployerCandidateTrace } from "@/packages/recruiter-read-model/src";
 import styles from "./page.module.css";
@@ -226,6 +227,11 @@ export default async function EmployerCandidatesPage({
                   <p>Employment records are not visible for this candidate trace.</p>
                 )}
               </div>
+
+              <RecruiterAccessRequestPanel
+                candidateId={trace.candidate.candidateId}
+                candidateName={trace.candidate.fullName}
+              />
             </section>
 
             <aside className={styles.sidePanel}>
