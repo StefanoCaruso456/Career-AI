@@ -1,11 +1,13 @@
 import "server-only";
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { currentSpan, traced as braintrustTraced, type Span } from "braintrust";
 import {
   fetchObservedSpansForRoot,
   flushBraintrust,
   getBraintrustLogger,
+  runWithBraintrustRootSpan,
+  runWithCurrentBraintrustSpan,
+  type BraintrustSpanLike,
 } from "@/lib/braintrust";
 
 type TraceSpanType = "function" | "llm" | "task";
@@ -142,7 +144,11 @@ function filterTraceMetrics(metrics?: Record<string, number | null | undefined>)
   return Object.fromEntries(normalizedEntries);
 }
 
-function logSpanOutput<TResult>(options: TraceSpanOptions<TResult>, span: Span, result: TResult) {
+function logSpanOutput<TResult>(
+  options: TraceSpanOptions<TResult>,
+  span: BraintrustSpanLike,
+  result: TResult,
+) {
   const output =
     typeof options.output === "function"
       ? options.output(result)
@@ -168,7 +174,7 @@ function logSpanOutput<TResult>(options: TraceSpanOptions<TResult>, span: Span, 
 
 function logSpanError<TResult>(
   options: TraceSpanOptions<TResult>,
-  span: Span,
+  span: BraintrustSpanLike,
   error: unknown,
 ): never {
   span.log({
@@ -204,20 +210,20 @@ export function updateRequestTraceContext(
 
 export function traceSpan<TResult>(
   options: TraceSpanOptions<TResult>,
-  callback: (span: Span) => TResult,
+  callback: (span: BraintrustSpanLike) => TResult,
 ): TResult;
 export function traceSpan<TResult>(
   options: TraceSpanOptions<TResult>,
-  callback: (span: Span) => Promise<TResult>,
+  callback: (span: BraintrustSpanLike) => Promise<TResult>,
 ): Promise<TResult>;
 export function traceSpan<TResult>(
   options: TraceSpanOptions<TResult>,
-  callback: (span: Span) => TResult | Promise<TResult>,
+  callback: (span: BraintrustSpanLike) => TResult | Promise<TResult>,
 ) {
   const eventMetadata = buildTraceMetadata(options.metadata);
   const eventTags = buildTraceTags(options.tags);
 
-  return currentSpan().traced(
+  return runWithCurrentBraintrustSpan(
     (span) => {
       try {
         const result = callback(span);
@@ -273,7 +279,7 @@ export function withTracedRoute(
     let response!: Response;
 
     try {
-      response = await braintrustTraced(
+      response = await runWithBraintrustRootSpan(
         async (rootSpan) =>
           requestTraceContextStorage.run(
             Object.assign(routeContext, {
