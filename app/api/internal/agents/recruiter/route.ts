@@ -9,59 +9,102 @@ import {
   buildRecruiterAgentContext,
   createInternalAgentErrorResponse,
   createInternalAgentResponse,
+  logInternalAgentRequestReceived,
+  parseInternalAgentRequest,
+  reserveInternalAgentQuota,
   resolveInternalAgentRouteContext,
+  traceInternalAgentInvocation,
 } from "../_shared";
+import { getInternalAgentRouteDefinition } from "@/lib/internal-agents/registry";
 
-const recruiterToolRegistry = filterAgentToolRegistry(homepageAssistantToolRegistry, [
-  "search_jobs",
-  "get_career_id_summary",
-  "search_candidates",
-  "get_claim_details",
-  "get_verification_record",
-  "list_provenance_records",
-]);
-
-const recruiterInstructions =
-  "You are the internal recruiter agent for Career AI. Focus on recruiter-safe sourcing, public/shared candidate context, and access-controlled verification details only when server-side permissions allow them. Do not imply access based on persona alone.";
+const recruiterDefinition = getInternalAgentRouteDefinition("recruiter");
+const recruiterToolRegistry = filterAgentToolRegistry(
+  homepageAssistantToolRegistry,
+  recruiterDefinition.allowedTools,
+);
 
 export const runtime = "nodejs";
 
 async function handleRecruiterAgentPost(request: Request) {
+  let requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  let quota = null;
+  let routeContext:
+    | Awaited<ReturnType<typeof resolveInternalAgentRouteContext>>
+    | null = null;
+
   try {
-    const routeContext = await resolveInternalAgentRouteContext(
+    routeContext = await resolveInternalAgentRouteContext(request, "recruiter");
+    const activeRouteContext = routeContext;
+    const parsedRequest = await parseInternalAgentRequest({
+      definition: activeRouteContext.definition,
+      fallbackRequestId: activeRouteContext.fallbackRequestId,
+      legacySchema: recruiterAgentRequestSchema,
       request,
-      "invoke internal recruiter agent endpoint",
-    );
-    const payload = recruiterAgentRequestSchema.parse(await request.json());
-    const agentContext = await buildRecruiterAgentContext({
-      correlationId: routeContext.correlationId,
-      organizationId: payload.organizationId,
-      runContext: routeContext.runContext,
-      userId: payload.userId,
     });
-    const result = await generateHomepageAssistantReplyDetailed(payload.message, [], {
-      agentContext,
-      conversationMessages: payload.messages,
-      instructions: recruiterInstructions,
-      runtimeMode: "bounded_loop",
-      toolRegistry: recruiterToolRegistry,
-      workflowId: "internal_recruiter_agent",
+    requestId = parsedRequest.requestId;
+    quota = reserveInternalAgentQuota({
+      correlationId: activeRouteContext.correlationId,
+      definition: activeRouteContext.definition,
+      requestId: parsedRequest.requestId,
+      runId: activeRouteContext.runContext.runId,
+      serviceActor: activeRouteContext.serviceActor,
+    });
+
+    logInternalAgentRequestReceived({
+      correlationId: activeRouteContext.correlationId,
+      definition: activeRouteContext.definition,
+      requestId: parsedRequest.requestId,
+      runId: activeRouteContext.runContext.runId,
+      serviceActor: activeRouteContext.serviceActor,
+      version: parsedRequest.version,
+    });
+
+    const agentContext = await buildRecruiterAgentContext({
+      correlationId: activeRouteContext.correlationId,
+      organizationId: parsedRequest.payload.organizationId,
+      runContext: activeRouteContext.runContext,
+      userId: parsedRequest.payload.userId,
+    });
+    const result = await traceInternalAgentInvocation({
+      definition: activeRouteContext.definition,
+      invoke: () =>
+        generateHomepageAssistantReplyDetailed(parsedRequest.payload.message, [], {
+          agentContext,
+          conversationMessages: parsedRequest.payload.messages,
+          instructions: activeRouteContext.definition.instructions,
+          runtimeMode: "bounded_loop",
+          toolRegistry: recruiterToolRegistry,
+          workflowId: activeRouteContext.definition.workflowId,
+        }),
+      requestId: parsedRequest.requestId,
+      serviceActor: activeRouteContext.serviceActor,
+      version: parsedRequest.version,
     });
 
     return createInternalAgentResponse({
-      correlationId: routeContext.correlationId,
+      correlationId: activeRouteContext.correlationId,
+      definition: activeRouteContext.definition,
+      durationMs: Date.now() - activeRouteContext.startedAt,
+      quota,
       reply: result.text,
-      role: "recruiter",
+      requestId: parsedRequest.requestId,
       runId: agentContext.run.runId,
+      serviceActor: activeRouteContext.serviceActor,
       stepsUsed: result.stepsUsed,
       stopReason: result.stopReason,
       toolCallsUsed: result.toolCallsUsed,
     });
   } catch (error) {
-    return createInternalAgentErrorResponse(
+    return createInternalAgentErrorResponse({
+      correlationId: routeContext?.correlationId ?? (request.headers.get("x-correlation-id") ?? crypto.randomUUID()),
+      definition: routeContext?.definition ?? recruiterDefinition,
+      durationMs: routeContext ? Date.now() - routeContext.startedAt : 0,
       error,
-      request.headers.get("x-correlation-id") ?? crypto.randomUUID(),
-    );
+      quota,
+      requestId,
+      runId: routeContext?.runContext.runId ?? null,
+      serviceActor: routeContext?.serviceActor ?? null,
+    });
   }
 }
 

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
+import { resetInternalAgentRateLimitStore } from "@/lib/internal-agents/rate-limit";
 
 const mocks = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -6,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   findPersistentContextByUserId: vi.fn(),
   generateHomepageAssistantReplyDetailed: vi.fn(),
   listOrganizationMembershipContextsForUser: vi.fn(),
+  traceSpan: vi.fn((_options: unknown, callback: () => Promise<unknown>) => callback()),
+  updateRequestTraceContext: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -15,7 +19,8 @@ vi.mock("@/auth", () => ({
 vi.mock("@/lib/tracing", () => ({
   applyTraceResponseHeaders: <T extends Response>(response: T) => response,
   getRequestTraceContext: vi.fn(() => null),
-  updateRequestTraceContext: vi.fn(),
+  traceSpan: mocks.traceSpan,
+  updateRequestTraceContext: mocks.updateRequestTraceContext,
   withTracedRoute: vi.fn(
     (_options: unknown, handler: (request: Request) => Promise<Response>) => handler,
   ),
@@ -85,6 +90,13 @@ function createPersistentContext(args: {
 describe("POST /api/internal/agents/candidate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetAuditStore();
+    resetInternalAgentRateLimitStore();
+    delete process.env.INTERNAL_AGENT_RATE_LIMIT_ENABLED;
+    delete process.env.INTERNAL_AGENT_RATE_LIMIT_MAX_REQUESTS;
+    delete process.env.INTERNAL_AGENT_RATE_LIMIT_WINDOW_MS;
+    delete process.env.INTERNAL_AGENT_ALLOWED_SERVICES;
+    delete process.env.INTERNAL_AGENT_CANDIDATE_ALLOWED_SERVICES;
     mocks.authMock.mockResolvedValue(null);
     mocks.findPersistentContextByTalentIdentityId.mockResolvedValue(
       createPersistentContext({
@@ -122,21 +134,40 @@ describe("POST /api/internal/agents/candidate", () => {
 
     expect(response.status).toBe(401);
     expect(payload.error_code).toBe("UNAUTHORIZED");
+    expect(payload).toMatchObject({
+      agentType: "candidate",
+      ok: false,
+      operation: "respond",
+      version: "v1",
+      error: expect.objectContaining({
+        code: "UNAUTHORIZED",
+        retryable: false,
+      }),
+    });
     expect(mocks.generateHomepageAssistantReplyDetailed).not.toHaveBeenCalled();
   });
 
-  it("builds a candidate-scoped context on the shared kernel", async () => {
+  it("accepts a versioned request envelope and returns a normalized success response", async () => {
     const response = await POST(
       new Request("http://localhost/api/internal/agents/candidate", {
         body: JSON.stringify({
-          message: "Summarize my profile",
-          messages: [
-            {
-              content: "Earlier context",
-              role: "user",
-            },
-          ],
-          talentIdentityId: "tal_123",
+          agentType: "candidate",
+          metadata: {
+            clientVersion: "internal-test",
+          },
+          operation: "respond",
+          payload: {
+            message: "Summarize my profile",
+            messages: [
+              {
+                content: "Earlier context",
+                role: "user",
+              },
+            ],
+            talentIdentityId: "tal_123",
+          },
+          requestId: "req_candidate_123",
+          version: "v1",
         }),
         headers: {
           authorization: "Bearer secret-token",
@@ -149,12 +180,24 @@ describe("POST /api/internal/agents/candidate", () => {
 
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
+      agentType: "candidate",
+      metadata: expect.objectContaining({
+        callerServiceName: "candidate-runtime",
+        endpoint: "/api/internal/agents/candidate",
+      }),
+      ok: true,
+      operation: "respond",
+      payload: expect.objectContaining({
+        reply: "Candidate summary reply",
+      }),
       reply: "Candidate summary reply",
+      requestId: "req_candidate_123",
       role: "candidate",
       runId: expect.any(String),
       stepsUsed: 2,
       stopReason: "completed",
       toolCallsUsed: 1,
+      version: "v1",
     });
     expect(mocks.generateHomepageAssistantReplyDetailed).toHaveBeenCalledWith(
       "Summarize my profile",
@@ -169,6 +212,66 @@ describe("POST /api/internal/agents/candidate", () => {
         runtimeMode: "bounded_loop",
         workflowId: "internal_candidate_agent",
       }),
+    );
+    expect(mocks.updateRequestTraceContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorType: "system_service",
+        runId: expect.any(String),
+      }),
+    );
+    expect(listAuditEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event_type: "internal.agent.request.received",
+        }),
+        expect.objectContaining({
+          event_type: "internal.agent.request.completed",
+        }),
+      ]),
+    );
+  });
+
+  it("returns a normalized rate-limit denial with quota headers", async () => {
+    process.env.INTERNAL_AGENT_RATE_LIMIT_ENABLED = "true";
+    process.env.INTERNAL_AGENT_RATE_LIMIT_MAX_REQUESTS = "1";
+    process.env.INTERNAL_AGENT_RATE_LIMIT_WINDOW_MS = "60000";
+
+    const request = () =>
+      new Request("http://localhost/api/internal/agents/candidate", {
+        body: JSON.stringify({
+          message: "Summarize my profile",
+          talentIdentityId: "tal_123",
+        }),
+        headers: {
+          authorization: "Bearer secret-token",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      });
+
+    const firstResponse = await POST(request());
+    const secondResponse = await POST(request());
+    const secondPayload = await secondResponse.json();
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(429);
+    expect(secondPayload).toMatchObject({
+      agentType: "candidate",
+      error_code: "RATE_LIMITED",
+      ok: false,
+      error: expect.objectContaining({
+        code: "RATE_LIMITED",
+        retryable: true,
+      }),
+    });
+    expect(secondResponse.headers.get("x-rate-limit-limit")).toBe("1");
+    expect(secondResponse.headers.get("x-rate-limit-remaining")).toBe("0");
+    expect(listAuditEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event_type: "security.internal_agent.rate_limited",
+        }),
+      ]),
     );
   });
 });
