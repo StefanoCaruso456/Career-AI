@@ -1,4 +1,6 @@
 import type {
+  AccessGrant,
+  AccessGrantLifecycleStatus,
   AccessRequest,
   AccessScope,
   AccessRequestDeliveryChannel,
@@ -59,6 +61,9 @@ function toIsoString(value: Date | string | null) {
 
 export type AccessRequestProductRecord = {
   createdAt: string;
+  grantIdOptional: string | null;
+  grantLifecycleStatusOptional: AccessGrantLifecycleStatus | null;
+  grantRevokedAtOptional: string | null;
   grantedAt: string | null;
   grantedExpiresAtOptional: string | null;
   id: string;
@@ -111,6 +116,9 @@ function mapAccessRequestProductRow(row: AccessRequestProductRow): AccessRequest
 
   return {
     createdAt: toIsoString(row.created_at) ?? new Date(0).toISOString(),
+    grantIdOptional: null,
+    grantLifecycleStatusOptional: null,
+    grantRevokedAtOptional: null,
     grantedAt: toIsoString(row.granted_at),
     grantedExpiresAtOptional: null,
     id: row.id,
@@ -129,27 +137,67 @@ function mapAccessRequestProductRow(row: AccessRequestProductRow): AccessRequest
   };
 }
 
-async function findGrantedExpiresAtForRequest(accessRequestId: string) {
-  const row = await queryOptional<{ expires_at: Date | string | null }>(
+type AccessGrantProductRow = {
+  created_at: Date | string;
+  expires_at: Date | string | null;
+  id: string;
+  revoked_at: Date | string | null;
+  status: AccessGrant["status"];
+};
+
+function deriveGrantLifecycleStatus(row: AccessGrantProductRow): AccessGrantLifecycleStatus {
+  if (row.status === "revoked") {
+    return "revoked";
+  }
+
+  const expiresAt = row.expires_at ? new Date(row.expires_at).getTime() : null;
+
+  if (expiresAt && Number.isFinite(expiresAt) && expiresAt < Date.now()) {
+    return "expired";
+  }
+
+  return "active";
+}
+
+async function findLatestGrantForRequest(accessRequestId: string) {
+  const row = await queryOptional<AccessGrantProductRow>(
     getDatabasePool(),
     `
-      SELECT expires_at
+      SELECT
+        id,
+        status,
+        expires_at,
+        revoked_at,
+        created_at
       FROM access_grants
       WHERE access_request_id = $1
-        AND status = 'active'
-      ORDER BY created_at DESC
+      ORDER BY created_at DESC, id DESC
       LIMIT 1
     `,
     [accessRequestId],
   );
 
-  return toIsoString(row?.expires_at ?? null);
+  if (!row) {
+    return null;
+  }
+
+  return {
+    expiresAt: toIsoString(row.expires_at),
+    id: row.id,
+    lifecycleStatus: deriveGrantLifecycleStatus(row),
+    revokedAt: toIsoString(row.revoked_at),
+  };
 }
 
-async function enrichWithGrantExpiry(record: AccessRequestProductRecord) {
+async function enrichWithGrantLifecycle(record: AccessRequestProductRecord) {
+  const grant = await findLatestGrantForRequest(record.id);
+
   return {
     ...record,
-    grantedExpiresAtOptional: await findGrantedExpiresAtForRequest(record.id),
+    grantIdOptional: grant?.id ?? null,
+    grantLifecycleStatusOptional: grant?.lifecycleStatus ?? null,
+    grantRevokedAtOptional: grant?.revokedAt ?? null,
+    grantedExpiresAtOptional: grant?.expiresAt ?? null,
   };
 }
 
@@ -205,7 +253,9 @@ export async function listAccessRequestProductRecordsForSubject(args: {
     [args.subjectTalentIdentityId, args.limit ?? 20],
   );
 
-  return Promise.all(result.rows.map((row) => enrichWithGrantExpiry(mapAccessRequestProductRow(row))));
+  return Promise.all(
+    result.rows.map((row) => enrichWithGrantLifecycle(mapAccessRequestProductRow(row))),
+  );
 }
 
 export async function listAccessRequestProductRecordsForRequester(args: {
@@ -245,7 +295,9 @@ export async function listAccessRequestProductRecordsForRequester(args: {
     [args.requesterUserId, args.subjectTalentIdentityId ?? null, args.limit ?? 20],
   );
 
-  return Promise.all(result.rows.map((row) => enrichWithGrantExpiry(mapAccessRequestProductRow(row))));
+  return Promise.all(
+    result.rows.map((row) => enrichWithGrantLifecycle(mapAccessRequestProductRow(row))),
+  );
 }
 
 export async function findAccessRequestProductRecordById(args: {
@@ -281,7 +333,45 @@ export async function findAccessRequestProductRecordById(args: {
     [args.requestId],
   );
 
-  return row ? enrichWithGrantExpiry(mapAccessRequestProductRow(row)) : null;
+  return row ? enrichWithGrantLifecycle(mapAccessRequestProductRow(row)) : null;
+}
+
+export async function listAccessRequestProductRecordsForAdmin(args?: {
+  limit?: number;
+}) {
+  const result = await getDatabasePool().query<AccessRequestProductRow>(
+    `
+      SELECT
+        ar.id,
+        ar.organization_id,
+        o.name AS organization_name,
+        ar.requester_user_id,
+        requester.full_name AS requester_name,
+        ar.subject_talent_identity_id,
+        subject.display_name AS subject_display_name,
+        ar.scope,
+        ar.justification,
+        ar.status,
+        ar.granted_by_actor_type,
+        ar.granted_by_actor_id,
+        ar.granted_at,
+        ar.rejected_at,
+        ar.metadata_json,
+        ar.created_at,
+        ar.updated_at
+      FROM access_requests ar
+      INNER JOIN organizations o ON o.id = ar.organization_id
+      INNER JOIN users requester ON requester.id = ar.requester_user_id
+      INNER JOIN career_identities subject ON subject.id = ar.subject_talent_identity_id
+      ORDER BY ar.updated_at DESC, ar.id DESC
+      LIMIT $1
+    `,
+    [args?.limit ?? 100],
+  );
+
+  return Promise.all(
+    result.rows.map((row) => enrichWithGrantLifecycle(mapAccessRequestProductRow(row))),
+  );
 }
 
 export async function createAccessRequestReviewTokenRecord(args: {

@@ -644,6 +644,8 @@ describe("agent tools", () => {
       metadataJson: {},
       organizationId: "org_1",
       revokedAt: null,
+      revokedByActorId: null,
+      revokedByActorType: null,
       scope: "candidate_private_profile",
       status: "active",
       subjectTalentIdentityId: "tal_candidate_1",

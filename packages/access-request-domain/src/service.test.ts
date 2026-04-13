@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
 import {
+  createAccessGrantRecord,
   createAccessRequestRecord,
   createAccessRequestReviewTokenRecord,
   createOrganizationMembershipRecord,
@@ -12,6 +13,8 @@ import { hashAccessRequestReviewToken } from "@/lib/access-request-review-tokens
 import {
   getAccessRequestReview,
   getRecruiterPrivateCandidateProfile,
+  listCandidateAccessRequests,
+  revokeAccessRequestGrant,
   resolveAccessRequestFromReview,
   updateCandidateNotificationPreferences,
 } from "./service";
@@ -229,6 +232,92 @@ describe("access-request domain service", () => {
       }),
     ).rejects.toMatchObject({
       status: 409,
+    });
+  });
+
+  it("lists active grants for the candidate and revokes them through the shared lifecycle flow", async () => {
+    const { candidate, candidateActor, organization, recruiter, recruiterActor } = await seedActors();
+    const request = await createAccessRequestRecord({
+      justification: "Need final interview verification review.",
+      organizationId: organization.id,
+      requesterUserId: recruiter.context.user.id,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    await resolveAccessRequestFromReview({
+      action: "grant",
+      correlationId: "corr-grant-session",
+      requestId: request.id,
+      reviewTokenOptional: null,
+      sessionActorOptional: candidateActor,
+    });
+
+    const beforeRevoke = await listCandidateAccessRequests({
+      actor: candidateActor,
+      correlationId: "corr-list-before-revoke",
+    });
+
+    expect(beforeRevoke.items[0]).toMatchObject({
+      grantLifecycleStatusOptional: "active",
+      status: "granted",
+    });
+
+    const revoked = await revokeAccessRequestGrant({
+      actor: candidateActor,
+      correlationId: "corr-revoke",
+      noteOptional: "The role has been filled.",
+      requestId: request.id,
+    });
+
+    expect(revoked).toMatchObject({
+      grantLifecycleStatusOptional: "revoked",
+      status: "granted",
+    });
+
+    await expect(
+      getRecruiterPrivateCandidateProfile({
+        actor: recruiterActor,
+        correlationId: "corr-private-profile-revoked",
+        subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+      }),
+    ).rejects.toMatchObject({
+      status: 403,
+    });
+
+    expect(
+      listAuditEvents().some((event) => event.event_type === "access.grant.revoked"),
+    ).toBe(true);
+  });
+
+  it("blocks recruiter private access immediately after a grant expires", async () => {
+    const { candidate, organization, recruiter, recruiterActor } = await seedActors();
+    const request = await createAccessRequestRecord({
+      justification: "Need short-lived final verification review.",
+      organizationId: organization.id,
+      requesterUserId: recruiter.context.user.id,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    await createAccessGrantRecord({
+      accessRequestId: request.id,
+      expiresAt: "2000-01-01T00:00:00.000Z",
+      grantedByActorId: candidate.context.aggregate.talentIdentity.id,
+      grantedByActorType: "talent_user",
+      organizationId: organization.id,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    await expect(
+      getRecruiterPrivateCandidateProfile({
+        actor: recruiterActor,
+        correlationId: "corr-private-profile-expired",
+        subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+      }),
+    ).rejects.toMatchObject({
+      status: 403,
     });
   });
 });

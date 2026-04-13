@@ -13,9 +13,11 @@ type StatusMessage =
   | null;
 
 export function AccessRequestReviewActions({
+  canRevoke,
   request,
   reviewTokenOptional,
 }: {
+  canRevoke: boolean;
   request: AccessRequestReviewDto;
   reviewTokenOptional: string | null;
 }) {
@@ -24,21 +26,32 @@ export function AccessRequestReviewActions({
   const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleAction(action: "grant" | "reject") {
+  function handleAction(action: "grant" | "reject" | "revoke") {
     setStatusMessage(null);
 
     startTransition(async () => {
       try {
-        const response = await fetch(`/api/v1/access-requests/${request.id}/review/${action}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const response = await fetch(
+          action === "revoke"
+            ? `/api/v1/access-requests/${request.id}/revoke`
+            : `/api/v1/access-requests/${request.id}/review/${action}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(
+              action === "revoke"
+                ? {
+                    noteOptional: noteOptional.trim() || null,
+                  }
+                : {
+                    noteOptional: noteOptional.trim() || null,
+                    token: reviewTokenOptional,
+                  },
+            ),
           },
-          body: JSON.stringify({
-            noteOptional: noteOptional.trim() || null,
-            token: reviewTokenOptional,
-          }),
-        });
+        );
         const payload = (await response.json().catch(() => null)) as { message?: string } | null;
 
         if (!response.ok) {
@@ -50,7 +63,9 @@ export function AccessRequestReviewActions({
           value:
             action === "grant"
               ? "Access approved. The recruiter can now view the granted private Career ID data."
-              : "Request rejected. The recruiter will keep the recruiter-safe profile only.",
+              : action === "reject"
+                ? "Request rejected. The recruiter will keep the recruiter-safe profile only."
+                : "Access revoked. The recruiter immediately loses private Career ID access.",
         });
         router.refresh();
       } catch (error) {
@@ -66,7 +81,58 @@ export function AccessRequestReviewActions({
   }
 
   if (request.status !== "pending") {
-    return null;
+    if (!(canRevoke && request.status === "granted" && request.grantLifecycleStatusOptional === "active")) {
+      return null;
+    }
+
+    return (
+      <section className={styles.card}>
+        <div className={styles.stack}>
+          <h2>Manage active grant</h2>
+          <p className={styles.lead}>
+            Revoke this grant to immediately remove the recruiter&apos;s private Career ID access.
+          </p>
+
+          <div className={styles.field}>
+            <label htmlFor={`review-note-${request.id}`}>Optional revocation note</label>
+            <textarea
+              id={`review-note-${request.id}`}
+              onChange={(event) => {
+                setNoteOptional(event.target.value);
+              }}
+              placeholder="Add context for why this access is ending."
+              value={noteOptional}
+            />
+          </div>
+
+          <div className={styles.actions}>
+            <button
+              className={styles.dangerButton}
+              disabled={isPending}
+              onClick={() => {
+                handleAction("revoke");
+              }}
+              type="button"
+            >
+              Revoke access
+            </button>
+          </div>
+
+          {statusMessage ? (
+            <p
+              className={[
+                styles.statusMessage,
+                statusMessage.tone === "success"
+                  ? styles.statusMessageSuccess
+                  : styles.statusMessageError,
+              ].join(" ")}
+            >
+              {statusMessage.value}
+            </p>
+          ) : null}
+        </div>
+      </section>
+    );
   }
 
   return (

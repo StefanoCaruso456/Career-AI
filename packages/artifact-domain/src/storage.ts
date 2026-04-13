@@ -11,6 +11,42 @@ const artifactDatabaseSchema = z.object({
 });
 
 type ArtifactDatabase = z.infer<typeof artifactDatabaseSchema>;
+type ArtifactStorageDriver = "filesystem";
+
+export type ArtifactPersistenceAdapter = {
+  clearStorage(baseDir?: string): void;
+  deleteRecord(args: {
+    artifactId: string;
+    baseDir?: string;
+  }): void;
+  driver: ArtifactStorageDriver;
+  findMetadata(args: {
+    artifactId: string;
+    baseDir?: string;
+  }): ArtifactMetadata | null;
+  getByteLength(args: {
+    artifactId: string;
+    baseDir?: string;
+  }): number;
+  listClaimIdsForArtifact(args: {
+    artifactId: string;
+    baseDir?: string;
+  }): string[];
+  persistClaimArtifactIds(args: {
+    artifactIds: string[];
+    baseDir?: string;
+    claimId: string;
+  }): void;
+  persistRecord(args: {
+    artifact: ArtifactMetadata;
+    baseDir?: string;
+    buffer: Buffer;
+  }): void;
+  readClaimArtifactIds(args: {
+    baseDir?: string;
+    claimId: string;
+  }): string[];
+};
 
 function createEmptyArtifactDatabase(): ArtifactDatabase {
   return {
@@ -88,36 +124,120 @@ function writeArtifactDatabase(database: ArtifactDatabase, baseDir = process.cwd
   renameSync(temporaryPath, manifestPath);
 }
 
+const filesystemArtifactPersistenceAdapter: ArtifactPersistenceAdapter = {
+  clearStorage(baseDir = process.cwd()) {
+    rmSync(getArtifactStorageRoot(baseDir), { force: true, recursive: true });
+  },
+  deleteRecord(args) {
+    const database = readArtifactDatabase(args.baseDir);
+
+    rmSync(getArtifactFilePath(args.artifactId, args.baseDir), {
+      force: true,
+    });
+
+    const nextClaimArtifactIds = Object.fromEntries(
+      Object.entries(database.claimArtifactIds).map(([claimId, artifactIds]) => [
+        claimId,
+        artifactIds.filter((artifactId) => artifactId !== args.artifactId),
+      ]),
+    );
+
+    writeArtifactDatabase(
+      {
+        ...database,
+        artifacts: database.artifacts.filter((artifact) => artifact.artifact_id !== args.artifactId),
+        claimArtifactIds: nextClaimArtifactIds,
+      },
+      args.baseDir,
+    );
+  },
+  driver: "filesystem",
+  findMetadata(args) {
+    const artifact =
+      readArtifactDatabase(args.baseDir).artifacts.find(
+        (candidate) => candidate.artifact_id === args.artifactId,
+      ) ?? null;
+
+    if (!artifact) {
+      return null;
+    }
+
+    if (!existsSync(getArtifactFilePath(args.artifactId, args.baseDir))) {
+      return null;
+    }
+
+    return artifact;
+  },
+  getByteLength(args) {
+    try {
+      return statSync(getArtifactFilePath(args.artifactId, args.baseDir)).size;
+    } catch {
+      return 0;
+    }
+  },
+  listClaimIdsForArtifact(args) {
+    const database = readArtifactDatabase(args.baseDir);
+
+    return Object.entries(database.claimArtifactIds)
+      .filter(([, artifactIds]) => artifactIds.includes(args.artifactId))
+      .map(([claimId]) => claimId);
+  },
+  persistClaimArtifactIds(args) {
+    const database = readArtifactDatabase(args.baseDir);
+
+    writeArtifactDatabase(
+      {
+        ...database,
+        claimArtifactIds: {
+          ...database.claimArtifactIds,
+          [args.claimId]: args.artifactIds,
+        },
+      },
+      args.baseDir,
+    );
+  },
+  persistRecord(args) {
+    const database = readArtifactDatabase(args.baseDir);
+    const nextArtifacts = database.artifacts.filter(
+      (artifact) => artifact.artifact_id !== args.artifact.artifact_id,
+    );
+
+    nextArtifacts.push(args.artifact);
+    writeFileSync(getArtifactFilePath(args.artifact.artifact_id, args.baseDir), args.buffer);
+    writeArtifactDatabase(
+      {
+        ...database,
+        artifacts: nextArtifacts,
+      },
+      args.baseDir,
+    );
+  },
+  readClaimArtifactIds(args) {
+    return [...(readArtifactDatabase(args.baseDir).claimArtifactIds[args.claimId] ?? [])];
+  },
+};
+
+function getArtifactPersistenceAdapter(): ArtifactPersistenceAdapter {
+  return filesystemArtifactPersistenceAdapter;
+}
+
+export function getArtifactStorageDriverName() {
+  return getArtifactPersistenceAdapter().driver;
+}
+
 export function persistArtifactRecord(args: {
   artifact: ArtifactMetadata;
   baseDir?: string;
   buffer: Buffer;
 }) {
-  const database = readArtifactDatabase(args.baseDir);
-  const nextArtifacts = database.artifacts.filter(
-    (artifact) => artifact.artifact_id !== args.artifact.artifact_id,
-  );
-
-  nextArtifacts.push(args.artifact);
-  writeFileSync(getArtifactFilePath(args.artifact.artifact_id, args.baseDir), args.buffer);
-  writeArtifactDatabase(
-    {
-      ...database,
-      artifacts: nextArtifacts,
-    },
-    args.baseDir,
-  );
+  getArtifactPersistenceAdapter().persistRecord(args);
 }
 
 export function findPersistedArtifactMetadata(args: {
   artifactId: string;
   baseDir?: string;
 }) {
-  return (
-    readArtifactDatabase(args.baseDir).artifacts.find(
-      (artifact) => artifact.artifact_id === args.artifactId,
-    ) ?? null
-  );
+  return getArtifactPersistenceAdapter().findMetadata(args);
 }
 
 export function persistClaimArtifactIds(args: {
@@ -125,65 +245,37 @@ export function persistClaimArtifactIds(args: {
   baseDir?: string;
   claimId: string;
 }) {
-  const database = readArtifactDatabase(args.baseDir);
-
-  writeArtifactDatabase(
-    {
-      ...database,
-      claimArtifactIds: {
-        ...database.claimArtifactIds,
-        [args.claimId]: args.artifactIds,
-      },
-    },
-    args.baseDir,
-  );
+  getArtifactPersistenceAdapter().persistClaimArtifactIds(args);
 }
 
 export function readPersistedClaimArtifactIds(args: {
   baseDir?: string;
   claimId: string;
 }) {
-  return [...(readArtifactDatabase(args.baseDir).claimArtifactIds[args.claimId] ?? [])];
+  return getArtifactPersistenceAdapter().readClaimArtifactIds(args);
+}
+
+export function listPersistedClaimIdsForArtifact(args: {
+  artifactId: string;
+  baseDir?: string;
+}) {
+  return getArtifactPersistenceAdapter().listClaimIdsForArtifact(args);
 }
 
 export function deletePersistedArtifactRecord(args: {
   artifactId: string;
   baseDir?: string;
 }) {
-  const database = readArtifactDatabase(args.baseDir);
-
-  rmSync(getArtifactFilePath(args.artifactId, args.baseDir), {
-    force: true,
-  });
-
-  const nextClaimArtifactIds = Object.fromEntries(
-    Object.entries(database.claimArtifactIds).map(([claimId, artifactIds]) => [
-      claimId,
-      artifactIds.filter((artifactId) => artifactId !== args.artifactId),
-    ]),
-  );
-
-  writeArtifactDatabase(
-    {
-      ...database,
-      artifacts: database.artifacts.filter((artifact) => artifact.artifact_id !== args.artifactId),
-      claimArtifactIds: nextClaimArtifactIds,
-    },
-    args.baseDir,
-  );
+  getArtifactPersistenceAdapter().deleteRecord(args);
 }
 
 export function getPersistedArtifactByteLength(args: {
   artifactId: string;
   baseDir?: string;
 }) {
-  try {
-    return statSync(getArtifactFilePath(args.artifactId, args.baseDir)).size;
-  } catch {
-    return 0;
-  }
+  return getArtifactPersistenceAdapter().getByteLength(args);
 }
 
 export function clearPersistedArtifactStorage(baseDir = process.cwd()) {
-  rmSync(getArtifactStorageRoot(baseDir), { force: true, recursive: true });
+  getArtifactPersistenceAdapter().clearStorage(baseDir);
 }

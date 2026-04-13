@@ -3,6 +3,11 @@ import {
   verificationConfidenceTierSchema,
   verificationStatusSchema,
 } from "./enums";
+import {
+  accessGrantLifecycleStatusSchema,
+  accessRequestStatusSchema,
+  accessScopeSchema,
+} from "./access-control";
 
 export const reviewDecisionTargetStatusSchema = z.enum([
   "PARTIALLY_VERIFIED",
@@ -97,3 +102,32 @@ export type AdminClaimAuditDto = {
     metadata: Record<string, unknown>;
   }>;
 };
+
+export const adminAccessControlRecordSchema = z.object({
+  grantedAtOptional: z.string().datetime().nullable(),
+  grantedExpiresAtOptional: z.string().datetime().nullable(),
+  grantIdOptional: z.string().nullable(),
+  grantLifecycleStatusOptional: accessGrantLifecycleStatusSchema.nullable(),
+  grantRevokedAtOptional: z.string().datetime().nullable(),
+  justification: z.string(),
+  organizationId: z.string(),
+  organizationName: z.string(),
+  requestCreatedAt: z.string().datetime(),
+  requestId: z.string(),
+  requesterName: z.string(),
+  requesterUserId: z.string(),
+  requestStatus: accessRequestStatusSchema,
+  requestUpdatedAt: z.string().datetime(),
+  scope: accessScopeSchema,
+  subjectDisplayName: z.string(),
+  subjectTalentIdentityId: z.string(),
+});
+
+export const adminAccessControlOverviewDtoSchema = z.object({
+  activeGrants: z.array(adminAccessControlRecordSchema),
+  lifecycleHistory: z.array(adminAccessControlRecordSchema),
+  requests: z.array(adminAccessControlRecordSchema),
+});
+
+export type AdminAccessControlRecordDto = z.infer<typeof adminAccessControlRecordSchema>;
+export type AdminAccessControlOverviewDto = z.infer<typeof adminAccessControlOverviewDtoSchema>;

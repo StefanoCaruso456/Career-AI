@@ -22,15 +22,30 @@ type StatusMessage =
   | null;
 
 function getStatusPillClass(status: string) {
-  if (status === "granted") {
+  if (status === "granted" || status === "active") {
     return styles.pillGranted;
   }
 
-  if (status === "rejected") {
+  if (status === "rejected" || status === "revoked") {
     return styles.pillRejected;
   }
 
+  if (status === "expired") {
+    return styles.pillExpired;
+  }
+
   return styles.pillPending;
+}
+
+function getDisplayStatusLabel(args: {
+  grantLifecycleStatusOptional: string | null;
+  requestStatus: string;
+}) {
+  if (args.requestStatus === "granted" && args.grantLifecycleStatusOptional) {
+    return args.grantLifecycleStatusOptional;
+  }
+
+  return args.requestStatus;
 }
 
 export function RecruiterAccessRequestPanel({
@@ -109,6 +124,12 @@ export function RecruiterAccessRequestPanel({
   const latestRequest = requests[0] ?? null;
   const hasPendingRequest = latestRequest?.status === "pending";
   const hasActiveAccess = Boolean(privateProfile?.access.granted);
+  const latestLifecycleStatus = latestRequest
+    ? getDisplayStatusLabel({
+        grantLifecycleStatusOptional: latestRequest.grantLifecycleStatusOptional,
+        requestStatus: latestRequest.status,
+      })
+    : null;
 
   function handleSubmit() {
     if (!justification.trim()) {
@@ -259,21 +280,57 @@ export function RecruiterAccessRequestPanel({
           ) : (
             <ul className={styles.list}>
               {requests.map((request) => (
-                <li className={styles.listItem} key={request.id}>
-                  <div className={styles.listHeader}>
-                    <strong>{request.requester.organizationName}</strong>
-                    <span className={[styles.pill, getStatusPillClass(request.status)].join(" ")}>
-                      {request.status}
-                    </span>
-                  </div>
-                  <p className={styles.muted}>{request.justification}</p>
-                  <p className={styles.smallNote}>
-                    Scope: {request.scope.replaceAll("_", " ")}. Requested duration:{" "}
-                    {request.requestedDurationDaysOptional
-                      ? `${request.requestedDurationDaysOptional} days`
-                      : "No expiration requested"}
-                  </p>
-                </li>
+                (() => {
+                  const displayStatus = getDisplayStatusLabel({
+                    grantLifecycleStatusOptional: request.grantLifecycleStatusOptional,
+                    requestStatus: request.status,
+                  });
+
+                  return (
+                    <li className={styles.listItem} key={request.id}>
+                      <div className={styles.listHeader}>
+                        <strong>{request.requester.organizationName}</strong>
+                        <span className={[styles.pill, getStatusPillClass(displayStatus)].join(" ")}>
+                          {displayStatus}
+                        </span>
+                      </div>
+                      <p className={styles.muted}>{request.justification}</p>
+                      <p className={styles.smallNote}>
+                        Scope: {request.scope.replaceAll("_", " ")}. Requested duration:{" "}
+                        {request.requestedDurationDaysOptional
+                          ? `${request.requestedDurationDaysOptional} days`
+                          : "No expiration requested"}
+                      </p>
+                      {request.status === "granted" &&
+                      request.grantLifecycleStatusOptional === "active" ? (
+                        <p className={styles.smallNote}>
+                          Access is active
+                          {request.grantedExpiresAtOptional
+                            ? ` until ${request.grantedExpiresAtOptional}.`
+                            : " with no expiration."}
+                        </p>
+                      ) : null}
+                      {request.status === "granted" &&
+                      request.grantLifecycleStatusOptional === "revoked" ? (
+                        <p className={styles.smallNote}>
+                          Candidate revoked access
+                          {request.grantRevokedAtOptional
+                            ? ` at ${request.grantRevokedAtOptional}.`
+                            : "."}
+                        </p>
+                      ) : null}
+                      {request.status === "granted" &&
+                      request.grantLifecycleStatusOptional === "expired" ? (
+                        <p className={styles.smallNote}>
+                          Access expired
+                          {request.grantedExpiresAtOptional
+                            ? ` at ${request.grantedExpiresAtOptional}.`
+                            : "."}
+                        </p>
+                      ) : null}
+                    </li>
+                  );
+                })()
               ))}
             </ul>
           )}
@@ -283,7 +340,11 @@ export function RecruiterAccessRequestPanel({
           <h3>Granted private data</h3>
           {!privateProfile ? (
             <p className={styles.emptyState}>
-              Private Career ID data will appear here only after the candidate approves access.
+              {latestLifecycleStatus === "revoked"
+                ? "Candidate-approved access was revoked, so private Career ID data is no longer available."
+                : latestLifecycleStatus === "expired"
+                  ? "Candidate-approved access expired, so private Career ID data is no longer available."
+                  : "Private Career ID data will appear here only after the candidate approves access."}
             </p>
           ) : (
             <>

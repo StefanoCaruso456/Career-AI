@@ -11,6 +11,7 @@ export const accessRequestStatusSchema = z.enum([
   "cancelled",
 ]);
 export const accessGrantStatusSchema = z.enum(["active", "revoked"]);
+export const accessGrantLifecycleStatusSchema = z.enum(["active", "revoked", "expired"]);
 
 export const organizationSchema = z.object({
   id: z.string(),
@@ -59,6 +60,8 @@ export const accessGrantSchema = z.object({
   grantedByActorType: actorTypeSchema,
   expiresAt: z.string().datetime().nullable(),
   revokedAt: z.string().datetime().nullable(),
+  revokedByActorId: z.string().nullable(),
+  revokedByActorType: actorTypeSchema.nullable(),
   metadataJson: z.record(z.string(), z.unknown()).default({}),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -91,6 +94,7 @@ export type OrganizationMembershipStatus = z.infer<typeof organizationMembership
 export type AccessScope = z.infer<typeof accessScopeSchema>;
 export type AccessRequestStatus = z.infer<typeof accessRequestStatusSchema>;
 export type AccessGrantStatus = z.infer<typeof accessGrantStatusSchema>;
+export type AccessGrantLifecycleStatus = z.infer<typeof accessGrantLifecycleStatusSchema>;
 export type AccessRequest = z.infer<typeof accessRequestSchema>;
 export type AccessGrant = z.infer<typeof accessGrantSchema>;
 export type CreateAccessRequestInput = z.infer<typeof createAccessRequestInputSchema>;

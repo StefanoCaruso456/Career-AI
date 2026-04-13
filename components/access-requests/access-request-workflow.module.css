@@ -89,6 +89,7 @@
 }
 
 .primaryButton,
+.dangerButton,
 .secondaryButton,
 .linkButton {
   align-items: center;
@@ -110,6 +111,12 @@
   color: #04111f;
 }
 
+.dangerButton {
+  background: linear-gradient(135deg, #fb7185, #ef4444);
+  border: none;
+  color: #fff1f2;
+}
+
 .secondaryButton {
   background: transparent;
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -124,6 +131,7 @@
 }
 
 .primaryButton:disabled,
+.dangerButton:disabled,
 .secondaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -193,6 +201,11 @@
 .pillRejected {
   background: rgba(248, 113, 113, 0.14);
   color: #fecaca;
+}
+
+.pillExpired {
+  background: rgba(251, 191, 36, 0.14);
+  color: #fde68a;
 }
 
 .muted {

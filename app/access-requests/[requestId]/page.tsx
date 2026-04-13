@@ -25,13 +25,28 @@ function formatScopeLabel(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function getDisplayStatusLabel(args: {
+  grantLifecycleStatusOptional: string | null;
+  requestStatus: string;
+}) {
+  if (args.requestStatus === "granted" && args.grantLifecycleStatusOptional) {
+    return args.grantLifecycleStatusOptional;
+  }
+
+  return args.requestStatus;
+}
+
 function getStatusPillClass(status: string) {
-  if (status === "granted") {
+  if (status === "granted" || status === "active") {
     return styles.pillGranted;
   }
 
-  if (status === "rejected") {
+  if (status === "rejected" || status === "revoked") {
     return styles.pillRejected;
+  }
+
+  if (status === "expired") {
+    return styles.pillExpired;
   }
 
   return styles.pillPending;
@@ -63,6 +78,13 @@ export default async function AccessRequestReviewPage({
       reviewTokenOptional: token,
       sessionActorOptional: sessionActor,
     });
+    const displayStatus = getDisplayStatusLabel({
+      grantLifecycleStatusOptional: review.grantLifecycleStatusOptional,
+      requestStatus: review.status,
+    });
+    const canRevoke =
+      sessionActor?.actorType === "talent_user" &&
+      sessionActor.actorId === review.subject.talentIdentityId;
 
     return (
       <main className={styles.page}>
@@ -85,8 +107,8 @@ export default async function AccessRequestReviewPage({
                     Requested by {review.requester.requesterName}
                   </p>
                 </div>
-                <span className={[styles.pill, getStatusPillClass(review.status)].join(" ")}>
-                  {formatStatusLabel(review.status)}
+                <span className={[styles.pill, getStatusPillClass(displayStatus)].join(" ")}>
+                  {formatStatusLabel(displayStatus)}
                 </span>
               </div>
 
@@ -113,14 +135,34 @@ export default async function AccessRequestReviewPage({
                     {review.reviewAccess.channel.replaceAll("_", " ")}
                   </strong>
                 </article>
+                <article className={styles.metaCard}>
+                  <span className={styles.metaLabel}>Access lifecycle</span>
+                  <strong className={styles.metaValue}>{formatStatusLabel(displayStatus)}</strong>
+                </article>
               </div>
 
-              {review.status === "granted" ? (
+              {review.status === "granted" && review.grantLifecycleStatusOptional === "active" ? (
                 <p className={styles.statusMessage + " " + styles.statusMessageSuccess}>
                   Access approved.
                   {review.grantedExpiresAtOptional
                     ? ` The current grant expires at ${review.grantedExpiresAtOptional}.`
                     : " The current grant does not have an expiration."}
+                </p>
+              ) : null}
+
+              {review.status === "granted" && review.grantLifecycleStatusOptional === "revoked" ? (
+                <p className={styles.statusMessage + " " + styles.statusMessageError}>
+                  Access was revoked
+                  {review.grantRevokedAtOptional ? ` at ${review.grantRevokedAtOptional}.` : "."}
+                </p>
+              ) : null}
+
+              {review.status === "granted" && review.grantLifecycleStatusOptional === "expired" ? (
+                <p className={styles.statusMessage + " " + styles.statusMessageError}>
+                  Access expired
+                  {review.grantedExpiresAtOptional
+                    ? ` at ${review.grantedExpiresAtOptional}.`
+                    : "."}
                 </p>
               ) : null}
 
@@ -132,7 +174,11 @@ export default async function AccessRequestReviewPage({
             </div>
           </section>
 
-          <AccessRequestReviewActions request={review} reviewTokenOptional={token} />
+          <AccessRequestReviewActions
+            canRevoke={canRevoke}
+            request={review}
+            reviewTokenOptional={token}
+          />
 
           <div className={styles.actions}>
             <Link className={styles.secondaryButton} href="/account/access-requests">

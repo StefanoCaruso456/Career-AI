@@ -11,7 +11,9 @@ import {
   clearPersistedArtifactStorage,
   deletePersistedArtifactRecord,
   findPersistedArtifactMetadata,
+  getArtifactStorageDriverName,
   getPersistedArtifactByteLength,
+  listPersistedClaimIdsForArtifact,
   persistArtifactRecord,
   persistClaimArtifactIds,
   readPersistedClaimArtifactIds,
@@ -257,6 +259,48 @@ export function deleteArtifact(args: {
     correlationId: args.correlationId,
   });
   const store = getArtifactStore();
+  const linkedClaimIds = new Set<string>();
+
+  for (const [claimId, artifactIds] of store.artifactIdsByClaimId.entries()) {
+    if (artifactIds.includes(args.artifactId)) {
+      linkedClaimIds.add(claimId);
+    }
+  }
+
+  if (isDurableArtifactStorageEnabled()) {
+    for (const claimId of listPersistedClaimIdsForArtifact({
+      artifactId: args.artifactId,
+    })) {
+      linkedClaimIds.add(claimId);
+    }
+  }
+
+  if (linkedClaimIds.size > 0) {
+    logAuditEvent({
+      eventType: "artifact.delete.denied",
+      actorType: args.actorType,
+      actorId: args.actorId,
+      targetType: "artifact",
+      targetId: args.artifactId,
+      correlationId: args.correlationId,
+      metadataJson: {
+        claim_ids: [...linkedClaimIds],
+        owner_talent_id: artifact.owner_talent_id,
+        reason: "artifact_attached_to_claim",
+      },
+    });
+
+    throw new ApiError({
+      errorCode: "CONFLICT",
+      status: 409,
+      message: "Artifacts attached to claims cannot be deleted.",
+      details: {
+        artifactId: args.artifactId,
+        claimIds: [...linkedClaimIds],
+      },
+      correlationId: args.correlationId,
+    });
+  }
 
   store.artifactsById.delete(args.artifactId);
   store.contentsById.delete(args.artifactId);
@@ -295,6 +339,7 @@ export function getArtifactServiceMetrics() {
   return {
     artifacts: store.artifactsById.size,
     linkedClaims: store.artifactIdsByClaimId.size,
+    storageDriver: getArtifactStorageDriverName(),
   };
 }
 
