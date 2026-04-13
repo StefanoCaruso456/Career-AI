@@ -8,17 +8,12 @@ import styles from "./floating-site-header.module.css";
 export function HeaderCenterTab() {
   const pathname = usePathname();
   const routePersona = getPersonaFromRoute(pathname);
-  const isAccount = pathname === "/account" || pathname.startsWith("/account/");
   const isEmployerAgentSorcerer =
     pathname === "/employer/agent-sorcerer" ||
     pathname.startsWith("/employer/agent-sorcerer/");
   const isAgentBuild =
     pathname === "/agent-build" || pathname.startsWith("/agent-build/");
   const isJobs = pathname === "/jobs" || pathname.startsWith("/jobs/");
-
-  if (routePersona === "job_seeker" && isAccount) {
-    return null;
-  }
 
   if (routePersona === "employer") {
     return (

@@ -9,7 +9,12 @@ import styles from "./floating-site-header.module.css";
 export function HeaderHomeLink() {
   const pathname = usePathname();
   const routePersona = getPersonaFromRoute(pathname);
-  const homeHref = routePersona ? getPostAuthRoute(routePersona) : "/";
+  const isAccount = pathname === "/account" || pathname.startsWith("/account/");
+  const homeHref = isAccount
+    ? "/"
+    : routePersona
+      ? getPostAuthRoute(routePersona)
+      : "/";
   const isHome = pathname === homeHref;
 
   return (
