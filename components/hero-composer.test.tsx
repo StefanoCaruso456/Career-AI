@@ -474,6 +474,54 @@ describe("HeroComposer", () => {
     expect(await screen.findByRole("button", { name: "Send message" })).not.toBeDisabled();
   });
 
+  it("lets the active project collapse and re-expand its chat list", async () => {
+    const project = createProject("project_verified_profile", "Verified profile");
+    const conversation = {
+      ...createConversation("conversation_sidebar", project.id, [
+        createMessage("message_sidebar_user", "user", "Show me the latest updates."),
+      ]),
+      label: "Hiring intro chat",
+    };
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(createWorkspaceSnapshot([project], [conversation]));
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Expand conversation sidebar" }));
+
+    expect(await screen.findByText("Recent")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hiring intro chat" })).toBeInTheDocument();
+
+    const toggle = screen.getByRole("button", {
+      name: "Collapse Verified profile chats",
+    });
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Recent")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Hiring intro chat" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Expand Verified profile chats" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Verified profile chats" }));
+
+    expect(await screen.findByText("Recent")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hiring intro chat" })).toBeInTheDocument();
+  });
+
   it("shows Find NEW Jobs first in the landing pill stack and uses it to open jobs assist", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
     const conversation = createConversation("conversation_jobs", "project_jobs", [

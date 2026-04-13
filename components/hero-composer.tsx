@@ -618,6 +618,7 @@ export function HeroComposer({
   const [message, setMessage] = useState("");
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [collapsedProjectIds, setCollapsedProjectIds] = useState<string[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
@@ -1155,6 +1156,11 @@ export function HeroComposer({
     setThreads(nextThreads);
     setWorkspacePersistence(snapshot.persistence ?? emptyChatWorkspacePersistence);
     setProjectPersistence(snapshot.projectPersistence ?? {});
+    setCollapsedProjectIds((currentIds) =>
+      currentIds.filter((projectId) =>
+        nextProjects.some((project) => project.id === projectId),
+      ),
+    );
     setActiveProjectId(nextProjectId);
     setComposerNotice(null);
 
@@ -1763,6 +1769,9 @@ export function HeroComposer({
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setCollapsedProjectIds((currentIds) =>
+      currentIds.filter((projectId) => projectId !== thread.projectId),
+    );
     setProjectHomeProjectId(null);
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
@@ -1778,6 +1787,11 @@ export function HeroComposer({
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setCollapsedProjectIds((currentIds) =>
+      activeProjectId
+        ? currentIds.filter((projectId) => projectId !== activeProjectId)
+        : currentIds,
+    );
     setProjectHomeProjectId(activeProjectId);
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
@@ -1798,6 +1812,9 @@ export function HeroComposer({
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
+    setCollapsedProjectIds((currentIds) =>
+      currentIds.filter((currentProjectId) => currentProjectId !== projectId),
+    );
     setActiveProjectId(projectId);
     setProjectHomeProjectId(projectId);
     setSidebarOpen(true);
@@ -1848,6 +1865,16 @@ export function HeroComposer({
     } catch (error) {
       showComposerError(getErrorMessage(error, "Project could not be created right now."));
     }
+  }
+
+  function handleProjectChatsToggle(projectId: string) {
+    setSidebarActionMenu(null);
+    setSidebarRenameDraft(null);
+    setCollapsedProjectIds((currentIds) =>
+      currentIds.includes(projectId)
+        ? currentIds.filter((currentProjectId) => currentProjectId !== projectId)
+        : [...currentIds, projectId],
+    );
   }
 
   async function submitMessage(nextMessage?: string) {
@@ -2811,6 +2838,7 @@ export function HeroComposer({
     labelClassName,
     leadingVisual,
     trailingVisual,
+    supplementalAction,
     id,
     isActive,
     label,
@@ -2823,6 +2851,7 @@ export function HeroComposer({
     labelClassName?: string;
     leadingVisual?: ReactNode;
     trailingVisual?: ReactNode;
+    supplementalAction?: ReactNode;
     id: string;
     isActive: boolean;
     label: string;
@@ -2915,14 +2944,15 @@ export function HeroComposer({
                   className={[styles.chatSidebarItemLabel, labelClassName ?? ""]
                     .filter(Boolean)
                     .join(" ")}
-                >
-                  {label}
+              >
+                {label}
                 </span>
                 {trailingVisual ? (
                   <span className={styles.chatSidebarItemAdornment}>{trailingVisual}</span>
                 ) : null}
               </span>
             </button>
+            {supplementalAction}
             <button
               aria-controls={menuId}
               aria-expanded={isMenuOpen}
@@ -2991,6 +3021,8 @@ export function HeroComposer({
   function renderProjectRow(project: ProjectEntry) {
     const projectChats = getProjectThreads(project.id);
     const isActiveProject = project.id === activeProjectId;
+    const isProjectCollapsed = collapsedProjectIds.includes(project.id);
+    const isProjectExpanded = isActiveProject && !isProjectCollapsed;
 
     return (
       <li className={styles.chatSidebarProjectGroup} key={project.id}>
@@ -3010,13 +3042,34 @@ export function HeroComposer({
           ),
           onDelete: () => requestProjectDelete(project.id),
           onSelect: () => handleProjectSelect(project.id),
-          trailingVisual: isActiveProject ? (
-            <ChevronDown aria-hidden="true" size={15} strokeWidth={2} />
+          supplementalAction: isActiveProject ? (
+            <button
+              aria-expanded={isProjectExpanded}
+              aria-label={`${isProjectExpanded ? "Collapse" : "Expand"} ${project.label} chats`}
+              className={styles.chatSidebarProjectToggle}
+              onClick={(event) => {
+                event.stopPropagation();
+                handleProjectChatsToggle(project.id);
+              }}
+              type="button"
+            >
+              <ChevronDown
+                aria-hidden="true"
+                className={[
+                  styles.chatSidebarProjectToggleIcon,
+                  isProjectExpanded ? styles.chatSidebarProjectToggleIconExpanded : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                size={15}
+                strokeWidth={2}
+              />
+            </button>
           ) : null,
           type: "project",
         })}
 
-        {isActiveProject ? (
+        {isProjectExpanded ? (
           <div className={styles.chatSidebarProjectCollection}>
             <span className={styles.chatSidebarProjectCollectionLabel}>Recent</span>
             {projectChats.length > 0 ? (
