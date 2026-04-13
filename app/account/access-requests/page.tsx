@@ -10,13 +10,28 @@ function formatStatusLabel(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function getDisplayStatusLabel(args: {
+  grantLifecycleStatusOptional: string | null;
+  requestStatus: string;
+}) {
+  if (args.requestStatus === "granted" && args.grantLifecycleStatusOptional) {
+    return args.grantLifecycleStatusOptional;
+  }
+
+  return args.requestStatus;
+}
+
 function getStatusPillClass(status: string) {
-  if (status === "granted") {
+  if (status === "granted" || status === "active") {
     return styles.pillGranted;
   }
 
-  if (status === "rejected") {
+  if (status === "rejected" || status === "revoked") {
     return styles.pillRejected;
+  }
+
+  if (status === "expired") {
+    return styles.pillExpired;
   }
 
   return styles.pillPending;
@@ -50,7 +65,14 @@ export default async function AccountAccessRequestsPage() {
     correlationId: `account_access_requests_${actor.actorId}`,
   });
   const pending = accessRequests.items.filter((item) => item.status === "pending");
-  const history = accessRequests.items.filter((item) => item.status !== "pending");
+  const activeGrants = accessRequests.items.filter(
+    (item) => item.status === "granted" && item.grantLifecycleStatusOptional === "active",
+  );
+  const history = accessRequests.items.filter(
+    (item) =>
+      item.status !== "pending" &&
+      !(item.status === "granted" && item.grantLifecycleStatusOptional === "active"),
+  );
 
   return (
     <main className={styles.page}>
@@ -62,6 +84,43 @@ export default async function AccountAccessRequestsPage() {
             Review recruiter requests in one place. Email and optional SMS links open the same
             secure approval page you see here in-app.
           </p>
+        </section>
+
+        <section className={styles.card}>
+          <div className={styles.stack}>
+            <h2>Active grants</h2>
+            {activeGrants.length === 0 ? (
+              <p className={styles.emptyState}>
+                No recruiter currently has an active private Career ID grant.
+              </p>
+            ) : (
+              <ul className={styles.list}>
+                {activeGrants.map((item) => (
+                  <li className={styles.listItem} key={item.id}>
+                    <div className={styles.listHeader}>
+                      <strong>{item.requester.organizationName}</strong>
+                      <span className={[styles.pill, getStatusPillClass("active")].join(" ")}>
+                        Active
+                      </span>
+                    </div>
+                    <p className={styles.muted}>
+                      {item.requester.requesterName} currently has {item.scope.replaceAll("_", " ")} access.
+                    </p>
+                    <p className={styles.smallNote}>
+                      {item.grantedExpiresAtOptional
+                        ? `Grant expires at ${item.grantedExpiresAtOptional}.`
+                        : "Grant does not expire automatically."}
+                    </p>
+                    <div className={styles.actions}>
+                      <Link className={styles.secondaryButton} href={item.reviewPath}>
+                        Manage grant
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
 
         <section className={styles.card}>
@@ -114,20 +173,43 @@ export default async function AccountAccessRequestsPage() {
             ) : (
               <ul className={styles.list}>
                 {history.map((item) => (
-                  <li className={styles.listItem} key={item.id}>
-                    <div className={styles.listHeader}>
-                      <strong>{item.requester.organizationName}</strong>
-                      <span className={[styles.pill, getStatusPillClass(item.status)].join(" ")}>
-                        {formatStatusLabel(item.status)}
-                      </span>
-                    </div>
-                    <p className={styles.muted}>{item.justification}</p>
-                    <div className={styles.actions}>
-                      <Link className={styles.secondaryButton} href={item.reviewPath}>
-                        Open request
-                      </Link>
-                    </div>
-                  </li>
+                  (() => {
+                    const displayStatus = getDisplayStatusLabel({
+                      grantLifecycleStatusOptional: item.grantLifecycleStatusOptional,
+                      requestStatus: item.status,
+                    });
+
+                    return (
+                      <li className={styles.listItem} key={item.id}>
+                        <div className={styles.listHeader}>
+                          <strong>{item.requester.organizationName}</strong>
+                          <span className={[styles.pill, getStatusPillClass(displayStatus)].join(" ")}>
+                            {formatStatusLabel(displayStatus)}
+                          </span>
+                        </div>
+                        <p className={styles.muted}>{item.justification}</p>
+                        {item.status === "granted" && item.grantLifecycleStatusOptional === "revoked" ? (
+                          <p className={styles.smallNote}>
+                            Access was revoked
+                            {item.grantRevokedAtOptional ? ` at ${item.grantRevokedAtOptional}.` : "."}
+                          </p>
+                        ) : null}
+                        {item.status === "granted" && item.grantLifecycleStatusOptional === "expired" ? (
+                          <p className={styles.smallNote}>
+                            Access expired
+                            {item.grantedExpiresAtOptional
+                              ? ` at ${item.grantedExpiresAtOptional}.`
+                              : "."}
+                          </p>
+                        ) : null}
+                        <div className={styles.actions}>
+                          <Link className={styles.secondaryButton} href={item.reviewPath}>
+                            Open request
+                          </Link>
+                        </div>
+                      </li>
+                    );
+                  })()
                 ))}
               </ul>
             )}

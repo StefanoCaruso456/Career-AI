@@ -68,6 +68,8 @@ type AccessGrantRow = {
   granted_by_actor_id: string;
   expires_at: Date | string | null;
   revoked_at: Date | string | null;
+  revoked_by_actor_id: string | null;
+  revoked_by_actor_type: ActorType | null;
   metadata_json: Record<string, unknown> | null;
   created_at: Date | string;
   updated_at: Date | string;
@@ -153,6 +155,8 @@ function mapAccessGrantRow(row: AccessGrantRow): AccessGrant {
     grantedByActorId: row.granted_by_actor_id,
     expiresAt: toIsoString(row.expires_at),
     revokedAt: toIsoString(row.revoked_at),
+    revokedByActorId: row.revoked_by_actor_id,
+    revokedByActorType: row.revoked_by_actor_type,
     metadataJson: row.metadata_json ?? {},
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
@@ -604,6 +608,8 @@ export async function createAccessGrantRecord(args: {
         granted_by_actor_id,
         expires_at,
         revoked_at,
+        revoked_by_actor_type,
+        revoked_by_actor_id,
         metadata_json,
         created_at,
         updated_at
@@ -643,6 +649,8 @@ export async function findActiveAccessGrant(args: {
         granted_by_actor_id,
         expires_at,
         revoked_at,
+        revoked_by_actor_type,
+        revoked_by_actor_id,
         metadata_json,
         created_at,
         updated_at
@@ -659,4 +667,83 @@ export async function findActiveAccessGrant(args: {
   );
 
   return row ? mapAccessGrantRow(row) : null;
+}
+
+export async function findLatestAccessGrantByRequestId(args: {
+  requestId: string;
+}) {
+  const row = await queryOptional<AccessGrantRow>(
+    getDatabasePool(),
+    `
+      SELECT
+        id,
+        access_request_id,
+        organization_id,
+        subject_talent_identity_id,
+        scope,
+        status,
+        granted_by_actor_type,
+        granted_by_actor_id,
+        expires_at,
+        revoked_at,
+        revoked_by_actor_type,
+        revoked_by_actor_id,
+        metadata_json,
+        created_at,
+        updated_at
+      FROM access_grants
+      WHERE access_request_id = $1
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    `,
+    [args.requestId],
+  );
+
+  return row ? mapAccessGrantRow(row) : null;
+}
+
+export async function revokeAccessGrantRecord(args: {
+  grantId: string;
+  metadataJson?: Record<string, unknown>;
+  revokedByActorId: string;
+  revokedByActorType: ActorType;
+}) {
+  const result = await getDatabasePool().query<AccessGrantRow>(
+    `
+      UPDATE access_grants
+      SET
+        status = 'revoked',
+        revoked_at = NOW(),
+        revoked_by_actor_type = $2,
+        revoked_by_actor_id = $3,
+        metadata_json = $4::jsonb,
+        updated_at = NOW()
+      WHERE id = $1
+        AND status = 'active'
+      RETURNING
+        id,
+        access_request_id,
+        organization_id,
+        subject_talent_identity_id,
+        scope,
+        status,
+        granted_by_actor_type,
+        granted_by_actor_id,
+        expires_at,
+        revoked_at,
+        revoked_by_actor_type,
+        revoked_by_actor_id,
+        metadata_json,
+        created_at,
+        updated_at
+    `,
+    [
+      args.grantId,
+      args.revokedByActorType,
+      args.revokedByActorId,
+      JSON.stringify(args.metadataJson ?? {}),
+    ],
+  );
+
+  return result.rows[0] ? mapAccessGrantRow(result.rows[0]) : null;
 }

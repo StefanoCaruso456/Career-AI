@@ -10,10 +10,12 @@ import {
   ensurePrimaryOrganizationForUser,
   findAccessRequestById,
   findActiveAccessGrant,
+  findLatestAccessGrantByRequestId,
   findOrganizationMembership,
   listOrganizationMembershipsForUser,
   markAccessRequestGranted,
   markAccessRequestRejected,
+  revokeAccessGrantRecord,
 } from "@/packages/persistence/src";
 import type { AuthenticatedActor } from "./auth";
 import { logAuditEvent } from "./audit-store";
@@ -535,6 +537,113 @@ export async function rejectScopedAccessRequest(args: {
   });
 
   return updatedRequest;
+}
+
+export async function revokeScopedAccessGrant(args: {
+  actor: AuthenticatedActor;
+  correlationId: string;
+  note?: string | null;
+  requestId: string;
+}) {
+  const request = await findAccessRequestById({
+    requestId: args.requestId,
+  });
+
+  if (!request) {
+    throw new ApiError({
+      errorCode: "NOT_FOUND",
+      status: 404,
+      message: "Access request was not found.",
+      details: { requestId: args.requestId },
+      correlationId: args.correlationId,
+    });
+  }
+
+  assertGrantAuthority({
+    actor: args.actor,
+    correlationId: args.correlationId,
+    subjectTalentIdentityId: request.subjectTalentIdentityId,
+  });
+
+  const latestGrant = await findLatestAccessGrantByRequestId({
+    requestId: request.id,
+  });
+
+  if (!latestGrant) {
+    throw new ApiError({
+      errorCode: "NOT_FOUND",
+      status: 404,
+      message: "No access grant exists for this request.",
+      details: { requestId: request.id },
+      correlationId: args.correlationId,
+    });
+  }
+
+  if (latestGrant.status !== "active") {
+    throw new ApiError({
+      errorCode: "CONFLICT",
+      status: 409,
+      message: "Only active access grants can be revoked.",
+      details: {
+        grantId: latestGrant.id,
+        status: latestGrant.status,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  if (latestGrant.expiresAt && new Date(latestGrant.expiresAt).getTime() < Date.now()) {
+    throw new ApiError({
+      errorCode: "CONFLICT",
+      status: 409,
+      message: "Expired access grants no longer need revocation.",
+      details: {
+        expiresAt: latestGrant.expiresAt,
+        grantId: latestGrant.id,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  const revokedGrant = await revokeAccessGrantRecord({
+    grantId: latestGrant.id,
+    metadataJson: {
+      ...(latestGrant.metadataJson ?? {}),
+      ...(args.note ? { revocation_note: args.note } : {}),
+      revoked_access_request_id: request.id,
+    },
+    revokedByActorId: args.actor.actorId,
+    revokedByActorType: args.actor.actorType,
+  });
+
+  if (!revokedGrant) {
+    throw new ApiError({
+      errorCode: "CONFLICT",
+      status: 409,
+      message: "Only active access grants can be revoked.",
+      details: {
+        grantId: latestGrant.id,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  logAccessAuditEvent({
+    actorId: args.actor.actorId,
+    actorType: args.actor.actorType,
+    correlationId: args.correlationId,
+    eventType: "access.grant.revoked",
+    metadataJson: {
+      access_request_id: request.id,
+      organization_id: revokedGrant.organizationId,
+      scope: revokedGrant.scope,
+      revoked_at: revokedGrant.revokedAt,
+    },
+    targetId: revokedGrant.id,
+    targetType: "access_grant",
+  });
+
+  return revokedGrant;
 }
 
 export async function hasScopedCandidateAccess(args: {

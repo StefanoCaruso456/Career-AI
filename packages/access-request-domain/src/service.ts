@@ -36,6 +36,7 @@ import {
   hasScopedCandidateAccess,
   logAuditEvent,
   rejectScopedAccessRequest,
+  revokeScopedAccessGrant,
 } from "@/packages/audit-security/src";
 import { listClaimDetails } from "@/packages/credential-domain/src";
 import { hashAccessRequestReviewToken } from "@/lib/access-request-review-tokens";
@@ -64,7 +65,11 @@ function toReviewPath(requestId: string) {
 function toSummaryDto(record: AccessRequestProductRecord): AccessRequestSummaryDto {
   return {
     createdAt: record.createdAt,
+    grantIdOptional: record.grantIdOptional,
+    grantLifecycleStatusOptional: record.grantLifecycleStatusOptional,
+    grantRevokedAtOptional: record.grantRevokedAtOptional,
     grantedAt: record.grantedAt,
+    grantedExpiresAtOptional: record.grantedExpiresAtOptional,
     id: record.id,
     justification: record.justification,
     rejectedAt: record.rejectedAt,
@@ -382,6 +387,49 @@ export async function resolveAccessRequestFromReview(args: {
     requestId: args.requestId,
     reviewTokenOptional: null,
     sessionActorOptional: reviewAccess.actor,
+  });
+}
+
+export async function revokeAccessRequestGrant(args: {
+  actor: AuthenticatedActor;
+  correlationId: string;
+  noteOptional?: string | null;
+  requestId: string;
+}) {
+  const requestRecord = await findAccessRequestProductRecordById({
+    requestId: args.requestId,
+  });
+
+  if (!requestRecord) {
+    throw new ApiError({
+      errorCode: "NOT_FOUND",
+      status: 404,
+      message: "Access request was not found.",
+      details: {
+        requestId: args.requestId,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  assertCandidateOwnerActor(
+    args.actor,
+    requestRecord.subjectTalentIdentityId,
+    args.correlationId,
+  );
+
+  await revokeScopedAccessGrant({
+    actor: args.actor,
+    correlationId: args.correlationId,
+    note: args.noteOptional ?? null,
+    requestId: args.requestId,
+  });
+
+  return getAccessRequestReview({
+    correlationId: args.correlationId,
+    requestId: args.requestId,
+    reviewTokenOptional: null,
+    sessionActorOptional: args.actor,
   });
 }
 

@@ -52,9 +52,15 @@ describe("AccessRequestReviewPage", () => {
       actorType: "talent_user",
     });
     mocks.getAccessRequestReview.mockResolvedValue({
+      createdAt: "2026-04-13T00:00:00.000Z",
+      grantIdOptional: null,
+      grantLifecycleStatusOptional: null,
+      grantRevokedAtOptional: null,
       grantedExpiresAtOptional: null,
+      grantedAt: null,
       id: "access_req_123",
       justification: "Need final-stage verification review.",
+      rejectedAt: null,
       requestedDurationDaysOptional: 30,
       requester: {
         organizationId: "org_123",
@@ -72,6 +78,7 @@ describe("AccessRequestReviewPage", () => {
         displayName: "Casey Candidate",
         talentIdentityId: "tal_123",
       },
+      updatedAt: "2026-04-13T00:00:00.000Z",
     });
 
     const Page = (await import("@/app/access-requests/[requestId]/page")).default;

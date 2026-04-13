@@ -8,11 +8,13 @@ import {
   ensurePrimaryOrganizationForUser,
   findAccessRequestById,
   findActiveAccessGrant,
+  findLatestAccessGrantByRequestId,
   findOrganizationMembership,
   listOrganizationMembershipContextsForUser,
   listOrganizationMembershipsForUser,
   markAccessRequestGranted,
   markAccessRequestRejected,
+  revokeAccessGrantRecord,
 } from "./access-control-repository";
 import { installTestDatabase, resetTestDatabase } from "./test-helpers";
 
@@ -196,7 +198,63 @@ describe("access-control repository", () => {
         subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
       }),
     ).toMatchObject({
+        id: activeGrant.id,
+      });
+  });
+
+  it("revokes the latest access grant and keeps durable revocation provenance", async () => {
+    const { candidate, recruiter } = await seedUsers();
+    const membership = await ensurePrimaryOrganizationForUser({
+      organizationName: "Riley Recruiting",
+      userId: recruiter.context.user.id,
+    });
+    const request = await createAccessRequestRecord({
+      justification: "Need access for final offer review.",
+      organizationId: membership.organizationId,
+      requesterUserId: recruiter.context.user.id,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    const activeGrant = await createAccessGrantRecord({
+      accessRequestId: request.id,
+      grantedByActorId: candidate.context.aggregate.talentIdentity.id,
+      grantedByActorType: "talent_user",
+      organizationId: membership.organizationId,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    const revokedGrant = await revokeAccessGrantRecord({
+      grantId: activeGrant.id,
+      metadataJson: {
+        revocation_note: "Role is no longer active.",
+      },
+      revokedByActorId: candidate.context.aggregate.talentIdentity.id,
+      revokedByActorType: "talent_user",
+    });
+
+    expect(revokedGrant).toMatchObject({
       id: activeGrant.id,
+      revokedByActorId: candidate.context.aggregate.talentIdentity.id,
+      revokedByActorType: "talent_user",
+      status: "revoked",
+    });
+    expect(
+      await findActiveAccessGrant({
+        organizationId: membership.organizationId,
+        scope: "candidate_private_profile",
+        subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+      }),
+    ).toBeNull();
+    expect(
+      await findLatestAccessGrantByRequestId({
+        requestId: request.id,
+      }),
+    ).toMatchObject({
+      id: activeGrant.id,
+      revokedByActorId: candidate.context.aggregate.talentIdentity.id,
+      status: "revoked",
     });
   });
 });

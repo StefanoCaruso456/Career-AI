@@ -1,22 +1,7 @@
 import type { InternalAgentRole, InternalAgentQuotaMetadata } from "@/packages/contracts/src";
+import { createInMemoryRateLimitProvider } from "@/lib/rate-limit/provider";
 
-type ExternalA2AQuotaState = {
-  count: number;
-  windowStartedAt: number;
-};
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __careerAiExternalA2AQuotaStore: Map<string, ExternalA2AQuotaState> | undefined;
-}
-
-function getQuotaStore() {
-  if (!globalThis.__careerAiExternalA2AQuotaStore) {
-    globalThis.__careerAiExternalA2AQuotaStore = new Map();
-  }
-
-  return globalThis.__careerAiExternalA2AQuotaStore;
-}
+const provider = createInMemoryRateLimitProvider("external-a2a");
 
 function parsePositiveInteger(value: string | undefined) {
   const normalized = value?.trim();
@@ -67,7 +52,7 @@ export function isExternalA2ARateLimitEnabled() {
 }
 
 export function resetExternalA2ARateLimitStore() {
-  globalThis.__careerAiExternalA2AQuotaStore = new Map();
+  provider.reset();
 }
 
 export function consumeExternalA2AQuota(args: {
@@ -88,51 +73,16 @@ export function consumeExternalA2AQuota(args: {
     } as const;
   }
 
-  const store = getQuotaStore();
   const key = [args.resource, args.callerName, args.callerId].join(":");
-  const existing = store.get(key);
-
-  if (!existing || now - existing.windowStartedAt >= windowMs) {
-    const nextState: ExternalA2AQuotaState = {
-      count: 1,
-      windowStartedAt: now,
-    };
-
-    store.set(key, nextState);
-
-    return {
-      allowed: true,
-      quota: {
-        limit,
-        remaining: Math.max(0, limit - nextState.count),
-        resetAt: new Date(nextState.windowStartedAt + windowMs).toISOString(),
-        windowMs,
-      } satisfies InternalAgentQuotaMetadata,
-    } as const;
-  }
-
-  if (existing.count >= limit) {
-    return {
-      allowed: false,
-      quota: {
-        limit,
-        remaining: 0,
-        resetAt: new Date(existing.windowStartedAt + windowMs).toISOString(),
-        windowMs,
-      } satisfies InternalAgentQuotaMetadata,
-    } as const;
-  }
-
-  existing.count += 1;
-  store.set(key, existing);
+  const result = provider.consume({
+    key,
+    limit,
+    now,
+    windowMs,
+  });
 
   return {
-    allowed: true,
-    quota: {
-      limit,
-      remaining: Math.max(0, limit - existing.count),
-      resetAt: new Date(existing.windowStartedAt + windowMs).toISOString(),
-      windowMs,
-    } satisfies InternalAgentQuotaMetadata,
+    allowed: result.allowed,
+    quota: result.quota satisfies InternalAgentQuotaMetadata,
   } as const;
 }

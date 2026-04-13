@@ -22,7 +22,11 @@ describe("RecruiterAccessRequestPanel", () => {
           items: [
             {
               createdAt: "2026-04-13T00:00:00.000Z",
+              grantIdOptional: null,
+              grantLifecycleStatusOptional: null,
+              grantRevokedAtOptional: null,
               grantedAt: null,
+              grantedExpiresAtOptional: null,
               id: "access_req_123",
               justification: "Need final-stage verification review.",
               rejectedAt: null,

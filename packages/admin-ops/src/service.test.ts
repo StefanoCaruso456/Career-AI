@@ -1,10 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getClaimAuditTrail, listPendingReviewQueue, submitReviewDecision } from "@/packages/admin-ops/src";
+import {
+  getClaimAuditTrail,
+  listAccessControlOverview,
+  listPendingReviewQueue,
+  submitReviewDecision,
+} from "@/packages/admin-ops/src";
 import { addProvenanceRecord, resetVerificationStore } from "@/packages/verification-domain/src";
 import { resetAuditStore } from "@/packages/audit-security/src";
 import { resetArtifactStore } from "@/packages/artifact-domain/src";
 import { createEmploymentClaim, resetCredentialStore } from "@/packages/credential-domain/src";
 import { createTalentIdentity } from "@/packages/identity-domain/src";
+import {
+  createAccessGrantRecord,
+  createAccessRequestRecord,
+  createOrganizationMembershipRecord,
+  createOrganizationRecord,
+  provisionGoogleUser,
+} from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
 describe("admin operations service", () => {
@@ -122,5 +134,73 @@ describe("admin operations service", () => {
     expect(trail.candidate.displayName).toBe("Audit Trail");
     expect(trail.provenance).toHaveLength(1);
     expect(trail.auditEvents.some((event) => event.eventType === "claim.created")).toBe(true);
+  });
+
+  it("surfaces request and grant lifecycle visibility for internal trust operations", async () => {
+    const recruiter = await provisionGoogleUser({
+      correlationId: "corr-admin-recruiter",
+      email: "recruiter-admin@example.com",
+      emailVerified: true,
+      firstName: "Riley",
+      fullName: "Riley Recruiter",
+      lastName: "Recruiter",
+      providerUserId: "provider-admin-recruiter",
+    });
+    const candidate = await provisionGoogleUser({
+      correlationId: "corr-admin-candidate",
+      email: "candidate-admin@example.com",
+      emailVerified: true,
+      firstName: "Casey",
+      fullName: "Casey Candidate",
+      lastName: "Candidate",
+      providerUserId: "provider-admin-candidate",
+    });
+    const organization = await createOrganizationRecord({
+      name: "Northstar Hiring",
+    });
+
+    await createOrganizationMembershipRecord({
+      organizationId: organization.id,
+      role: "admin",
+      userId: recruiter.context.user.id,
+    });
+
+    const request = await createAccessRequestRecord({
+      justification: "Need private hiring review access.",
+      organizationId: organization.id,
+      requesterUserId: recruiter.context.user.id,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    await createAccessGrantRecord({
+      accessRequestId: request.id,
+      grantedByActorId: candidate.context.aggregate.talentIdentity.id,
+      grantedByActorType: "talent_user",
+      organizationId: organization.id,
+      scope: "candidate_private_profile",
+      subjectTalentIdentityId: candidate.context.aggregate.talentIdentity.id,
+    });
+
+    const overview = await listAccessControlOverview({
+      correlationId: "corr-admin-access-overview",
+    });
+
+    expect(overview.requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          organizationName: "Northstar Hiring",
+          requestId: request.id,
+        }),
+      ]),
+    );
+    expect(overview.activeGrants).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          grantLifecycleStatusOptional: "active",
+          requestId: request.id,
+        }),
+      ]),
+    );
   });
 });

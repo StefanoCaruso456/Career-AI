@@ -205,4 +205,89 @@ describe("artifact service", () => {
       ]),
     );
   });
+
+  it("blocks deleting artifacts that are already attached to claims", async () => {
+    const talent = await createTalentIdentity({
+      input: {
+        email: "artifact-lock@example.com",
+        firstName: "Artifact",
+        lastName: "Lock",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-lock-1",
+    });
+
+    const result = await uploadArtifact({
+      file: new File(["linked-artifact"], "linked.pdf", {
+        type: "application/pdf",
+      }),
+      ownerTalentId: talent.talentIdentity.id,
+      actorType: "talent_user",
+      actorId: talent.talentIdentity.id,
+      correlationId: "corr-lock-2",
+    });
+
+    attachArtifactToClaim({
+      claimId: "claim_locked",
+      artifactId: result.artifact.artifact_id,
+      actorType: "talent_user",
+      actorId: talent.talentIdentity.id,
+      correlationId: "corr-lock-3",
+    });
+
+    expect(() =>
+      deleteArtifact({
+        actorId: talent.talentIdentity.id,
+        actorType: "talent_user",
+        artifactId: result.artifact.artifact_id,
+        correlationId: "corr-lock-4",
+      }),
+    ).toThrowError("Artifacts attached to claims cannot be deleted.");
+
+    expect(listAuditEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          correlation_id: "corr-lock-4",
+          event_type: "artifact.delete.denied",
+          target_id: result.artifact.artifact_id,
+        }),
+      ]),
+    );
+  });
+
+  it("treats persisted metadata without bytes as unavailable after restart", async () => {
+    const talent = await createTalentIdentity({
+      input: {
+        email: "artifact-missing-bytes@example.com",
+        firstName: "Artifact",
+        lastName: "Missing",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-missing-1",
+    });
+
+    const result = await uploadArtifact({
+      file: new File(["missing-bytes"], "missing.pdf", {
+        type: "application/pdf",
+      }),
+      ownerTalentId: talent.talentIdentity.id,
+      actorType: "talent_user",
+      actorId: talent.talentIdentity.id,
+      correlationId: "corr-missing-2",
+    });
+
+    rmSync(join(artifactStorageRoot, "files", result.artifact.artifact_id), { force: true });
+    resetArtifactStore({ clearPersisted: false });
+
+    expect(() =>
+      getArtifactMetadata({
+        artifactId: result.artifact.artifact_id,
+        correlationId: "corr-missing-3",
+      }),
+    ).toThrowError("Artifact was not found.");
+  });
 });

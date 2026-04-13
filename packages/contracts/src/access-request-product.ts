@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  accessGrantLifecycleStatusSchema,
   accessRequestStatusSchema,
   accessScopeSchema,
 } from "./access-control";
@@ -31,7 +32,11 @@ const accessRequestSubjectSummarySchema = z.object({
 
 export const accessRequestSummaryDtoSchema = z.object({
   createdAt: z.string().datetime(),
+  grantIdOptional: z.string().nullable(),
+  grantLifecycleStatusOptional: accessGrantLifecycleStatusSchema.nullable(),
+  grantRevokedAtOptional: z.string().datetime().nullable(),
   grantedAt: z.string().datetime().nullable(),
+  grantedExpiresAtOptional: z.string().datetime().nullable(),
   id: z.string(),
   justification: z.string(),
   rejectedAt: z.string().datetime().nullable(),
@@ -49,7 +54,6 @@ export const accessRequestListResponseDtoSchema = z.object({
 });
 
 export const accessRequestReviewDtoSchema = accessRequestSummaryDtoSchema.extend({
-  grantedExpiresAtOptional: z.string().datetime().nullable(),
   reviewAccess: z.object({
     channel: z.enum(["session_owner", "email", "sms"]),
     tokenValidated: z.boolean(),

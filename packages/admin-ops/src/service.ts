@@ -1,6 +1,8 @@
 import {
+  adminAccessControlOverviewDtoSchema,
   reviewDecisionInputSchema,
   type ActorType,
+  type AdminAccessControlOverviewDto,
   type AdminClaimAuditDto,
   type ReviewDecisionInput,
   type ReviewQueueItem,
@@ -13,6 +15,7 @@ import {
   listProvenanceRecords,
   transitionVerificationRecord,
 } from "@/packages/verification-domain/src";
+import { listAccessRequestProductRecordsForAdmin } from "@/packages/persistence/src";
 
 const pendingStatuses = new Set([
   "SUBMITTED",
@@ -36,6 +39,30 @@ function toReviewQueueItemDto(item: ReviewQueueItem): ReviewQueueItemDto {
     artifactCount: item.artifact_count,
     submittedAt: item.submitted_at,
     lastUpdatedAt: item.last_updated_at,
+  };
+}
+
+function toAdminAccessControlRecord(record: Awaited<
+  ReturnType<typeof listAccessRequestProductRecordsForAdmin>
+>[number]) {
+  return {
+    grantedAtOptional: record.grantedAt,
+    grantedExpiresAtOptional: record.grantedExpiresAtOptional,
+    grantIdOptional: record.grantIdOptional,
+    grantLifecycleStatusOptional: record.grantLifecycleStatusOptional,
+    grantRevokedAtOptional: record.grantRevokedAtOptional,
+    justification: record.justification,
+    organizationId: record.organizationId,
+    organizationName: record.organizationName,
+    requestCreatedAt: record.createdAt,
+    requestId: record.id,
+    requesterName: record.requesterName,
+    requesterUserId: record.requesterUserId,
+    requestStatus: record.status,
+    requestUpdatedAt: record.updatedAt,
+    scope: record.scope,
+    subjectDisplayName: record.subjectDisplayName,
+    subjectTalentIdentityId: record.subjectTalentIdentityId,
   };
 }
 
@@ -135,6 +162,32 @@ export function getClaimAuditTrail(args: {
   correlationId: string;
 }) {
   return getClaimAuditTrailAsync(args);
+}
+
+export function listAccessControlOverview(args: {
+  correlationId: string;
+}) {
+  return listAccessControlOverviewAsync(args);
+}
+
+async function listAccessControlOverviewAsync(args: {
+  correlationId: string;
+}): Promise<AdminAccessControlOverviewDto> {
+  const records = (await listAccessRequestProductRecordsForAdmin()).map(toAdminAccessControlRecord);
+  const requests = records;
+  const activeGrants = records.filter((record) => record.grantLifecycleStatusOptional === "active");
+  const lifecycleHistory = records.filter(
+    (record) =>
+      record.requestStatus === "rejected" ||
+      record.grantLifecycleStatusOptional === "revoked" ||
+      record.grantLifecycleStatusOptional === "expired",
+  );
+
+  return adminAccessControlOverviewDtoSchema.parse({
+    activeGrants,
+    lifecycleHistory,
+    requests,
+  }) as AdminAccessControlOverviewDto;
 }
 
 async function getClaimAuditTrailAsync(args: {
