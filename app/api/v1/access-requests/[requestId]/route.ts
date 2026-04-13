@@ -38,7 +38,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const isCandidateOwner =
       actor.actorType === "talent_user" && actor.actorId === record.subjectTalentIdentityId;
-    const isRequester = actor.identity?.appUserId === record.requesterUserId;
+    const isRequester =
+      actor.identity?.kind === "authenticated_user" &&
+      actor.identity.appUserId === record.requesterUserId;
 
     if (!(isCandidateOwner || isRequester || actor.actorType === "system_service")) {
       throw new ApiError({

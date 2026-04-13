@@ -116,6 +116,10 @@ function assertRecruiterActor(actor: AuthenticatedActor, correlationId: string) 
   });
 }
 
+function getAuthenticatedAppUserId(actor: AuthenticatedActor) {
+  return actor.identity?.kind === "authenticated_user" ? actor.identity.appUserId : null;
+}
+
 function buildTokenBackedCandidateActor(subjectTalentIdentityId: string): AuthenticatedActor {
   return {
     actorId: subjectTalentIdentityId,
@@ -277,7 +281,7 @@ export async function listRecruiterAccessRequests(args: {
 }) {
   assertRecruiterActor(args.actor, args.correlationId);
 
-  const requesterUserId = args.actor.identity?.appUserId;
+  const requesterUserId = getAuthenticatedAppUserId(args.actor);
 
   if (!requesterUserId) {
     throw new ApiError({
@@ -492,7 +496,7 @@ export async function getRecruiterPrivateCandidateProfile(args: {
     correlationId: args.correlationId,
     soulRecordIdOptional: context.aggregate.soulRecord.id,
   });
-  const requesterUserId = args.actor.identity?.appUserId;
+  const requesterUserId = getAuthenticatedAppUserId(args.actor);
   const grantedExpiresAtOptional = requesterUserId
     ? await findGrantedExpiry({
         correlationId: args.correlationId,
