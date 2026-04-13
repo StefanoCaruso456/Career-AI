@@ -1,6 +1,6 @@
 import "server-only";
 
-import { flush, initLogger, type Logger } from "braintrust";
+import { createRequire } from "node:module";
 import OpenAI from "openai";
 
 const defaultBraintrustApiUrl = "https://api.braintrust.dev";
@@ -24,7 +24,53 @@ export const braintrustApiUrl =
 const braintrustApiKey = readEnv("BRAINTRUST_API_KEY");
 const braintrustAppUrl = readEnv("BRAINTRUST_APP_URL");
 
-let loggerSingleton: Logger<true> | null | undefined;
+type BraintrustTraceEvent = {
+  error?: unknown;
+  input?: unknown;
+  metadata?: Record<string, unknown>;
+  metrics?: Record<string, number> | undefined;
+  output?: unknown;
+  tags?: string[];
+};
+
+export type BraintrustSpanLike = {
+  log: (event: BraintrustTraceEvent) => void;
+  rootSpanId?: string | null;
+};
+
+type BraintrustLoggerLike = {
+  id?: Promise<string | null | undefined> | string | null | undefined;
+};
+
+type BraintrustModuleLike = {
+  currentSpan?: () => {
+    traced: <TResult>(
+      callback: (span: BraintrustSpanLike) => TResult,
+      options?: unknown,
+    ) => TResult;
+  };
+  flush?: () => Promise<void> | void;
+  initLogger?: (options: {
+    apiKey: string;
+    appUrl?: string;
+    asyncFlush: boolean;
+    orgName: string;
+    projectName: string;
+  }) => BraintrustLoggerLike;
+  traced?: <TResult>(
+    callback: (span: BraintrustSpanLike) => TResult,
+    options?: unknown,
+  ) => TResult;
+};
+
+type BraintrustModuleLoader = () => BraintrustModuleLike | null;
+
+const require = createRequire(import.meta.url);
+
+let braintrustModuleSingleton: BraintrustModuleLike | null | undefined;
+let braintrustImportWarningLogged = false;
+let braintrustModuleLoader: BraintrustModuleLoader = defaultLoadBraintrustModule;
+let loggerSingleton: BraintrustLoggerLike | null | undefined;
 let openAISingleton: OpenAI | undefined;
 let projectIdSingleton: Promise<string | null> | null | undefined;
 
@@ -56,6 +102,94 @@ type FetchObservedSpansArgs = {
   retryDelayMs?: number;
   rootSpanId: string;
 };
+
+function isMissingBraintrustModuleError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const nodeError = error as NodeJS.ErrnoException;
+  return (
+    nodeError.code === "MODULE_NOT_FOUND" ||
+    nodeError.code === "ERR_MODULE_NOT_FOUND" ||
+    error.message.includes("Cannot find module 'braintrust'") ||
+    error.message.includes('Cannot find package "braintrust"')
+  );
+}
+
+function defaultLoadBraintrustModule() {
+  if (braintrustModuleSingleton !== undefined) {
+    return braintrustModuleSingleton;
+  }
+
+  try {
+    braintrustModuleSingleton = require("braintrust") as BraintrustModuleLike;
+  } catch (error) {
+    if (!isMissingBraintrustModuleError(error)) {
+      throw error;
+    }
+
+    if (!braintrustImportWarningLogged) {
+      console.warn(
+        "Braintrust instrumentation is unavailable because the package could not be loaded. Continuing with tracing disabled.",
+      );
+      braintrustImportWarningLogged = true;
+    }
+
+    braintrustModuleSingleton = null;
+  }
+
+  return braintrustModuleSingleton;
+}
+
+function loadBraintrustModule() {
+  return braintrustModuleLoader();
+}
+
+function createNoopSpan(rootSpanId = `noop-root-${crypto.randomUUID()}`): BraintrustSpanLike {
+  return {
+    log: () => undefined,
+    rootSpanId,
+  };
+}
+
+export function runWithBraintrustRootSpan<TResult>(
+  callback: (span: BraintrustSpanLike) => TResult,
+  options?: unknown,
+) {
+  const braintrust = loadBraintrustModule();
+
+  if (typeof braintrust?.traced === "function") {
+    return braintrust.traced(callback, options);
+  }
+
+  return callback(createNoopSpan());
+}
+
+export function runWithCurrentBraintrustSpan<TResult>(
+  callback: (span: BraintrustSpanLike) => TResult,
+  options?: unknown,
+) {
+  const braintrust = loadBraintrustModule();
+  const currentSpan = braintrust?.currentSpan?.();
+
+  if (typeof currentSpan?.traced === "function") {
+    return currentSpan.traced(callback, options);
+  }
+
+  return callback(createNoopSpan());
+}
+
+export function setBraintrustModuleLoaderForTest(loader: BraintrustModuleLoader | null) {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("setBraintrustModuleLoaderForTest can only be used in tests.");
+  }
+
+  braintrustModuleLoader = loader ?? defaultLoadBraintrustModule;
+  braintrustModuleSingleton = undefined;
+  braintrustImportWarningLogged = false;
+  loggerSingleton = undefined;
+}
 
 function getBraintrustAuthHeaders() {
   if (!braintrustApiKey) {
@@ -143,7 +277,14 @@ export function getBraintrustLogger() {
     return loggerSingleton;
   }
 
-  loggerSingleton = initLogger({
+  const braintrust = loadBraintrustModule();
+
+  if (typeof braintrust?.initLogger !== "function") {
+    loggerSingleton = null;
+    return loggerSingleton;
+  }
+
+  loggerSingleton = braintrust.initLogger({
     apiKey: braintrustApiKey,
     appUrl: braintrustAppUrl,
     asyncFlush: true,
@@ -172,7 +313,13 @@ export async function flushBraintrust() {
     return;
   }
 
-  await flush();
+  const braintrust = loadBraintrustModule();
+
+  if (typeof braintrust?.flush !== "function") {
+    return;
+  }
+
+  await braintrust.flush();
 }
 
 export async function getBraintrustProjectId() {
@@ -186,7 +333,11 @@ export async function getBraintrustProjectId() {
 
   projectIdSingleton = (async () => {
     const logger = getBraintrustLogger();
-    const loggerProjectId = logger ? (await logger.id)?.trim() : null;
+    const loggerProjectIdValue = logger ? await logger.id : null;
+    const loggerProjectId =
+      typeof loggerProjectIdValue === "string"
+        ? loggerProjectIdValue.trim()
+        : null;
 
     if (loggerProjectId) {
       return loggerProjectId;

@@ -2,24 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const rootSpanLog = vi.fn();
+  const runWithBraintrustRootSpan = vi.fn(
+    (
+      callback: (span: { log: typeof rootSpanLog; rootSpanId: string }) => Promise<Response>,
+    ) => callback({ log: rootSpanLog, rootSpanId: "root-span-123" }),
+  );
+  const runWithCurrentBraintrustSpan = vi.fn(
+    (callback: (span: { log: ReturnType<typeof vi.fn> }) => unknown) =>
+      callback({ log: vi.fn() }),
+  );
 
   return {
     fetchObservedSpansForRoot: vi.fn(),
     flushBraintrust: vi.fn(),
     getBraintrustLogger: vi.fn(),
     rootSpanLog,
+    runWithBraintrustRootSpan,
+    runWithCurrentBraintrustSpan,
   };
 });
-
-vi.mock("braintrust", () => ({
-  currentSpan: () => ({
-    traced: (callback: (span: { log: ReturnType<typeof vi.fn> }) => unknown) =>
-      callback({ log: vi.fn() }),
-  }),
-  traced: (
-    callback: (span: { log: typeof mocks.rootSpanLog; rootSpanId: string }) => Promise<Response>,
-  ) => callback({ log: mocks.rootSpanLog, rootSpanId: "root-span-123" }),
-}));
 
 vi.mock("server-only", () => ({}));
 
@@ -27,6 +28,8 @@ vi.mock("@/lib/braintrust", () => ({
   fetchObservedSpansForRoot: mocks.fetchObservedSpansForRoot,
   flushBraintrust: mocks.flushBraintrust,
   getBraintrustLogger: mocks.getBraintrustLogger,
+  runWithBraintrustRootSpan: mocks.runWithBraintrustRootSpan,
+  runWithCurrentBraintrustSpan: mocks.runWithCurrentBraintrustSpan,
 }));
 
 import { applyTraceResponseHeaders, updateRequestTraceContext, withTracedRoute } from "./tracing";
