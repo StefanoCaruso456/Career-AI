@@ -64,7 +64,7 @@
 .heroContextBlock {
   display: grid;
   gap: 1.45rem;
-  margin-top: clamp(3.2rem, 8vw, 6.75rem);
+  margin-top: clamp(5.6rem, 13vw, 11.25rem);
 }
 
 .sectionEyebrow {
@@ -848,7 +848,7 @@
   }
 
   .heroContextBlock {
-    margin-top: clamp(2.4rem, 6vw, 4.4rem);
+    margin-top: clamp(4rem, 9vw, 6.75rem);
   }
 
   .supportPanel {
@@ -944,7 +944,7 @@
   }
 
   .heroContextBlock {
-    margin-top: 2rem;
+    margin-top: 3.2rem;
     gap: 1.15rem;
   }
 }
