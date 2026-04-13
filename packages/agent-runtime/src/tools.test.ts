@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { listAuditEvents, resetAuditStore } from "@/packages/audit-security/src";
 
 const {
   findPersistentContextByTalentIdentityIdMock,
   findPersistentRecruiterCandidateProjectionByLookupMock,
   findPersistentSharedRecruiterCandidateProjectionByLookupMock,
   getPersistentCareerBuilderProfileMock,
+  isDatabaseConfiguredMock,
   listPersistentCareerBuilderEvidenceMock,
   searchEmployerCandidatesMock,
   searchJobsCatalogMock,
@@ -15,6 +17,7 @@ const {
   findPersistentRecruiterCandidateProjectionByLookupMock: vi.fn(),
   findPersistentSharedRecruiterCandidateProjectionByLookupMock: vi.fn(),
   getPersistentCareerBuilderProfileMock: vi.fn(),
+  isDatabaseConfiguredMock: vi.fn(),
   listPersistentCareerBuilderEvidenceMock: vi.fn(),
   searchEmployerCandidatesMock: vi.fn(),
   searchJobsCatalogMock: vi.fn(),
@@ -30,12 +33,15 @@ vi.mock("@/packages/jobs-domain/src", () => ({
 }));
 
 vi.mock("@/packages/persistence/src", () => ({
+  countPersistedAuditEvents: vi.fn(),
+  createAuditEventRecord: vi.fn(),
   findPersistentContextByTalentIdentityId: findPersistentContextByTalentIdentityIdMock,
   findPersistentRecruiterCandidateProjectionByLookup:
     findPersistentRecruiterCandidateProjectionByLookupMock,
   findPersistentSharedRecruiterCandidateProjectionByLookup:
     findPersistentSharedRecruiterCandidateProjectionByLookupMock,
   getPersistentCareerBuilderProfile: getPersistentCareerBuilderProfileMock,
+  isDatabaseConfigured: isDatabaseConfiguredMock,
   listPersistentCareerBuilderEvidence: listPersistentCareerBuilderEvidenceMock,
 }));
 
@@ -122,6 +128,7 @@ describe("agent tools", () => {
     findPersistentRecruiterCandidateProjectionByLookupMock.mockReset();
     findPersistentSharedRecruiterCandidateProjectionByLookupMock.mockReset();
     getPersistentCareerBuilderProfileMock.mockReset();
+    isDatabaseConfiguredMock.mockReset();
     listPersistentCareerBuilderEvidenceMock.mockReset();
     searchEmployerCandidatesMock.mockReset();
     searchJobsCatalogMock.mockReset();
@@ -129,6 +136,8 @@ describe("agent tools", () => {
     traceSpanMock.mockImplementation(
       (_options: unknown, callback: () => Promise<unknown> | unknown) => callback(),
     );
+    isDatabaseConfiguredMock.mockReturnValue(false);
+    resetAuditStore();
   });
 
   it("builds OpenAI function definitions from the registry", () => {
@@ -439,6 +448,13 @@ describe("agent tools", () => {
         },
       }),
     ).rejects.toBeInstanceOf(AgentToolPermissionError);
+    expect(searchEmployerCandidatesMock).not.toHaveBeenCalled();
+    expect(listAuditEvents()).toContainEqual(
+      expect.objectContaining({
+        event_type: "security.tool_access.denied",
+        target_id: "search_candidates",
+      }),
+    );
   });
 
   it("rejects invalid tool arguments", async () => {
