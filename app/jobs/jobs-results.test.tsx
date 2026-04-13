@@ -254,7 +254,7 @@ describe("JobsResults", () => {
       },
       { timeout: 5_000 },
     );
-    expect(screen.getByText("1,045 jobs available")).toBeInTheDocument();
+    expect(screen.getByText("53 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Role 25")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Company")).toHaveTextContent("Cisco");
     expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
@@ -455,11 +455,11 @@ describe("JobsResults", () => {
                     label: "Dell Technologies",
                     lane: "ats_direct",
                     quality: "high_signal",
-                    status: "connected",
+                    status: "degraded",
                     jobCount: 1,
                     endpointLabel: "dell.wd1.myworkdayjobs.com",
                     lastSyncedAt: "2026-04-12T12:45:00.000Z",
-                    message: "Dell public jobs synced and ready to persist.",
+                    message: "Dell refresh failed, using the previously persisted jobs snapshot.",
                   },
                 ],
                 summary: {
@@ -467,7 +467,7 @@ describe("JobsResults", () => {
                   directAtsJobs: expandedJobs.length,
                   aggregatorJobs: 0,
                   sourceCount: 2,
-                  connectedSourceCount: 2,
+                  connectedSourceCount: 1,
                   highSignalSourceCount: 2,
                   coverageSourceCount: 0,
                 },
@@ -510,6 +510,7 @@ describe("JobsResults", () => {
     expect(
       screen.getByText("Showing 1 of 1 matching role from 25 loaded while the snapshot refreshes..."),
     ).toBeInTheDocument();
+    expect(screen.getByText("25 jobs available")).toBeInTheDocument();
   });
 
   it("surfaces an expanded search error instead of staying stuck on the checking state forever", async () => {

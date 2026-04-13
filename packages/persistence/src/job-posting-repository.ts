@@ -65,6 +65,10 @@ type JobPostingRow = {
   orchestration_metadata_json: Record<string, unknown> | null;
 };
 
+type PersistedJobCountRow = {
+  total_count: number | string;
+};
+
 export type PersistedJobsFeedSnapshot = {
   jobs: JobPostingDto[];
   sources: JobSourceSnapshotDto[];
@@ -457,25 +461,40 @@ export async function getPersistedJobsFeedSnapshot(args?: {
     ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
     : null;
   const pool = getDatabasePool();
-  const [sourcesResult, jobsResult, lastSyncRow] = await Promise.all([
+  const [sourcesResult, jobsResult, totalJobsResult, lastSyncRow] = await Promise.all([
     pool.query<JobSourceRow>(
       `
+        WITH source_counts AS (
+          SELECT
+            source_key,
+            COUNT(*)::int AS active_job_count
+          FROM job_postings
+          WHERE is_active = true
+            AND ($1::timestamptz IS NULL OR COALESCE(updated_at, posted_at, persisted_at) >= $1)
+            AND (
+              $2::boolean = false
+              OR COALESCE(normalized_company_name, LOWER(company_name)) = ANY($3::text[])
+            )
+          GROUP BY source_key
+        )
         SELECT
-          source_key,
-          source_label,
-          source_lane,
-          source_quality,
-          status,
-          endpoint_label,
-          message,
-          job_count,
-          last_synced_at
+          job_sources.source_key,
+          job_sources.source_label,
+          job_sources.source_lane,
+          job_sources.source_quality,
+          job_sources.status,
+          job_sources.endpoint_label,
+          job_sources.message,
+          COALESCE(source_counts.active_job_count, 0) AS job_count,
+          job_sources.last_synced_at
         FROM job_sources
+        LEFT JOIN source_counts ON source_counts.source_key = job_sources.source_key
         ORDER BY
-          CASE source_lane WHEN 'ats_direct' THEN 0 ELSE 1 END,
-          CASE source_quality WHEN 'high_signal' THEN 0 ELSE 1 END,
-          source_label ASC
+          CASE job_sources.source_lane WHEN 'ats_direct' THEN 0 ELSE 1 END,
+          CASE job_sources.source_quality WHEN 'high_signal' THEN 0 ELSE 1 END,
+          job_sources.source_label ASC
       `,
+      [cutoffIso, shouldFilterByCompanies, companies],
     ),
     pool.query<JobPostingRow>(
       `
@@ -529,6 +548,25 @@ export async function getPersistedJobsFeedSnapshot(args?: {
       `,
       [Math.min(Math.max(limit * 6, limit), 30_000), cutoffIso, shouldFilterByCompanies, companies],
     ),
+    pool.query<PersistedJobCountRow>(
+      `
+        SELECT
+          COUNT(
+            DISTINCT CASE
+              WHEN dedupe_fingerprint IS NOT NULL AND dedupe_fingerprint <> '' THEN dedupe_fingerprint
+              ELSE dedupe_key
+            END
+          )::text AS total_count
+        FROM job_postings
+        WHERE is_active = true
+          AND ($1::timestamptz IS NULL OR COALESCE(updated_at, posted_at, persisted_at) >= $1)
+          AND (
+            $2::boolean = false
+            OR COALESCE(normalized_company_name, LOWER(company_name)) = ANY($3::text[])
+          )
+      `,
+      [cutoffIso, shouldFilterByCompanies, companies],
+    ),
     queryOptional<{ last_synced_at: Date | string }>(
       pool,
       "SELECT MAX(last_synced_at) AS last_synced_at FROM job_sources",
@@ -537,13 +575,14 @@ export async function getPersistedJobsFeedSnapshot(args?: {
 
   const sources = sourcesResult.rows.map(mapSourceRow);
   const jobs = dedupeJobs(jobsResult.rows.map(mapJobRow)).slice(0, limit);
+  const persistedJobCount = Number.parseInt(String(totalJobsResult.rows[0]?.total_count ?? 0), 10);
 
   return {
     jobs,
     sources,
     storage: {
       mode: "database",
-      persistedJobs: jobs.length,
+      persistedJobs: Number.isFinite(persistedJobCount) ? persistedJobCount : jobs.length,
       persistedSources: sources.length,
       lastSyncAt: formatIsoString(lastSyncRow?.last_synced_at ?? null),
     },

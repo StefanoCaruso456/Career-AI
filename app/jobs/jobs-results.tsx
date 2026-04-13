@@ -310,12 +310,6 @@ function formatCount(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-function getTotalAvailableCount(sources: JobSourceSnapshotDto[]) {
-  return sources
-    .filter((source) => source.status === "connected")
-    .reduce((sum, source) => sum + source.jobCount, 0);
-}
-
 function isSnapshotStale(
   storageMode: JobsResultsProps["initialStorageMode"],
   lastSyncAt: string | null | undefined,
@@ -338,7 +332,7 @@ function isSnapshotStale(
 }
 
 function didHydrateFullJobsWindow(snapshot: JobsFeedResponseDto, requestedLimit: number) {
-  const totalAvailableCount = getTotalAvailableCount(snapshot.sources);
+  const totalAvailableCount = snapshot.summary.totalJobs;
 
   return snapshot.jobs.length < requestedLimit || snapshot.jobs.length >= totalAvailableCount;
 }
@@ -631,7 +625,7 @@ export function JobsResults({
     companyFilter === "all"
       ? totalAvailableCount
       : companyScopedSnapshot
-        ? getTotalAvailableCount(companyScopedSnapshot.sources)
+        ? companyScopedSnapshot.summary.totalJobs
         : companyScopedExpectedCount ?? 0;
   const fullJobsWindowLimit = Math.max(totalAvailableCount, loadedJobs.length);
   const filteredJobs = activeJobs.filter((job) => {
@@ -766,7 +760,7 @@ export function JobsResults({
     setLoadedJobs(snapshot.jobs);
     setSourceSnapshots(snapshot.sources);
     setCompanyOptions(getCompanyOptions(snapshot.jobs, snapshot.sources, initialCompanyOptions));
-    setTotalAvailableCount(getTotalAvailableCount(snapshot.sources));
+    setTotalAvailableCount(snapshot.summary.totalJobs);
 
     if (typeof options?.hasHydratedFullWindow === "boolean") {
       setHasHydratedFullWindow(options.hasHydratedFullWindow);
@@ -872,7 +866,7 @@ export function JobsResults({
         });
 
         if (!hydratedFullWindow) {
-          const expandedLimit = Math.max(getTotalAvailableCount(snapshot.sources), snapshot.jobs.length);
+          const expandedLimit = Math.max(snapshot.summary.totalJobs, snapshot.jobs.length);
           const expandedSnapshot = await fetchJobsWindow(expandedLimit);
 
           if (isCancelled) {

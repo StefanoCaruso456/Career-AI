@@ -1762,8 +1762,8 @@ async function collectWorkableXmlJobs(
   }
 }
 
-function buildSummary(args: { sources: JobSourceSnapshotDto[] }) {
-  const totalJobs = args.sources.reduce((sum, source) => sum + source.jobCount, 0);
+function buildSummary(args: { sources: JobSourceSnapshotDto[]; totalJobs?: number }) {
+  const reportedSourceTotal = args.sources.reduce((sum, source) => sum + source.jobCount, 0);
   const directAtsJobs = args.sources
     .filter((source) => source.lane === "ats_direct")
     .reduce((sum, source) => sum + source.jobCount, 0);
@@ -1772,7 +1772,10 @@ function buildSummary(args: { sources: JobSourceSnapshotDto[] }) {
     .reduce((sum, source) => sum + source.jobCount, 0);
 
   return {
-    totalJobs,
+    totalJobs:
+      typeof args.totalJobs === "number" && Number.isFinite(args.totalJobs)
+        ? Math.max(args.totalJobs, 0)
+        : reportedSourceTotal,
     directAtsJobs,
     aggregatorJobs,
     sourceCount: args.sources.length,
@@ -1841,6 +1844,7 @@ function buildJobsFeedResponse(args: {
   jobs: JobPostingDto[];
   sources: JobSourceSnapshotDto[];
   storage: JobsFeedStorageDto;
+  totalJobs?: number;
 }): JobsFeedResponseDto {
   return jobsFeedResponseSchema.parse({
     generatedAt: args.generatedAt,
@@ -1848,6 +1852,7 @@ function buildJobsFeedResponse(args: {
     sources: args.sources,
     summary: buildSummary({
       sources: args.sources,
+      totalJobs: args.totalJobs,
     }),
     storage: args.storage,
   });
@@ -1893,6 +1898,7 @@ async function getLiveJobsFeedPreview(args: {
         persistedSources: 0,
         lastSyncAt: null,
       },
+      totalJobs: filteredSnapshot.jobs.length,
     }),
   };
 }
@@ -1981,6 +1987,7 @@ export async function getJobsFeedSnapshot(args?: {
         jobs: filteredPersisted.jobs,
         sources: filteredPersisted.sources,
         storage: persisted.storage,
+        totalJobs: persisted.storage.persistedJobs,
       });
     }
 
@@ -2002,6 +2009,7 @@ export async function getJobsFeedSnapshot(args?: {
       jobs: filteredRefreshed.jobs,
       sources: filteredRefreshed.sources,
       storage: refreshed.storage,
+      totalJobs: refreshed.storage.persistedJobs,
     });
   } catch (error) {
     console.error("Jobs persistence failed; falling back to live feed preview.", error);

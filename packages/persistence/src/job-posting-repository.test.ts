@@ -162,6 +162,8 @@ describe("job posting repository", () => {
 
     expect(snapshot.jobs).toHaveLength(1);
     expect(snapshot.sources[0]?.status).toBe("degraded");
+    expect(snapshot.sources[0]?.jobCount).toBe(1);
+    expect(snapshot.storage.persistedJobs).toBe(1);
     expect(snapshot.storage.lastSyncAt).toBe(secondSyncAt);
   });
 

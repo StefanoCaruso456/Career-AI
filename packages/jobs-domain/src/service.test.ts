@@ -571,7 +571,7 @@ describe("jobs feed service", () => {
     const snapshot = await getJobsFeedSnapshot({ limit: 10 });
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(snapshot.summary.totalJobs).toBe(4);
+    expect(snapshot.summary.totalJobs).toBe(3);
     expect(snapshot.summary.directAtsJobs).toBe(2);
     expect(snapshot.summary.aggregatorJobs).toBe(2);
     expect(snapshot.summary.connectedSourceCount).toBe(3);
@@ -974,6 +974,9 @@ describe("jobs feed service", () => {
     expect(snapshot.storage.mode).toBe("database");
     expect(snapshot.jobs).toHaveLength(1);
     expect(snapshot.sources[0]?.status).toBe("degraded");
+    expect(snapshot.sources[0]?.jobCount).toBe(1);
+    expect(snapshot.summary.totalJobs).toBe(1);
+    expect(snapshot.storage.persistedJobs).toBe(1);
   });
 
   it("returns company-filtered persisted snapshots for the jobs page", async () => {
