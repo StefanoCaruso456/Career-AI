@@ -9,6 +9,7 @@ import {
   LoaderCircle,
   LogOut,
   Settings2,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
@@ -145,9 +146,17 @@ export function HeaderAuthControls() {
   const settingsHref = getSettingsRoute(preferredPersona);
   const isSettingsPage = pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
   const workspaceHref = getPostAuthRoute(preferredPersona);
+  const accessRequestsHref = "/account/access-requests";
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
   const accountLabel = displayName;
   const accountMeta = accountTypeLabel;
+  const showAccessRequests =
+    session.user.roleType === "candidate" ||
+    (preferredPersona === "job_seeker" &&
+      session.user.roleType !== "recruiter" &&
+      session.user.roleType !== "hiring_manager");
+  const isAccessRequestsPage =
+    pathname === accessRequestsHref || pathname.startsWith(`${accessRequestsHref}/`);
   const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
   const isPrimaryMenuPage =
     primaryMenuHref === "/onboarding"
@@ -248,6 +257,30 @@ export function HeaderAuthControls() {
               </span>
               <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
             </Link>
+
+            {showAccessRequests ? (
+              <Link
+                aria-current={isAccessRequestsPage ? "page" : undefined}
+                className={
+                  isAccessRequestsPage
+                    ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                    : styles.settingsItem
+                }
+                href={accessRequestsHref}
+                onClick={() => {
+                  setMenuOpen(false);
+                }}
+                role="menuitem"
+              >
+                <span className={styles.settingsItemLead}>
+                  <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+                  <span className={styles.settingsItemCopy}>
+                    <strong>Access Requests</strong>
+                  </span>
+                </span>
+                <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
+              </Link>
+            ) : null}
 
             <div className={styles.settingsPanelDivider} />
 
