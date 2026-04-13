@@ -89,7 +89,7 @@ function canExposeEmploymentDetails(args: {
 }
 
 function toVisibleEmploymentRecord(args: {
-  details: ReturnType<typeof listClaimDetails>[number];
+  details: Awaited<ReturnType<typeof listClaimDetails>>[number];
   showStatusLabels: boolean;
 }): RecruiterEmploymentRecordViewDto {
   return {
@@ -186,10 +186,10 @@ export async function getEmployerCandidateTrace(args: {
   const exposeArtifactPreviews =
     exposeEmploymentDetails && context.aggregate.privacySettings.show_artifact_previews;
   const visibleEmploymentRecords = exposeEmploymentDetails
-    ? listClaimDetails({
+    ? (await listClaimDetails({
         correlationId: `candidate-trace:${projection.candidateId}`,
         soulRecordIdOptional: context.aggregate.soulRecord.id,
-      }).map((details) =>
+      })).map((details) =>
         toVisibleEmploymentRecord({
           details,
           showStatusLabels: context.aggregate.privacySettings.show_status_labels,

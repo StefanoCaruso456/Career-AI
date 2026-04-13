@@ -48,13 +48,13 @@ export function listPendingReviewQueue(args: {
 async function listPendingReviewQueueAsync(args: {
   correlationId: string;
 }): Promise<ReviewQueueItemDto[]> {
-  const claimDetails = listClaimDetails({
+  const claimDetails = await listClaimDetails({
     correlationId: args.correlationId,
   });
 
   const items = await Promise.all(
     claimDetails.map(async (details) => {
-      const claim = getClaim({
+      const claim = await getClaim({
         claimId: details.claimId,
         correlationId: args.correlationId,
       });
@@ -94,8 +94,17 @@ export function submitReviewDecision(args: {
   actorId: string;
   correlationId: string;
 }) {
+  return submitReviewDecisionAsync(args);
+}
+
+async function submitReviewDecisionAsync(args: {
+  input: ReviewDecisionInput;
+  actorType: ActorType;
+  actorId: string;
+  correlationId: string;
+}) {
   const input = reviewDecisionInputSchema.parse(args.input);
-  const updatedRecord = transitionVerificationRecord({
+  const updatedRecord = await transitionVerificationRecord({
     verificationRecordId: input.verificationRecordId,
     targetStatus: input.targetStatus,
     reason: input.reason,
@@ -132,11 +141,11 @@ async function getClaimAuditTrailAsync(args: {
   claimId: string;
   correlationId: string;
 }): Promise<AdminClaimAuditDto> {
-  const details = getClaimDetails({
+  const details = await getClaimDetails({
     claimId: args.claimId,
     correlationId: args.correlationId,
   });
-  const claim = getClaim({
+  const claim = await getClaim({
     claimId: args.claimId,
     correlationId: args.correlationId,
   });
@@ -144,7 +153,7 @@ async function getClaimAuditTrailAsync(args: {
     soulRecordId: claim.soul_record_id,
     correlationId: args.correlationId,
   });
-  const provenance = listProvenanceRecords({
+  const provenance = await listProvenanceRecords({
     verificationRecordId: details.verification.id,
   });
   const relatedTargetIds = new Set([

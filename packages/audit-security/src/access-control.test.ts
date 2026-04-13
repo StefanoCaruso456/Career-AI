@@ -100,6 +100,7 @@ describe("access-control service", () => {
             preferredPersona: "job_seeker",
             roleType: null,
           },
+          organizationContext: null,
           ownerId: "guest:guest_123",
           preferredPersona: "job_seeker",
           roleType: null,

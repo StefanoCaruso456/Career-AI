@@ -208,6 +208,7 @@ export async function upsertPersistentCareerBuilderProfile(args: {
   careerIdentityId: string;
   soulRecordId: string;
   input: CareerProfileInput;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   return withDatabaseTransaction(async (client) => {
     const row = await queryRequired<CareerBuilderProfileRow>(
@@ -251,10 +252,12 @@ export async function upsertPersistentCareerBuilderProfile(args: {
       ],
     );
 
-    await refreshPersistentRecruiterCandidateProjection({
-      careerIdentityId: args.careerIdentityId,
-      queryable: client,
-    });
+    if (!args.skipProjectionRefreshOptional) {
+      await refreshPersistentRecruiterCandidateProjection({
+        careerIdentityId: args.careerIdentityId,
+        queryable: client,
+      });
+    }
 
     return mapProfileRow(row, args.soulRecordId);
   });
@@ -264,6 +267,7 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
   careerIdentityId: string;
   soulRecordId: string;
   record: CareerEvidenceRecord;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   return withDatabaseTransaction(async (client) => {
     const row = await queryRequired<CareerBuilderEvidenceRow>(
@@ -349,10 +353,12 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
 
     const files = args.record.files;
 
-    await refreshPersistentRecruiterCandidateProjection({
-      careerIdentityId: args.careerIdentityId,
-      queryable: client,
-    });
+    if (!args.skipProjectionRefreshOptional) {
+      await refreshPersistentRecruiterCandidateProjection({
+        careerIdentityId: args.careerIdentityId,
+        queryable: client,
+      });
+    }
 
     return mapEvidenceRow(row, args.soulRecordId, files);
   });

@@ -6,11 +6,16 @@ import {
   listArtifactsForClaim,
   uploadArtifact,
 } from "@/packages/artifact-domain/src";
-import { createEmploymentClaim, listClaimDetails } from "@/packages/credential-domain/src";
+import {
+  createEmploymentClaim,
+  getClaimDetails,
+  listClaimDetails,
+} from "@/packages/credential-domain/src";
 import { updatePrivacySettings } from "@/packages/identity-domain/src";
 import {
   completePersistentOnboarding,
   provisionGoogleUser,
+  refreshPersistentRecruiterCandidateProjection,
   updateCareerProfileBasics,
   updateRoleSelection,
   upsertPersistentCareerBuilderEvidence,
@@ -18,7 +23,7 @@ import {
 } from "@/packages/persistence/src";
 import {
   addProvenanceRecord,
-  getVerificationStore,
+  listProvenanceRecords,
   transitionVerificationRecord,
 } from "@/packages/verification-domain/src";
 import { generateRecruiterTrustProfile } from "./service";
@@ -26,6 +31,7 @@ import { getRecruiterReadModelStore } from "./store";
 
 const RECRUITER_DEMO_DATASET_VERSION = "recruiter-demo-2026-04-v1";
 const RECRUITER_DEMO_CANDIDATE_COUNT = 200;
+const RECRUITER_DEMO_SEED_BATCH_SIZE = 8;
 const DEMO_ACTOR_ID = "system:recruiter-demo-dataset";
 const DEMO_SHARE_BASE_URL = "https://careerai.demo";
 const EMPLOYMENT_EVIDENCE_TEMPLATES: CareerEvidenceTemplateId[] = [
@@ -1080,7 +1086,7 @@ function normalizeOptionalString(value: string | null | undefined) {
 function buildClaimMatcher(args: {
   employment: EmploymentBlueprint;
 }) {
-  return (details: ReturnType<typeof listClaimDetails>[number]) =>
+  return (details: Awaited<ReturnType<typeof listClaimDetails>>[number]) =>
     details.employmentRecord.employer_name === args.employment.employerName &&
     details.employmentRecord.role_title === args.employment.roleTitle &&
     details.employmentRecord.start_date === args.employment.startDate &&
@@ -1208,9 +1214,10 @@ async function ensureClaimVerification(args: {
   correlationId: string;
   targetStatus: VerificationStatus;
 }) {
-  const existing = listClaimDetails({
+  const existing = await getClaimDetails({
+    claimId: args.claimId,
     correlationId: args.correlationId,
-  }).find((details) => details.claimId === args.claimId);
+  }).catch(() => null);
 
   if (!existing) {
     return;
@@ -1227,7 +1234,7 @@ async function ensureClaimVerification(args: {
   );
 
   for (const status of transitionPath) {
-    transitionVerificationRecord({
+    await transitionVerificationRecord({
       actorId: DEMO_ACTOR_ID,
       actorType: "reviewer_admin",
       correlationId: `${args.correlationId}:${status}`,
@@ -1268,15 +1275,16 @@ async function ensureClaimArtifacts(args: {
   return [...existingArtifacts, ...createdArtifacts];
 }
 
-function ensureClaimProvenance(args: {
+async function ensureClaimProvenance(args: {
   claimId: string;
   employerName: string;
   roleTitle: string;
   targetStatus: VerificationStatus;
 }) {
-  const claimDetails = listClaimDetails({
+  const claimDetails = await getClaimDetails({
+    claimId: args.claimId,
     correlationId: `claim-provenance:${args.claimId}`,
-  }).find((details) => details.claimId === args.claimId);
+  }).catch(() => null);
 
   if (!claimDetails) {
     return;
@@ -1288,12 +1296,12 @@ function ensureClaimProvenance(args: {
       : args.targetStatus === "REVIEWED" || args.targetStatus === "PARTIALLY_VERIFIED"
         ? 1
         : 0;
-  const store = getVerificationStore();
-  const existingEntries =
-    store.provenanceByVerificationId.get(claimDetails.verification.id) ?? [];
+  const existingEntries = await listProvenanceRecords({
+    verificationRecordId: claimDetails.verification.id,
+  });
 
   for (let provenanceIndex = existingEntries.length; provenanceIndex < requiredEntries; provenanceIndex += 1) {
-    addProvenanceRecord({
+    await addProvenanceRecord({
       actorId: DEMO_ACTOR_ID,
       actorType: "system_service",
       correlationId: `provenance:${claimDetails.verification.id}:${provenanceIndex}`,
@@ -1323,10 +1331,10 @@ async function seedEmploymentClaim(args: {
   const correlationId = `claim:${args.candidate.email}:${args.claimIndex}`;
   const signatoryName =
     SIGNATORY_NAMES[(args.claimIndex + args.candidate.fullName.length) % SIGNATORY_NAMES.length];
-  const existing = listClaimDetails({
+  const existing = (await listClaimDetails({
     correlationId,
     soulRecordIdOptional: args.soulRecordId,
-  }).find(
+  })).find(
     buildClaimMatcher({
       employment: args.employment,
     }),
@@ -1369,7 +1377,7 @@ async function seedEmploymentClaim(args: {
     correlationId,
     targetStatus: args.employment.targetStatus,
   });
-  ensureClaimProvenance({
+  await ensureClaimProvenance({
     claimId,
     employerName: args.employment.employerName,
     roleTitle: args.employment.roleTitle,
@@ -1400,6 +1408,7 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
   await updateRoleSelection({
     correlationId: `role:${blueprint.email}`,
     roleType: "candidate",
+    skipProjectionRefreshOptional: true,
     userId: provisioned.context.user.id,
   });
   await updateCareerProfileBasics({
@@ -1410,10 +1419,12 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
       location: blueprint.location,
       recruiterVisibility: blueprint.visibility,
     },
+    skipProjectionRefreshOptional: true,
     userId: provisioned.context.user.id,
   });
   await completePersistentOnboarding({
     correlationId: `complete:${blueprint.email}`,
+    skipProjectionRefreshOptional: true,
     userId: provisioned.context.user.id,
   });
   await updatePrivacySettings({
@@ -1421,6 +1432,7 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
     actorType: "system_service",
     correlationId: `privacy:${blueprint.email}`,
     input: privacy,
+    skipProjectionRefreshOptional: true,
     talentIdentityId,
   });
   await upsertPersistentCareerBuilderProfile({
@@ -1432,6 +1444,7 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
       location: blueprint.location,
       targetRole: blueprint.targetRole,
     },
+    skipProjectionRefreshOptional: true,
     soulRecordId,
   });
 
@@ -1474,9 +1487,14 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
         validationContext: evidence.validationContext,
         whyItMatters: evidence.whyItMatters,
       },
+      skipProjectionRefreshOptional: true,
       soulRecordId,
     });
   }
+
+  await refreshPersistentRecruiterCandidateProjection({
+    careerIdentityId: talentIdentityId,
+  });
 
   let shareProfileId: string | null = null;
   let publicShareToken: string | null = null;
@@ -1525,10 +1543,17 @@ async function loadRecruiterDemoDataset(): Promise<RecruiterDemoDatasetSnapshot>
   const blueprints = Array.from({ length: RECRUITER_DEMO_CANDIDATE_COUNT }, (_, index) =>
     buildCandidateBlueprint(index),
   );
-  const seededCandidates: RecruiterDemoSeededCandidate[] = [];
+  const seededCandidates = new Array<RecruiterDemoSeededCandidate>(blueprints.length);
 
-  for (let index = 0; index < blueprints.length; index += 1) {
-    seededCandidates.push(await seedCandidate(blueprints[index], index));
+  for (let startIndex = 0; startIndex < blueprints.length; startIndex += RECRUITER_DEMO_SEED_BATCH_SIZE) {
+    const batch = blueprints.slice(startIndex, startIndex + RECRUITER_DEMO_SEED_BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map((blueprint, batchIndex) => seedCandidate(blueprint, startIndex + batchIndex)),
+    );
+
+    batchResults.forEach((candidate, batchIndex) => {
+      seededCandidates[startIndex + batchIndex] = candidate;
+    });
   }
 
   const searchableCandidates = seededCandidates.filter((candidate) => candidate.searchVisible).length;

@@ -20,7 +20,7 @@ export function getDatabaseUrl() {
 }
 
 export function isDatabaseConfigured() {
-  return Boolean(getDatabaseUrl());
+  return Boolean(poolOverride || getDatabaseUrl());
 }
 
 export function requireDatabaseUrl() {

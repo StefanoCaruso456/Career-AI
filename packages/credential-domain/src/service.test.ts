@@ -102,7 +102,7 @@ describe("credential service", () => {
       correlationId: "corr-4",
     });
 
-    const updated = attachArtifactToEmploymentClaim({
+    const updated = await attachArtifactToEmploymentClaim({
       claimId: created.claim.id,
       actorType: "talent_user",
       actorId: identity.talentIdentity.id,
@@ -111,11 +111,54 @@ describe("credential service", () => {
 
     expect(updated.verification.confidence_tier).toBe("EVIDENCE_SUBMITTED");
 
-    const details = getClaimDetails({
+    const details = await getClaimDetails({
       claimId: created.claim.id,
       correlationId: "corr-6",
     });
 
     expect(details.artifactIds).toEqual([artifact.artifact.artifact_id]);
+  });
+
+  it("loads claim details from durable storage after in-memory stores reset", async () => {
+    const identity = await createTalentIdentity({
+      input: {
+        email: "durable-claim@example.com",
+        firstName: "Durable",
+        lastName: "Candidate",
+        countryCode: "US",
+      },
+      actorType: "system_service",
+      actorId: "seed",
+      correlationId: "corr-durable-1",
+    });
+
+    const created = await createEmploymentClaim({
+      input: {
+        soulRecordId: identity.soulRecord.id,
+        employerName: "Signal Labs",
+        roleTitle: "Program Manager",
+        startDate: "2021-02-01",
+        currentlyEmployed: false,
+      },
+      actorType: "talent_user",
+      actorId: identity.talentIdentity.id,
+      correlationId: "corr-durable-2",
+    });
+
+    resetCredentialStore();
+    resetVerificationStore();
+
+    await expect(
+      getClaimDetails({
+        claimId: created.claim.id,
+        correlationId: "corr-durable-3",
+      }),
+    ).resolves.toMatchObject({
+      claimId: created.claim.id,
+      verification: expect.objectContaining({
+        id: created.verificationRecord.id,
+        status: "SUBMITTED",
+      }),
+    });
   });
 });

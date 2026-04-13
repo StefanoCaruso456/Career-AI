@@ -4,16 +4,29 @@ const { getRequestTraceContextMock } = vi.hoisted(() => ({
   getRequestTraceContextMock: vi.fn(),
 }));
 
+const { listOrganizationMembershipContextsForUserMock } = vi.hoisted(() => ({
+  listOrganizationMembershipContextsForUserMock: vi.fn(),
+}));
+
 vi.mock("@/lib/tracing", () => ({
   getRequestTraceContext: getRequestTraceContextMock,
 }));
 
-import { createAgentContext, createRunContext } from "@/packages/agent-runtime/src";
+vi.mock("@/packages/persistence/src", () => ({
+  listOrganizationMembershipContextsForUser: listOrganizationMembershipContextsForUserMock,
+}));
+
+import {
+  createAgentContext,
+  createRunContext,
+  loadAgentOrganizationContext,
+} from "@/packages/agent-runtime/src";
 
 describe("agent runtime context helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getRequestTraceContextMock.mockReturnValue(null);
+    listOrganizationMembershipContextsForUserMock.mockResolvedValue([]);
   });
 
   it("creates a run context with a generated run id even without a traced request", () => {
@@ -93,10 +106,65 @@ describe("agent runtime context helpers", () => {
         id: "user:tal_123",
         kind: "authenticated_user",
       }),
+      organizationContext: null,
       ownerId: "user:tal_123",
       preferredPersona: "job_seeker",
       roleType: "candidate",
       run: runContext,
+    });
+  });
+
+  it("loads a minimal active organization context for authenticated recruiters", async () => {
+    listOrganizationMembershipContextsForUserMock.mockResolvedValue([
+      {
+        membership: {
+          createdAt: "2026-04-13T00:00:00.000Z",
+          id: "org_mem_1",
+          organizationId: "org_1",
+          role: "admin",
+          status: "active",
+          updatedAt: "2026-04-13T00:00:00.000Z",
+          userId: "user_123",
+        },
+        organization: {
+          createdAt: "2026-04-13T00:00:00.000Z",
+          id: "org_1",
+          name: "Acme Recruiting",
+          updatedAt: "2026-04-13T00:00:00.000Z",
+        },
+      },
+    ]);
+
+    await expect(
+      loadAgentOrganizationContext({
+        actor: {
+          appUserId: "user_123",
+          authProvider: "google",
+          authSource: "nextauth_session",
+          email: "recruiter@example.com",
+          id: "user:tal_123",
+          kind: "authenticated_user",
+          name: "Riley Recruiter",
+          preferredPersona: "employer",
+          providerUserId: "provider-123",
+          roleType: "recruiter",
+          talentIdentityId: "tal_123",
+        },
+      }),
+    ).resolves.toEqual({
+      activeMembershipCount: 1,
+      memberships: [
+        {
+          organizationId: "org_1",
+          organizationName: "Acme Recruiting",
+          role: "admin",
+        },
+      ],
+      primaryOrganization: {
+        organizationId: "org_1",
+        organizationName: "Acme Recruiting",
+        role: "admin",
+      },
     });
   });
 });

@@ -6,7 +6,11 @@ import {
   updateRequestTraceContext,
   withTracedRoute,
 } from "@/lib/tracing";
-import { createAgentContext, createRunContext } from "@/packages/agent-runtime/src";
+import {
+  createAgentContext,
+  createRunContext,
+  loadAgentOrganizationContext,
+} from "@/packages/agent-runtime/src";
 import { getCorrelationId } from "@/packages/audit-security/src";
 import { ApiError } from "@/packages/contracts/src";
 
@@ -55,10 +59,14 @@ export async function resolveChatRouteContext(request: Request) {
   const runContext = createRunContext({
     correlationId: getCorrelationId(request.headers),
   });
+  const organizationContext = await loadAgentOrganizationContext({
+    actor: actor.identity,
+  });
 
   return {
     agentContext: createAgentContext({
       actor: actor.identity,
+      organizationContext,
       ownerId: actor.ownerId,
       run: runContext,
     }),

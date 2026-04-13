@@ -9,6 +9,7 @@ import {
   findAccessRequestById,
   findActiveAccessGrant,
   findOrganizationMembership,
+  listOrganizationMembershipContextsForUser,
   listOrganizationMembershipsForUser,
   markAccessRequestGranted,
   markAccessRequestRejected,
@@ -72,6 +73,10 @@ describe("access-control repository", () => {
       status: "active",
       userId: recruiter.context.user.id,
     });
+    const membershipContexts = await listOrganizationMembershipContextsForUser({
+      status: "active",
+      userId: recruiter.context.user.id,
+    });
 
     expect(membership).toMatchObject({
       organizationId: organization.id,
@@ -80,6 +85,18 @@ describe("access-control repository", () => {
       userId: recruiter.context.user.id,
     });
     expect(memberships).toHaveLength(1);
+    expect(membershipContexts).toEqual([
+      expect.objectContaining({
+        membership: expect.objectContaining({
+          organizationId: organization.id,
+          role: "owner",
+        }),
+        organization: expect.objectContaining({
+          id: organization.id,
+          name: "Acme Recruiting",
+        }),
+      }),
+    ]);
   });
 
   it("creates, grants, and rejects durable access requests", async () => {

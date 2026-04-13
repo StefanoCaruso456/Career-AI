@@ -23,7 +23,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     assertReviewerAccess(actor, correlationId, "attach provenance");
     const { id } = await context.params;
     const body = addProvenanceInputSchema.parse(await request.json());
-    const record = addProvenanceRecord({
+    const record = await addProvenanceRecord({
       verificationRecordId: id,
       input: body,
       actorType: actor.actorType,

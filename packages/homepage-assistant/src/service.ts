@@ -136,6 +136,9 @@ function getAgentContextMetadata(agentContext?: AgentContext | null) {
 
   return {
     actor_kind: agentContext.actor.kind,
+    organization_id: agentContext.organizationContext?.primaryOrganization?.organizationId ?? null,
+    organization_membership_count: agentContext.organizationContext?.activeMembershipCount ?? 0,
+    organization_role: agentContext.organizationContext?.primaryOrganization?.role ?? null,
     preferred_persona: agentContext.preferredPersona,
     role_type: agentContext.roleType,
     run_id: agentContext.run.runId,

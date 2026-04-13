@@ -721,6 +721,7 @@ export async function updatePersistentPrivacySettings(args: {
     allowQrShare?: boolean;
   };
   correlationId: string;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   return withDatabaseTransaction(async (client) => {
     const context = await findContextByWhere(client, "ci.id = $1", [args.talentIdentityId]);
@@ -767,10 +768,12 @@ export async function updatePersistentPrivacySettings(args: {
       { talentIdentityId: args.talentIdentityId },
     );
 
-    await refreshPersistentRecruiterCandidateProjection({
-      careerIdentityId: nextContext.aggregate.talentIdentity.id,
-      queryable: client,
-    });
+    if (!args.skipProjectionRefreshOptional) {
+      await refreshPersistentRecruiterCandidateProjection({
+        careerIdentityId: nextContext.aggregate.talentIdentity.id,
+        queryable: client,
+      });
+    }
 
     return nextContext;
   });
@@ -923,6 +926,7 @@ export async function updateRoleSelection(args: {
   userId: string;
   roleType: string;
   correlationId: string;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   return withDatabaseTransaction(async (client) => {
     await client.query(
@@ -953,10 +957,12 @@ export async function updateRoleSelection(args: {
       { userId: args.userId },
     );
 
-    await refreshPersistentRecruiterCandidateProjection({
-      careerIdentityId: nextContext.aggregate.talentIdentity.id,
-      queryable: client,
-    });
+    if (!args.skipProjectionRefreshOptional) {
+      await refreshPersistentRecruiterCandidateProjection({
+        careerIdentityId: nextContext.aggregate.talentIdentity.id,
+        queryable: client,
+      });
+    }
 
     return nextContext;
   });
@@ -966,6 +972,7 @@ export async function updateCareerProfileBasics(args: {
   userId: string;
   profilePatch: Record<string, unknown>;
   correlationId: string;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   return withDatabaseTransaction(async (client) => {
     const existing = await requireContextByWhere(
@@ -1008,10 +1015,12 @@ export async function updateCareerProfileBasics(args: {
       { userId: args.userId },
     );
 
-    await refreshPersistentRecruiterCandidateProjection({
-      careerIdentityId: nextContext.aggregate.talentIdentity.id,
-      queryable: client,
-    });
+    if (!args.skipProjectionRefreshOptional) {
+      await refreshPersistentRecruiterCandidateProjection({
+        careerIdentityId: nextContext.aggregate.talentIdentity.id,
+        queryable: client,
+      });
+    }
 
     return nextContext;
   });
@@ -1020,6 +1029,7 @@ export async function updateCareerProfileBasics(args: {
 export async function completePersistentOnboarding(args: {
   userId: string;
   correlationId: string;
+  skipProjectionRefreshOptional?: boolean;
 }) {
   return withDatabaseTransaction(async (client) => {
     await client.query(
@@ -1043,10 +1053,12 @@ export async function completePersistentOnboarding(args: {
       { userId: args.userId },
     );
 
-    await refreshPersistentRecruiterCandidateProjection({
-      careerIdentityId: nextContext.aggregate.talentIdentity.id,
-      queryable: client,
-    });
+    if (!args.skipProjectionRefreshOptional) {
+      await refreshPersistentRecruiterCandidateProjection({
+        careerIdentityId: nextContext.aggregate.talentIdentity.id,
+        queryable: client,
+      });
+    }
 
     return nextContext;
   });
