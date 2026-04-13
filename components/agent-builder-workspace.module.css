@@ -52,7 +52,19 @@
 .heroCopy {
   display: grid;
   align-content: start;
-  gap: 1rem;
+  gap: 0;
+}
+
+.heroIntro {
+  display: grid;
+  gap: 1.15rem;
+  max-width: 42rem;
+}
+
+.heroContextBlock {
+  display: grid;
+  gap: 1.45rem;
+  margin-top: clamp(3.2rem, 8vw, 6.75rem);
 }
 
 .sectionEyebrow {
@@ -83,7 +95,7 @@
 }
 
 .heroBody {
-  max-width: 44rem;
+  max-width: 39rem;
   margin: 0;
   color: var(--builder-muted);
   font-size: 1.02rem;
@@ -123,7 +135,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.85rem;
-  margin-top: 0.2rem;
+  margin-top: 0.5rem;
 }
 
 .supportCard {
@@ -835,6 +847,10 @@
     order: -1;
   }
 
+  .heroContextBlock {
+    margin-top: clamp(2.4rem, 6vw, 4.4rem);
+  }
+
   .supportPanel {
     grid-template-columns: 1fr;
   }
@@ -921,5 +937,14 @@
   .pipelineMarker {
     width: 2.15rem;
     height: 2.15rem;
+  }
+
+  .heroIntro {
+    gap: 0.95rem;
+  }
+
+  .heroContextBlock {
+    margin-top: 2rem;
+    gap: 1.15rem;
   }
 }

@@ -1160,42 +1160,46 @@ export function AgentBuilderWorkspace({
         <div className={styles.shell}>
           <section className={styles.hero}>
             <div className={styles.heroCopy}>
-              <h1 className={styles.heroTitle}>Build and grow your Career ID</h1>
-              <p className={styles.heroBody}>
-                Create the living credibility profile behind your verified career identity.
-                Keep the progress rail in view, open the phase you want to strengthen, and
-                save each trust signal directly into your Career ID.
-              </p>
-
-              <div className={styles.statGrid}>
-                <StatCard
-                  label="overall builder progress"
-                  value={`${snapshot.progress.overallProgress}%`}
-                />
-                <StatCard
-                  label="uploaded evidence signals"
-                  value={String(snapshot.progress.completedEvidenceCount).padStart(2, "0")}
-                />
-                <StatCard
-                  label="strongest trust tier"
-                  value={phaseMeta[snapshot.progress.strongestTier].label}
-                />
+              <div className={styles.heroIntro}>
+                <h1 className={styles.heroTitle}>Build and grow your Career ID</h1>
+                <p className={styles.heroBody}>
+                  Create the living credibility profile behind your verified career identity.
+                  Keep the progress rail in view, open the phase you want to strengthen, and
+                  save each trust signal directly into your Career ID.
+                </p>
               </div>
 
-              <div className={styles.supportPanel}>
-                <div className={styles.supportCard}>
-                  <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
-                  <div>
-                    <strong>Phase-based intake</strong>
-                    <p>Open a trust phase to edit the relevant intake without overloading the main page.</p>
-                  </div>
+              <div className={styles.heroContextBlock}>
+                <div className={styles.statGrid}>
+                  <StatCard
+                    label="overall builder progress"
+                    value={`${snapshot.progress.overallProgress}%`}
+                  />
+                  <StatCard
+                    label="uploaded evidence signals"
+                    value={String(snapshot.progress.completedEvidenceCount).padStart(2, "0")}
+                  />
+                  <StatCard
+                    label="strongest trust tier"
+                    value={phaseMeta[snapshot.progress.strongestTier].label}
+                  />
                 </div>
 
-                <div className={styles.supportCard}>
-                  <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
-                  <div>
-                    <strong>Saved to your Career ID</strong>
-                    <p>Each modal save persists profile details, evidence files, and readiness counts together.</p>
+                <div className={styles.supportPanel}>
+                  <div className={styles.supportCard}>
+                    <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                    <div>
+                      <strong>Phase-based intake</strong>
+                      <p>Open a trust phase to edit the relevant intake without overloading the main page.</p>
+                    </div>
+                  </div>
+
+                  <div className={styles.supportCard}>
+                    <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                    <div>
+                      <strong>Saved to your Career ID</strong>
+                      <p>Each modal save persists profile details, evidence files, and readiness counts together.</p>
+                    </div>
                   </div>
                 </div>
               </div>
