@@ -24,6 +24,7 @@ import {
 import { searchEmployerCandidates } from "@/packages/recruiter-read-model/src";
 import { getVerificationRecord, listProvenanceRecords } from "@/packages/verification-domain/src";
 import type { AgentContext } from "./context";
+import type { AgentToolSideEffect } from "./orchestrator";
 
 type AgentToolTraceOptions<TResult> = {
   output?: (result: TResult) => unknown;
@@ -42,6 +43,7 @@ type AnyAgentToolDefinition = {
     input: any;
   }) => Promise<boolean> | boolean;
   name: string;
+  sideEffect?: AgentToolSideEffect;
   trace?: AgentToolTraceOptions<any>;
 };
 
@@ -60,6 +62,7 @@ export type AgentToolDefinition<
     input: z.output<TInputSchema>;
   }) => Promise<boolean> | boolean;
   name: string;
+  sideEffect?: AgentToolSideEffect;
   trace?: AgentToolTraceOptions<TResult>;
 };
 
@@ -526,6 +529,24 @@ export function createAgentToolRegistry<TTools extends AnyAgentToolDefinition[]>
   return Object.fromEntries(tools.map((tool) => [tool.name, tool]));
 }
 
+export function filterAgentToolRegistry(
+  registry: AgentToolRegistry,
+  allowedToolNames: Iterable<string>,
+) {
+  const allowedToolNameSet = new Set([...allowedToolNames]);
+
+  return Object.fromEntries(
+    Object.entries(registry).filter(([toolName]) => allowedToolNameSet.has(toolName)),
+  );
+}
+
+export function getAgentToolDefinition(
+  registry: AgentToolRegistry,
+  toolName: string,
+) {
+  return registry[toolName] ?? null;
+}
+
 export function listAgentToolsAsOpenAIFunctions(
   registry: AgentToolRegistry,
 ): FunctionTool[] {
@@ -688,6 +709,7 @@ export const searchJobsTool: AgentToolDefinition<
   inputSchema: searchJobsToolInputSchema,
   isAuthorized: () => true,
   name: "search_jobs",
+  sideEffect: "read",
   trace: {
     output: (result: z.infer<typeof searchJobsToolOutputSchema>) => ({
       job_count: result.jobs.length,
@@ -738,6 +760,7 @@ export const getCareerIdSummaryTool: AgentToolDefinition<
     agentContext.actor.kind !== "guest_user" &&
     (Boolean(normalizeText(input.lookup)) || agentContext.actor.kind === "authenticated_user"),
   name: "get_career_id_summary",
+  sideEffect: "read",
   trace: {
     output: (result: z.infer<typeof getCareerIdSummaryToolOutputSchema>) => ({
       found: result.found,
@@ -796,6 +819,7 @@ export const searchCandidatesTool: AgentToolDefinition<
   inputSchema: searchCandidatesToolInputSchema,
   isAuthorized: ({ agentContext }) => isRecruiterRole(agentContext.roleType),
   name: "search_candidates",
+  sideEffect: "read",
   trace: {
     output: (result: z.infer<typeof searchCandidatesToolOutputSchema>) => ({
       candidate_count: result.candidates.length,
@@ -857,6 +881,7 @@ export const getClaimDetailsTool: AgentToolDefinition<
     }
   },
   name: "get_claim_details",
+  sideEffect: "read",
   trace: {
     output: (result: z.infer<typeof getClaimDetailsToolOutputSchema>) => ({
       found: result.found,
@@ -917,6 +942,7 @@ export const getVerificationRecordTool: AgentToolDefinition<
     }
   },
   name: "get_verification_record",
+  sideEffect: "read",
   trace: {
     output: (result: z.infer<typeof getVerificationRecordToolOutputSchema>) => ({
       found: result.found,
@@ -982,6 +1008,7 @@ export const listProvenanceRecordsTool: AgentToolDefinition<
     }
   },
   name: "list_provenance_records",
+  sideEffect: "read",
   trace: {
     output: (result: z.infer<typeof listProvenanceRecordsToolOutputSchema>) => ({
       found: result.found,

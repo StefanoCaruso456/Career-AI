@@ -93,6 +93,7 @@ vi.mock("openai", () => ({
 
 import {
   generateHomepageAssistantReply,
+  generateHomepageAssistantReplyDetailed,
   getFallbackHomepageReply,
   OpenAIConfigError,
   OpenAIResponseError,
@@ -444,6 +445,70 @@ describe("homepage assistant service", () => {
           }),
         ],
       }),
+    );
+  });
+
+  it("supports bounded multi-step orchestration when explicitly enabled", async () => {
+    createResponseMock
+      .mockResolvedValueOnce({
+        id: "resp_1",
+        output: [
+          {
+            arguments: JSON.stringify({
+              query: "backend engineer",
+            }),
+            call_id: "call_1",
+            name: "search_jobs",
+            type: "function_call",
+          },
+        ],
+        output_text: "",
+      })
+      .mockResolvedValueOnce({
+        id: "resp_2",
+        output: [
+          {
+            arguments: JSON.stringify({
+              location: "Austin, TX",
+              query: "backend engineer",
+            }),
+            call_id: "call_2",
+            name: "search_jobs",
+            type: "function_call",
+          },
+        ],
+        output_text: "",
+      })
+      .mockResolvedValueOnce({
+        id: "resp_3",
+        output: [],
+        output_text: "  Here is the bounded loop answer.  ",
+      });
+    searchJobsCatalogMock.mockResolvedValue({
+      results: [],
+      totalCandidateCount: 0,
+    });
+
+    await expect(
+      generateHomepageAssistantReplyDetailed("Find backend engineer jobs", [], {
+        agentContext,
+        runtimeMode: "bounded_loop",
+      }),
+    ).resolves.toMatchObject({
+      source: "openai_bounded_loop",
+      stepsUsed: 3,
+      stopReason: "completed",
+      text: "Here is the bounded loop answer.",
+      toolCallsUsed: 2,
+    });
+
+    expect(createResponseMock).toHaveBeenCalledTimes(3);
+    expect(traceSpanMock.mock.calls.map(([options]) => options.name)).toEqual(
+      expect.arrayContaining([
+        "workflow.homepage_assistant.reply",
+        "workflow.homepage_assistant.orchestration",
+        "workflow.agent.orchestration.step",
+      ]),
     );
   });
 

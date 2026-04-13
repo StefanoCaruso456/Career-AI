@@ -1,5 +1,6 @@
 export * from "./admin";
 export * from "./access-control";
+export * from "./agent-internal";
 export * from "./audit";
 export * from "./artifact";
 export * from "./chat";
@@ -9,4 +10,5 @@ export * from "./enums";
 export * from "./errors";
 export * from "./identity";
 export * from "./jobs";
+export * from "./presentation";
 export * from "./recruiter";
