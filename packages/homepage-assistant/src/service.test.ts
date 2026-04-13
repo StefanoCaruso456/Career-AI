@@ -4,11 +4,13 @@ const {
   createResponseMock,
   createTranscriptionMock,
   openAIConstructorMock,
+  searchJobsCatalogMock,
   traceSpanMock,
 } = vi.hoisted(() => ({
   createResponseMock: vi.fn(),
   createTranscriptionMock: vi.fn(),
   openAIConstructorMock: vi.fn(),
+  searchJobsCatalogMock: vi.fn(),
   traceSpanMock: vi.fn(),
 }));
 
@@ -31,6 +33,10 @@ vi.mock("@/lib/braintrust", () => ({
       },
     };
   },
+}));
+
+vi.mock("@/packages/jobs-domain/src", () => ({
+  searchJobsCatalog: searchJobsCatalogMock,
 }));
 
 vi.mock("openai", () => ({
@@ -57,6 +63,36 @@ import {
   OpenAIResponseError,
   transcribeHomepageAssistantAudio,
 } from "@/packages/homepage-assistant/src";
+import type { AgentContext } from "@/packages/agent-runtime/src";
+
+const agentContext: AgentContext = {
+  actor: {
+    appUserId: "app_user_123",
+    authProvider: "nextauth",
+    authSource: "nextauth_session",
+    email: "candidate@example.com",
+    id: "user:tal_123",
+    kind: "authenticated_user",
+    name: "Taylor Candidate",
+    preferredPersona: "job_seeker",
+    providerUserId: "provider_123",
+    roleType: "candidate",
+    talentIdentityId: "tal_123",
+  },
+  ownerId: "user:tal_123",
+  preferredPersona: "job_seeker",
+  roleType: "candidate",
+  run: {
+    correlationId: "corr-123",
+    runId: "run-123",
+    traceRoot: {
+      braintrustRootSpanId: null,
+      requestId: "request-123",
+      routeName: "http.route.chat.post",
+      traceId: "trace-123",
+    },
+  },
+};
 
 describe("homepage assistant service", () => {
   const originalApiKey = process.env.OPENAI_API_KEY;
@@ -66,6 +102,7 @@ describe("homepage assistant service", () => {
     createResponseMock.mockReset();
     createTranscriptionMock.mockReset();
     openAIConstructorMock.mockReset();
+    searchJobsCatalogMock.mockReset();
     traceSpanMock.mockReset();
     traceSpanMock.mockImplementation(
       (_options: unknown, callback: () => Promise<unknown> | unknown) => callback(),
@@ -171,6 +208,134 @@ describe("homepage assistant service", () => {
     await expect(
       generateHomepageAssistantReply("How is this different from a resume builder?"),
     ).resolves.toBe(getFallbackHomepageReply("How is this different from a resume builder?"));
+
+    consoleErrorMock.mockRestore();
+  });
+
+  it("injects safe user context and recent history when agent context is provided", async () => {
+    createResponseMock.mockResolvedValue({ output_text: "  Context-aware reply  " });
+
+    await expect(
+      generateHomepageAssistantReply("What does this product do?", [], {
+        agentContext,
+        conversationMessages: [
+          { content: "Hello there", role: "user" },
+          { content: "I can help with that.", role: "assistant" },
+          { content: "What does this product do?", role: "user" },
+        ],
+      }),
+    ).resolves.toBe("Context-aware reply");
+
+    expect(createResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.stringContaining("User context:"),
+        tools: [
+          expect.objectContaining({
+            name: "search_jobs",
+            type: "function",
+          }),
+        ],
+      }),
+    );
+    expect(createResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.stringContaining("Recent chat history:"),
+      }),
+    );
+  });
+
+  it("supports a single tool-call round for search_jobs", async () => {
+    createResponseMock
+      .mockResolvedValueOnce({
+        id: "resp_1",
+        output: [
+          {
+            arguments: JSON.stringify({
+              limit: 2,
+              location: "Austin, TX",
+              query: "backend engineer",
+            }),
+            call_id: "call_1",
+            name: "search_jobs",
+            type: "function_call",
+          },
+        ],
+        output_text: "",
+      })
+      .mockResolvedValueOnce({
+        output_text: "  Here are a couple of strong matches.  ",
+      });
+    searchJobsCatalogMock.mockResolvedValue({
+      results: [
+        {
+          applyUrl: "https://example.com/jobs/1",
+          companyName: "Acme",
+          descriptionSnippet: "Build backend systems.",
+          id: "job_1",
+          location: "Austin, TX",
+          postedAt: "2026-04-12T00:00:00.000Z",
+          salaryText: "$180k-$210k",
+          sourceLabel: "Greenhouse",
+          title: "Senior Backend Engineer",
+          workplaceType: "remote",
+        },
+      ],
+      totalCandidateCount: 1,
+    });
+
+    await expect(
+      generateHomepageAssistantReply("Find backend engineer jobs", [], {
+        agentContext,
+      }),
+    ).resolves.toBe("Here are a couple of strong matches.");
+
+    expect(createResponseMock).toHaveBeenCalledTimes(2);
+    expect(createResponseMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        input: [
+          expect.objectContaining({
+            call_id: "call_1",
+            output: expect.stringContaining("\"query\":\"backend engineer\""),
+            type: "function_call_output",
+          }),
+        ],
+        previous_response_id: "resp_1",
+      }),
+    );
+    expect(traceSpanMock.mock.calls.map(([options]) => options.name)).toEqual(
+      expect.arrayContaining([
+        "workflow.homepage_assistant.reply",
+        "llm.openai.responses.create",
+        "tool.search_jobs.execute",
+        "llm.openai.responses.create.tool_follow_up",
+      ]),
+    );
+  });
+
+  it("falls back safely if the tool round fails", async () => {
+    createResponseMock.mockResolvedValue({
+      id: "resp_1",
+      output: [
+        {
+          arguments: JSON.stringify({
+            query: "backend engineer",
+          }),
+          call_id: "call_1",
+          name: "search_jobs",
+          type: "function_call",
+        },
+      ],
+      output_text: "",
+    });
+    searchJobsCatalogMock.mockRejectedValue(new Error("jobs search exploded"));
+    const consoleErrorMock = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      generateHomepageAssistantReply("Find backend engineer jobs", [], {
+        agentContext,
+      }),
+    ).resolves.toBe(getFallbackHomepageReply("Find backend engineer jobs"));
 
     consoleErrorMock.mockRestore();
   });
