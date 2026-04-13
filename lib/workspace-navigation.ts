@@ -14,9 +14,9 @@ type WorkspaceShellConfig = {
 
 export const workspaceShellByPersona: Record<Persona, WorkspaceShellConfig> = {
   employer: {
-    eyebrow: "Employer client",
+    eyebrow: "Hiring workspace",
     summary:
-      "Keep hiring review, agent orchestration, role planning, and employer settings in a dedicated workspace under /employer/*.",
+      "Review candidates, manage roles, and run hiring workflows from one employer workspace.",
     tabs: [
       { href: "/employer", label: "Overview" },
       { href: "/employer/candidates", label: "Candidates" },
@@ -26,9 +26,9 @@ export const workspaceShellByPersona: Record<Persona, WorkspaceShellConfig> = {
     ],
   },
   job_seeker: {
-    eyebrow: "Job seeker client",
+    eyebrow: "Career workspace",
     summary:
-      "Anchor your authenticated workspace inside /account/* while the broader Career AI surfaces continue to evolve around it.",
+      "Manage your Career ID, access requests, and account settings from one workspace.",
     tabs: [
       { href: "/account", label: "Overview" },
       { href: "/account/access-requests", label: "Access requests" },
