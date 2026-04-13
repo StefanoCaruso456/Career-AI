@@ -60,8 +60,8 @@ describe("HeaderHomeLink", () => {
     expect(link).not.toHaveClass(styles.homeActionCurrent);
   });
 
-  it("routes employer client pages back to the employer overview", () => {
-    mockUsePathname.mockReturnValue("/employer/agent-sorcerer");
+  it("routes employer candidate pages back to the employer overview", () => {
+    mockUsePathname.mockReturnValue("/employer/candidates");
 
     render(<HeaderHomeLink />);
 
