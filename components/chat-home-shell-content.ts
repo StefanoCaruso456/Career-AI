@@ -221,7 +221,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTitle: "Give every hiring team one recruiter-safe trust surface to review.",
     heroComposer: {
       composerPlaceholder:
-        "Search jobs, learn how to build your Career ID, search Career IDs, or source candidates.",
+        "Find jobs, build your Career ID, search talent, or source candidates.",
       expandedComposerPlaceholder:
         "Paste a job description or describe the candidate you want to find.",
       initialProjects: [
@@ -456,7 +456,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTitle: "Make candidate identity portable, verified, and recruiter-readable.",
     heroComposer: {
       composerPlaceholder:
-        "Search jobs, learn how to build your Career ID, search Career IDs, or source candidates.",
+        "Find jobs, build your Career ID, search talent, or source candidates.",
       initialProjects: [
         { id: "project-verified-profile", label: "Verified profile" },
         { id: "project-career-story", label: "Career story" },
