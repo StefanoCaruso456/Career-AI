@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import {
   finishOnboarding,
+  resolveAuthenticatedDestination,
   saveBasicProfile,
   saveCareerProfileBasics,
   saveRoleSelection,
@@ -90,11 +91,11 @@ export async function submitCareerProfileBasics(formData: FormData) {
 export async function submitOnboardingCompletion() {
   const context = await requireOnboardingContext();
 
-  await finishOnboarding({
+  const completed = await finishOnboarding({
     userId: context.user.id,
     correlationId: `onboarding_complete_${context.user.id}`,
   });
 
   revalidateAuthenticatedPaths();
-  redirect("/account");
+  redirect(resolveAuthenticatedDestination(completed));
 }

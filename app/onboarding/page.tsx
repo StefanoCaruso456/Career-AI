@@ -4,7 +4,10 @@ import {
   ensurePersistentCareerIdentityForSessionUser,
   getDisplayNameForContext,
 } from "@/auth-identity";
-import { resolveOnboardingStep } from "@/packages/onboarding/src";
+import {
+  resolveAuthenticatedDestination,
+  resolveOnboardingStep,
+} from "@/packages/onboarding/src";
 import {
   submitBasicProfile,
   submitCareerProfileBasics,
@@ -89,7 +92,7 @@ export default async function OnboardingPage() {
   });
 
   if (context.onboarding.status === "completed") {
-    redirect("/account");
+    redirect(resolveAuthenticatedDestination(context));
   }
 
   const currentStep = resolveOnboardingStep(context);

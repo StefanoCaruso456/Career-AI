@@ -114,6 +114,50 @@ describe("onboarding service", () => {
 
     expect(completed.onboarding.status).toBe("completed");
     expect(completed.onboarding.profileCompletionPercent).toBe(100);
+    expect(resolveAuthenticatedDestination(completed)).toBe("/employer");
+  });
+
+  it("routes completed candidates to the account area", async () => {
+    const provisioned = await provisionGoogleUser({
+      email: "candidate-complete@example.com",
+      fullName: "Candidate Complete",
+      firstName: "Candidate",
+      lastName: "Complete",
+      providerUserId: "google-onboarding-3",
+      emailVerified: true,
+      correlationId: "corr-6",
+    });
+
+    await saveBasicProfile({
+      userId: provisioned.context.user.id,
+      input: {
+        firstName: "Candidate",
+        lastName: "Complete",
+      },
+      correlationId: "corr-7",
+    });
+    await saveRoleSelection({
+      userId: provisioned.context.user.id,
+      input: {
+        roleType: "candidate",
+      },
+      correlationId: "corr-8",
+    });
+    await saveCareerProfileBasics({
+      userId: provisioned.context.user.id,
+      input: {
+        headline: "Candidate profile",
+        location: "Chicago, IL",
+        intent: "I want recruiters to find me.",
+      },
+      correlationId: "corr-9",
+    });
+
+    const completed = await finishOnboarding({
+      userId: provisioned.context.user.id,
+      correlationId: "corr-10",
+    });
+
     expect(resolveAuthenticatedDestination(completed)).toBe("/account");
   });
 });

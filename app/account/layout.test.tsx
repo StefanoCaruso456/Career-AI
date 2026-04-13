@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   ensurePersistentCareerIdentityForSessionUser: vi.fn(),
+  redirect: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -13,6 +14,10 @@ vi.mock("@/auth", () => ({
 
 vi.mock("@/auth-identity", () => ({
   ensurePersistentCareerIdentityForSessionUser: mocks.ensurePersistentCareerIdentityForSessionUser,
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: mocks.redirect,
 }));
 
 vi.mock("@/components/persona-preference-sync", () => ({
@@ -69,5 +74,32 @@ describe("AccountLayout", () => {
 
     expect(screen.getByTestId("workspace-shell")).toBeInTheDocument();
     expect(screen.getByText("Access requests")).toBeInTheDocument();
+  });
+
+  it("redirects completed recruiter roles into the employer workspace", async () => {
+    mocks.auth.mockResolvedValue({
+      user: {
+        appUserId: "user_456",
+        authProvider: "google",
+        email: "recruiter@example.com",
+        image: null,
+        name: "Riley Recruiter",
+        providerUserId: "google_456",
+      },
+    });
+    mocks.ensurePersistentCareerIdentityForSessionUser.mockResolvedValue({
+      context: {
+        onboarding: {
+          roleType: "recruiter",
+          status: "completed",
+        },
+      },
+    });
+
+    const Layout = (await import("@/app/account/layout")).default;
+
+    await Layout({ children: <div>Access requests</div> });
+
+    expect(mocks.redirect).toHaveBeenCalledWith("/employer");
   });
 });
