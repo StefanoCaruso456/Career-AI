@@ -27,12 +27,13 @@ describe("HeaderCenterTab", () => {
     mockUsePathname.mockReset();
   });
 
-  it("hides the public center tabs inside the account client", () => {
+  it("keeps the public center tabs visible inside the account client", () => {
     mockUsePathname.mockReturnValue("/account/settings");
 
-    const { container } = render(<HeaderCenterTab />);
+    render(<HeaderCenterTab />);
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
+    expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
   });
 
   it("renders Agent Sorcerer in the floating header for employer routes", () => {

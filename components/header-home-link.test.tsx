@@ -111,4 +111,13 @@ describe("HeaderHomeLink", () => {
     const link = screen.getByRole("link", { name: "Career AI home" });
     expect(link).toHaveAttribute("href", "/");
   });
+
+  it("routes account workspace pages back to the public home", () => {
+    mockUsePathname.mockReturnValue("/account/access-requests");
+
+    render(<HeaderHomeLink />);
+
+    const link = screen.getByRole("link", { name: "Career AI home" });
+    expect(link).toHaveAttribute("href", "/");
+  });
 });
