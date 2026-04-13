@@ -83,6 +83,7 @@ function applyPersistentContextToToken(
   token.onboardingStatus = context.onboarding.status;
   token.currentStep = context.onboarding.currentStep;
   token.profileCompletionPercent = context.onboarding.profileCompletionPercent;
+  token.preferredPersona = context.user.preferredPersona;
   token.roleType = context.onboarding.roleType;
 
   return token;
@@ -229,6 +230,8 @@ export const authOptions = {
           token.currentStep = (token.currentStep as number | undefined) ?? null;
           token.profileCompletionPercent =
             (token.profileCompletionPercent as number | undefined) ?? null;
+          token.preferredPersona =
+            typeof token.preferredPersona === "string" ? token.preferredPersona : null;
           token.roleType = (token.roleType as string | undefined) ?? null;
         }
       }
@@ -265,6 +268,8 @@ export const authOptions = {
           typeof token.profileCompletionPercent === "number"
             ? token.profileCompletionPercent
             : null;
+        session.user.preferredPersona =
+          typeof token.preferredPersona === "string" ? token.preferredPersona : null;
         session.user.roleType =
           typeof token.roleType === "string" ? token.roleType : null;
       }

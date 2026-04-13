@@ -1,6 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getAuthSecret } from "@/auth-config";
+import {
+  createGuestActorIdentity,
+  resolveAuthenticatedActorIdentity,
+  type ActorIdentity,
+} from "@/actor-identity";
 import { auth } from "@/auth";
+import { getAuthSecret } from "@/auth-config";
 
 const chatOwnerCookieName = "career_ai_chat_owner";
 const fallbackChatSessionSecret = "career-ai-chat-dev-secret";
@@ -8,6 +13,7 @@ const fallbackChatSessionSecret = "career-ai-chat-dev-secret";
 export type ChatActor = {
   actorType: "guest" | "session_user";
   cookieValue?: string;
+  identity: ActorIdentity;
   ownerId: string;
   sessionId?: string | null;
   userId?: string | null;
@@ -73,16 +79,14 @@ export async function resolveChatActor(existingCookieValue?: string | null): Pro
     session?.user?.talentIdentityId?.trim() ||
     normalizedSessionEmail ||
     null;
-  const sessionOwnerId =
-    session?.user?.talentIdentityId?.trim() ||
-    normalizedSessionEmail ||
-    null;
+  const authenticatedIdentity = resolveAuthenticatedActorIdentity(session?.user);
 
-  if (sessionOwnerId) {
+  if (authenticatedIdentity) {
     return {
       actorType: "session_user",
-      ownerId: `user:${sessionOwnerId}`,
-      sessionId: sessionUserId ?? `user:${sessionOwnerId}`,
+      identity: authenticatedIdentity,
+      ownerId: authenticatedIdentity.id,
+      sessionId: sessionUserId ?? authenticatedIdentity.id,
       userId: sessionUserId,
     };
   }
@@ -90,8 +94,11 @@ export async function resolveChatActor(existingCookieValue?: string | null): Pro
   const existingOwnerId = parseChatOwnerCookie(existingCookieValue);
 
   if (existingOwnerId) {
+    const identity = createGuestActorIdentity({ ownerId: existingOwnerId });
+
     return {
       actorType: "guest",
+      identity,
       ownerId: existingOwnerId,
       sessionId: existingOwnerId,
       userId: null,
@@ -99,10 +106,12 @@ export async function resolveChatActor(existingCookieValue?: string | null): Pro
   }
 
   const ownerId = `guest:${crypto.randomUUID()}`;
+  const identity = createGuestActorIdentity({ ownerId });
 
   return {
     actorType: "guest",
     cookieValue: serializeChatOwnerId(ownerId),
+    identity,
     ownerId,
     sessionId: ownerId,
     userId: null,

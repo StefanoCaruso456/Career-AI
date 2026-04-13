@@ -9,6 +9,7 @@ import {
 import { refreshPersistentRecruiterCandidateProjection } from "./recruiter-candidate-projection-repository";
 
 export type OnboardingStatus = "not_started" | "in_progress" | "completed";
+export type PreferredPersona = "job_seeker" | "employer";
 
 type ContextRow = {
   user_id: string;
@@ -20,6 +21,7 @@ type ContextRow = {
   user_auth_provider: string;
   user_provider_user_id: string;
   user_email_verified: boolean;
+  user_preferred_persona: PreferredPersona | null;
   user_created_at: Date | string;
   user_updated_at: Date | string;
   user_last_login_at: Date | string;
@@ -65,6 +67,7 @@ export type PersistentUserRecord = {
   authProvider: string;
   providerUserId: string;
   emailVerified: boolean;
+  preferredPersona: PreferredPersona | null;
   createdAt: string;
   updatedAt: string;
   lastLoginAt: string;
@@ -119,6 +122,7 @@ const selectContextBaseQuery = `
     u.auth_provider AS user_auth_provider,
     u.provider_user_id AS user_provider_user_id,
     u.email_verified AS user_email_verified,
+    u.preferred_persona AS user_preferred_persona,
     u.created_at AS user_created_at,
     u.updated_at AS user_updated_at,
     u.last_login_at AS user_last_login_at,
@@ -198,6 +202,7 @@ function mapContextRow(row: ContextRow): PersistentTalentIdentityContext {
       authProvider: row.user_auth_provider,
       providerUserId: row.user_provider_user_id,
       emailVerified: row.user_email_verified,
+      preferredPersona: row.user_preferred_persona,
       createdAt: formatIsoString(row.user_created_at),
       updatedAt: formatIsoString(row.user_updated_at),
       lastLoginAt: formatIsoString(row.user_last_login_at),
@@ -884,6 +889,33 @@ export async function updateBasicProfileAndOnboarding(args: {
     });
 
     return nextContext;
+  });
+}
+
+export async function updatePreferredPersona(args: {
+  userId: string;
+  preferredPersona: PreferredPersona;
+  correlationId: string;
+}) {
+  return withDatabaseTransaction(async (client) => {
+    await client.query(
+      `
+        UPDATE users
+        SET
+          preferred_persona = $2,
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [args.userId, args.preferredPersona],
+    );
+
+    return requireContextByWhere(
+      client,
+      "u.id = $1",
+      [args.userId],
+      args.correlationId,
+      { userId: args.userId },
+    );
   });
 }
 

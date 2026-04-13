@@ -1,5 +1,6 @@
 import type { DefaultSession } from "next-auth";
 import type { JWT as DefaultJWT } from "next-auth/jwt";
+import type { Persona } from "@/lib/personas";
 
 declare module "next-auth" {
   interface Session {
@@ -9,6 +10,7 @@ declare module "next-auth" {
       currentStep?: number | null;
       onboardingStatus?: "not_started" | "in_progress" | "completed" | null;
       profileCompletionPercent?: number | null;
+      preferredPersona?: Persona | null;
       providerUserId?: string | null;
       roleType?: string | null;
       soulRecordId?: string | null;
@@ -25,6 +27,7 @@ declare module "next-auth/jwt" {
     currentStep?: number | null;
     onboardingStatus?: "not_started" | "in_progress" | "completed" | null;
     profileCompletionPercent?: number | null;
+    preferredPersona?: Persona | null;
     providerUserId?: string | null;
     roleType?: string | null;
     soulRecordId?: string | null;

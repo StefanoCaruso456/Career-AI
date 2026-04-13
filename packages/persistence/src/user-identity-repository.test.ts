@@ -4,6 +4,7 @@ import {
   getDatabasePool,
   provisionGoogleUser,
   updatePersistentTalentIdentityProfile,
+  updatePreferredPersona,
 } from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
@@ -135,5 +136,26 @@ describe("persistent user identity repository", () => {
 
     expect(clearedPhone.aggregate.talentIdentity.phone_optional).toBeNull();
     expect(clearedPhone.user.email).toBe("candidate@example.com");
+  });
+
+  it("persists preferred persona separately from onboarding role type", async () => {
+    const provisioned = await provisionGoogleUser({
+      email: "persona.user@example.com",
+      fullName: "Persona User",
+      firstName: "Persona",
+      lastName: "User",
+      providerUserId: "google-user-persona",
+      emailVerified: true,
+      correlationId: "corr-persona-1",
+    });
+
+    const updated = await updatePreferredPersona({
+      correlationId: "corr-persona-2",
+      preferredPersona: "employer",
+      userId: provisioned.context.user.id,
+    });
+
+    expect(updated.user.preferredPersona).toBe("employer");
+    expect(updated.onboarding.roleType).toBeNull();
   });
 });

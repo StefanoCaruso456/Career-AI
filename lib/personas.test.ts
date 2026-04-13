@@ -3,8 +3,8 @@ import {
   defaultPersona,
   getAuthCallbackUrl,
   getPersona,
-  getPersonaFromRoute,
   getPersonaFromRoleType,
+  getPersonaFromRoute,
   getPersonaSignInRoute,
   getPostAuthRoute,
   getSettingsRoute,
@@ -58,8 +58,12 @@ describe("persona helpers", () => {
   });
 
   it("keeps safe internal callback urls and falls back to the persona route", () => {
-    expect(getAuthCallbackUrl({ callbackUrl: "/agent-build", persona: "job_seeker" })).toBe("/agent-build");
-    expect(getAuthCallbackUrl({ callbackUrl: "https://example.com", persona: "employer" })).toBe("/employer");
+    expect(getAuthCallbackUrl({ callbackUrl: "/agent-build", persona: "job_seeker" })).toBe(
+      "/agent-build",
+    );
+    expect(getAuthCallbackUrl({ callbackUrl: "https://example.com", persona: "employer" })).toBe(
+      "/employer",
+    );
   });
 
   it("builds sign-in routes with persona-aware params", () => {

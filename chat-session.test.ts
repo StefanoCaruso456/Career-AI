@@ -26,7 +26,31 @@ describe("chat session owner resolution", () => {
     const reusedActor = await resolveChatActor(encodedCookieValue);
 
     expect(initialActor.ownerId.startsWith("guest:")).toBe(true);
+    expect(initialActor.identity.kind).toBe("guest_user");
     expect(reusedActor.ownerId).toBe(initialActor.ownerId);
     expect(reusedActor.cookieValue).toBeUndefined();
+  });
+
+  it("resolves authenticated chat users through the shared actor identity", async () => {
+    authMock.mockResolvedValue({
+      user: {
+        appUserId: "user_123",
+        email: "person@example.com",
+        preferredPersona: "job_seeker",
+        roleType: "candidate",
+        talentIdentityId: "tal_123",
+      },
+    });
+
+    const actor = await resolveChatActor(null);
+
+    expect(actor.ownerId).toBe("user:tal_123");
+    expect(actor.identity).toMatchObject({
+      appUserId: "user_123",
+      kind: "authenticated_user",
+      preferredPersona: "job_seeker",
+      roleType: "candidate",
+      talentIdentityId: "tal_123",
+    });
   });
 });
