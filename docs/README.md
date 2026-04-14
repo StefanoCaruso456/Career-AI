@@ -10,6 +10,7 @@
 
 ## Architecture
 
+- [Current-State Agent Platform](./architecture/current-state-agent-platform.md)
 - [Development Spec for Isolated Dev Agents](./architecture/talent-agent-id-development-spec.md)
 - [Memory Architecture](./memory-architecture.md)
 - [Memory Taxonomy](./memory-taxonomy.md)
@@ -19,7 +20,6 @@
 
 ## Recommended next docs
 
-- System architecture overview
 - Domain model and event taxonomy
 - API and permissions specification
 - Verification operations playbook
