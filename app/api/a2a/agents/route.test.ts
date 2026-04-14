@@ -46,6 +46,13 @@ describe("GET /api/a2a/agents", () => {
       "candidate",
       "verifier",
     ]);
+    expect(
+      mocks.traceSpan.mock.calls.some(
+        ([options]) =>
+          typeof (options as { name?: string }).name === "string" &&
+          (options as { name: string }).name.startsWith("agent.handoff."),
+      ),
+    ).toBe(false);
   });
 
   it("denies anonymous discovery access and audits the failure", async () => {

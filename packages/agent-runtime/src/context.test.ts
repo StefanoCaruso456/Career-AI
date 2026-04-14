@@ -18,6 +18,7 @@ vi.mock("@/packages/persistence/src", () => ({
 
 import {
   createAgentContext,
+  createChildRunContext,
   createRunContext,
   loadAgentOrganizationContext,
 } from "@/packages/agent-runtime/src";
@@ -35,6 +36,7 @@ describe("agent runtime context helpers", () => {
     });
 
     expect(runContext.correlationId).toBe("corr-123");
+    expect(runContext.parentRunId).toBeNull();
     expect(runContext.runId).toEqual(expect.any(String));
     expect(runContext.traceRoot).toEqual({
       braintrustRootSpanId: null,
@@ -67,6 +69,7 @@ describe("agent runtime context helpers", () => {
 
     expect(runContext).toEqual({
       correlationId: "corr-123",
+      parentRunId: null,
       runId: "run-123",
       traceRoot: {
         braintrustRootSpanId: "braintrust-root-123",
@@ -111,6 +114,30 @@ describe("agent runtime context helpers", () => {
       preferredPersona: "job_seeker",
       roleType: "candidate",
       run: runContext,
+    });
+  });
+
+  it("creates a child run context linked to the parent run", () => {
+    const parentRunContext = createRunContext({
+      correlationId: "corr-123",
+      runId: "run-parent-123",
+    });
+
+    const childRunContext = createChildRunContext({
+      parentRun: parentRunContext,
+      runId: "run-child-123",
+    });
+
+    expect(childRunContext).toEqual({
+      correlationId: "corr-123",
+      parentRunId: "run-parent-123",
+      runId: "run-child-123",
+      traceRoot: {
+        braintrustRootSpanId: null,
+        requestId: null,
+        routeName: null,
+        traceId: null,
+      },
     });
   });
 

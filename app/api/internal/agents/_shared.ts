@@ -3,6 +3,11 @@ import { ZodError, type z } from "zod";
 import type { AuthenticatedActorIdentity, InternalServiceActorIdentity } from "@/actor-identity";
 import { createInternalServiceActorIdentity } from "@/actor-identity";
 import {
+  buildAgentHandoffMetadata,
+  emitAgentHandoffEvent,
+  traceAgentHandoff,
+} from "@/lib/agent-handoff-tracing";
+import {
   applyTraceResponseHeaders,
   getRequestTraceContext,
   traceSpan,
@@ -12,6 +17,7 @@ import { getInternalAgentRouteDefinition, type InternalAgentRouteDefinition } fr
 import { consumeInternalAgentQuota } from "@/lib/internal-agents/rate-limit";
 import {
   createAgentContext,
+  createChildRunContext,
   createRunContext,
   loadAgentOrganizationContext,
   type AgentContext,
@@ -194,6 +200,49 @@ function buildMetadata(args: {
   });
 }
 
+function buildInternalAgentHandoffMetadata(args: {
+  authSubject?: string | null;
+  childRunId?: string | null;
+  definition: Pick<InternalAgentRouteDefinition, "agentType" | "endpoint" | "operation">;
+  handoffReason: string;
+  parentRunId?: string | null;
+  permissionDecision?: string | null;
+  requestId?: string | null;
+  schemaVersion?: InternalAgentSchemaVersion | null;
+  taskStatus?: string | null;
+}) {
+  return buildAgentHandoffMetadata({
+    authSubject: args.authSubject ?? null,
+    childRunId: args.childRunId ?? null,
+    handoffReason: args.handoffReason,
+    handoffType: "internal_agent_dispatch",
+    operation: args.definition.operation,
+    parentRunId: args.parentRunId ?? null,
+    permissionDecision: args.permissionDecision ?? null,
+    targetAgentType: args.definition.agentType,
+    targetEndpoint: args.definition.endpoint,
+    taskStatus: args.taskStatus ?? null,
+  });
+}
+
+function buildInternalAgentAuditMetadata(
+  baseMetadata: Record<string, unknown>,
+  args: {
+    authSubject?: string | null;
+    childRunId?: string | null;
+    definition: Pick<InternalAgentRouteDefinition, "agentType" | "endpoint" | "operation">;
+    handoffReason: string;
+    parentRunId?: string | null;
+    permissionDecision?: string | null;
+    taskStatus?: string | null;
+  },
+) {
+  return {
+    ...baseMetadata,
+    ...buildInternalAgentHandoffMetadata(args),
+  };
+}
+
 function applyInternalAgentHeaders(args: {
   response: Response;
   agentType: InternalAgentRole;
@@ -310,11 +359,21 @@ function assertInternalAgentServiceAccess(args: {
   logInternalAgentAuditEvent({
     correlationId: args.correlationId,
     eventType: "security.internal_agent.auth.denied",
-    metadataJson: {
-      agent_type: args.definition.agentType,
-      operation: args.definition.operation,
-      reason: "service_not_allowed_for_agent",
-    },
+    metadataJson: buildInternalAgentAuditMetadata(
+      {
+        agent_type: args.definition.agentType,
+        operation: args.definition.operation,
+        reason: "service_not_allowed_for_agent",
+      },
+      {
+        authSubject: args.serviceActor.id,
+        definition: args.definition,
+        handoffReason: "service_not_allowed_for_agent",
+        parentRunId: args.runId,
+        permissionDecision: "denied",
+        taskStatus: "denied",
+      },
+    ),
     requestId: args.requestId,
     runId: args.runId,
     serviceActor: args.serviceActor,
@@ -355,16 +414,47 @@ function assertInternalAgentRateLimit(args: {
   logInternalAgentAuditEvent({
     correlationId: args.correlationId,
     eventType: "security.internal_agent.rate_limited",
-    metadataJson: {
-      agent_type: args.definition.agentType,
-      operation: args.definition.operation,
-      quota: quotaResult.quota,
-    },
+    metadataJson: buildInternalAgentAuditMetadata(
+      {
+        agent_type: args.definition.agentType,
+        operation: args.definition.operation,
+        quota: quotaResult.quota,
+      },
+      {
+        authSubject: args.serviceActor.id,
+        definition: args.definition,
+        handoffReason: "rate_limited",
+        parentRunId: args.runId,
+        permissionDecision: "denied",
+        taskStatus: "denied",
+      },
+    ),
     requestId: args.requestId,
     runId: args.runId,
     serviceActor: args.serviceActor,
     targetId: args.definition.agentType,
     targetType: "internal_agent",
+  });
+
+  emitAgentHandoffEvent({
+    event: "denied",
+    metadata: {
+      authSubject: args.serviceActor.id,
+      handoffReason: "rate_limited",
+      handoffType: "internal_agent_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.runId,
+      permissionDecision: "denied",
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpoint,
+      taskStatus: "denied",
+    },
+    output: {
+      quota: quotaResult.quota,
+      request_id: args.requestId,
+      status: 429,
+    },
+    tags: ["internal_agent"],
   });
 
   throw new ApiError({
@@ -387,49 +477,118 @@ export async function resolveInternalAgentRouteContext(
 ) {
   const definition = getInternalAgentRouteDefinition(agentType);
   const correlationId = getCorrelationId(request.headers);
-  const actor = await resolveVerifiedActor(request, correlationId);
+  const fallbackRequestId = getRequestTraceContext()?.requestId ?? crypto.randomUUID();
+  let actor:
+    | Awaited<ReturnType<typeof resolveVerifiedActor>>
+    | null = null;
 
-  assertAllowedActorTypes(actor, ["system_service"], correlationId, definition.action);
+  try {
+    actor = await resolveVerifiedActor(request, correlationId);
 
-  if (actor.identity?.kind !== "internal_service") {
-    throw new ApiError({
-      errorCode: "FORBIDDEN",
-      status: 403,
-      message: "Internal agent endpoints require verified internal-service credentials.",
-      details: null,
+    assertAllowedActorTypes(actor, ["system_service"], correlationId, definition.action);
+
+    if (actor.identity?.kind !== "internal_service") {
+      throw new ApiError({
+        errorCode: "FORBIDDEN",
+        status: 403,
+        message: "Internal agent endpoints require verified internal-service credentials.",
+        details: null,
+        correlationId,
+      });
+    }
+
+    const runContext = createRunContext({
       correlationId,
     });
+
+    updateRequestTraceContext({
+      actorType: actor.actorType,
+      ownerId: actor.actorId,
+      runId: runContext.runId,
+      sessionId: actor.actorId,
+      userId: null,
+    });
+
+    emitAgentHandoffEvent({
+      event: "start",
+      metadata: {
+        authSubject: actor.identity.id,
+        handoffReason: "internal_service_request",
+        handoffType: "internal_agent_dispatch",
+        operation: definition.operation,
+        parentRunId: runContext.runId,
+        targetAgentType: definition.agentType,
+        targetEndpoint: definition.endpoint,
+        taskStatus: "started",
+      },
+      output: {
+        request_id: fallbackRequestId,
+        schema_version: "v1",
+      },
+      tags: ["internal_agent"],
+    });
+
+    assertInternalAgentServiceAccess({
+      correlationId,
+      definition,
+      requestId: fallbackRequestId,
+      runId: runContext.runId,
+      serviceActor: actor.identity,
+    });
+
+    emitAgentHandoffEvent({
+      event: "authz",
+      metadata: {
+        authSubject: actor.identity.id,
+        handoffReason: "service_allowed_for_agent",
+        handoffType: "internal_agent_dispatch",
+        operation: definition.operation,
+        parentRunId: runContext.runId,
+        permissionDecision: "allowed",
+        targetAgentType: definition.agentType,
+        targetEndpoint: definition.endpoint,
+      },
+      output: {
+        request_id: fallbackRequestId,
+      },
+      tags: ["internal_agent"],
+    });
+
+    return {
+      correlationId,
+      definition,
+      fallbackRequestId,
+      runContext,
+      serviceActor: actor.identity,
+      startedAt: Date.now(),
+    } satisfies InternalAgentRouteContext;
+  } catch (error) {
+    const apiError = toApiError(error, correlationId);
+    const internalServiceActor =
+      actor?.identity?.kind === "internal_service" ? actor.identity : null;
+
+    emitAgentHandoffEvent({
+      event: "denied",
+      metadata: {
+        authSubject: internalServiceActor?.id ?? null,
+        handoffReason: apiError.errorCode.toLowerCase(),
+        handoffType: "internal_agent_dispatch",
+        operation: definition.operation,
+        permissionDecision: "denied",
+        targetAgentType: definition.agentType,
+        targetEndpoint: definition.endpoint,
+        taskStatus: "denied",
+      },
+      output: {
+        error_code: apiError.errorCode,
+        request_id: fallbackRequestId,
+        status: apiError.status,
+      },
+      tags: ["internal_agent"],
+    });
+
+    throw error;
   }
-
-  const runContext = createRunContext({
-    correlationId,
-  });
-  const fallbackRequestId = getRequestTraceContext()?.requestId ?? crypto.randomUUID();
-
-  updateRequestTraceContext({
-    actorType: actor.actorType,
-    ownerId: actor.actorId,
-    runId: runContext.runId,
-    sessionId: actor.actorId,
-    userId: null,
-  });
-
-  assertInternalAgentServiceAccess({
-    correlationId,
-    definition,
-    requestId: fallbackRequestId,
-    runId: runContext.runId,
-    serviceActor: actor.identity,
-  });
-
-  return {
-    correlationId,
-    definition,
-    fallbackRequestId,
-    runContext,
-    serviceActor: actor.identity,
-    startedAt: Date.now(),
-  } satisfies InternalAgentRouteContext;
 }
 
 export async function parseInternalAgentRequest<TPayload>(args: {
@@ -471,7 +630,9 @@ export function reserveInternalAgentQuota(args: {
 }
 
 export async function traceInternalAgentInvocation<TResult extends { stopReason?: string }>(args: {
+  childRunId: string;
   definition: InternalAgentRouteDefinition;
+  parentRunId: string;
   requestId: string;
   serviceActor: InternalServiceActorIdentity;
   version: InternalAgentSchemaVersion;
@@ -479,31 +640,83 @@ export async function traceInternalAgentInvocation<TResult extends { stopReason?
 }) {
   const startedAt = Date.now();
 
-  return traceSpan(
-    {
-      metadata: {
-        agent_type: args.definition.agentType,
-        endpoint: args.definition.endpoint,
-        operation: args.definition.operation,
-        request_id: args.requestId,
-        schema_version: args.version,
-        service_actor_id: args.serviceActor.serviceActorId,
-        service_name: args.serviceActor.serviceName,
-      },
-      metrics: () => ({
-        duration_ms: Date.now() - startedAt,
-      }),
-      name: `internal.agent.${args.definition.agentType}.${args.definition.operation}`,
-      tags: [
-        "internal_agent",
-        `agent:${args.definition.agentType}`,
-        `operation:${args.definition.operation}`,
-        `service:${args.serviceActor.serviceName}`,
-      ],
-      type: "task",
+  const result = await traceAgentHandoff({
+    event: "dispatch",
+    input: {
+      request_id: args.requestId,
+      schema_version: args.version,
     },
-    args.invoke,
-  );
+    invoke: () =>
+      traceSpan(
+        {
+          metadata: {
+            agent_type: args.definition.agentType,
+            endpoint: args.definition.endpoint,
+            operation: args.definition.operation,
+            request_id: args.requestId,
+            schema_version: args.version,
+            service_actor_id: args.serviceActor.serviceActorId,
+            service_name: args.serviceActor.serviceName,
+          },
+          metrics: () => ({
+            duration_ms: Date.now() - startedAt,
+          }),
+          name: `internal.agent.${args.definition.agentType}.${args.definition.operation}`,
+          tags: [
+            "internal_agent",
+            `agent:${args.definition.agentType}`,
+            `operation:${args.definition.operation}`,
+            `service:${args.serviceActor.serviceName}`,
+          ],
+          type: "task",
+        },
+        args.invoke,
+      ),
+    metadata: {
+      authSubject: args.serviceActor.id,
+      childRunId: args.childRunId,
+      handoffReason: "internal_service_request",
+      handoffType: "internal_agent_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.parentRunId,
+      permissionDecision: "allowed",
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpoint,
+      taskStatus: "running",
+    },
+    metrics: () => ({
+      duration_ms: Date.now() - startedAt,
+    }),
+    output: (value: TResult) => ({
+      request_id: args.requestId,
+      stop_reason: value.stopReason ?? null,
+    }),
+    tags: ["internal_agent"],
+    type: "task",
+  });
+
+  emitAgentHandoffEvent({
+    event: "complete",
+    metadata: {
+      authSubject: args.serviceActor.id,
+      childRunId: args.childRunId,
+      handoffReason: "internal_service_request",
+      handoffType: "internal_agent_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.parentRunId,
+      permissionDecision: "allowed",
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpoint,
+      taskStatus: "completed",
+    },
+    output: {
+      request_id: args.requestId,
+      stop_reason: result.stopReason ?? null,
+    },
+    tags: ["internal_agent"],
+  });
+
+  return result;
 }
 
 export async function buildCandidateAgentContext(args: {
@@ -519,12 +732,15 @@ export async function buildCandidateAgentContext(args: {
   const organizationContext = await loadAgentOrganizationContext({
     actor,
   });
+  const childRunContext = createChildRunContext({
+    parentRun: args.runContext,
+  });
 
   return createAgentContext({
     actor,
     organizationContext,
     ownerId: actor.id,
-    run: args.runContext,
+    run: childRunContext,
   });
 }
 
@@ -560,12 +776,15 @@ export async function buildRecruiterAgentContext(args: {
     }),
     args.organizationId ?? null,
   );
+  const childRunContext = createChildRunContext({
+    parentRun: args.runContext,
+  });
 
   return createAgentContext({
     actor,
     organizationContext,
     ownerId: actor.id,
-    run: args.runContext,
+    run: childRunContext,
   });
 }
 
@@ -580,11 +799,14 @@ export function buildVerifierAgentContext(args: {
           serviceActorId: args.serviceActor.serviceActorId,
           serviceName: args.serviceActor.serviceName,
         });
+  const childRunContext = createChildRunContext({
+    parentRun: args.runContext,
+  });
 
   return createAgentContext({
     actor,
     ownerId: actor.id,
-    run: args.runContext,
+    run: childRunContext,
   });
 }
 
@@ -599,11 +821,21 @@ export function logInternalAgentRequestReceived(args: {
   logInternalAgentAuditEvent({
     correlationId: args.correlationId,
     eventType: "internal.agent.request.received",
-    metadataJson: {
-      agent_type: args.definition.agentType,
-      operation: args.definition.operation,
-      schema_version: args.version,
-    },
+    metadataJson: buildInternalAgentAuditMetadata(
+      {
+        agent_type: args.definition.agentType,
+        operation: args.definition.operation,
+        schema_version: args.version,
+      },
+      {
+        authSubject: args.serviceActor.id,
+        definition: args.definition,
+        handoffReason: "internal_service_request",
+        parentRunId: args.runId,
+        permissionDecision: "allowed",
+        taskStatus: "started",
+      },
+    ),
     requestId: args.requestId,
     runId: args.runId,
     serviceActor: args.serviceActor,
@@ -616,6 +848,7 @@ export function createInternalAgentResponse(args: {
   correlationId: string;
   definition: InternalAgentRouteDefinition;
   durationMs: number;
+  parentRunId: string;
   presentationSummary?: unknown;
   quota: InternalAgentQuotaMetadata | null;
   requestId: string;
@@ -646,14 +879,25 @@ export function createInternalAgentResponse(args: {
   logInternalAgentAuditEvent({
     correlationId: args.correlationId,
     eventType: "internal.agent.request.completed",
-    metadataJson: {
-      agent_type: args.definition.agentType,
-      duration_ms: args.durationMs,
-      operation: args.definition.operation,
-      status: "ok",
-      stop_reason: args.stopReason,
-      tool_calls_used: args.toolCallsUsed,
-    },
+    metadataJson: buildInternalAgentAuditMetadata(
+      {
+        agent_type: args.definition.agentType,
+        duration_ms: args.durationMs,
+        operation: args.definition.operation,
+        status: "ok",
+        stop_reason: args.stopReason,
+        tool_calls_used: args.toolCallsUsed,
+      },
+      {
+        authSubject: args.serviceActor.id,
+        childRunId: args.runId,
+        definition: args.definition,
+        handoffReason: "internal_service_request",
+        parentRunId: args.parentRunId,
+        permissionDecision: "allowed",
+        taskStatus: "completed",
+      },
+    ),
     requestId: args.requestId,
     runId: args.runId,
     serviceActor: args.serviceActor,
@@ -686,10 +930,12 @@ export function createInternalAgentResponse(args: {
 }
 
 export function createInternalAgentErrorResponse(args: {
+  childRunId?: string | null;
   correlationId: string;
   definition: InternalAgentRouteDefinition;
   durationMs: number;
   error: unknown;
+  parentRunId?: string | null;
   quota?: InternalAgentQuotaMetadata | null;
   requestId: string;
   runId?: string | null;
@@ -724,13 +970,27 @@ export function createInternalAgentErrorResponse(args: {
     logInternalAgentAuditEvent({
       correlationId: apiError.correlationId,
       eventType: "internal.agent.request.failed",
-      metadataJson: {
-        agent_type: args.definition.agentType,
-        duration_ms: args.durationMs,
-        error_code: apiError.errorCode,
-        operation: args.definition.operation,
-        status: "error",
-      },
+      metadataJson: buildInternalAgentAuditMetadata(
+        {
+          agent_type: args.definition.agentType,
+          duration_ms: args.durationMs,
+          error_code: apiError.errorCode,
+          operation: args.definition.operation,
+          status: "error",
+        },
+        {
+          authSubject: args.serviceActor.id,
+          childRunId: args.childRunId ?? null,
+          definition: args.definition,
+          handoffReason: apiError.errorCode.toLowerCase(),
+          parentRunId: args.parentRunId ?? null,
+          permissionDecision:
+            apiError.status === 401 || apiError.status === 403 || apiError.status === 429
+              ? "denied"
+              : "allowed",
+          taskStatus: apiError.status >= 500 ? "failed" : "denied",
+        },
+      ),
       requestId: args.requestId,
       runId: args.runId ?? null,
       serviceActor: args.serviceActor,

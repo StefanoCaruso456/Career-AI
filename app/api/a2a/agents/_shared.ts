@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { ZodError, type z } from "zod";
 import {
+  buildAgentHandoffMetadata,
+  emitAgentHandoffEvent,
+  traceAgentHandoff,
+} from "@/lib/agent-handoff-tracing";
+import {
   applyTraceResponseHeaders,
   getRequestTraceContext,
   traceSpan,
@@ -141,6 +146,53 @@ function buildMetadata(args: {
   });
 }
 
+function buildExternalAgentHandoffMetadata(args: {
+  authSubject?: string | null;
+  childRunId?: string | null;
+  definition: Pick<ExternalAgentRouteDefinition, "agentType" | "endpointPath" | "operation">;
+  handoffReason: string;
+  parentRunId?: string | null;
+  permissionDecision?: string | null;
+  protocolVersion?: ExternalAgentProtocolVersion | null;
+  requestId?: string | null;
+  taskStatus?: string | null;
+}) {
+  return buildAgentHandoffMetadata({
+    a2aProtocolVersion: args.protocolVersion ?? null,
+    a2aRequestId: args.requestId ?? null,
+    authSubject: args.authSubject ?? null,
+    childRunId: args.childRunId ?? null,
+    handoffReason: args.handoffReason,
+    handoffType: "external_a2a_dispatch",
+    operation: args.definition.operation,
+    parentRunId: args.parentRunId ?? null,
+    permissionDecision: args.permissionDecision ?? null,
+    targetAgentType: args.definition.agentType,
+    targetEndpoint: args.definition.endpointPath,
+    taskStatus: args.taskStatus ?? null,
+  });
+}
+
+function buildExternalAgentAuditMetadata(
+  baseMetadata: Record<string, unknown>,
+  args: {
+    authSubject?: string | null;
+    childRunId?: string | null;
+    definition: Pick<ExternalAgentRouteDefinition, "agentType" | "endpointPath" | "operation">;
+    handoffReason: string;
+    parentRunId?: string | null;
+    permissionDecision?: string | null;
+    protocolVersion?: ExternalAgentProtocolVersion | null;
+    requestId?: string | null;
+    taskStatus?: string | null;
+  },
+) {
+  return {
+    ...baseMetadata,
+    ...buildExternalAgentHandoffMetadata(args),
+  };
+}
+
 function applyExternalA2AHeaders(args: {
   response: Response;
   agentType?: InternalAgentRole | null;
@@ -243,17 +295,62 @@ function assertExternalA2ARateLimit(args: {
     actorId: args.caller.actorId,
     correlationId: args.correlationId,
     eventType: "security.external_a2a.rate_limited",
-    metadataJson: {
-      agent_type: args.agentType,
-      quota: quotaResult.quota,
-      resource: args.resource,
-    },
+    metadataJson: args.agentType
+      ? buildExternalAgentAuditMetadata(
+          {
+            agent_type: args.agentType,
+            quota: quotaResult.quota,
+            resource: args.resource,
+          },
+          {
+            authSubject: args.caller.identity.id,
+            definition: {
+              agentType: args.agentType,
+              endpointPath: typeof args.targetId === "string" ? `/api/a2a/agents/${args.agentType}` : "",
+              operation: "respond",
+            },
+            handoffReason: "rate_limited",
+            parentRunId: args.runId ?? null,
+            permissionDecision: "denied",
+            taskStatus: "denied",
+          },
+        )
+      : {
+          agent_type: args.agentType,
+          quota: quotaResult.quota,
+          resource: args.resource,
+        },
     requestId: args.requestId,
     runId: args.runId ?? null,
     serviceName: args.caller.identity.serviceName,
     targetId: args.targetId,
     targetType: args.targetType,
   });
+
+  if (args.agentType) {
+    emitAgentHandoffEvent({
+      event: "denied",
+      metadata: {
+        a2aProtocolVersion: "a2a.v1",
+        a2aRequestId: args.requestId,
+        authSubject: args.caller.identity.id,
+        handoffReason: "rate_limited",
+        handoffType: "external_a2a_dispatch",
+        operation: "respond",
+        parentRunId: args.runId ?? null,
+        permissionDecision: "denied",
+        targetAgentType: args.agentType,
+        targetEndpoint: `/api/a2a/agents/${args.agentType}`,
+        taskStatus: "denied",
+      },
+      output: {
+        quota: quotaResult.quota,
+        request_id: args.requestId,
+        status: 429,
+      },
+      tags: ["external_a2a"],
+    });
+  }
 
   throw new ApiError({
     errorCode: "RATE_LIMITED",
@@ -293,6 +390,46 @@ export async function resolveExternalAgentRouteContext(
     runId: runContext.runId,
     sessionId: caller.actorId,
     userId: null,
+  });
+
+  emitAgentHandoffEvent({
+    event: "start",
+    metadata: {
+      a2aProtocolVersion: "a2a.v1",
+      a2aRequestId: fallbackRequestId,
+      authSubject: caller.identity.id,
+      handoffReason: "external_a2a_request",
+      handoffType: "external_a2a_dispatch",
+      operation: definition.operation,
+      parentRunId: runContext.runId,
+      targetAgentType: definition.agentType,
+      targetEndpoint: definition.endpointPath,
+      taskStatus: "started",
+    },
+    output: {
+      request_id: fallbackRequestId,
+    },
+    tags: ["external_a2a"],
+  });
+
+  emitAgentHandoffEvent({
+    event: "authz",
+    metadata: {
+      a2aProtocolVersion: "a2a.v1",
+      a2aRequestId: fallbackRequestId,
+      authSubject: caller.identity.id,
+      handoffReason: "external_caller_authorized",
+      handoffType: "external_a2a_dispatch",
+      operation: definition.operation,
+      parentRunId: runContext.runId,
+      permissionDecision: "allowed",
+      targetAgentType: definition.agentType,
+      targetEndpoint: definition.endpointPath,
+    },
+    output: {
+      request_id: fallbackRequestId,
+    },
+    tags: ["external_a2a"],
   });
 
   return {
@@ -409,11 +546,23 @@ export function logExternalAgentRequestReceived(args: {
     actorId: args.caller.actorId,
     correlationId: args.correlationId,
     eventType: "external.a2a.request.received",
-    metadataJson: {
-      agent_type: args.definition.agentType,
-      operation: args.definition.operation,
-      protocol_version: args.version,
-    },
+    metadataJson: buildExternalAgentAuditMetadata(
+      {
+        agent_type: args.definition.agentType,
+        operation: args.definition.operation,
+        protocol_version: args.version,
+      },
+      {
+        authSubject: args.caller.identity.id,
+        definition: args.definition,
+        handoffReason: "external_a2a_request",
+        parentRunId: args.runId,
+        permissionDecision: "allowed",
+        protocolVersion: args.version,
+        requestId: args.requestId,
+        taskStatus: "started",
+      },
+    ),
     requestId: args.requestId,
     runId: args.runId,
     serviceName: args.caller.identity.serviceName,
@@ -441,39 +590,97 @@ export function logExternalDiscoveryReceived(args: {
 }
 
 export async function traceExternalAgentInvocation<TResult extends { stopReason?: string }>(args: {
+  childRunId: string;
   caller: ExternalAgentCaller;
   definition: ExternalAgentRouteDefinition;
+  parentRunId: string;
   requestId: string;
   version: ExternalAgentProtocolVersion;
   invoke: () => Promise<TResult>;
 }) {
   const startedAt = Date.now();
 
-  return traceSpan(
-    {
-      metadata: {
-        agent_type: args.definition.agentType,
-        endpoint: args.definition.endpointPath,
-        operation: args.definition.operation,
-        protocol_version: args.version,
-        request_id: args.requestId,
-        service_actor_id: args.caller.identity.serviceActorId,
-        service_name: args.caller.identity.serviceName,
-      },
-      metrics: () => ({
-        duration_ms: Date.now() - startedAt,
-      }),
-      name: `external.a2a.agent.${args.definition.agentType}.${args.definition.operation}`,
-      tags: [
-        "external_a2a",
-        `agent:${args.definition.agentType}`,
-        `operation:${args.definition.operation}`,
-        `service:${args.caller.identity.serviceName}`,
-      ],
-      type: "task",
+  const result = await traceAgentHandoff({
+    event: "dispatch",
+    input: {
+      protocol_version: args.version,
+      request_id: args.requestId,
     },
-    args.invoke,
-  );
+    invoke: () =>
+      traceSpan(
+        {
+          metadata: {
+            agent_type: args.definition.agentType,
+            endpoint: args.definition.endpointPath,
+            operation: args.definition.operation,
+            protocol_version: args.version,
+            request_id: args.requestId,
+            service_actor_id: args.caller.identity.serviceActorId,
+            service_name: args.caller.identity.serviceName,
+          },
+          metrics: () => ({
+            duration_ms: Date.now() - startedAt,
+          }),
+          name: `external.a2a.agent.${args.definition.agentType}.${args.definition.operation}`,
+          tags: [
+            "external_a2a",
+            `agent:${args.definition.agentType}`,
+            `operation:${args.definition.operation}`,
+            `service:${args.caller.identity.serviceName}`,
+          ],
+          type: "task",
+        },
+        args.invoke,
+      ),
+    metadata: {
+      a2aProtocolVersion: args.version,
+      a2aRequestId: args.requestId,
+      authSubject: args.caller.identity.id,
+      childRunId: args.childRunId,
+      handoffReason: "external_a2a_request",
+      handoffType: "external_a2a_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.parentRunId,
+      permissionDecision: "allowed",
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpointPath,
+      taskStatus: "running",
+    },
+    metrics: () => ({
+      duration_ms: Date.now() - startedAt,
+    }),
+    output: (value: TResult) => ({
+      request_id: args.requestId,
+      stop_reason: value.stopReason ?? null,
+    }),
+    tags: ["external_a2a"],
+    type: "task",
+  });
+
+  emitAgentHandoffEvent({
+    event: "complete",
+    metadata: {
+      a2aProtocolVersion: args.version,
+      a2aRequestId: args.requestId,
+      authSubject: args.caller.identity.id,
+      childRunId: args.childRunId,
+      handoffReason: "external_a2a_request",
+      handoffType: "external_a2a_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.parentRunId,
+      permissionDecision: "allowed",
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpointPath,
+      taskStatus: "completed",
+    },
+    output: {
+      request_id: args.requestId,
+      stop_reason: result.stopReason ?? null,
+    },
+    tags: ["external_a2a"],
+  });
+
+  return result;
 }
 
 export function createExternalAgentResponse(args: {
@@ -481,6 +688,7 @@ export function createExternalAgentResponse(args: {
   correlationId: string;
   definition: ExternalAgentRouteDefinition;
   durationMs: number;
+  parentRunId: string;
   presentationSummary?: unknown;
   quota: InternalAgentQuotaMetadata | null;
   requestId: string;
@@ -510,14 +718,27 @@ export function createExternalAgentResponse(args: {
     actorId: args.caller.actorId,
     correlationId: args.correlationId,
     eventType: "external.a2a.request.completed",
-    metadataJson: {
-      agent_type: args.definition.agentType,
-      duration_ms: args.durationMs,
-      operation: args.definition.operation,
-      status: "ok",
-      stop_reason: args.stopReason,
-      tool_calls_used: args.toolCallsUsed,
-    },
+    metadataJson: buildExternalAgentAuditMetadata(
+      {
+        agent_type: args.definition.agentType,
+        duration_ms: args.durationMs,
+        operation: args.definition.operation,
+        status: "ok",
+        stop_reason: args.stopReason,
+        tool_calls_used: args.toolCallsUsed,
+      },
+      {
+        authSubject: args.caller.identity.id,
+        childRunId: args.runId,
+        definition: args.definition,
+        handoffReason: "external_a2a_request",
+        parentRunId: args.parentRunId,
+        permissionDecision: "allowed",
+        protocolVersion: "a2a.v1",
+        requestId: args.requestId,
+        taskStatus: "completed",
+      },
+    ),
     requestId: args.requestId,
     runId: args.runId,
     serviceName: args.caller.identity.serviceName,
@@ -550,11 +771,13 @@ export function createExternalAgentResponse(args: {
 }
 
 export function createExternalAgentErrorResponse(args: {
+  childRunId?: string | null;
   caller?: ExternalAgentCaller | null;
   correlationId: string;
   definition: ExternalAgentRouteDefinition;
   durationMs: number;
   error: unknown;
+  parentRunId?: string | null;
   quota?: InternalAgentQuotaMetadata | null;
   requestId: string;
   runId?: string | null;
@@ -589,13 +812,29 @@ export function createExternalAgentErrorResponse(args: {
       actorId: args.caller.actorId,
       correlationId: apiError.correlationId,
       eventType: "external.a2a.request.failed",
-      metadataJson: {
-        agent_type: args.definition.agentType,
-        duration_ms: args.durationMs,
-        error_code: apiError.errorCode,
-        operation: args.definition.operation,
-        status: "error",
-      },
+      metadataJson: buildExternalAgentAuditMetadata(
+        {
+          agent_type: args.definition.agentType,
+          duration_ms: args.durationMs,
+          error_code: apiError.errorCode,
+          operation: args.definition.operation,
+          status: "error",
+        },
+        {
+          authSubject: args.caller.identity.id,
+          childRunId: args.childRunId ?? null,
+          definition: args.definition,
+          handoffReason: apiError.errorCode.toLowerCase(),
+          parentRunId: args.parentRunId ?? null,
+          permissionDecision:
+            apiError.status === 401 || apiError.status === 403 || apiError.status === 429
+              ? "denied"
+              : "allowed",
+          protocolVersion: "a2a.v1",
+          requestId: args.requestId,
+          taskStatus: apiError.status >= 500 ? "failed" : "denied",
+        },
+      ),
       requestId: args.requestId,
       runId: args.runId ?? null,
       serviceName: args.caller.identity.serviceName,

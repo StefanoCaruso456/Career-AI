@@ -29,6 +29,14 @@ vi.mock("@/packages/homepage-assistant/src", () => ({
 
 import { POST } from "./route";
 
+function getTraceCallOptions(name: string) {
+  const matchingCall = mocks.traceSpan.mock.calls.find(
+    ([options]) => (options as { name?: string }).name === name,
+  );
+
+  return matchingCall?.[0] as { metadata?: Record<string, unknown>; name?: string } | undefined;
+}
+
 describe("POST /api/a2a/agents/candidate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -51,6 +59,7 @@ describe("POST /api/a2a/agents/candidate", () => {
       roleType: "candidate",
       run: {
         correlationId: "corr_123",
+        parentRunId: "route_run_123",
         runId: "run_123",
       },
     });
@@ -106,6 +115,70 @@ describe("POST /api/a2a/agents/candidate", () => {
     expect(
       listAuditEvents().some((event) => event.event_type === "external.a2a.request.completed"),
     ).toBe(true);
+    expect(
+      mocks.traceSpan.mock.calls.map(
+        ([options]) => (options as { name?: string }).name,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "agent.handoff.start",
+        "agent.handoff.authz",
+        "agent.handoff.dispatch",
+        "agent.handoff.complete",
+        "external.a2a.agent.candidate.respond",
+      ]),
+    );
+    expect(getTraceCallOptions("agent.handoff.dispatch")).toMatchObject({
+      metadata: expect.objectContaining({
+        a2a_protocol_version: "a2a.v1",
+        a2a_request_id: "req_ext_candidate_123",
+        auth_subject: "service:partner-123",
+        child_run_id: "run_123",
+        handoff_type: "external_a2a_dispatch",
+        permission_decision: "allowed",
+        target_agent_type: "candidate",
+        target_endpoint: "/api/a2a/agents/candidate",
+      }),
+    });
+  });
+
+  it("emits denied handoff metadata when the external caller is not authorized for the target agent", async () => {
+    process.env.EXTERNAL_AGENT_AUTH_TOKENS =
+      "partner-runtime|partner-123|recruiter=ext-secret";
+
+    const response = await POST(
+      new Request("https://career.ai/api/a2a/agents/candidate", {
+        body: JSON.stringify({
+          agentType: "candidate",
+          operation: "respond",
+          payload: {
+            message: "Summarize my profile",
+            messages: [],
+            talentIdentityId: "tal_123",
+          },
+          requestId: "req_ext_candidate_denied",
+          version: "a2a.v1",
+        }),
+        headers: {
+          authorization: "Bearer ext-secret",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload.error.code).toBe("FORBIDDEN");
+    expect(getTraceCallOptions("agent.handoff.denied")).toMatchObject({
+      metadata: expect.objectContaining({
+        auth_subject: "service:partner-123",
+        handoff_reason: "agent_not_authorized_for_caller",
+        handoff_type: "external_a2a_dispatch",
+        permission_decision: "denied",
+        target_agent_type: "candidate",
+      }),
+    });
   });
 
   it("returns a normalized external rate-limit denial with quota headers", async () => {
@@ -158,5 +231,13 @@ describe("POST /api/a2a/agents/candidate", () => {
     expect(payload.error.code).toBe("RATE_LIMITED");
     expect(response.headers.get("x-rate-limit-limit")).toBe("1");
     expect(response.headers.get("x-rate-limit-remaining")).toBe("0");
+    expect(getTraceCallOptions("agent.handoff.denied")).toMatchObject({
+      metadata: expect.objectContaining({
+        handoff_reason: "rate_limited",
+        handoff_type: "external_a2a_dispatch",
+        permission_decision: "denied",
+        target_agent_type: "candidate",
+      }),
+    });
   });
 });

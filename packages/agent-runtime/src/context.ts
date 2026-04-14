@@ -11,6 +11,7 @@ export type RunTraceRoot = {
 
 export type RunContext = {
   correlationId: string;
+  parentRunId: string | null;
   runId: string;
   traceRoot: RunTraceRoot;
 };
@@ -38,12 +39,14 @@ export type AgentContext = {
 
 export function createRunContext(args: {
   correlationId: string;
+  parentRunId?: string | null;
   runId?: string | null;
 }): RunContext {
   const traceContext = getRequestTraceContext();
 
   return {
     correlationId: args.correlationId,
+    parentRunId: args.parentRunId?.trim() || null,
     runId: args.runId?.trim() || crypto.randomUUID(),
     traceRoot: {
       braintrustRootSpanId: traceContext?.braintrustRootSpanId ?? null,
@@ -52,6 +55,17 @@ export function createRunContext(args: {
       traceId: traceContext?.traceId ?? null,
     },
   };
+}
+
+export function createChildRunContext(args: {
+  parentRun: RunContext;
+  runId?: string | null;
+}): RunContext {
+  return createRunContext({
+    correlationId: args.parentRun.correlationId,
+    parentRunId: args.parentRun.runId,
+    runId: args.runId ?? null,
+  });
 }
 
 function canLoadOrganizationContext(

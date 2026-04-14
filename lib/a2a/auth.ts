@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { createInternalServiceActorIdentity } from "@/actor-identity";
 import type { InternalServiceActorIdentity } from "@/actor-identity";
+import { buildAgentHandoffMetadata, emitAgentHandoffEvent } from "@/lib/agent-handoff-tracing";
 import { logAuditEvent } from "@/packages/audit-security/src";
 import { ApiError, type InternalAgentRole } from "@/packages/contracts/src";
 
@@ -160,6 +161,21 @@ function logExternalAuthDenied(args: {
   caller?: ExternalAgentCaller | null;
 }) {
   const caller = args.caller ?? null;
+  const route = getRequestPath(args.request);
+  const handoffMetadata =
+    args.agentType
+      ? buildAgentHandoffMetadata({
+          a2aProtocolVersion: "a2a.v1",
+          authSubject: caller?.identity.id ?? null,
+          handoffReason: args.reason,
+          handoffType: "external_a2a_dispatch",
+          operation: "respond",
+          permissionDecision: "denied",
+          targetAgentType: args.agentType,
+          targetEndpoint: `/api/a2a/agents/${args.agentType}`,
+          taskStatus: "denied",
+        })
+      : null;
 
   logAuditEvent({
     actorId: caller?.actorId ?? "anonymous_external_agent",
@@ -171,12 +187,37 @@ function logExternalAuthDenied(args: {
       auth_method: "external_service_bearer",
       has_authorization_header: Boolean(args.request.headers.get("authorization")),
       reason: args.reason,
-      route: getRequestPath(args.request),
+      route,
       service_name: caller?.identity.serviceName ?? null,
+      ...(handoffMetadata ?? {}),
     },
-    targetId: args.agentType ?? getRequestPath(args.request),
+    targetId: args.agentType ?? route,
     targetType: args.agentType ? "external_agent" : "route",
   });
+
+  if (args.agentType) {
+    emitAgentHandoffEvent({
+      event: "denied",
+      metadata: {
+        a2aProtocolVersion: "a2a.v1",
+        authSubject: caller?.identity.id ?? null,
+        handoffReason: args.reason,
+        handoffType: "external_a2a_dispatch",
+        operation: "respond",
+        permissionDecision: "denied",
+        targetAgentType: args.agentType,
+        targetEndpoint: `/api/a2a/agents/${args.agentType}`,
+        taskStatus: "denied",
+      },
+      output: {
+        route,
+        status: args.reason === "missing_bearer_token" || args.reason === "invalid_bearer_token"
+          ? 401
+          : 403,
+      },
+      tags: ["external_a2a"],
+    });
+  }
 }
 
 export function isExternalAgentAuthorizedForAgent(
