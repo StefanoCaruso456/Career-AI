@@ -50,6 +50,13 @@ describe("GET /api/a2a/agents/[agentType]/card", () => {
       endpoint: "https://career.ai/api/a2a/agents/verifier",
       requiredAuthType: "external_service_bearer",
     });
+    expect(
+      mocks.traceSpan.mock.calls.some(
+        ([options]) =>
+          typeof (options as { name?: string }).name === "string" &&
+          (options as { name: string }).name.startsWith("agent.handoff."),
+      ),
+    ).toBe(false);
   });
 
   it("denies a caller that is not authorized for the requested agent card", async () => {

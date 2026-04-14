@@ -42,6 +42,7 @@ function buildPresentationContextPreamble(presentationSummary: ReturnType<typeof
 export const runtime = "nodejs";
 
 async function handleExternalVerifierAgentPost(request: Request) {
+  let childRunId: string | null = null;
   let requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   let quota = null;
   let routeContext:
@@ -78,10 +79,12 @@ async function handleExternalVerifierAgentPost(request: Request) {
       runContext: activeRouteContext.runContext,
       serviceActor: activeRouteContext.caller.identity,
     });
+    childRunId = agentContext.run.runId;
     const presentationSummary = defaultW3CPresentationAdapter.summarize(
       parsedRequest.payload.presentation ?? null,
     );
     const result = await traceExternalAgentInvocation({
+      childRunId: agentContext.run.runId,
       caller: activeRouteContext.caller,
       definition: activeRouteContext.definition,
       invoke: () =>
@@ -94,6 +97,7 @@ async function handleExternalVerifierAgentPost(request: Request) {
           toolRegistry: verifierToolRegistry,
           workflowId: activeRouteContext.definition.workflowId,
         }),
+      parentRunId: activeRouteContext.runContext.runId,
       requestId: parsedRequest.requestId,
       version: parsedRequest.version,
     });
@@ -103,6 +107,7 @@ async function handleExternalVerifierAgentPost(request: Request) {
       correlationId: activeRouteContext.correlationId,
       definition: activeRouteContext.definition,
       durationMs: Date.now() - activeRouteContext.startedAt,
+      parentRunId: activeRouteContext.runContext.runId,
       presentationSummary,
       quota,
       reply: result.text,
@@ -116,9 +121,11 @@ async function handleExternalVerifierAgentPost(request: Request) {
     return createExternalAgentErrorResponse({
       caller: routeContext?.caller ?? null,
       correlationId: routeContext?.correlationId ?? (request.headers.get("x-correlation-id") ?? crypto.randomUUID()),
+      childRunId,
       definition: routeContext?.definition ?? verifierDefinition,
       durationMs: routeContext ? Date.now() - routeContext.startedAt : 0,
       error,
+      parentRunId: routeContext?.runContext.runId ?? null,
       quota,
       requestId,
       runId: routeContext?.runContext.runId ?? null,

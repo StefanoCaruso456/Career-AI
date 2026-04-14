@@ -26,6 +26,7 @@ const recruiterToolRegistry = filterAgentToolRegistry(
 export const runtime = "nodejs";
 
 async function handleRecruiterAgentPost(request: Request) {
+  let childRunId: string | null = null;
   let requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
   let quota = null;
   let routeContext:
@@ -65,7 +66,9 @@ async function handleRecruiterAgentPost(request: Request) {
       runContext: activeRouteContext.runContext,
       userId: parsedRequest.payload.userId,
     });
+    childRunId = agentContext.run.runId;
     const result = await traceInternalAgentInvocation({
+      childRunId: agentContext.run.runId,
       definition: activeRouteContext.definition,
       invoke: () =>
         generateHomepageAssistantReplyDetailed(parsedRequest.payload.message, [], {
@@ -76,6 +79,7 @@ async function handleRecruiterAgentPost(request: Request) {
           toolRegistry: recruiterToolRegistry,
           workflowId: activeRouteContext.definition.workflowId,
         }),
+      parentRunId: activeRouteContext.runContext.runId,
       requestId: parsedRequest.requestId,
       serviceActor: activeRouteContext.serviceActor,
       version: parsedRequest.version,
@@ -85,6 +89,7 @@ async function handleRecruiterAgentPost(request: Request) {
       correlationId: activeRouteContext.correlationId,
       definition: activeRouteContext.definition,
       durationMs: Date.now() - activeRouteContext.startedAt,
+      parentRunId: activeRouteContext.runContext.runId,
       quota,
       reply: result.text,
       requestId: parsedRequest.requestId,
@@ -97,9 +102,11 @@ async function handleRecruiterAgentPost(request: Request) {
   } catch (error) {
     return createInternalAgentErrorResponse({
       correlationId: routeContext?.correlationId ?? (request.headers.get("x-correlation-id") ?? crypto.randomUUID()),
+      childRunId,
       definition: routeContext?.definition ?? recruiterDefinition,
       durationMs: routeContext ? Date.now() - routeContext.startedAt : 0,
       error,
+      parentRunId: routeContext?.runContext.runId ?? null,
       quota,
       requestId,
       runId: routeContext?.runContext.runId ?? null,

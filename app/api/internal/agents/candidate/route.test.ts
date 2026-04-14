@@ -42,6 +42,14 @@ vi.mock("@/packages/homepage-assistant/src", () => ({
 
 import { POST } from "./route";
 
+function getTraceCallOptions(name: string) {
+  const matchingCall = mocks.traceSpan.mock.calls.find(
+    ([options]) => (options as { name?: string }).name === name,
+  );
+
+  return matchingCall?.[0] as { metadata?: Record<string, unknown>; name?: string } | undefined;
+}
+
 function createPersistentContext(args: {
   preferredPersona: "employer" | "job_seeker";
   roleType: string | null;
@@ -145,6 +153,13 @@ describe("POST /api/internal/agents/candidate", () => {
       }),
     });
     expect(mocks.generateHomepageAssistantReplyDetailed).not.toHaveBeenCalled();
+    expect(getTraceCallOptions("agent.handoff.denied")).toMatchObject({
+      metadata: expect.objectContaining({
+        handoff_type: "internal_agent_dispatch",
+        permission_decision: "denied",
+        target_agent_type: "candidate",
+      }),
+    });
   });
 
   it("accepts a versioned request envelope and returns a normalized success response", async () => {
@@ -229,6 +244,31 @@ describe("POST /api/internal/agents/candidate", () => {
         }),
       ]),
     );
+    expect(
+      mocks.traceSpan.mock.calls.map(
+        ([options]) => (options as { name?: string }).name,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "agent.handoff.start",
+        "agent.handoff.authz",
+        "agent.handoff.dispatch",
+        "agent.handoff.complete",
+        "internal.agent.candidate.respond",
+      ]),
+    );
+    expect(getTraceCallOptions("agent.handoff.dispatch")).toMatchObject({
+      metadata: expect.objectContaining({
+        auth_subject: "service:candidate-runtime",
+        child_run_id: payload.runId,
+        handoff_type: "internal_agent_dispatch",
+        operation: "respond",
+        parent_run_id: expect.any(String),
+        permission_decision: "allowed",
+        target_agent_type: "candidate",
+        target_endpoint: "/api/internal/agents/candidate",
+      }),
+    });
   });
 
   it("returns a normalized rate-limit denial with quota headers", async () => {
@@ -273,5 +313,13 @@ describe("POST /api/internal/agents/candidate", () => {
         }),
       ]),
     );
+    expect(getTraceCallOptions("agent.handoff.denied")).toMatchObject({
+      metadata: expect.objectContaining({
+        handoff_reason: "rate_limited",
+        handoff_type: "internal_agent_dispatch",
+        permission_decision: "denied",
+        target_agent_type: "candidate",
+      }),
+    });
   });
 });
