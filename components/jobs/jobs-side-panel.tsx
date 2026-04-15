@@ -80,6 +80,7 @@ export function JobsSidePanel({
   const [selectedJobKey, setSelectedJobKey] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const filtersRef = useRef<HTMLDivElement>(null);
+  const filtersPopoverRef = useRef<HTMLDivElement>(null);
   const requestSequence = useRef(0);
   const activeController = useRef<AbortController | null>(null);
   const railScrollTop = useRef(0);
@@ -106,7 +107,12 @@ export function JobsSidePanel({
     }
 
     function handlePointerDown(event: MouseEvent) {
-      if (!filtersRef.current || filtersRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+
+      if (
+        filtersRef.current?.contains(target) ||
+        filtersPopoverRef.current?.contains(target)
+      ) {
         return;
       }
 
@@ -266,7 +272,12 @@ export function JobsSidePanel({
 
         <div className={styles.jobsRailBody} ref={bodyRef}>
           {isFiltersOpen ? (
-            <div aria-label="Jobs rail filters" className={styles.jobsRailFiltersPopover} role="dialog">
+            <div
+              aria-label="Jobs rail filters"
+              className={styles.jobsRailFiltersPopover}
+              ref={filtersPopoverRef}
+              role="dialog"
+            >
               <label className={styles.jobsSearchField}>
                 <Search aria-hidden="true" size={15} strokeWidth={2} />
                 <input

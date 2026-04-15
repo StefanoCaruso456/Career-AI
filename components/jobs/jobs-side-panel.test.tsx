@@ -237,4 +237,49 @@ describe("JobsSidePanel", () => {
     expect(screen.getByText("Product Designer")).toBeInTheDocument();
     expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
   });
+
+  it("keeps the filter popover open while interacting with quick filters and dropdowns", () => {
+    render(
+      <JobsSidePanel
+        jobs={[
+          createJob("job_1"),
+          createJob("job_2", {
+            company: "Cisco",
+            employmentType: "Contract",
+            location: "Austin, TX",
+            railKey: "workday:cisco:job_2",
+            sourceKey: "workday:cisco",
+            sourceLabel: "Cisco",
+            sourceType: "workday",
+            sourceUrl: "https://workday.example.com/cisco/job_2",
+            summary: "Build resilient backend systems for recruiting workflows.",
+            title: "Backend Engineer",
+            workplaceType: "hybrid",
+          }),
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+
+    expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Hybrid" }));
+
+    expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Product Designer")).not.toBeInTheDocument();
+
+    const companySelect = screen.getByLabelText("Company");
+
+    fireEvent.mouseDown(companySelect);
+    expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+
+    fireEvent.change(companySelect, {
+      target: { value: "Cisco" },
+    });
+
+    expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
+  });
 });
