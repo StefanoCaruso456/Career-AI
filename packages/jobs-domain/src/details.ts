@@ -228,7 +228,11 @@ function sanitizeJobDescriptionHtml(value: string | null | undefined) {
   $("*")
     .toArray()
     .forEach((element) => {
-      const tagName = element.tagName?.toLowerCase();
+      if (!("tagName" in element) || typeof element.tagName !== "string") {
+        return;
+      }
+
+      const tagName = element.tagName.toLowerCase();
 
       if (!tagName || tagName === "br") {
         return;
