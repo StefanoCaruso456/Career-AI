@@ -44,7 +44,7 @@ This app now includes Google sign-in using Auth.js and NextAuth route handlers.
 
 Required environment variables:
 
-- `NEXTAUTH_URL`
+- `NEXTAUTH_URL` (set this to your exact public app URL, with no trailing slash)
 - `NEXTAUTH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
@@ -55,6 +55,11 @@ The auth flow also accepts Railway-style aliases if you already created them tha
 - `CLIENT_SECRET` as an alias for `GOOGLE_CLIENT_SECRET`
 
 If Railway injects `RAILWAY_PUBLIC_DOMAIN`, the app can derive `NEXTAUTH_URL` automatically when it is missing.
+
+If you use a custom domain (for example `https://careera2a.com`) and a Railway subdomain, add both callback URLs in Google Cloud OAuth:
+
+- `https://careera2a.com/api/auth/callback/google`
+- `https://taidai-production.up.railway.app/api/auth/callback/google`
 
 Google Cloud OAuth client values for Railway production:
 

@@ -50,7 +50,7 @@ export function GoogleSignInButton({
         }
 
         setIsPending(true);
-        void signIn("google", { callbackUrl });
+        void signIn("google", { callbackUrl }, { prompt: "select_account" });
       }}
       type="button"
     >

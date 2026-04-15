@@ -2,6 +2,10 @@ import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+function normalizeBaseUrl(url: string) {
+  return url.trim().replace(/\/+$/, "");
+}
+
 export function getGoogleClientId() {
   return process.env.GOOGLE_CLIENT_ID?.trim() || process.env.CLIENT_ID?.trim() || "";
 }
@@ -18,13 +22,13 @@ export function getPublicBaseUrl() {
   const configuredUrl = process.env.NEXTAUTH_URL?.trim();
 
   if (configuredUrl) {
-    return configuredUrl;
+    return normalizeBaseUrl(configuredUrl);
   }
 
   const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
 
   if (railwayPublicDomain) {
-    return `https://${railwayPublicDomain}`;
+    return normalizeBaseUrl(`https://${railwayPublicDomain}`);
   }
 
   if (process.env.NODE_ENV !== "production") {
@@ -62,6 +66,11 @@ export const authOptions = {
         GoogleProvider({
           clientId: googleClientId,
           clientSecret: googleClientSecret,
+          authorization: {
+            params: {
+              prompt: "select_account",
+            },
+          },
         }),
       ]
     : [],
