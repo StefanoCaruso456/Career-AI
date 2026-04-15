@@ -27,6 +27,11 @@ type SectionExtraction = {
   summary: string | null;
 };
 
+type ListSectionKey = keyof Pick<
+  SectionExtraction,
+  "preferredQualifications" | "qualifications" | "responsibilities"
+>;
+
 type JobPostingJsonLd = {
   applicantLocationRequirements?: {
     name?: string;
@@ -143,6 +148,14 @@ function normalizeWhitespace(value: string | null | undefined) {
   const normalized = value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
 
   return normalized.length > 0 ? normalized : null;
+}
+
+function isListSectionKey(value: SectionKey | null): value is ListSectionKey {
+  return (
+    value === "responsibilities" ||
+    value === "qualifications" ||
+    value === "preferredQualifications"
+  );
 }
 
 function formatDisplayText(value: string | null | undefined) {
@@ -331,11 +344,8 @@ function extractSectionsFromHtml(value: string | null) {
       return;
     }
 
-    if (
-      activeSection === "responsibilities" ||
-      activeSection === "qualifications" ||
-      activeSection === "preferredQualifications"
-    ) {
+    if (isListSectionKey(activeSection)) {
+      const listSection = activeSection;
       const items =
         tagName === "ul" || tagName === "ol"
           ? $(node)
@@ -346,7 +356,7 @@ function extractSectionsFromHtml(value: string | null) {
           : splitListItems(text);
 
       items.forEach((item) => {
-        pushUnique(emptySections[activeSection], item);
+        pushUnique(emptySections[listSection], item);
       });
     }
   });
@@ -420,8 +430,14 @@ function extractSectionsFromText(value: string | null) {
       return;
     }
 
+    if (!isListSectionKey(marker.key)) {
+      return;
+    }
+
+    const listSection = marker.key;
+
     splitListItems(sectionBody).forEach((item) => {
-      pushUnique(emptySections[marker.key], item);
+      pushUnique(emptySections[listSection], item);
     });
   });
 
@@ -665,7 +681,7 @@ function normalizePayloadDetails(job: JobPostingDto, source: JobDetailsSource) {
   });
 }
 
-async function fetchWorkdayJsonLd(job: JobPostingDto) {
+async function fetchWorkdayJsonLd(job: JobPostingDto): Promise<JobPostingJsonLd | null> {
   const response = await fetch(job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl, {
     cache: "no-store",
     headers: {
