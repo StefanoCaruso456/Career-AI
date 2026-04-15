@@ -3,6 +3,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsResults } from "@/app/jobs/jobs-results";
 import type { JobPostingDto } from "@/packages/contracts/src";
 
+vi.mock("@/components/easy-apply-profile/profile-completion-guard", () => ({
+  ProfileCompletionGuard: ({
+    applyUrl,
+    buttonLabel,
+    className,
+  }: {
+    applyUrl: string;
+    buttonLabel: string;
+    className?: string;
+  }) => (
+    <a className={className} href={applyUrl}>
+      {buttonLabel}
+    </a>
+  ),
+}));
+
 function createJob(index: number): JobPostingDto {
   return {
     id: `job-${index}`,
@@ -68,6 +84,34 @@ describe("JobsResults", () => {
     expect(companySelect).toHaveTextContent("Cisco");
     expect(companySelect).toHaveTextContent("Figma");
     expect(companySelect).toHaveTextContent("Stripe");
+  });
+
+  it("shows job locations on cards and never renders the source placeholder copy", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        title: "Fraud Investigations Senior Analyst",
+        companyName: "Accenture",
+        sourceLabel: "Accenture",
+        location: "Buenos Aires",
+        department: null,
+        commitment: null,
+      },
+      {
+        ...createJob(2),
+        title: "Mystery Role",
+        companyName: "Accenture",
+        sourceLabel: "Accenture",
+        location: null,
+        department: null,
+        commitment: null,
+      },
+    ];
+
+    render(<JobsResults jobs={jobs} />);
+
+    expect(screen.getByText("Buenos Aires")).toBeInTheDocument();
+    expect(screen.queryByText("Details are still coming in from the source.")).not.toBeInTheDocument();
   });
 
   it("loads company-filtered results directly instead of hydrating the full catalog", async () => {

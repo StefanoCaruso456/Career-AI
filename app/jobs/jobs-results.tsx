@@ -1173,32 +1173,33 @@ export function JobsResults({
 
       {filteredJobs.length > 0 ? (
         <div className={styles.jobsGrid}>
-          {visibleJobs.map((job) => (
-            <article className={styles.jobCard} key={job.id}>
-              <div className={styles.jobCopy}>
-                <div>
-                  <span className={styles.cardEyebrow}>{job.companyName}</span>
-                  <h3>{job.title}</h3>
+          {visibleJobs.map((job) => {
+            const jobMeta = [job.location, job.department, job.commitment].filter(Boolean).join(" • ");
+
+            return (
+              <article className={styles.jobCard} key={job.id}>
+                <div className={styles.jobCopy}>
+                  <div>
+                    <span className={styles.cardEyebrow}>{job.companyName}</span>
+                    <h3>{job.title}</h3>
+                  </div>
+                  {jobMeta ? <p className={styles.jobMeta}>{jobMeta}</p> : null}
                 </div>
-                <p className={styles.jobMeta}>
-                  {[job.location, job.department, job.commitment].filter(Boolean).join(" • ") ||
-                    "Details are still coming in from the source."}
-                </p>
-              </div>
-              <div className={styles.jobFooter}>
-                <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
-              </div>
-              <ProfileCompletionGuard
-                applyUrl={job.applyUrl}
-                buttonLabel="Apply"
-                buttonVariant="jobs-card"
-                className={styles.jobLink}
-                companyName={job.companyName}
-                jobTitle={job.title}
-                schemaFamily={resolveSchemaFamilyForJob(job)}
-              />
-            </article>
-          ))}
+                <div className={styles.jobFooter}>
+                  <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
+                </div>
+                <ProfileCompletionGuard
+                  applyUrl={job.applyUrl}
+                  buttonLabel="Apply"
+                  buttonVariant="jobs-card"
+                  className={styles.jobLink}
+                  companyName={job.companyName}
+                  jobTitle={job.title}
+                  schemaFamily={resolveSchemaFamilyForJob(job)}
+                />
+              </article>
+            );
+          })}
         </div>
       ) : isLoadingCompanyResults ? (
         <article className={styles.noResultsState}>
