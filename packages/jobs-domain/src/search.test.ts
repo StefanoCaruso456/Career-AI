@@ -305,6 +305,69 @@ describe("jobs search service", () => {
     expect(result.jobs[0]?.companyName).toBe("Cisco");
   });
 
+  it("infers company-first prompts from the available job snapshot", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "NVIDIA",
+          descriptionSnippet: "Build software systems for AI infrastructure and internal developer tooling.",
+          id: "job_nvidia_software",
+          location: "Remote, United States",
+          title: "Software Engineer",
+        }),
+        createJob({
+          companyName: "Cisco",
+          descriptionSnippet: "Enterprise account coverage for networking buyers.",
+          id: "job_cisco_sales",
+          location: "Austin, TX",
+          title: "Account Executive",
+        }),
+      ],
+      sources: [{ key: "workday:nvidia" }, { key: "workday:cisco" }],
+    });
+
+    const result = await searchJobsPanel({
+      prompt: "show me nvidia software open roles",
+    });
+
+    expect(result.query.filters.companies).toEqual(["NVIDIA"]);
+    expect(result.query.filters.keywords).toContain("software");
+    expect(result.jobs).toHaveLength(1);
+    expect(result.jobs[0]?.companyName).toBe("NVIDIA");
+  });
+
+  it("normalizes broad country requests so usa searches do not overfilter on the raw phrase", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "NVIDIA",
+          descriptionSnippet: "Software work across distributed systems and AI platform tooling.",
+          id: "job_nvidia_us_remote",
+          location: "Remote, United States",
+          title: "Software Engineer",
+        }),
+        createJob({
+          companyName: "Adobe",
+          descriptionSnippet: "Software role based in London for document intelligence systems.",
+          id: "job_adobe_uk",
+          location: "London, United Kingdom",
+          title: "Software Engineer",
+        }),
+      ],
+      sources: [{ key: "workday:nvidia" }, { key: "workday:adobe" }],
+    });
+
+    const result = await searchJobsPanel({
+      prompt: "open software roles in the USA",
+    });
+
+    expect(result.query.filters.location).toBe("United States");
+    expect(result.query.filters.keywords).toContain("software");
+    expect(result.jobs[0]?.companyName).toBe("NVIDIA");
+  });
+
   it("retrieves semantic role variants and explains why they matched", async () => {
     getJobsFeedSnapshotMock.mockResolvedValue({
       generatedAt: "2026-04-10T00:00:00.000Z",

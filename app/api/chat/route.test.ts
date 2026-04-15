@@ -229,6 +229,39 @@ describe("POST /api/chat", () => {
     );
   });
 
+  it("routes short typoed company-role prompts through the job seeker agent instead of generic chat", async () => {
+    mocks.runJobSeekerAgent.mockResolvedValue({
+      assistantMessage: "I found NVIDIA software roles.",
+      jobsPanel: {
+        assistantMessage: "I found NVIDIA software roles.",
+        jobs: [],
+        rail: { cards: [], emptyState: null },
+      },
+    });
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        body: JSON.stringify({
+          attachmentIds: [],
+          conversationId: null,
+          message: "nvidia software roels",
+          persona: "job_seeker",
+          projectId: "project_123",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.runJobSeekerAgent).toHaveBeenCalledTimes(1);
+    expect(mocks.generateHomepageAssistantReply).not.toHaveBeenCalled();
+    expect(payload.assistantMessage.content).toContain("NVIDIA software roles");
+  });
+
   it("routes current external market prompts through the job seeker agent even when they are not internal job-search prompts", async () => {
     mocks.requiresCurrentExternalSearch.mockReturnValue(true);
     mocks.runJobSeekerAgent.mockResolvedValue({
