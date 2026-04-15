@@ -284,10 +284,11 @@
 }
 
 .jobCard {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 0.85rem;
   padding: 1.15rem;
+  min-height: 100%;
   border-radius: 1.45rem;
   border: 1px solid rgba(239, 230, 214, 0.78);
   background:
@@ -338,6 +339,7 @@
 }
 
 .jobCopy {
+  display: grid;
   gap: 0.55rem;
 }
 
@@ -375,10 +377,57 @@
 }
 
 .jobLink {
+  margin-top: auto;
   width: 100%;
-  color: #22120d;
+  min-height: 3.6rem;
+  padding: 0.95rem 1.15rem;
+  border-radius: 1.15rem;
+  color: #f6eee4;
   font-weight: 700;
+  letter-spacing: -0.01em;
   justify-self: stretch;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.jobLink.jobLink {
+  border-color: rgba(24, 34, 51, 0.14);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 52%),
+    linear-gradient(135deg, #172233, #2a3950 54%, #31425c);
+  box-shadow:
+    0 18px 32px rgba(23, 34, 51, 0.18),
+    0 10px 24px rgba(232, 150, 115, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.jobLink.jobLink span {
+  font-size: 1rem;
+}
+
+.jobLink.jobLink svg {
+  color: #ffd8bc;
+}
+
+.jobLink.jobLink:hover {
+  transform: translateY(-2px);
+  border-color: rgba(24, 34, 51, 0.18);
+  box-shadow:
+    0 22px 40px rgba(23, 34, 51, 0.22),
+    0 12px 28px rgba(232, 150, 115, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.jobLink.jobLink:active {
+  transform: translateY(0);
+}
+
+.jobLink.jobLink:focus-visible {
+  outline: 2px solid rgba(24, 34, 51, 0.9);
+  outline-offset: 4px;
 }
 
 .loadMoreRow {
