@@ -8,9 +8,20 @@ import {
 } from "./agent-external";
 
 describe("agent-external contracts", () => {
-  it("parses a versioned external candidate request envelope", () => {
+  it("parses a protocol-grade external candidate request envelope", () => {
     const parsed = externalCandidateAgentRequestSchema.parse({
       agentType: "candidate",
+      auth: {
+        authType: "external_service_bearer",
+        authenticatedSenderId: "external_service:partner-123",
+        serviceName: "partner-runtime",
+      },
+      context: {
+        callerName: "partner-runtime",
+        correlationId: "corr_123",
+        sourceEndpoint: "/partner/candidate",
+      },
+      messageId: "msg_ext_candidate_123",
       metadata: {
         callerName: "partner-runtime",
       },
@@ -20,18 +31,29 @@ describe("agent-external contracts", () => {
         messages: [],
         talentIdentityId: "tal_123",
       },
+      protocolVersion: "a2a.v1",
+      receiverAgentId: "careerai.agent.candidate",
       requestId: "req_ext_candidate_123",
+      senderAgentId: "external_service:partner-123",
+      sentAt: "2026-04-15T00:00:00.000Z",
+      taskType: "respond",
+      traceId: "trace_123",
       version: "a2a.v1",
     });
 
     expect(parsed.version).toBe("a2a.v1");
-    expect(parsed.agentType).toBe("candidate");
+    expect(parsed.messageId).toBe("msg_ext_candidate_123");
+    expect(parsed.senderAgentId).toBe("external_service:partner-123");
   });
 
-  it("parses a normalized external success response", () => {
+  it("parses a protocol-grade external success response", () => {
     const parsed = externalAgentSuccessResponseSchema.parse({
       agentType: "recruiter",
+      artifacts: [],
+      completedAt: "2026-04-15T00:00:22.000Z",
       error: null,
+      errors: [],
+      messageId: "msg_ext_recruiter_123",
       metadata: {
         callerServiceName: "partner-runtime",
         correlationId: "corr_123",
@@ -40,8 +62,11 @@ describe("agent-external contracts", () => {
         quota: null,
         traceId: "trace_123",
       },
+      nextActions: [],
       ok: true,
       operation: "respond",
+      protocolVersion: "a2a.v1",
+      receiverAgentId: "external_service:partner-123",
       requestId: "req_ext_recruiter_123",
       result: {
         presentationSummary: null,
@@ -51,16 +76,22 @@ describe("agent-external contracts", () => {
         stopReason: "completed",
         toolCallsUsed: 1,
       },
+      runId: "run_123",
+      senderAgentId: "careerai.agent.recruiter",
+      status: "success",
       taskStatus: "completed",
+      traceId: "trace_123",
       version: "a2a.v1",
     });
 
-    expect(parsed.result.reply).toBe("Recruiter reply");
+    expect("reply" in parsed.result ? parsed.result.reply : null).toBe("Recruiter reply");
   });
 
-  it("parses a normalized external error response", () => {
+  it("parses a protocol-grade external error response", () => {
     const parsed = externalAgentErrorResponseSchema.parse({
       agentType: "verifier",
+      artifacts: [],
+      completedAt: "2026-04-15T00:00:00.000Z",
       error: {
         code: "UNAUTHORIZED",
         correlationId: "corr_123",
@@ -69,6 +100,17 @@ describe("agent-external contracts", () => {
         requestId: "req_ext_verifier_123",
         retryable: false,
       },
+      errors: [
+        {
+          code: "UNAUTHORIZED",
+          correlationId: "corr_123",
+          details: null,
+          message: "Authentication is required.",
+          requestId: "req_ext_verifier_123",
+          retryable: false,
+        },
+      ],
+      messageId: "msg_ext_verifier_123",
       metadata: {
         callerServiceName: null,
         correlationId: "corr_123",
@@ -77,21 +119,30 @@ describe("agent-external contracts", () => {
         quota: null,
         traceId: null,
       },
+      nextActions: [],
       ok: false,
       operation: "respond",
+      protocolVersion: "a2a.v1",
+      receiverAgentId: "external_service:partner-123",
       requestId: "req_ext_verifier_123",
       result: null,
+      runId: "run_456",
+      senderAgentId: "careerai.agent.verifier",
+      status: "error",
       taskStatus: "failed",
+      traceId: "trace_456",
       version: "a2a.v1",
     });
 
     expect(parsed.error.code).toBe("UNAUTHORIZED");
+    expect(parsed.receiverAgentId).toBe("external_service:partner-123");
   });
 
   it("parses an external discovery response with cards", () => {
     const parsed = externalAgentDiscoveryResponseSchema.parse({
       agents: [
         externalAgentCardSchema.parse({
+          agentId: "careerai.agent.candidate",
           agentType: "candidate",
           capabilities: [
             {
@@ -113,9 +164,11 @@ describe("agent-external contracts", () => {
         correlationId: "corr_123",
         requestId: "req_discovery_123",
       },
+      protocolVersion: "a2a.v1",
       version: "a2a.v1",
     });
 
     expect(parsed.agents).toHaveLength(1);
+    expect(parsed.agents[0]?.agentId).toBe("careerai.agent.candidate");
   });
 });

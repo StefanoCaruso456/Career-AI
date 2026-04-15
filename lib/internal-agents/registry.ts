@@ -8,12 +8,13 @@ export type InternalAgentRouteDefinition = InternalAgentCard & {
   action: string;
   endpoint: string;
   instructions: string;
-  operation: "respond";
+  operation: "respond" | "candidate_search";
   workflowId: string;
 };
 
 const internalAgentRouteDefinitions = {
   candidate: internalAgentCardSchema.parse({
+    agentId: "careerai.agent.candidate",
     agentType: "candidate",
     allowedTools: [
       "search_jobs",
@@ -44,6 +45,7 @@ const internalAgentRouteDefinitions = {
     supportedResponseVersions: ["v1"],
   }),
   recruiter: internalAgentCardSchema.parse({
+    agentId: "careerai.agent.recruiter",
     agentType: "recruiter",
     allowedTools: [
       "search_jobs",
@@ -70,11 +72,12 @@ const internalAgentRouteDefinitions = {
     name: "Career AI Recruiter Agent",
     requiredAuthType: "internal_service_bearer",
     role: "recruiter",
-    supportedOperations: ["respond"],
+    supportedOperations: ["respond", "candidate_search"],
     supportedRequestVersions: ["v1"],
     supportedResponseVersions: ["v1"],
   }),
   verifier: internalAgentCardSchema.parse({
+    agentId: "careerai.agent.verifier",
     agentType: "verifier",
     allowedTools: [
       "get_claim_details",

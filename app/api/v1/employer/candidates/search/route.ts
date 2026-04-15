@@ -44,6 +44,7 @@ async function handleEmployerCandidateSearchPost(request: Request) {
     const response = isRecruiterAgentEligibleIdentity(actorIdentity)
       ? await searchEmployerCandidatesViaRecruiterAgentBoundary({
           actorIdentity,
+          conversationId: payload.conversationId ?? null,
           correlationId,
           filters: payload.filters,
           limit: payload.limit,

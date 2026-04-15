@@ -39,6 +39,53 @@ vi.mock("@/packages/homepage-assistant/src", () => ({
 
 import { POST } from "./route";
 
+function buildVerifierEnvelope(overrides?: Record<string, unknown>) {
+  return {
+    agentType: "verifier",
+    auth: {
+      authType: "external_service_bearer",
+      authenticatedSenderId: "external_service:partner-123",
+      serviceName: "partner-runtime",
+    },
+    context: {
+      callerName: "partner-runtime",
+      correlationId: "corr_123",
+      sourceEndpoint: "/partner/verifier",
+    },
+    messageId: "msg_ext_verifier_123",
+    metadata: {
+      callerName: "partner-runtime",
+    },
+    operation: "respond",
+    payload: {
+      claimId: "claim_123",
+      message: "Inspect this presentation",
+      messages: [],
+      presentation: {
+        challenge: "challenge_123",
+        descriptorIds: ["employment_vc"],
+        definitionId: "presentation_def_1",
+        format: "jwt_vp_json",
+        holderDid: "did:example:holder-123",
+        presentation: {
+          vc: "example",
+        },
+      },
+      subjectTalentIdentityId: "tal_123",
+      verificationRecordId: "vr_123",
+    },
+    protocolVersion: "a2a.v1",
+    receiverAgentId: "careerai.agent.verifier",
+    requestId: "req_ext_verifier_123",
+    senderAgentId: "external_service:partner-123",
+    sentAt: "2026-04-15T00:00:00.000Z",
+    taskType: "respond",
+    traceId: "trace_123",
+    version: "a2a.v1",
+    ...(overrides ?? {}),
+  };
+}
+
 describe("POST /api/a2a/agents/verifier", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -83,30 +130,7 @@ describe("POST /api/a2a/agents/verifier", () => {
     const response = await POST(
       new Request("https://career.ai/api/a2a/agents/verifier", {
         body: JSON.stringify({
-          agentType: "verifier",
-          metadata: {
-            callerName: "partner-runtime",
-          },
-          operation: "respond",
-          payload: {
-            claimId: "claim_123",
-            message: "Inspect this presentation",
-            messages: [],
-            presentation: {
-              challenge: "challenge_123",
-              descriptorIds: ["employment_vc"],
-              definitionId: "presentation_def_1",
-              format: "jwt_vp_json",
-              holderDid: "did:example:holder-123",
-              presentation: {
-                vc: "example",
-              },
-            },
-            subjectTalentIdentityId: "tal_123",
-            verificationRecordId: "vr_123",
-          },
-          requestId: "req_ext_verifier_123",
-          version: "a2a.v1",
+          ...buildVerifierEnvelope(),
         }),
         headers: {
           authorization: "Bearer ext-secret",
@@ -121,6 +145,7 @@ describe("POST /api/a2a/agents/verifier", () => {
     expect(payload).toMatchObject({
       agentType: "verifier",
       ok: true,
+      protocolVersion: "a2a.v1",
       result: {
         presentationSummary: {
           definitionId: "presentation_def_1",
@@ -128,6 +153,8 @@ describe("POST /api/a2a/agents/verifier", () => {
         },
         reply: "External verifier reply",
       },
+      senderAgentId: "careerai.agent.verifier",
+      status: "success",
       taskStatus: "completed",
       version: "a2a.v1",
     });

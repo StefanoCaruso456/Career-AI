@@ -45,6 +45,7 @@ export function getExternalAgentRouteDefinition(
 
   return {
     action: `invoke external ${agentType} agent endpoint`,
+    agentId: internalDefinition.agentId,
     agentType: internalDefinition.agentType,
     allowedTools: internalDefinition.allowedTools,
     capabilities: internalDefinition.capabilities,
@@ -70,11 +71,12 @@ export function getExternalAgentCard(
   const baseUrl = normalizeBaseUrl(options?.baseUrl ?? null);
 
   return externalAgentCardSchema.parse({
+    agentId: definition.agentId,
     agentType: definition.agentType,
     capabilities: definition.capabilities,
-          endpoint: buildExternalUrl(baseUrl, definition.endpointPath),
-          name: definition.name,
-          requiredAuthType: definition.requiredAuthType,
+    endpoint: buildExternalUrl(baseUrl, definition.endpointPath),
+    name: definition.name,
+    requiredAuthType: definition.requiredAuthType,
     role: definition.role,
     supportedOperations: definition.supportedOperations,
     supportedProtocolVersions: ["a2a.v1"],

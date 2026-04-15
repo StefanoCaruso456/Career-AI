@@ -1,5 +1,6 @@
 export * from "./access-control-repository";
 export * from "./access-request-product-repository";
+export * from "./agent-protocol-repository";
 export * from "./audit-log-repository";
 export * from "./claim-verification-repository";
 export * from "./client";
