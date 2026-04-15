@@ -78,10 +78,10 @@
   gap: 1rem;
   padding: 1.28rem;
   border-radius: 1.75rem;
-  border: 1px solid rgba(239, 230, 214, 0.78);
+  border: 1px solid rgba(217, 223, 232, 0.88);
   background:
-    linear-gradient(180deg, rgba(245, 239, 229, 0.98), rgba(230, 223, 211, 0.96)),
-    #ebe4d8;
+    linear-gradient(180deg, rgba(239, 243, 248, 0.98), rgba(229, 234, 241, 0.96)),
+    #e6ebf1;
   box-shadow:
     0 20px 42px rgba(0, 0, 0, 0.18),
     inset 1px 1px 0 rgba(255, 255, 255, 0.5);
@@ -320,10 +320,10 @@
   height: 100%;
   min-height: 100%;
   border-radius: 1.45rem;
-  border: 1px solid rgba(239, 230, 214, 0.78);
+  border: 1px solid rgba(217, 223, 232, 0.88);
   background:
-    linear-gradient(180deg, rgba(245, 239, 229, 0.98), rgba(230, 223, 211, 0.96)),
-    #ebe4d8;
+    linear-gradient(180deg, rgba(239, 243, 248, 0.98), rgba(229, 234, 241, 0.96)),
+    #e6ebf1;
   box-shadow:
     0 20px 42px rgba(0, 0, 0, 0.2),
     inset 1px 1px 0 rgba(255, 255, 255, 0.5);
@@ -453,7 +453,9 @@
   padding: 0.82rem 1rem;
   border: 1px solid rgba(24, 34, 51, 0.12);
   border-radius: 1.05rem;
-  background: rgba(255, 255, 255, 0.48);
+  background:
+    linear-gradient(180deg, rgba(244, 247, 251, 0.98), rgba(233, 238, 244, 0.96)),
+    #edf2f7;
   color: #182232;
   font: inherit;
   font-weight: 700;
@@ -469,7 +471,9 @@
 .jobDetailsButton:hover {
   transform: translateY(-1px);
   border-color: rgba(24, 34, 51, 0.18);
-  background: rgba(255, 255, 255, 0.7);
+  background:
+    linear-gradient(180deg, rgba(248, 250, 253, 0.99), rgba(238, 242, 247, 0.97)),
+    #f1f4f8;
   box-shadow:
     0 16px 28px rgba(23, 34, 51, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.55);
@@ -489,12 +493,12 @@
 }
 
 .loadMoreButton {
-  border: 1px solid rgba(239, 230, 214, 0.68);
+  border: 1px solid rgba(217, 223, 232, 0.88);
   border-radius: 999px;
   padding: 0.78rem 1.2rem;
   background:
-    linear-gradient(180deg, rgba(245, 239, 229, 0.98), rgba(230, 223, 211, 0.96)),
-    #ebe4d8;
+    linear-gradient(180deg, rgba(239, 243, 248, 0.98), rgba(229, 234, 241, 0.96)),
+    #e6ebf1;
   color: #182232;
   box-shadow:
     0 18px 34px rgba(0, 0, 0, 0.16),
