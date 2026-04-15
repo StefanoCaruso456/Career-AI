@@ -286,16 +286,72 @@
   overflow-y: auto;
   padding: 1.3rem 1.6rem 1.55rem;
   display: grid;
-  gap: 1.24rem;
+  gap: 1.35rem;
   align-content: start;
   scrollbar-gutter: stable;
+}
+
+.stepLead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.02rem 1.08rem;
+  border-radius: 1.3rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(132, 124, 255, 0.08), rgba(255, 255, 255, 0.025)),
+    rgba(12, 16, 25, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.stepLeadCopy {
+  display: grid;
+  gap: 0.38rem;
+  max-width: 38rem;
+}
+
+.stepLeadEyebrow {
+  color: rgba(205, 210, 228, 0.66);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.stepLeadTitle {
+  margin: 0;
+  color: #fdf6ef;
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+}
+
+.stepLeadDescription {
+  margin: 0;
+  color: rgba(244, 247, 252, 0.62);
+  line-height: 1.62;
+}
+
+.stepLeadBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.52rem 0.78rem;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 167, 124, 0.18);
+  background: rgba(239, 167, 124, 0.08);
+  color: rgba(255, 237, 226, 0.82);
+  font-size: 0.77rem;
+  font-weight: 700;
+  text-align: center;
 }
 
 .sectionCard,
 .reviewCard {
   display: grid;
-  gap: 1.24rem;
-  padding: 1.35rem 1.4rem 1.45rem;
+  gap: 1.3rem;
+  padding: 1.45rem 1.45rem 1.5rem;
   border-radius: 1.4rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
@@ -321,6 +377,7 @@
   margin: 0.38rem 0 0;
   color: rgba(244, 247, 252, 0.58);
   line-height: 1.7;
+  max-width: 48rem;
 }
 
 .sectionTone {
@@ -343,15 +400,11 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-.sectionGridFeatureSplit {
-  grid-template-columns: minmax(16rem, 0.7fr) minmax(0, 1.3fr);
-}
-
 .sectionFieldCell {
   min-width: 0;
   display: grid;
   align-content: start;
-  padding: 1rem 1.05rem;
+  padding: 1.05rem 1.08rem;
   border-radius: 1.15rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
   background:
@@ -364,12 +417,77 @@
   padding: 1.05rem 1.1rem;
 }
 
+.sectionFieldCellConstrained {
+  width: min(100%, 54rem);
+}
+
+.sectionFieldCellResume {
+  padding: 1.18rem 1.24rem;
+  width: min(100%, 44rem);
+}
+
+.sectionFieldCellEducation {
+  width: min(100%, 52rem);
+}
+
 .sectionFieldCellSidebar {
   align-self: start;
 }
 
 .sectionFieldCellFeature {
-  padding: 1.08rem 1.12rem;
+  padding: 1.14rem 1.16rem;
+}
+
+.sectionFieldCellHistory {
+  min-height: 100%;
+}
+
+.sectionFieldCellMetric {
+  padding: 1.16rem;
+}
+
+.sectionSingleColumnShell {
+  display: grid;
+  justify-items: start;
+}
+
+.sectionHeroSplit {
+  display: grid;
+  grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+  gap: 1.1rem;
+  align-items: start;
+}
+
+.sectionSidebarStack,
+.sectionMainStack {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.sectionSidebarLead {
+  display: grid;
+  gap: 0.48rem;
+  padding: 0.92rem 0.98rem;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.015);
+}
+
+.sectionSidebarEyebrow {
+  color: rgba(205, 210, 228, 0.62);
+  font-size: 0.71rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionSidebarCopy {
+  margin: 0;
+  color: rgba(244, 247, 252, 0.58);
+  font-size: 0.82rem;
+  line-height: 1.58;
 }
 
 .field {
@@ -415,6 +533,31 @@
   font-weight: 700;
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.sectionFieldCellMetric .field {
+  gap: 0.9rem;
+}
+
+.sectionFieldCellMetric .fieldLabel {
+  font-size: 0.98rem;
+}
+
+.sectionFieldCellMetric .input {
+  min-height: 8.8rem;
+  padding: 1.35rem 1.05rem;
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at top, rgba(136, 127, 255, 0.1), transparent 60%),
+    rgba(6, 10, 18, 0.88);
+  font-size: clamp(2.6rem, 4.5vw, 3.8rem);
+  font-weight: 800;
+  letter-spacing: -0.08em;
+  line-height: 1;
+}
+
+.sectionFieldCellMetric .input::placeholder {
+  color: rgba(255, 255, 255, 0.24);
 }
 
 .input,
@@ -522,18 +665,19 @@
 
 .repeatableStack {
   display: grid;
-  gap: 1.05rem;
+  gap: 1.1rem;
 }
 
 .repeatableCard {
   display: grid;
-  gap: 1.05rem;
-  padding: 1.08rem;
-  border-radius: 1.1rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 1.08rem;
+  padding: 1.16rem 1.18rem 1.22rem;
+  border-radius: 1.22rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025)),
-    rgba(255, 255, 255, 0.02);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+    rgba(255, 255, 255, 0.022);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .repeatableCardHeader {
@@ -541,6 +685,8 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+  padding-bottom: 0.92rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .repeatableCardHeaderCopy {
@@ -559,11 +705,12 @@
   color: rgba(244, 247, 252, 0.58);
   font-size: 0.82rem;
   line-height: 1.52;
+  max-width: 34rem;
 }
 
 .repeatableGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
   align-items: start;
 }
@@ -666,10 +813,12 @@
 }
 
 .fileCard {
-  padding: 1rem 1.05rem;
-  border-radius: 1rem;
+  padding: 1.18rem 1.22rem;
+  border-radius: 1.18rem;
   border: 1px dashed rgba(239, 167, 124, 0.24);
-  background: rgba(255, 255, 255, 0.03);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
+    rgba(255, 255, 255, 0.02);
 }
 
 .fileRow {
@@ -681,7 +830,7 @@
 
 .fileCopy {
   display: grid;
-  gap: 0.3rem;
+  gap: 0.42rem;
 }
 
 .fileMeta,
@@ -693,6 +842,11 @@
   font-size: 0.82rem;
 }
 
+.fileHint {
+  max-width: 28rem;
+  line-height: 1.55;
+}
+
 .wizardFooter {
   display: grid;
   gap: 0.95rem;
@@ -700,24 +854,24 @@
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
+.footerStatusRow {
+  display: flex;
+  justify-content: center;
+}
+
 .statusNote {
   margin: 0;
   color: rgba(244, 247, 252, 0.62);
   font-size: 0.86rem;
   line-height: 1.58;
+  text-align: center;
 }
 
 .footerActions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.95rem;
-}
-
-.footerStatusNote {
-  justify-self: center;
-  max-width: 28rem;
-  text-align: center;
 }
 
 .reviewGrid {
@@ -813,8 +967,14 @@
     grid-column: 1 / -1;
   }
 
-  .sectionGridFeatureSplit {
+  .sectionHeroSplit {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sectionFieldCellConstrained,
+  .sectionFieldCellResume,
+  .sectionFieldCellEducation {
+    width: 100%;
   }
 }
 
@@ -845,6 +1005,13 @@
     gap: 1rem;
   }
 
+  .stepLead,
+  .sectionHeroSplit,
+  .footerActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .modalHeaderActions {
     gap: 0.55rem;
   }
@@ -853,10 +1020,8 @@
   .stepper,
   .sectionGrid,
   .repeatableGrid,
-  .choiceGrid,
-  .footerActions {
+  .choiceGrid {
     grid-template-columns: 1fr;
-    flex-direction: column;
   }
 
   .fileRow,
@@ -876,6 +1041,18 @@
 
   .modalHeaderActions {
     align-self: flex-start;
+  }
+
+  .stepLeadBadge {
+    align-self: flex-start;
+  }
+
+  .footerStatusRow {
+    justify-content: flex-start;
+  }
+
+  .statusNote {
+    text-align: left;
   }
 
   .secondaryButton,

@@ -26,15 +26,21 @@ type ProfileSectionProps = {
   section: SectionDefinition;
 };
 
-function getSectionLayout(fields: FieldDefinition[]) {
-  if (fields.length <= 1) {
-    return "single";
+function getSectionPresentation(section: SectionDefinition, fields: FieldDefinition[]) {
+  if (section.id === "resume-upload") {
+    return "resume";
   }
 
-  const repeatableCount = fields.filter((field) => field.type === "repeatable").length;
+  if (section.id === "experience-history") {
+    return "experience";
+  }
 
-  if (fields.length === 2 && repeatableCount === 1) {
-    return "featureSplit";
+  if (section.id === "education-history") {
+    return "education";
+  }
+
+  if (fields.length <= 1) {
+    return "single";
   }
 
   return "balanced";
@@ -68,14 +74,106 @@ export function ProfileSection({
       );
     });
 
-  const sectionLayout = getSectionLayout(fields);
-  const sectionGridClassName = [
-    styles.sectionGrid,
-    sectionLayout === "featureSplit" ? styles.sectionGridFeatureSplit : "",
-    sectionLayout === "single" ? styles.sectionGridSingle : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const sectionPresentation = getSectionPresentation(section, fields);
+
+  function renderFieldCell(field: FieldDefinition, className?: string) {
+    return (
+      <div
+        className={[styles.sectionFieldCell, className].filter(Boolean).join(" ")}
+        data-field-key={field.key}
+        data-field-type={field.type}
+        key={field.key}
+      >
+        <ProfileFieldRenderer
+          errors={errors}
+          field={field}
+          isUploadingResume={isUploadingResume}
+          onChange={onChange}
+          onUploadResume={onUploadResume}
+          value={(profile as Record<string, unknown>)[field.key]}
+        />
+      </div>
+    );
+  }
+
+  function renderSectionContent() {
+    if (sectionPresentation === "resume") {
+      return (
+        <div className={styles.sectionSingleColumnShell}>
+          {fields.map((field) =>
+            renderFieldCell(field, `${styles.sectionFieldCellResume} ${styles.sectionFieldCellConstrained}`),
+          )}
+        </div>
+      );
+    }
+
+    if (sectionPresentation === "experience") {
+      const summaryField = fields.find((field) => field.type !== "repeatable");
+      const historyField = fields.find((field) => field.type === "repeatable");
+
+      return (
+        <div className={styles.sectionHeroSplit}>
+          <div className={styles.sectionSidebarStack}>
+            <div className={styles.sectionSidebarLead}>
+              <span className={styles.sectionSidebarEyebrow}>Reusable summary</span>
+              <p className={styles.sectionSidebarCopy}>
+                Save the top-line experience signal we can carry into future autofill.
+              </p>
+            </div>
+            {summaryField
+              ? renderFieldCell(
+                  summaryField,
+                  `${styles.sectionFieldCellMetric} ${styles.sectionFieldCellSidebar}`,
+                )
+              : null}
+          </div>
+
+          <div className={styles.sectionMainStack}>
+            {historyField
+              ? renderFieldCell(
+                  historyField,
+                  `${styles.sectionFieldCellFeature} ${styles.sectionFieldCellHistory}`,
+                )
+              : null}
+          </div>
+        </div>
+      );
+    }
+
+    if (sectionPresentation === "education") {
+      return (
+        <div className={styles.sectionSingleColumnShell}>
+          {fields.map((field) =>
+            renderFieldCell(
+              field,
+              `${styles.sectionFieldCellSingle} ${styles.sectionFieldCellConstrained} ${styles.sectionFieldCellEducation}`,
+            ),
+          )}
+        </div>
+      );
+    }
+
+    const sectionGridClassName = [
+      styles.sectionGrid,
+      sectionPresentation === "single" ? styles.sectionGridSingle : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return (
+      <div className={sectionGridClassName}>
+        {fields.map((field) => {
+          const fieldClassName = [
+            sectionPresentation === "single" ? styles.sectionFieldCellSingle : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return renderFieldCell(field, fieldClassName);
+        })}
+      </div>
+    );
+  }
 
   return (
     <section className={styles.sectionCard}>
@@ -89,40 +187,7 @@ export function ProfileSection({
         ) : null}
       </div>
 
-      <div className={sectionGridClassName}>
-        {fields.map((field) => {
-          const fieldClassName = [
-            styles.sectionFieldCell,
-            sectionLayout === "featureSplit" && field.type === "repeatable"
-              ? styles.sectionFieldCellFeature
-              : "",
-            sectionLayout === "featureSplit" && field.type !== "repeatable"
-              ? styles.sectionFieldCellSidebar
-              : "",
-            sectionLayout === "single" ? styles.sectionFieldCellSingle : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          return (
-            <div
-              className={fieldClassName}
-              data-field-key={field.key}
-              data-field-type={field.type}
-              key={field.key}
-            >
-              <ProfileFieldRenderer
-                errors={errors}
-                field={field}
-                isUploadingResume={isUploadingResume}
-                onChange={onChange}
-                onUploadResume={onUploadResume}
-                value={(profile as Record<string, unknown>)[field.key]}
-              />
-            </div>
-          );
-        })}
-      </div>
+      {renderSectionContent()}
     </section>
   );
 }
