@@ -993,6 +993,46 @@ describe("HeroComposer", () => {
     ).toBe(false);
   });
 
+  it("preserves spaces while typing in the employer sourcing brief filters", async () => {
+    const workspace = createWorkspaceSnapshot([
+      createProject("project_employer", "Candidate pipeline"),
+    ]);
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <HeroComposer
+        content={landingContentByPersona.employer.heroComposer}
+        persona="employer"
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Find aligned candidates" }));
+
+    const titleInput = await screen.findByLabelText("Title");
+    const locationInput = screen.getByLabelText("Location");
+
+    fireEvent.change(titleInput, {
+      target: { value: "Software " },
+    });
+    fireEvent.change(locationInput, {
+      target: { value: "Austin " },
+    });
+
+    expect(titleInput).toHaveValue("Software ");
+    expect(locationInput).toHaveValue("Austin ");
+  });
+
   it("does not show the jobs side panel for non-job prompts", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_general", "Verified profile")]);
     const conversation = createConversation("conversation_general", "project_general", [

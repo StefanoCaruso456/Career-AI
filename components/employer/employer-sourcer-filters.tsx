@@ -40,7 +40,7 @@ export function EmployerSourcerFilters({
             onChange={(event) => {
               onChange({
                 ...filters,
-                title: event.target.value.trim() || undefined,
+                title: event.target.value,
               });
             }}
             placeholder="Software Engineer"
@@ -73,7 +73,7 @@ export function EmployerSourcerFilters({
             onChange={(event) => {
               onChange({
                 ...filters,
-                location: event.target.value.trim() || null,
+                location: event.target.value,
               });
             }}
             placeholder="Austin, TX"
