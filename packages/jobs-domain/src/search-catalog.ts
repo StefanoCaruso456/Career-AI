@@ -1147,7 +1147,12 @@ export async function findSimilarJobsCatalog(args: {
       employmentType: anchorJob.commitment ?? null,
       exclusions: [anchorJob.companyName],
       industries: [],
-      keywords: extractKeywords(anchorJob.title, anchorJob.descriptionSnippet ?? anchorJob.title),
+      keywords: extractKeywords({
+        companies: [],
+        location: anchorJob.location,
+        prompt: anchorJob.descriptionSnippet ?? anchorJob.title,
+        role: anchorJob.title,
+      }),
       location: anchorJob.location,
       locations: anchorJob.location ? [anchorJob.location] : [],
       postedWithinDays: null,
