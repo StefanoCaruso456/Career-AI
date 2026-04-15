@@ -260,11 +260,13 @@ export function ApplicationProfileWizard({
             </p>
           ) : null}
           {saveError ? <p className={styles.saveError}>{saveError}</p> : null}
+          <div className={styles.footerStatusRow}>
+            <p className={styles.statusNote}>{footerStatusMessage}</p>
+          </div>
           <div className={styles.footerActions}>
             <button className={styles.secondaryButton} onClick={onCancel} type="button">
               Not now
             </button>
-            <p className={`${styles.statusNote} ${styles.footerStatusNote}`}>{footerStatusMessage}</p>
             <button
               className={styles.primaryButton}
               disabled={isSaving}
@@ -347,6 +349,19 @@ export function ApplicationProfileWizard({
       </ol>
 
       <div className={styles.wizardBody} ref={wizardBodyRef}>
+        <section className={styles.stepLead}>
+          <div className={styles.stepLeadCopy}>
+            <span className={styles.stepLeadEyebrow}>
+              Step {currentStepIndex + 1} of {applicationProfileSteps.length}
+            </span>
+            <h3 className={styles.stepLeadTitle}>{currentStep.title}</h3>
+            <p className={styles.stepLeadDescription}>{currentStep.description}</p>
+          </div>
+          <div className={styles.stepLeadBadge}>
+            {persisted ? "Reusable profile save is active" : "Browser-only draft mode"}
+          </div>
+        </section>
+
         {!isReviewStep ? (
           visibleSections.map((section) => (
             <ProfileSection
@@ -454,6 +469,9 @@ export function ApplicationProfileWizard({
           </p>
         ) : null}
         {saveError ? <p className={styles.saveError}>{saveError}</p> : null}
+        <div className={styles.footerStatusRow}>
+          <p className={styles.statusNote}>{footerStatusMessage}</p>
+        </div>
         <div className={styles.footerActions}>
           {currentStepIndex > 0 ? (
             <button
@@ -479,8 +497,6 @@ export function ApplicationProfileWizard({
               Not now
             </button>
           )}
-
-          <p className={`${styles.statusNote} ${styles.footerStatusNote}`}>{footerStatusMessage}</p>
 
           {isReviewStep ? (
             <button
