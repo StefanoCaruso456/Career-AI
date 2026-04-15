@@ -1345,6 +1345,33 @@ function parseWorkdayPostedOn(value: string | null | undefined) {
   return null;
 }
 
+function extractWorkdayLocationFromBulletFields(bulletFields: string[] | undefined) {
+  if (!Array.isArray(bulletFields)) {
+    return null;
+  }
+
+  return (
+    bulletFields
+      .map((field) => (typeof field === "string" ? field.trim() : ""))
+      .find((field) => field.length > 0 && !/^[A-Z]{1,3}-?\d[\w-]*$/i.test(field)) || null
+  );
+}
+
+function extractWorkdayLocationFromExternalPath(externalPath: string) {
+  const locationSegment = externalPath.match(/^\/job\/([^/]+)\//i)?.[1];
+
+  if (!locationSegment) {
+    return null;
+  }
+
+  const location = decodeURIComponent(locationSegment)
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return location.length > 0 ? location : null;
+}
+
 function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPostingDto[] {
   const jobs = isRecord(payload) && Array.isArray(payload.jobPostings) ? payload.jobPostings : null;
 
@@ -1366,6 +1393,10 @@ function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPosting
 
       const externalId = job.bulletFields?.find(Boolean)?.trim() || externalPath;
       const applyUrl = `${sourceOrigin}${source.jobBoardPath}${externalPath}`;
+      const location =
+        (typeof job.locationsText === "string" ? job.locationsText.trim() : null) ||
+        extractWorkdayLocationFromBulletFields(job.bulletFields) ||
+        extractWorkdayLocationFromExternalPath(externalPath);
 
       return createEnrichedJobPosting({
         applyUrl,
@@ -1376,7 +1407,7 @@ function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPosting
         descriptionSnippet: null,
         externalId,
         id: createJobId(source.key, externalId),
-        location: typeof job.locationsText === "string" ? job.locationsText.trim() : null,
+        location,
         postedAt: parseWorkdayPostedOn(job.postedOn),
         rawPayload: job,
         sourceKey: source.key,

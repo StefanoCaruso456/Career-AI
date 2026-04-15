@@ -432,6 +432,54 @@ describe("jobs feed service", () => {
     );
   });
 
+  it("falls back to Workday bullet field locations when locationsText is missing", async () => {
+    process.env.WORKDAY_JOB_SOURCES =
+      "Accenture=https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+
+      if (
+        url === "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs"
+      ) {
+        expect(body).toEqual({
+          limit: 20,
+          offset: 0,
+          searchText: "",
+          appliedFacets: {},
+        });
+
+        return createJsonResponse({
+          total: 1,
+          jobPostings: [
+            {
+              title: "Fraud Investigations Senior Analyst",
+              externalPath: "/job/Buenos-Aires/Fraud-Investigations-Senior-Analyst_R00317420",
+              locationsText: null,
+              postedOn: "Posted Today",
+              timeType: null,
+              bulletFields: ["R00317420", "Buenos Aires"],
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.jobs[0]?.companyName).toBe("Accenture");
+    expect(snapshot.jobs[0]?.location).toBe("Buenos Aires");
+    expect(snapshot.jobs[0]?.applyUrl).toBe(
+      "https://accenture.wd103.myworkdayjobs.com/en-US/AccentureCareers/job/Buenos-Aires/Fraud-Investigations-Senior-Analyst_R00317420",
+    );
+  });
+
   it("continues paging Workday feeds when later pages incorrectly report total zero", async () => {
     process.env.WORKDAY_JOB_SOURCES =
       "Autodesk=https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs";
