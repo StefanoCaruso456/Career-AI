@@ -1,4 +1,8 @@
-import { ApiError, type TalentIdentityAggregate } from "@/packages/contracts/src";
+import {
+  ApiError,
+  type SchemaFamilyDto,
+  type TalentIdentityAggregate,
+} from "@/packages/contracts/src";
 import {
   type DatabaseQueryable,
   getDatabasePool,
@@ -36,6 +40,7 @@ type ContextRow = {
   phone_optional: string | null;
   career_identity_status: "ACTIVE" | "SUSPENDED";
   career_identity_profile_json: Record<string, unknown> | null;
+  career_identity_application_profiles_json: Record<string, unknown> | null;
   career_identity_created_at: Date | string;
   career_identity_updated_at: Date | string;
   privacy_settings_id: string;
@@ -82,6 +87,7 @@ export type PersistentTalentIdentityContext = {
     roleType: string | null;
     profile: Record<string, unknown>;
   };
+  applicationProfiles: Record<string, unknown>;
   aggregate: TalentIdentityAggregate;
 };
 
@@ -137,6 +143,7 @@ const selectContextBaseQuery = `
     ci.phone_optional,
     ci.status AS career_identity_status,
     ci.profile_json AS career_identity_profile_json,
+    ci.application_profiles_json AS career_identity_application_profiles_json,
     ci.created_at AS career_identity_created_at,
     ci.updated_at AS career_identity_updated_at,
     ps.id AS privacy_settings_id,
@@ -214,6 +221,7 @@ function mapContextRow(row: ContextRow): PersistentTalentIdentityContext {
       roleType: row.role_type,
       profile: row.career_identity_profile_json ?? {},
     },
+    applicationProfiles: row.career_identity_application_profiles_json ?? {},
     aggregate: {
       talentIdentity: {
         id: row.career_identity_id,
@@ -1023,6 +1031,47 @@ export async function updateCareerProfileBasics(args: {
     }
 
     return nextContext;
+  });
+}
+
+export async function updatePersistentApplicationProfile(args: {
+  userId: string;
+  profile: Record<string, unknown>;
+  schemaFamily: SchemaFamilyDto;
+  correlationId: string;
+}) {
+  return withDatabaseTransaction(async (client) => {
+    const existing = await requireContextByWhere(
+      client,
+      "u.id = $1",
+      [args.userId],
+      args.correlationId,
+      { userId: args.userId },
+    );
+    const profileKey = `${args.schemaFamily}_profile`;
+    const nextProfiles = {
+      ...existing.applicationProfiles,
+      [profileKey]: args.profile,
+    };
+
+    await client.query(
+      `
+        UPDATE career_identities
+        SET
+          application_profiles_json = $2::jsonb,
+          updated_at = NOW()
+        WHERE user_id = $1
+      `,
+      [args.userId, JSON.stringify(nextProfiles)],
+    );
+
+    return requireContextByWhere(
+      client,
+      "u.id = $1",
+      [args.userId],
+      args.correlationId,
+      { userId: args.userId },
+    );
   });
 }
 
