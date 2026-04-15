@@ -177,6 +177,203 @@ describe("JobsResults", () => {
     expect(screen.queryByText(/Checking all 27 available jobs for matches/i)).not.toBeInTheDocument();
   });
 
+  it("keeps company filters working when switching back before the next company snapshot resolves", async () => {
+    const initialJobs = Array.from({ length: 24 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Cisco",
+      sourceKey: "greenhouse:cisco",
+      sourceLabel: "Cisco",
+    }));
+    const adobeJobs = Array.from({ length: 2 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Adobe",
+      sourceKey: "workday:adobe",
+      sourceLabel: "Adobe",
+      title: `Adobe Role ${index + 1}`,
+    }));
+    const figmaJobs = Array.from({ length: 3 }, (_, index) => ({
+      ...createJob(index + 1),
+      companyName: "Figma",
+      sourceKey: "greenhouse:figma",
+      sourceLabel: "Figma",
+      title: `Figma Role ${index + 1}`,
+    }));
+
+    let resolveFigmaSnapshot: ((response: Response) => void) | null = null;
+    let adobeRequestCount = 0;
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        if (url === "/api/v1/jobs?limit=2&company=Adobe") {
+          adobeRequestCount += 1;
+
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                generatedAt: "2026-04-11T12:45:00.000Z",
+                jobs: adobeJobs,
+                sources: [
+                  {
+                    key: "workday:adobe",
+                    label: "Adobe",
+                    lane: "ats_direct",
+                    quality: "high_signal",
+                    status: "connected",
+                    jobCount: adobeJobs.length,
+                    endpointLabel: "adobe.wd1.myworkdayjobs.com",
+                    lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                    message: "Adobe public jobs synced and ready to persist.",
+                  },
+                ],
+                summary: {
+                  totalJobs: adobeJobs.length,
+                  directAtsJobs: adobeJobs.length,
+                  aggregatorJobs: 0,
+                  sourceCount: 1,
+                  connectedSourceCount: 1,
+                  highSignalSourceCount: 1,
+                  coverageSourceCount: 0,
+                },
+                storage: {
+                  mode: "database",
+                  persistedJobs: adobeJobs.length,
+                  persistedSources: 1,
+                  lastSyncAt: "2026-04-11T12:45:00.000Z",
+                },
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            ),
+          );
+        }
+
+        if (url === "/api/v1/jobs?limit=3&company=Figma") {
+          return new Promise<Response>((resolve) => {
+            resolveFigmaSnapshot = resolve;
+          });
+        }
+
+        throw new Error(`Unexpected fetch request: ${url}`);
+      }),
+    );
+
+    render(
+      <JobsResults
+        initialCompanyOptions={["Adobe", "Cisco", "Figma"]}
+        initialRequestLimit={24}
+        initialSources={[
+          {
+            key: "greenhouse:cisco",
+            label: "Cisco",
+            lane: "ats_direct",
+            quality: "high_signal",
+            status: "connected",
+            jobCount: initialJobs.length,
+            endpointLabel: "boards-api.greenhouse.io/cisco",
+            lastSyncedAt: "2026-04-11T12:45:00.000Z",
+            message: "Cisco public jobs synced and ready to persist.",
+          },
+          {
+            key: "workday:adobe",
+            label: "Adobe",
+            lane: "ats_direct",
+            quality: "high_signal",
+            status: "connected",
+            jobCount: adobeJobs.length,
+            endpointLabel: "adobe.wd1.myworkdayjobs.com",
+            lastSyncedAt: "2026-04-11T12:45:00.000Z",
+            message: "Adobe public jobs synced and ready to persist.",
+          },
+          {
+            key: "greenhouse:figma",
+            label: "Figma",
+            lane: "ats_direct",
+            quality: "high_signal",
+            status: "connected",
+            jobCount: figmaJobs.length,
+            endpointLabel: "boards-api.greenhouse.io/figma",
+            lastSyncedAt: "2026-04-11T12:45:00.000Z",
+            message: "Figma public jobs synced and ready to persist.",
+          },
+        ]}
+        initialTotalAvailableCount={29}
+        jobs={initialJobs}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Adobe" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Adobe Role 1")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Figma" },
+    });
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Adobe" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Showing 2 of 2 matching roles from 2 loaded.")).toBeInTheDocument();
+    });
+    expect(adobeRequestCount).toBe(2);
+    expect(screen.queryByText(/Loading all Figma jobs from the snapshot/i)).not.toBeInTheDocument();
+
+    resolveFigmaSnapshot?.(
+      new Response(
+        JSON.stringify({
+          generatedAt: "2026-04-11T12:45:00.000Z",
+          jobs: figmaJobs,
+          sources: [
+            {
+              key: "greenhouse:figma",
+              label: "Figma",
+              lane: "ats_direct",
+              quality: "high_signal",
+              status: "connected",
+              jobCount: figmaJobs.length,
+              endpointLabel: "boards-api.greenhouse.io/figma",
+              lastSyncedAt: "2026-04-11T12:45:00.000Z",
+              message: "Figma public jobs synced and ready to persist.",
+            },
+          ],
+          summary: {
+            totalJobs: figmaJobs.length,
+            directAtsJobs: figmaJobs.length,
+            aggregatorJobs: 0,
+            sourceCount: 1,
+            connectedSourceCount: 1,
+            highSignalSourceCount: 1,
+            coverageSourceCount: 0,
+          },
+          storage: {
+            mode: "database",
+            persistedJobs: figmaJobs.length,
+            persistedSources: 1,
+            lastSyncAt: "2026-04-11T12:45:00.000Z",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Adobe Role 1")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Figma Role 1")).not.toBeInTheDocument();
+  });
+
   it("hydrates the full jobs window in the background after the first page renders", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),
