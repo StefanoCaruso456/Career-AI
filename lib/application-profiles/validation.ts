@@ -105,13 +105,16 @@ export function validateProfile(args: {
   const config = getSchemaFamilyConfig(args.schemaFamily);
   const profile = args.profile as unknown as Record<string, unknown>;
   const errors: ValidationErrors = {};
+  const scopedFieldKeys = args.fieldKeys
+    ? new Set(args.fieldKeys)
+    : new Set(
+        config.sections
+          .filter((section) => !args.stepId || section.stepId === args.stepId)
+          .flatMap((section) => section.fields),
+      );
 
   const candidateFields = config.fields.filter((field) => {
-    if (args.stepId && field.stepId !== args.stepId) {
-      return false;
-    }
-
-    if (args.fieldKeys && !args.fieldKeys.includes(field.key)) {
+    if (!scopedFieldKeys.has(field.key)) {
       return false;
     }
 

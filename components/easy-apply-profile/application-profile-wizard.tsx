@@ -1,13 +1,18 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, LoaderCircle } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   applicationProfileSteps,
   getFieldDefinition,
   getSchemaFamilyConfig,
 } from "@/lib/application-profiles/config";
-import { getStepFieldKeys, getMissingRequiredFieldKeys, validateProfile, type ValidationErrors } from "@/lib/application-profiles/validation";
+import {
+  getStepFieldKeys,
+  getMissingRequiredFieldKeys,
+  validateProfile,
+  type ValidationErrors,
+} from "@/lib/application-profiles/validation";
 import type {
   AnyApplicationProfile,
   FieldDefinition,
@@ -25,6 +30,7 @@ type ApplicationProfileWizardProps = {
   mode: "complete-profile" | "edit-profile" | "missing-fields";
   onCancel: () => void;
   onChangeProfile: (profile: AnyApplicationProfile) => void;
+  onPersistProfile?: (profile: AnyApplicationProfile) => Promise<void>;
   onSubmitProfile: (profile: AnyApplicationProfile) => Promise<void>;
   onUploadResume: (file: File) => Promise<ResumeAssetReference>;
   persisted: boolean;
@@ -37,9 +43,9 @@ function getInitialStepIndex(schemaFamily: SchemaFamily, profile: AnyApplication
   for (let index = 0; index < applicationProfileSteps.length - 1; index += 1) {
     const step = applicationProfileSteps[index];
     const stepErrors = validateProfile({
+      fieldKeys: getStepFieldKeys(schemaFamily, step.id),
       profile,
       schemaFamily,
-      stepId: step.id,
     });
 
     if (Object.keys(stepErrors).length > 0) {
@@ -91,6 +97,28 @@ function formatReviewValue(field: FieldDefinition, value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
+function getPrimaryErrorFieldKey(errors: ValidationErrors) {
+  const firstErrorKey = Object.keys(errors)[0];
+
+  if (!firstErrorKey) {
+    return null;
+  }
+
+  return firstErrorKey.split(".")[0] ?? firstErrorKey;
+}
+
+function getStepValidationErrors(args: {
+  profile: AnyApplicationProfile;
+  schemaFamily: SchemaFamily;
+  stepId: FieldDefinition["stepId"];
+}) {
+  return validateProfile({
+    fieldKeys: getStepFieldKeys(args.schemaFamily, args.stepId),
+    profile: args.profile,
+    schemaFamily: args.schemaFamily,
+  });
+}
+
 export function ApplicationProfileWizard({
   extraFieldDefinitions = [],
   isSaving,
@@ -99,6 +127,7 @@ export function ApplicationProfileWizard({
   mode,
   onCancel,
   onChangeProfile,
+  onPersistProfile,
   onSubmitProfile,
   onUploadResume,
   persisted,
@@ -114,6 +143,35 @@ export function ApplicationProfileWizard({
     getInitialStepIndex(schemaFamily, profile),
   );
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [stepMessage, setStepMessage] = useState<string | null>(null);
+  const wizardBodyRef = useRef<HTMLDivElement | null>(null);
+
+  function focusFirstInvalidField(nextErrors: ValidationErrors) {
+    const fieldKey = getPrimaryErrorFieldKey(nextErrors);
+
+    if (!fieldKey) {
+      return;
+    }
+
+    const fieldElement = wizardBodyRef.current?.querySelector<HTMLElement>(
+      `[data-profile-field="${fieldKey}"]`,
+    );
+
+    if (!fieldElement) {
+      return;
+    }
+
+    fieldElement.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    const focusTarget = fieldElement.querySelector<HTMLElement>(
+      "input, select, textarea, button",
+    );
+
+    focusTarget?.focus({ preventScroll: true });
+  }
 
   function updateField(fieldKey: string, value: unknown) {
     const nextProfile = {
@@ -121,6 +179,7 @@ export function ApplicationProfileWizard({
       [fieldKey]: value,
     } as AnyApplicationProfile;
 
+    setStepMessage(null);
     onChangeProfile(nextProfile);
 
     if (Object.keys(errors).length > 0) {
@@ -131,10 +190,10 @@ export function ApplicationProfileWizard({
               profile: nextProfile,
               schemaFamily,
             })
-          : validateProfile({
+          : getStepValidationErrors({
               profile: nextProfile,
               schemaFamily,
-              stepId: applicationProfileSteps[currentStepIndex]?.id,
+              stepId: applicationProfileSteps[currentStepIndex]?.id ?? "basic-profile",
             });
 
       setErrors(nextErrors);
@@ -150,6 +209,9 @@ export function ApplicationProfileWizard({
             schemaFamily,
           })
         : validateProfile({
+            fieldKeys: applicationProfileSteps.flatMap((step) =>
+              getStepFieldKeys(schemaFamily, step.id),
+            ),
             profile,
             schemaFamily,
           });
@@ -157,9 +219,12 @@ export function ApplicationProfileWizard({
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
+      setStepMessage("Complete the required fields above before continuing.");
+      focusFirstInvalidField(nextErrors);
       return;
     }
 
+    setStepMessage(null);
     await onSubmitProfile(profile);
   }
 
@@ -175,7 +240,7 @@ export function ApplicationProfileWizard({
 
     return (
       <div className={styles.wizardShell}>
-        <div className={styles.wizardBody}>
+        <div className={styles.wizardBody} ref={wizardBodyRef}>
           <ProfileSection
             errors={errors}
             extraFieldDefinitions={extraFieldDefinitions}
@@ -189,6 +254,11 @@ export function ApplicationProfileWizard({
         </div>
 
         <div className={styles.wizardFooter}>
+          {stepMessage ? (
+            <p aria-live="polite" className={styles.validationMessage}>
+              {stepMessage}
+            </p>
+          ) : null}
           {saveError ? <p className={styles.saveError}>{saveError}</p> : null}
           <div className={styles.footerActions}>
             <button className={styles.secondaryButton} onClick={onCancel} type="button">
@@ -220,8 +290,8 @@ export function ApplicationProfileWizard({
   const isReviewStep = currentStep.id === "review-save";
   const visibleSections = config.sections.filter((section) => section.stepId === currentStep.id);
 
-  function handleNextStep() {
-    const nextErrors = validateProfile({
+  async function handleNextStep() {
+    const nextErrors = getStepValidationErrors({
       profile,
       schemaFamily,
       stepId: currentStep.id,
@@ -230,7 +300,19 @@ export function ApplicationProfileWizard({
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
+      setStepMessage("Complete the required fields above before continuing.");
+      focusFirstInvalidField(nextErrors);
       return;
+    }
+
+    setStepMessage(null);
+
+    if (onPersistProfile) {
+      try {
+        await onPersistProfile(profile);
+      } catch {
+        return;
+      }
     }
 
     setCurrentStepIndex((currentIndex) =>
@@ -264,7 +346,7 @@ export function ApplicationProfileWizard({
         })}
       </ol>
 
-      <div className={styles.wizardBody}>
+      <div className={styles.wizardBody} ref={wizardBodyRef}>
         {!isReviewStep ? (
           visibleSections.map((section) => (
             <ProfileSection
@@ -366,13 +448,20 @@ export function ApplicationProfileWizard({
       </div>
 
       <div className={styles.wizardFooter}>
+        {stepMessage ? (
+          <p aria-live="polite" className={styles.validationMessage}>
+            {stepMessage}
+          </p>
+        ) : null}
         {saveError ? <p className={styles.saveError}>{saveError}</p> : null}
         <div className={styles.footerActions}>
           {currentStepIndex > 0 ? (
             <button
               className={styles.secondaryButton}
+              disabled={isSaving}
               onClick={() => {
                 setErrors({});
+                setStepMessage(null);
                 setCurrentStepIndex((current) => Math.max(current - 1, 0));
               }}
               type="button"
@@ -381,7 +470,12 @@ export function ApplicationProfileWizard({
               <span>Back</span>
             </button>
           ) : (
-            <button className={styles.secondaryButton} onClick={onCancel} type="button">
+            <button
+              className={styles.secondaryButton}
+              disabled={isSaving}
+              onClick={onCancel}
+              type="button"
+            >
               Not now
             </button>
           )}
@@ -405,9 +499,20 @@ export function ApplicationProfileWizard({
               <span>Save and continue</span>
             </button>
           ) : (
-            <button className={styles.primaryButton} onClick={handleNextStep} type="button">
-              <span>Continue</span>
-              <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+            <button
+              className={styles.primaryButton}
+              disabled={isSaving}
+              onClick={() => {
+                void handleNextStep();
+              }}
+              type="button"
+            >
+              {isSaving ? (
+                <LoaderCircle className={styles.inlineSpinner} aria-hidden="true" size={16} strokeWidth={2} />
+              ) : (
+                <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+              )}
+              <span>{isSaving ? "Saving..." : "Continue"}</span>
             </button>
           )}
         </div>
