@@ -292,10 +292,6 @@ function formatTimestamp(value: string | null) {
   }).format(new Date(value));
 }
 
-function formatQualityLabel(value: "high_signal" | "coverage") {
-  return value === "high_signal" ? "High-signal" : "Coverage";
-}
-
 function formatRoleTypeLabel(value: RoleTypeFilter) {
   return ROLE_TYPE_LABELS[value];
 }
@@ -1179,9 +1175,6 @@ export function JobsResults({
         <div className={styles.jobsGrid}>
           {visibleJobs.map((job) => (
             <article className={styles.jobCard} key={job.id}>
-              <div className={styles.badgeRow}>
-                <span className={styles.qualityBadge}>{formatQualityLabel(job.sourceQuality)}</span>
-              </div>
               <div className={styles.jobCopy}>
                 <div>
                   <span className={styles.cardEyebrow}>{job.companyName}</span>

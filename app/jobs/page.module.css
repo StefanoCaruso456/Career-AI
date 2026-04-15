@@ -301,7 +301,6 @@
     inset 1px 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.badgeRow,
 .jobFooter,
 .feedItemTop,
 .feedItemMeta {
@@ -310,26 +309,6 @@
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
-}
-
-.badgeRow {
-  justify-content: flex-end;
-}
-
-.qualityBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.42rem 0.7rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.qualityBadge {
-  background: rgba(71, 108, 178, 0.12);
-  color: #325188;
 }
 
 .cardEyebrow {
