@@ -123,9 +123,53 @@ function splitEntityList(value: string) {
     .filter(Boolean);
 }
 
-function stripSearchClauses(value: string) {
-  return value
-    .replace(/\b(new|latest|recent|recently posted|recently)\b/gi, " ")
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeLocationPhrase(value: string) {
+  const normalized = value
+    .trim()
+    .replace(/^[,.;:!?]+|[,.;:!?]+$/g, "")
+    .replace(/^the\s+/i, "")
+    .replace(/\s+/g, " ");
+  const compact = normalizeHumanLabel(normalized);
+
+  if (!compact) {
+    return null;
+  }
+
+  if (["usa", "u s a", "us", "u s", "united states", "united states of america"].includes(compact)) {
+    return "United States";
+  }
+
+  if (["uk", "u k", "united kingdom", "great britain"].includes(compact)) {
+    return "United Kingdom";
+  }
+
+  return normalized;
+}
+
+function stripRecognizedCompanies(value: string, companies: string[]) {
+  return companies.reduce((result, company) => {
+    const normalizedCompany = company.trim();
+
+    if (!normalizedCompany) {
+      return result;
+    }
+
+    return result.replace(
+      new RegExp(`\\b${escapeRegExp(normalizedCompany)}\\b`, "gi"),
+      " ",
+    );
+  }, value);
+}
+
+function stripSearchClauses(value: string, companies: string[] = []) {
+  return stripRecognizedCompanies(value, companies)
+    .replace(/\b(show me|find|search(?: for)?|surface|pull|browse|see|open)\b/gi, " ")
+    .replace(/\b(new|latest|recent|recently posted|recently|available)\b/gi, " ")
+    .replace(/\b(job|jobs|role|roles|position|positions|opening|openings)\b/gi, " ")
     .replace(/\b(remote|hybrid|onsite|on-site)\b/gi, " ")
     .replace(/\b(?:at|from)\s+[a-z0-9&.,' -]+$/i, " ")
     .replace(/\b(?:in|near|around)\s+[a-z0-9&.,' -]+$/i, " ")
@@ -133,16 +177,37 @@ function stripSearchClauses(value: string) {
     .trim();
 }
 
-function extractCompanies(prompt: string) {
-  const match = prompt.match(
+function extractCompanies(prompt: string, availableCompanies: string[] = []) {
+  const explicitMatch = prompt.match(
     /\b(?:at|from)\s+([a-z0-9&.,' -]+?)(?=(?:\s+\b(?:in|near|around|remote|hybrid|onsite|posted|with|for)\b|[.?!]|$))/i,
   );
+  const explicitCompanies = explicitMatch?.[1] ? splitEntityList(explicitMatch[1]) : [];
+  const normalizedPrompt = normalizeHumanLabel(prompt);
+  const inferredCompanies = availableCompanies
+    .map((company) => company.trim())
+    .filter((company) => company.length > 0)
+    .sort((left, right) => right.length - left.length)
+    .filter((company, index, values) => values.indexOf(company) === index)
+    .filter((company) => {
+      const normalizedCompany = normalizeHumanLabel(company);
 
-  if (!match?.[1]) {
-    return [];
-  }
+      if (!normalizedCompany) {
+        return false;
+      }
 
-  return splitEntityList(match[1]).slice(0, 6);
+      return new RegExp(`(^|\\b)${escapeRegExp(normalizedCompany)}(\\b|$)`, "i").test(
+        normalizedPrompt,
+      );
+    });
+
+  return Array.from(
+    new Map(
+      [...explicitCompanies, ...inferredCompanies].map((company) => [
+        normalizeHumanLabel(company),
+        company,
+      ]),
+    ).values(),
+  ).slice(0, 6);
 }
 
 function extractLocation(prompt: string) {
@@ -150,19 +215,23 @@ function extractLocation(prompt: string) {
     /\b(?:in|near|around)\s+([a-z0-9&.,' -]+?)(?=(?:\s+\b(?:at|from|remote|hybrid|onsite|posted|with|for)\b|[.?!]|$))/i,
   );
 
-  return match?.[1]?.trim() || null;
+  return match?.[1] ? normalizeLocationPhrase(match[1]) : null;
 }
 
-function extractRole(prompt: string) {
-  const match = prompt.match(
+function extractRole(prompt: string, companies: string[] = []) {
+  const explicitMatch = prompt.match(
     /\b(?:find|show me|search(?: for)?|surface|pull)\s+(.+?)\s+\b(?:jobs|roles|positions|openings)\b/i,
   );
+  const fallbackMatch = prompt.match(
+    /^(?:\s*(?:open|new|latest|recent)\s+)?(.+?)\s+\b(?:jobs|roles|positions|openings)\b/i,
+  );
+  const rawRole = explicitMatch?.[1] ?? fallbackMatch?.[1] ?? null;
 
-  if (!match?.[1]) {
+  if (!rawRole) {
     return null;
   }
 
-  const stripped = stripSearchClauses(match[1]);
+  const stripped = stripSearchClauses(rawRole, companies);
 
   return stripped.length > 0 && stripped.toLowerCase() !== "me" ? stripped : null;
 }
@@ -237,8 +306,47 @@ function extractPostedWithinDays(prompt: string) {
   return null;
 }
 
-function extractKeywords(role: string | null, prompt: string) {
-  const seed = role ?? prompt;
+function extractKeywords(args: {
+  companies: string[];
+  location: string | null;
+  prompt: string;
+  role: string | null;
+}) {
+  const seed = args.role ?? stripSearchClauses(args.prompt, args.companies);
+  const blockedTokens = new Set(
+    [
+      ...args.companies.flatMap((company) => normalizeHumanLabel(company).split(/\s+/)),
+      ...(args.location ? normalizeHumanLabel(args.location).split(/\s+/) : []),
+      "find",
+      "show",
+      "me",
+      "jobs",
+      "job",
+      "roles",
+      "role",
+      "positions",
+      "position",
+      "openings",
+      "opening",
+      "open",
+      "new",
+      "latest",
+      "recent",
+      "posted",
+      "remote",
+      "hybrid",
+      "onsite",
+      "site",
+      "usa",
+      "us",
+      "the",
+      "in",
+      "at",
+      "from",
+      "around",
+      "near",
+    ].filter(Boolean),
+  );
 
   return Array.from(
     new Set(
@@ -247,9 +355,7 @@ function extractKeywords(role: string | null, prompt: string) {
         .split(/[^a-z0-9+.#-]+/i)
         .map((token) => token.trim())
         .filter((token) => token.length >= 3)
-        .filter(
-          (token) => !["find", "show", "jobs", "roles", "positions", "openings", "new"].includes(token),
-        ),
+        .filter((token) => !blockedTokens.has(token)),
     ),
   ).slice(0, 12);
 }
@@ -270,14 +376,15 @@ function createProfileContext(profile: CandidateProfileDefaults | null): JobSeek
 }
 
 export function parseJobSearchQuery(args: {
+  availableCompanies?: string[];
   candidateDefaults: CandidateProfileDefaults | null;
   prompt: string;
 }): JobSearchQueryDto {
   const prompt = args.prompt.trim();
   const normalizedPrompt = normalizeHumanLabel(prompt);
-  const companies = extractCompanies(prompt);
+  const companies = extractCompanies(prompt, args.availableCompanies ?? []);
   const location = extractLocation(prompt);
-  const role = extractRole(prompt);
+  const role = extractRole(prompt, companies);
   const seniority = extractSeniority(prompt);
   const employmentType = extractEmploymentType(prompt);
   const salaryBounds = extractSalaryBounds(prompt);
@@ -305,7 +412,14 @@ export function parseJobSearchQuery(args: {
     workplaceType,
   });
   const postedWithinDays = isFreshnessBrowsePrompt ? null : extractPostedWithinDays(prompt);
-  const keywords = isGenericPrompt ? [] : extractKeywords(role, prompt);
+  const keywords = isGenericPrompt
+    ? []
+    : extractKeywords({
+        companies,
+        location,
+        prompt,
+        role,
+      });
   const filters: JobSearchFiltersDto = {
     companies,
     employmentType,
@@ -908,7 +1022,7 @@ export async function searchJobsCatalog(args: {
       }
     : await resolveJobSeekerProfileContext(args.ownerId);
   const profileContext = args.profileContext ?? createProfileContext(candidateDefaults);
-  const query =
+  const preflightQuery =
     args.query ??
     parseJobSearchQuery({
       candidateDefaults,
@@ -916,8 +1030,21 @@ export async function searchJobsCatalog(args: {
     });
   const snapshot = await getSearchableJobSnapshot({
     refresh: args.refresh ?? false,
-    windowDays: query.filters.postedWithinDays,
+    windowDays: preflightQuery.filters.postedWithinDays,
   });
+  const query =
+    args.query ??
+    parseJobSearchQuery({
+      availableCompanies: Array.from(
+        new Set(
+          snapshot.jobs
+            .map((job) => job.companyName?.trim())
+            .filter((company): company is string => Boolean(company)),
+        ),
+      ),
+      candidateDefaults,
+      prompt: args.prompt ?? "",
+    });
   const generatedAt = new Date().toISOString();
   const searchResult = runHybridJobSearch({
     jobs: snapshot.jobs,
