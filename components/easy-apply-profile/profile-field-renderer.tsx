@@ -181,10 +181,16 @@ export function ProfileFieldRenderer({
   value,
 }: ProfileFieldRendererProps) {
   const error = getFieldError(errors, field.key);
+  const fieldStateProps = error
+    ? {
+        "aria-invalid": true,
+        "data-invalid": "true",
+      }
+    : {};
 
   if (field.type === "file") {
     return (
-      <div className={styles.field}>
+      <div className={styles.field} data-profile-field={field.key} data-invalid={error ? "true" : undefined}>
         <ResumeUploadField
           helperText={field.helperText}
           isUploading={isUploadingResume}
@@ -202,7 +208,7 @@ export function ProfileFieldRenderer({
 
   if (field.type === "repeatable") {
     return (
-      <div className={styles.field}>
+      <div className={styles.field} data-profile-field={field.key} data-invalid={error ? "true" : undefined}>
         <div className={styles.fieldHeader}>
           <span className={styles.fieldLabel}>{field.label}</span>
           {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
@@ -220,8 +226,13 @@ export function ProfileFieldRenderer({
 
   if (field.type === "checkbox") {
     return (
-      <label className={styles.checkboxRow}>
+      <label
+        className={styles.checkboxRow}
+        data-profile-field={field.key}
+        data-invalid={error ? "true" : undefined}
+      >
         <input
+          {...fieldStateProps}
           checked={Boolean(value)}
           onChange={(event) => {
             onChange(field.key, event.target.checked);
@@ -238,7 +249,7 @@ export function ProfileFieldRenderer({
     const selectedValues = toStringArray(value);
 
     return (
-      <div className={styles.field}>
+      <div className={styles.field} data-profile-field={field.key} data-invalid={error ? "true" : undefined}>
         <div className={styles.fieldHeader}>
           <span className={styles.fieldLabel}>{field.label}</span>
           {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
@@ -276,7 +287,7 @@ export function ProfileFieldRenderer({
 
   if (field.type === "radio") {
     return (
-      <div className={styles.field}>
+      <div className={styles.field} data-profile-field={field.key} data-invalid={error ? "true" : undefined}>
         <div className={styles.fieldHeader}>
           <span className={styles.fieldLabel}>{field.label}</span>
           {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
@@ -310,12 +321,17 @@ export function ProfileFieldRenderer({
 
   if (field.type === "select") {
     return (
-      <label className={styles.field}>
+      <label
+        className={styles.field}
+        data-profile-field={field.key}
+        data-invalid={error ? "true" : undefined}
+      >
         <div className={styles.fieldHeader}>
           <span className={styles.fieldLabel}>{field.label}</span>
           {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
         </div>
         <select
+          {...fieldStateProps}
           className={styles.select}
           onChange={(event) => {
             onChange(field.key, event.target.value);
@@ -336,12 +352,17 @@ export function ProfileFieldRenderer({
 
   if (field.type === "textarea") {
     return (
-      <label className={styles.field}>
+      <label
+        className={styles.field}
+        data-profile-field={field.key}
+        data-invalid={error ? "true" : undefined}
+      >
         <div className={styles.fieldHeader}>
           <span className={styles.fieldLabel}>{field.label}</span>
           {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
         </div>
         <textarea
+          {...fieldStateProps}
           className={styles.textarea}
           onChange={(event) => {
             onChange(field.key, event.target.value);
@@ -356,12 +377,17 @@ export function ProfileFieldRenderer({
   }
 
   return (
-    <label className={styles.field}>
+    <label
+      className={styles.field}
+      data-profile-field={field.key}
+      data-invalid={error ? "true" : undefined}
+    >
       <div className={styles.fieldHeader}>
         <span className={styles.fieldLabel}>{field.label}</span>
         {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
       </div>
       <input
+        {...fieldStateProps}
         className={styles.input}
         onChange={(event: ChangeEvent<HTMLInputElement>) => {
           onChange(field.key, event.target.value);

@@ -29,6 +29,7 @@ type EasyApplyProfileModalProps = {
   missingFieldKeys?: string[];
   mode?: "complete-profile" | "edit-profile" | "missing-fields";
   onClose: () => void;
+  onPersistProfile?: (profile: AnyApplicationProfile) => Promise<void>;
   onSaveProfile: (profile: AnyApplicationProfile) => Promise<void>;
   onUploadResume: (file: File) => Promise<ResumeAssetReference>;
   persisted: boolean;
@@ -76,6 +77,7 @@ export function EasyApplyProfileModal({
   missingFieldKeys = [],
   mode = "complete-profile",
   onClose,
+  onPersistProfile,
   onSaveProfile,
   onUploadResume,
   persisted,
@@ -136,6 +138,21 @@ export function EasyApplyProfileModal({
     }
   }
 
+  async function handlePersistProfile(profile: AnyApplicationProfile) {
+    if (!onPersistProfile) {
+      return;
+    }
+
+    setSaveError(null);
+
+    try {
+      await onPersistProfile(profile);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "We couldn't save your profile.");
+      throw error;
+    }
+  }
+
   async function handleResumeUpload(file: File) {
     setIsUploadingResume(true);
 
@@ -187,7 +204,11 @@ export function EasyApplyProfileModal({
           missingFieldKeys={missingFieldKeys}
           mode={mode}
           onCancel={onClose}
-          onChangeProfile={setProfileDraft}
+          onChangeProfile={(nextProfile) => {
+            setSaveError(null);
+            setProfileDraft(nextProfile);
+          }}
+          onPersistProfile={handlePersistProfile}
           onSubmitProfile={handleSubmit}
           onUploadResume={handleResumeUpload}
           persisted={persisted}

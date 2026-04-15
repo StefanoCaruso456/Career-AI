@@ -132,6 +132,12 @@ export function ProfileCompletionGuard({
         onClose={() => {
           setShowProfileModal(false);
         }}
+        onPersistProfile={async (nextProfile) => {
+          await saveProfile({
+            profile: nextProfile,
+            schemaFamily,
+          });
+        }}
         onSaveProfile={async (nextProfile) => {
           await saveProfile({
             profile: nextProfile,

@@ -402,10 +402,24 @@
 
 .fieldError,
 .inlineError,
+.validationMessage,
 .saveError {
   color: #ffb6a0;
   font-size: 0.78rem;
   line-height: 1.45;
+}
+
+.validationMessage {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.field[data-invalid="true"] .input,
+.field[data-invalid="true"] .textarea,
+.field[data-invalid="true"] .select,
+.checkboxRow[data-invalid="true"] {
+  border-color: rgba(255, 182, 160, 0.42);
+  box-shadow: 0 0 0 4px rgba(255, 182, 160, 0.08);
 }
 
 .repeatableStack {
