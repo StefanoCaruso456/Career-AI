@@ -1,7 +1,9 @@
 "use client";
 
 import { useDeferredValue, useEffect, useRef, useState } from "react";
-import { ArrowUpRight, ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
+import { ProfileCompletionGuard } from "@/components/easy-apply-profile/profile-completion-guard";
+import { resolveSchemaFamilyForJob } from "@/lib/application-profiles/resolver";
 import {
   jobsFeedResponseSchema,
   type JobsFeedResponseDto,
@@ -1199,10 +1201,14 @@ export function JobsResults({
               <div className={styles.jobFooter}>
                 <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
               </div>
-              <a className={styles.jobLink} href={job.applyUrl} rel="noreferrer" target="_blank">
-                Open posting
-                <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
-              </a>
+              <ProfileCompletionGuard
+                applyUrl={job.applyUrl}
+                buttonLabel="Apply"
+                className={styles.jobLink}
+                companyName={job.companyName}
+                jobTitle={job.title}
+                schemaFamily={resolveSchemaFamilyForJob(job)}
+              />
             </article>
           ))}
         </div>

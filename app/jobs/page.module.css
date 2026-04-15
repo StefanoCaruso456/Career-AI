@@ -375,9 +375,10 @@
 }
 
 .jobLink {
-  color: #182232;
+  width: 100%;
+  color: #22120d;
   font-weight: 700;
-  justify-self: start;
+  justify-self: stretch;
 }
 
 .loadMoreRow {

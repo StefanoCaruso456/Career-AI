@@ -3,6 +3,7 @@ import {
   findPersistentContextByUserId,
   getDatabasePool,
   provisionGoogleUser,
+  updatePersistentApplicationProfile,
   updatePersistentTalentIdentityProfile,
   updatePreferredPersona,
 } from "@/packages/persistence/src";
@@ -157,5 +158,37 @@ describe("persistent user identity repository", () => {
 
     expect(updated.user.preferredPersona).toBe("employer");
     expect(updated.onboarding.roleType).toBeNull();
+  });
+
+  it("stores application profiles independently from onboarding data", async () => {
+    const provisioned = await provisionGoogleUser({
+      email: "apply.user@example.com",
+      fullName: "Apply User",
+      firstName: "Apply",
+      lastName: "User",
+      providerUserId: "google-user-apply",
+      emailVerified: true,
+      correlationId: "corr-apply-1",
+    });
+
+    const updated = await updatePersistentApplicationProfile({
+      correlationId: "corr-apply-2",
+      profile: {
+        email: "apply.user@example.com",
+        first_name: "Apply",
+        last_name: "User",
+      },
+      schemaFamily: "greenhouse",
+      userId: provisioned.context.user.id,
+    });
+
+    expect(updated.applicationProfiles).toMatchObject({
+      greenhouse_profile: {
+        email: "apply.user@example.com",
+        first_name: "Apply",
+        last_name: "User",
+      },
+    });
+    expect(updated.onboarding.profile).toEqual({});
   });
 });
