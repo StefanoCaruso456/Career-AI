@@ -507,9 +507,6 @@ export function JobDetailsModal({
         </div>
 
         <div className={styles.footer}>
-          <div className={styles.footerNote}>
-            Career AI keeps this reading view in-app and preserves your search context.
-          </div>
           <div className={styles.footerActions}>
             <div className={styles.applySlot}>{applyAction}</div>
             <a
