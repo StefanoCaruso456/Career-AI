@@ -32,14 +32,14 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1.35rem 1.35rem 1rem;
+  gap: 1.4rem;
+  padding: 1.6rem 1.6rem 1.2rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .modalHeaderCopy {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.62rem;
   max-width: 52rem;
 }
 
@@ -71,12 +71,12 @@
 .modalContext {
   margin: 0;
   color: rgba(244, 247, 252, 0.74);
-  line-height: 1.65;
+  line-height: 1.72;
 }
 
 .modalSupport {
   color: rgba(244, 247, 252, 0.62);
-  font-size: 0.92rem;
+  font-size: 0.94rem;
 }
 
 .modalContext strong {
@@ -87,8 +87,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.45rem;
-  height: 2.45rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
@@ -103,37 +103,51 @@
 }
 
 .stepper {
+  list-style: none;
+  margin: 0;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.75rem;
-  padding: 1rem 1.35rem 0;
+  gap: 1rem;
+  padding: 1.35rem 1.6rem 0.2rem;
 }
 
 .stepCard {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.75rem;
-  align-items: flex-start;
-  padding: 0.88rem 0.92rem;
-  border-radius: 1.1rem;
+  align-content: start;
+  gap: 0.95rem;
+  min-height: 8.8rem;
+  padding: 1.12rem 1.08rem 1.16rem;
+  border-radius: 1.2rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
   background: rgba(255, 255, 255, 0.025);
   color: rgba(244, 247, 252, 0.54);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
-.stepCard strong,
-.stepCard span {
-  display: block;
+.stepCardTop {
+  display: flex;
+  align-items: center;
+  min-height: 2.35rem;
 }
 
-.stepCard strong {
+.stepCopy {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.stepTitle {
+  margin: 0;
   color: rgba(244, 247, 252, 0.76);
-  font-size: 0.9rem;
+  font-size: 0.98rem;
+  line-height: 1.24;
+  letter-spacing: -0.015em;
 }
 
-.stepCard span {
-  font-size: 0.75rem;
-  line-height: 1.45;
+.stepDescription {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.62;
+  color: rgba(244, 247, 252, 0.56);
 }
 
 .stepCardActive {
@@ -141,6 +155,9 @@
   background:
     linear-gradient(180deg, rgba(239, 167, 124, 0.12), rgba(255, 255, 255, 0.03)),
     rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .stepCardComplete {
@@ -158,24 +175,40 @@
   color: #ffffff;
   font-size: 0.82rem;
   font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.stepCardActive .stepNumber {
+  background: rgba(239, 167, 124, 0.18);
+  border: 1px solid rgba(239, 167, 124, 0.18);
+}
+
+.stepCardComplete .stepNumber {
+  background: rgba(132, 194, 149, 0.18);
+  border: 1px solid rgba(132, 194, 149, 0.18);
 }
 
 .wizardBody {
   min-height: 0;
   overflow-y: auto;
-  padding: 1rem 1.35rem;
+  padding: 1.25rem 1.6rem 1.5rem;
   display: grid;
-  gap: 1rem;
+  gap: 1.2rem;
+  align-content: start;
+  scrollbar-gutter: stable;
 }
 
 .sectionCard,
 .reviewCard {
-  padding: 1rem;
+  display: grid;
+  gap: 1.2rem;
+  padding: 1.3rem 1.35rem 1.4rem;
   border-radius: 1.4rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
-    rgba(11, 15, 24, 0.78);
+    rgba(11, 15, 24, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .sectionHeader {
@@ -183,19 +216,18 @@
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
-  margin-bottom: 0.9rem;
 }
 
 .sectionTitle {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: 1.12rem;
   letter-spacing: -0.02em;
 }
 
 .sectionDescription {
-  margin: 0.28rem 0 0;
+  margin: 0.38rem 0 0;
   color: rgba(244, 247, 252, 0.58);
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .sectionTone {
@@ -210,37 +242,37 @@
 .sectionGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: 1rem 1.05rem;
 }
 
 .field {
   display: grid;
-  gap: 0.42rem;
+  gap: 0.55rem;
 }
 
 .fieldHeader {
   display: grid;
-  gap: 0.22rem;
+  gap: 0.28rem;
 }
 
 .fieldLabel {
   color: rgba(255, 247, 240, 0.94);
-  font-size: 0.86rem;
+  font-size: 0.89rem;
   font-weight: 700;
 }
 
 .fieldHint {
   color: rgba(244, 247, 252, 0.52);
-  font-size: 0.78rem;
-  line-height: 1.45;
+  font-size: 0.79rem;
+  line-height: 1.55;
 }
 
 .input,
 .textarea,
 .select {
   width: 100%;
-  padding: 0.86rem 0.94rem;
-  border-radius: 0.95rem;
+  padding: 0.94rem 1rem;
+  border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(6, 10, 18, 0.76);
   color: #ffffff;
@@ -274,15 +306,15 @@
 .choiceGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .choiceCard {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 3rem;
-  padding: 0.76rem;
+  min-height: 3.2rem;
+  padding: 0.82rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
@@ -302,9 +334,9 @@
 .checkboxRow {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.72rem;
+  gap: 0.86rem;
   align-items: center;
-  padding: 0.9rem 1rem;
+  padding: 1rem 1.05rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(255, 255, 255, 0.03);
@@ -325,14 +357,14 @@
 
 .repeatableStack {
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .repeatableCard {
   display: grid;
-  gap: 0.9rem;
-  padding: 0.95rem;
-  border-radius: 1.05rem;
+  gap: 1rem;
+  padding: 1.05rem;
+  border-radius: 1.1rem;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(255, 255, 255, 0.025);
 }
@@ -353,7 +385,7 @@
 .repeatableGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .addButton,
@@ -403,7 +435,7 @@
 }
 
 .fileCard {
-  padding: 0.95rem;
+  padding: 1rem 1.05rem;
   border-radius: 1rem;
   border: 1px dashed rgba(239, 167, 124, 0.24);
   background: rgba(255, 255, 255, 0.03);
@@ -432,37 +464,42 @@
 
 .wizardFooter {
   display: grid;
-  gap: 0.8rem;
-  padding: 1rem 1.35rem 1.25rem;
+  gap: 0.95rem;
+  padding: 1.1rem 1.6rem 1.35rem;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .statusNote {
   margin: 0;
   color: rgba(244, 247, 252, 0.62);
-  font-size: 0.84rem;
-  line-height: 1.5;
+  font-size: 0.86rem;
+  line-height: 1.58;
 }
 
 .footerActions {
   display: flex;
   justify-content: space-between;
-  gap: 0.8rem;
+  gap: 0.95rem;
 }
 
 .reviewGrid {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .reviewValueList {
   display: grid;
-  gap: 0.72rem;
+  gap: 0;
 }
 
 .reviewItem {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.36rem;
+  padding-block: 0.85rem;
+}
+
+.reviewItem + .reviewItem {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .reviewItem span {
@@ -473,6 +510,7 @@
 .reviewItem strong {
   color: #ffffff;
   font-size: 0.92rem;
+  line-height: 1.58;
   white-space: pre-line;
 }
 
@@ -543,6 +581,10 @@
   .stepper {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .stepCard {
+    min-height: auto;
   }
 
   .stepper,

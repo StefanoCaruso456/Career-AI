@@ -241,25 +241,28 @@ export function ApplicationProfileWizard({
 
   return (
     <div className={styles.wizardShell}>
-      <div className={styles.stepper}>
+      <ol className={styles.stepper} aria-label={`${config.label} profile steps`}>
         {applicationProfileSteps.map((step, index) => {
           const isActive = step.id === currentStep.id;
           const isComplete = index < currentStepIndex;
 
           return (
-            <div
+            <li
+              aria-current={isActive ? "step" : undefined}
               className={`${styles.stepCard} ${isActive ? styles.stepCardActive : ""} ${isComplete ? styles.stepCardComplete : ""}`}
               key={step.id}
             >
-              <span className={styles.stepNumber}>{index + 1}</span>
-              <div>
-                <strong>{step.title}</strong>
-                <span>{step.description}</span>
+              <div className={styles.stepCardTop}>
+                <span className={styles.stepNumber}>{index + 1}</span>
               </div>
-            </div>
+              <div className={styles.stepCopy}>
+                <strong className={styles.stepTitle}>{step.title}</strong>
+                <p className={styles.stepDescription}>{step.description}</p>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       <div className={styles.wizardBody}>
         {!isReviewStep ? (
