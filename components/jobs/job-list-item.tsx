@@ -24,6 +24,7 @@ const EMPLOYMENT_BADGE_LABELS = {
   temporary: "Temporary",
   unknown: "Type unknown",
 } as const;
+const HIDDEN_MATCH_REASONS = new Set(["Verified live listing"]);
 
 export function JobListItem({
   isSelected = false,
@@ -35,7 +36,12 @@ export function JobListItem({
   const postedLabel = formatRelativePostedAt(job.postedAt);
   const badges = getJobRailBadges(job);
   const supportingMeta = [job.location, employmentType, job.salaryText].filter(Boolean);
-  const preview = job.summary?.trim() || job.matchReason;
+  const visibleMatchReason = job.matchReason?.trim()
+    ? HIDDEN_MATCH_REASONS.has(job.matchReason.trim())
+      ? null
+      : job.matchReason.trim()
+    : null;
+  const preview = job.summary?.trim() || visibleMatchReason;
 
   return (
     <li className={styles.jobRow}>
@@ -89,10 +95,10 @@ export function JobListItem({
 
           {preview ? <p className={styles.jobPreview}>{preview}</p> : null}
 
-          {job.matchReason ? (
+          {visibleMatchReason ? (
             <p className={styles.jobSignal}>
               <span>Why it surfaced</span>
-              {job.matchReason}
+              {visibleMatchReason}
             </p>
           ) : null}
         </button>

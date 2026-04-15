@@ -147,4 +147,18 @@ describe("JobListItem", () => {
       "true",
     );
   });
+
+  it("hides the trusted-listing helper copy from the card", () => {
+    render(
+      <JobListItem
+        job={createJob({
+          matchReason: "Verified live listing",
+          summary: null,
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Verified live listing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Why it surfaced")).not.toBeInTheDocument();
+  });
 });
