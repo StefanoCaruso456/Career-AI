@@ -131,6 +131,9 @@ describe("JobsSidePanel", () => {
 
     expect(screen.queryByText("Review roles without leaving Career AI.")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Filter jobs by keyword")).not.toBeInTheDocument();
+    expect(screen.queryByText(/jobs browser/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Find NEW Jobs" })).not.toBeInTheDocument();
+    expect(screen.queryByText("of 3 roles")).not.toBeInTheDocument();
     expect(screen.getByText("Product Designer")).toBeInTheDocument();
     expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.getByText("ML Engineer")).toBeInTheDocument();
@@ -145,7 +148,6 @@ describe("JobsSidePanel", () => {
     expect(screen.queryByText("Product Designer")).not.toBeInTheDocument();
     expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
     expect(screen.getByText("ML Engineer")).toBeInTheDocument();
-    expect(screen.getByText("of 3 roles")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
 

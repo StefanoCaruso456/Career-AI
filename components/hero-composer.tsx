@@ -657,7 +657,6 @@ export function HeroComposer({
   const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
   const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
-  const [jobsAssistRefreshKey, setJobsAssistRefreshKey] = useState(0);
   const [isJobsAssistDismissed, setIsJobsAssistDismissed] = useState(false);
   const [selectedCandidateDetail, setSelectedCandidateDetail] =
     useState<EmployerCandidateMatchDto | null>(null);
@@ -747,7 +746,7 @@ export function HeroComposer({
     : null;
   const jobsAssistRequestKey =
     jobsAssistMode && jobsAssistPrompt
-      ? createJobsAssistRequestKey(jobsAssistMode, jobsAssistPrompt, jobsAssistRefreshKey)
+      ? createJobsAssistRequestKey(jobsAssistMode, jobsAssistPrompt, 0)
       : null;
   const isCandidateAssistVisible = Boolean(latestCandidatePrompt) && !isCandidateAssistDismissed;
   const isJobsAssistVisible = Boolean(jobsAssistMode && jobsAssistPrompt) && !isJobsAssistDismissed;
@@ -864,14 +863,14 @@ export function HeroComposer({
         ? loadLatestJobListings({
             conversationId: currentThreadId,
             limit: 6,
-            refresh: jobsAssistRefreshKey > 0,
+            refresh: false,
             signal: abortController.signal,
           })
         : loadJobListings({
             conversationId: currentThreadId,
             limit: 6,
             prompt: jobsAssistPrompt,
-            refresh: jobsAssistRefreshKey > 0,
+            refresh: false,
             signal: abortController.signal,
           });
 
@@ -910,7 +909,6 @@ export function HeroComposer({
     jobsAssistMode,
     jobsAssistPrompt,
     jobsAssistRequestKey,
-    jobsAssistRefreshKey,
   ]);
 
   useLayoutEffect(() => {
@@ -1440,7 +1438,7 @@ export function HeroComposer({
     setJobsAssistListings(mapJobsPanelToListings(jobsPanel));
     setJobsAssistEmptyState(jobsPanel.rail.emptyState);
     setJobsAssistLoadedRequestKey(
-      createJobsAssistRequestKey(jobsMode, jobsPanel.query.prompt, jobsAssistRefreshKey),
+      createJobsAssistRequestKey(jobsMode, jobsPanel.query.prompt, 0),
     );
     setJobsAssistError(null);
     setIsJobsAssistLoading(false);
@@ -3398,9 +3396,6 @@ export function HeroComposer({
                 onApply={handleApplyJob}
                 onClose={() => {
                   setIsJobsAssistDismissed(true);
-                }}
-                onRefresh={() => {
-                  setJobsAssistRefreshKey((currentKey) => currentKey + 1);
                 }}
               />
             </div>

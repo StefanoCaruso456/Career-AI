@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useRef, useState } from "react";
-import { ChevronDown, RefreshCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
 import type { JobDetailsDto } from "@/packages/contracts/src";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
@@ -32,7 +32,6 @@ type JobsSidePanelProps = {
   jobs: JobListing[];
   onApply?: (job: JobListing) => Promise<string> | string;
   onClose?: () => void;
-  onRefresh?: () => void;
 };
 
 function getActiveFilterCount(filters: typeof DEFAULT_JOB_RAIL_FILTERS) {
@@ -70,7 +69,6 @@ export function JobsSidePanel({
   jobs,
   onApply,
   onClose,
-  onRefresh,
 }: JobsSidePanelProps) {
   const [filters, setFilters] = useState(DEFAULT_JOB_RAIL_FILTERS);
   const deferredKeyword = useDeferredValue(filters.keyword.trim().toLowerCase());
@@ -216,23 +214,43 @@ export function JobsSidePanel({
     <>
       <aside aria-label="Jobs assist panel" className={styles.jobsRail}>
         <div className={styles.jobsRailHeader}>
-          <span className={styles.jobsRailEyebrow}>
-            <SlidersHorizontal aria-hidden="true" size={13} strokeWidth={2} />
-            Jobs browser
-          </span>
-
-          <div className={styles.jobsRailHeaderActions}>
+          <div className={styles.jobsRailHeaderActions} ref={filtersRef}>
             <button
-              className={styles.jobsRailRefresh}
-              disabled={isLoading}
+              aria-expanded={isFiltersOpen}
+              aria-haspopup="dialog"
+              className={`${styles.jobsRailFilterTrigger} ${
+                isFiltersOpen ? styles.jobsRailFilterTriggerActive : ""
+              }`}
               onClick={() => {
-                onRefresh?.();
+                setIsFiltersOpen((current) => !current);
               }}
               type="button"
             >
-              <RefreshCcw aria-hidden="true" size={14} strokeWidth={2} />
-              Find NEW Jobs
+              <SlidersHorizontal aria-hidden="true" size={14} strokeWidth={2} />
+              Filters
+              {hasActiveFilters ? (
+                <span className={styles.jobsRailFilterCount}>{activeFilterCount}</span>
+              ) : null}
+              <ChevronDown
+                aria-hidden="true"
+                className={`${styles.jobsRailFilterChevron} ${
+                  isFiltersOpen ? styles.jobsRailFilterChevronOpen : ""
+                }`}
+                size={14}
+                strokeWidth={2}
+              />
             </button>
+            {hasActiveFilters ? (
+              <button
+                className={styles.jobsRailReset}
+                onClick={() => {
+                  setFilters(DEFAULT_JOB_RAIL_FILTERS);
+                }}
+                type="button"
+              >
+                Reset filters
+              </button>
+            ) : null}
             <button
               aria-label="Close jobs panel"
               className={styles.jobsRailClose}
@@ -247,215 +265,166 @@ export function JobsSidePanel({
         </div>
 
         <div className={styles.jobsRailBody} ref={bodyRef}>
-          <div className={styles.jobsRailControls}>
-            <div className={styles.jobsRailStats}>
-              <p className={styles.jobsRailCount}>
-                <strong>{filteredJobs.length}</strong>
-                <span>
-                  of {jobs.length} {jobs.length === 1 ? "role" : "roles"}
-                </span>
-              </p>
-              <div className={styles.jobsRailStatActions} ref={filtersRef}>
-                <button
-                  aria-expanded={isFiltersOpen}
-                  aria-haspopup="dialog"
-                  className={`${styles.jobsRailFilterTrigger} ${
-                    isFiltersOpen ? styles.jobsRailFilterTriggerActive : ""
-                  }`}
-                  onClick={() => {
-                    setIsFiltersOpen((current) => !current);
+          {isFiltersOpen ? (
+            <div aria-label="Jobs rail filters" className={styles.jobsRailFiltersPopover} role="dialog">
+              <label className={styles.jobsSearchField}>
+                <Search aria-hidden="true" size={15} strokeWidth={2} />
+                <input
+                  aria-label="Filter jobs by keyword"
+                  onChange={(event) => {
+                    setFilters((current) => ({
+                      ...current,
+                      keyword: event.target.value,
+                    }));
                   }}
-                  type="button"
-                >
-                  <SlidersHorizontal aria-hidden="true" size={14} strokeWidth={2} />
-                  Filters
-                  {hasActiveFilters ? (
-                    <span className={styles.jobsRailFilterCount}>{activeFilterCount}</span>
-                  ) : null}
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`${styles.jobsRailFilterChevron} ${
-                      isFiltersOpen ? styles.jobsRailFilterChevronOpen : ""
-                    }`}
-                    size={14}
-                    strokeWidth={2}
-                  />
-                </button>
-                {hasActiveFilters ? (
+                  placeholder="Search title, company, skill, or match reason"
+                  type="text"
+                  value={filters.keyword}
+                />
+              </label>
+
+              <div className={styles.jobsQuickFilters}>
+                {(["all", "remote", "hybrid", "onsite"] as const).map((option) => (
                   <button
-                    className={styles.jobsRailReset}
+                    className={`${styles.jobsQuickFilter} ${
+                      filters.workplaceType === option ? styles.jobsQuickFilterActive : ""
+                    }`}
+                    key={option}
                     onClick={() => {
-                      setFilters(DEFAULT_JOB_RAIL_FILTERS);
+                      setFilters((current) => ({
+                        ...current,
+                        workplaceType: option,
+                      }));
                     }}
                     type="button"
                   >
-                    Reset filters
+                    {option === "all" ? "All workplaces" : WORKPLACE_FILTER_LABELS[option]}
                   </button>
-                ) : null}
+                ))}
               </div>
-            </div>
 
-            {isFiltersOpen ? (
-              <div aria-label="Jobs rail filters" className={styles.jobsRailFiltersPopover} role="dialog">
-                <label className={styles.jobsSearchField}>
-                  <Search aria-hidden="true" size={15} strokeWidth={2} />
-                  <input
-                    aria-label="Filter jobs by keyword"
+              <div className={styles.jobsFilterGrid}>
+                <label className={styles.jobsField}>
+                  <span>Company</span>
+                  <select
                     onChange={(event) => {
                       setFilters((current) => ({
                         ...current,
-                        keyword: event.target.value,
+                        company: event.target.value,
                       }));
                     }}
-                    placeholder="Search title, company, skill, or match reason"
-                    type="text"
-                    value={filters.keyword}
-                  />
+                    value={filters.company}
+                  >
+                    <option value="all">All companies</option>
+                    {railOptions.companies.map((company) => (
+                      <option key={company} value={company}>
+                        {company}
+                      </option>
+                    ))}
+                  </select>
                 </label>
 
-                <div className={styles.jobsQuickFilters}>
-                  {(["all", "remote", "hybrid", "onsite"] as const).map((option) => (
-                    <button
-                      className={`${styles.jobsQuickFilter} ${
-                        filters.workplaceType === option ? styles.jobsQuickFilterActive : ""
-                      }`}
-                      key={option}
-                      onClick={() => {
-                        setFilters((current) => ({
-                          ...current,
-                          workplaceType: option,
-                        }));
-                      }}
-                      type="button"
-                    >
-                      {option === "all" ? "All workplaces" : WORKPLACE_FILTER_LABELS[option]}
-                    </button>
-                  ))}
-                </div>
+                <label className={styles.jobsField}>
+                  <span>Location</span>
+                  <select
+                    onChange={(event) => {
+                      setFilters((current) => ({
+                        ...current,
+                        location: event.target.value,
+                      }));
+                    }}
+                    value={filters.location}
+                  >
+                    <option value="all">All locations</option>
+                    {railOptions.locations.map((location) => (
+                      <option key={location} value={location}>
+                        {location}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                <div className={styles.jobsFilterGrid}>
-                  <label className={styles.jobsField}>
-                    <span>Company</span>
-                    <select
-                      onChange={(event) => {
-                        setFilters((current) => ({
-                          ...current,
-                          company: event.target.value,
-                        }));
-                      }}
-                      value={filters.company}
-                    >
-                      <option value="all">All companies</option>
-                      {railOptions.companies.map((company) => (
-                        <option key={company} value={company}>
-                          {company}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <label className={styles.jobsField}>
+                  <span>Employment</span>
+                  <select
+                    onChange={(event) => {
+                      setFilters((current) => ({
+                        ...current,
+                        employmentType: event.target.value as typeof filters.employmentType,
+                      }));
+                    }}
+                    value={filters.employmentType}
+                  >
+                    <option value="all">Any type</option>
+                    {Object.entries(EMPLOYMENT_FILTER_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className={styles.jobsField}>
-                    <span>Location</span>
-                    <select
-                      onChange={(event) => {
-                        setFilters((current) => ({
-                          ...current,
-                          location: event.target.value,
-                        }));
-                      }}
-                      value={filters.location}
-                    >
-                      <option value="all">All locations</option>
-                      {railOptions.locations.map((location) => (
-                        <option key={location} value={location}>
-                          {location}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <label className={styles.jobsField}>
+                  <span>Source</span>
+                  <select
+                    onChange={(event) => {
+                      setFilters((current) => ({
+                        ...current,
+                        source: event.target.value as typeof filters.source,
+                      }));
+                    }}
+                    value={filters.source}
+                  >
+                    <option value="all">All sources</option>
+                    {railOptions.sources.map((source) => (
+                      <option key={source} value={source}>
+                        {SOURCE_FILTER_LABELS[source]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className={styles.jobsField}>
-                    <span>Employment</span>
-                    <select
-                      onChange={(event) => {
-                        setFilters((current) => ({
-                          ...current,
-                          employmentType: event.target.value as typeof filters.employmentType,
-                        }));
-                      }}
-                      value={filters.employmentType}
-                    >
-                      <option value="all">Any type</option>
-                      {Object.entries(EMPLOYMENT_FILTER_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                <label className={styles.jobsField}>
+                  <span>Posted</span>
+                  <select
+                    onChange={(event) => {
+                      setFilters((current) => ({
+                        ...current,
+                        postedDate: event.target.value as typeof filters.postedDate,
+                      }));
+                    }}
+                    value={filters.postedDate}
+                  >
+                    <option value="any">Any time</option>
+                    {Object.entries(POSTED_DATE_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className={styles.jobsField}>
-                    <span>Source</span>
-                    <select
-                      onChange={(event) => {
-                        setFilters((current) => ({
-                          ...current,
-                          source: event.target.value as typeof filters.source,
-                        }));
-                      }}
-                      value={filters.source}
-                    >
-                      <option value="all">All sources</option>
-                      {railOptions.sources.map((source) => (
-                        <option key={source} value={source}>
-                          {SOURCE_FILTER_LABELS[source]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className={styles.jobsField}>
-                    <span>Posted</span>
-                    <select
-                      onChange={(event) => {
-                        setFilters((current) => ({
-                          ...current,
-                          postedDate: event.target.value as typeof filters.postedDate,
-                        }));
-                      }}
-                      value={filters.postedDate}
-                    >
-                      <option value="any">Any time</option>
-                      {Object.entries(POSTED_DATE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className={styles.jobsField}>
-                    <span>Sort</span>
-                    <select
-                      onChange={(event) => {
-                        setFilters((current) => ({
-                          ...current,
-                          sort: event.target.value as typeof filters.sort,
-                        }));
-                      }}
-                      value={filters.sort}
-                    >
-                      {Object.entries(SORT_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                <label className={styles.jobsField}>
+                  <span>Sort</span>
+                  <select
+                    onChange={(event) => {
+                      setFilters((current) => ({
+                        ...current,
+                        sort: event.target.value as typeof filters.sort,
+                      }));
+                    }}
+                    value={filters.sort}
+                  >
+                    {Object.entries(SORT_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
 
           {isLoading ? (
             <p className={styles.jobsRailLoading}>Pulling the latest roles from your live jobs feed.</p>
