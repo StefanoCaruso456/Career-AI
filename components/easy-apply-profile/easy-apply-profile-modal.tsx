@@ -165,10 +165,6 @@ export function EasyApplyProfileModal({
             <h2 className={styles.modalTitle}>{copy.title}</h2>
             <p className={styles.modalSubtitle}>{copy.subtitle}</p>
             <p className={styles.modalSupport}>{copy.support}</p>
-            <p className={styles.modalContext}>
-              Saving this profile for <strong>{companyName}</strong> lets us keep{" "}
-              <strong>{jobTitle}</strong> and future {schemaFamily} applications much faster.
-            </p>
           </div>
 
           <div className={styles.modalHeaderActions}>
