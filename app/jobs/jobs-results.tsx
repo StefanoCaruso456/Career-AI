@@ -623,7 +623,7 @@ export function JobsResults({
   const [fullWindowHydrationError, setFullWindowHydrationError] = useState<string | null>(null);
   const fullWindowHydrationInFlight = useRef(false);
   const snapshotRefreshInFlight = useRef(false);
-  const companyScopeRequestInFlight = useRef(false);
+  const companyScopeRequestSequence = useRef(0);
   const companyScopedExpectedCount = getCompanyAvailableCount(sourceSnapshots, companyFilter);
   const companyScopeKey = companyFilter === "all" ? null : companyFilter;
   const activeJobs = companyFilter === "all" ? loadedJobs : (companyScopedSnapshot?.jobs ?? []);
@@ -716,7 +716,7 @@ export function JobsResults({
     setFullWindowHydrationError(null);
     fullWindowHydrationInFlight.current = false;
     snapshotRefreshInFlight.current = false;
-    companyScopeRequestInFlight.current = false;
+    companyScopeRequestSequence.current += 1;
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
@@ -779,7 +779,7 @@ export function JobsResults({
 
   useEffect(() => {
     if (companyFilter === "all") {
-      companyScopeRequestInFlight.current = false;
+      companyScopeRequestSequence.current += 1;
       setCompanyScopedSnapshot(null);
       setCompanyScopeError(null);
       setLoadedCompanyScopeKey(null);
@@ -787,17 +787,17 @@ export function JobsResults({
       return;
     }
 
-    if (companyScopeRequestInFlight.current || (companyScopeKey && loadedCompanyScopeKey === companyScopeKey)) {
+    if (companyScopedSnapshot && companyScopeKey && loadedCompanyScopeKey === companyScopeKey) {
       return;
     }
 
-    let isCancelled = false;
     const requestLimit =
       companyScopedExpectedCount && companyScopedExpectedCount > 0
         ? companyScopedExpectedCount
         : Math.max(activeTotalAvailableCount, loadedJobs.length, initialRequestLimit);
+    const requestSequence = companyScopeRequestSequence.current + 1;
 
-    companyScopeRequestInFlight.current = true;
+    companyScopeRequestSequence.current = requestSequence;
     setCompanyScopeError(null);
     setIsLoadingCompanyScope(true);
     setCompanyScopedSnapshot(null);
@@ -807,7 +807,7 @@ export function JobsResults({
       refresh: needsFreshSnapshot,
     })
       .then((snapshot) => {
-        if (isCancelled) {
+        if (companyScopeRequestSequence.current !== requestSequence) {
           return;
         }
 
@@ -815,7 +815,7 @@ export function JobsResults({
         setLoadedCompanyScopeKey(companyScopeKey);
       })
       .catch((error) => {
-        if (isCancelled) {
+        if (companyScopeRequestSequence.current !== requestSequence) {
           return;
         }
 
@@ -824,18 +824,12 @@ export function JobsResults({
         );
       })
       .finally(() => {
-        companyScopeRequestInFlight.current = false;
-
-        if (isCancelled) {
+        if (companyScopeRequestSequence.current !== requestSequence) {
           return;
         }
 
         setIsLoadingCompanyScope(false);
       });
-
-    return () => {
-      isCancelled = true;
-    };
   }, [
     companyFilter,
     companyScopeKey,
