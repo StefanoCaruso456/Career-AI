@@ -372,16 +372,11 @@
 
 .footer {
   align-items: center;
+  justify-content: flex-end;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background:
     linear-gradient(180deg, rgba(16, 19, 28, 0.2), rgba(16, 19, 28, 0.82)),
     rgba(16, 19, 28, 0.92);
-}
-
-.footerNote {
-  color: rgba(235, 227, 218, 0.6);
-  font-size: 0.88rem;
-  line-height: 1.6;
 }
 
 .footerActions {
@@ -389,16 +384,19 @@
   align-items: center;
   justify-content: flex-end;
   gap: 0.75rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .applySlot {
-  min-width: min(260px, 100%);
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 
 .applySlot :global(button),
 .applySlot :global(a) {
-  width: 100%;
+  width: auto;
+  min-width: clamp(12rem, 18vw, 16rem);
 }
 
 .secondaryAction {
@@ -475,6 +473,7 @@
   .footerActions {
     width: 100%;
     justify-content: stretch;
+    flex-wrap: wrap;
   }
 
   .applySlot,
