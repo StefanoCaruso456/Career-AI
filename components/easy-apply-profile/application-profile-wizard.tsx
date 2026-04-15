@@ -107,6 +107,9 @@ export function ApplicationProfileWizard({
   schemaFamily,
 }: ApplicationProfileWizardProps) {
   const config = getSchemaFamilyConfig(schemaFamily);
+  const footerStatusMessage = persisted
+    ? "Saved changes go straight into your reusable application profile."
+    : "Saved changes stay in this browser until server persistence is available.";
   const [currentStepIndex, setCurrentStepIndex] = useState(() =>
     getInitialStepIndex(schemaFamily, profile),
   );
@@ -186,16 +189,12 @@ export function ApplicationProfileWizard({
         </div>
 
         <div className={styles.wizardFooter}>
-          <p className={styles.statusNote}>
-            {persisted
-              ? "Saved changes go straight into your reusable application profile."
-              : "Saved changes stay in this browser until server persistence is available."}
-          </p>
           {saveError ? <p className={styles.saveError}>{saveError}</p> : null}
           <div className={styles.footerActions}>
             <button className={styles.secondaryButton} onClick={onCancel} type="button">
               Not now
             </button>
+            <p className={`${styles.statusNote} ${styles.footerStatusNote}`}>{footerStatusMessage}</p>
             <button
               className={styles.primaryButton}
               disabled={isSaving}
@@ -257,7 +256,6 @@ export function ApplicationProfileWizard({
               </div>
               <div className={styles.stepCopy}>
                 <strong className={styles.stepTitle}>{step.title}</strong>
-                <p className={styles.stepDescription}>{step.description}</p>
               </div>
             </li>
           );
@@ -366,11 +364,6 @@ export function ApplicationProfileWizard({
       </div>
 
       <div className={styles.wizardFooter}>
-        <p className={styles.statusNote}>
-          {persisted
-            ? "Saved changes go straight into your reusable application profile."
-            : "Saved changes stay in this browser until server persistence is available."}
-        </p>
         {saveError ? <p className={styles.saveError}>{saveError}</p> : null}
         <div className={styles.footerActions}>
           {currentStepIndex > 0 ? (
@@ -390,6 +383,8 @@ export function ApplicationProfileWizard({
               Not now
             </button>
           )}
+
+          <p className={`${styles.statusNote} ${styles.footerStatusNote}`}>{footerStatusMessage}</p>
 
           {isReviewStep ? (
             <button
