@@ -231,7 +231,7 @@ function buildExternalAgentAuditMetadata(
 
 export function withExternalRequestedOperation(
   definition: ExternalAgentRouteDefinition,
-  operation: InternalAgentOperation,
+  operation: z.infer<typeof internalAgentOperationSchema>,
 ): ExternalAgentOperationDefinition {
   return {
     ...definition,

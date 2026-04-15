@@ -250,89 +250,91 @@ export async function handleExternalRecruiterAgentPost(request: Request) {
     });
 
     const completedAt = new Date().toISOString();
-    const response = isCandidateSearchRequest(activeParsedRequest)
-      ? await (async () => {
-          const result = await traceRecruiterCandidateSearchFlow({
-            childRunId,
-            definition: activeDefinition as typeof recruiterDefinition & { operation: "candidate_search" },
-            parsedRequest: activeParsedRequest,
-            routeContext,
-          });
+    let response: Response;
 
-          await emitExternalA2AProtocolEvent({
-            completedAt,
-            definition: activeDefinition,
-            eventName: "a2a.task.completed",
-            output: buildProtocolEventSummary({
-              runId: childRunId,
-              totalMatches: result.totalMatches,
-            }),
-            parsedRequest: activeParsedRequest,
-            runId: childRunId,
-            spanName: "a2a.task.completed",
-            status: "completed",
-            tags: ["agent:recruiter", `operation:${activeDefinition.operation}`],
-          });
+    if (isCandidateSearchRequest(activeParsedRequest)) {
+      const result = await traceRecruiterCandidateSearchFlow({
+        childRunId,
+        definition: activeDefinition as typeof recruiterDefinition & { operation: "candidate_search" },
+        parsedRequest: activeParsedRequest,
+        routeContext,
+      });
 
-          return createExternalAgentResponse({
-            caller: routeContext.caller,
-            correlationId: routeContext.correlationId,
-            definition: activeDefinition,
-            durationMs: Date.now() - routeContext.startedAt,
-            messageId: activeParsedRequest.messageId,
-            quota,
-            receiverAgentId: activeParsedRequest.senderAgentId,
-            requestId: activeParsedRequest.requestId,
-            result,
-            runId: childRunId,
-            senderAgentId: recruiterParticipant.agentId,
-            taskStatus: "completed",
-            traceId: activeParsedRequest.traceId,
-          });
-        })()
-      : await (async () => {
-          const result = await traceRecruiterRespondFlow({
-            childRunId,
-            agentContext,
-            definition: activeDefinition as typeof recruiterDefinition & { operation: "respond" },
-            parsedRequest: activeParsedRequest,
-            routeContext,
-          });
+      await emitExternalA2AProtocolEvent({
+        completedAt,
+        definition: activeDefinition,
+        eventName: "a2a.task.completed",
+        output: buildProtocolEventSummary({
+          runId: childRunId,
+          totalMatches: result.totalMatches,
+        }),
+        parsedRequest: activeParsedRequest,
+        runId: childRunId,
+        spanName: "a2a.task.completed",
+        status: "completed",
+        tags: ["agent:recruiter", `operation:${activeDefinition.operation}`],
+      });
 
-          await emitExternalA2AProtocolEvent({
-            completedAt,
-            definition: activeDefinition,
-            eventName: "a2a.task.completed",
-            output: buildProtocolEventSummary({
-              runId: childRunId,
-              stopReason: result.stopReason,
-            }),
-            parsedRequest: activeParsedRequest,
-            runId: childRunId,
-            spanName: "a2a.task.completed",
-            status: "completed",
-            tags: ["agent:recruiter", `operation:${activeDefinition.operation}`],
-          });
+      response = createExternalAgentResponse({
+        caller: routeContext.caller,
+        correlationId: routeContext.correlationId,
+        definition: activeDefinition,
+        durationMs: Date.now() - routeContext.startedAt,
+        messageId: activeParsedRequest.messageId,
+        quota,
+        receiverAgentId: activeParsedRequest.senderAgentId,
+        requestId: activeParsedRequest.requestId,
+        result,
+        runId: childRunId,
+        senderAgentId: recruiterParticipant.agentId,
+        taskStatus: "completed",
+        traceId: activeParsedRequest.traceId,
+      });
+    } else {
+      const respondParsedRequest =
+        activeParsedRequest as ExternalAgentParsedRequest<RecruiterRespondPayload>;
+      const result = await traceRecruiterRespondFlow({
+        childRunId,
+        agentContext,
+        definition: activeDefinition as typeof recruiterDefinition & { operation: "respond" },
+        parsedRequest: respondParsedRequest,
+        routeContext,
+      });
 
-          return createExternalAgentResponse({
-            caller: routeContext.caller,
-            correlationId: routeContext.correlationId,
-            definition: activeDefinition,
-            durationMs: Date.now() - routeContext.startedAt,
-            messageId: activeParsedRequest.messageId,
-            quota,
-            receiverAgentId: activeParsedRequest.senderAgentId,
-            requestId: activeParsedRequest.requestId,
-            runId: childRunId,
-            senderAgentId: recruiterParticipant.agentId,
-            stepsUsed: result.stepsUsed,
-            stopReason: result.stopReason as InternalAgentStopReason,
-            taskStatus: "completed",
-            toolCallsUsed: result.toolCallsUsed,
-            traceId: activeParsedRequest.traceId,
-            reply: result.text,
-          });
-        })();
+      await emitExternalA2AProtocolEvent({
+        completedAt,
+        definition: activeDefinition,
+        eventName: "a2a.task.completed",
+        output: buildProtocolEventSummary({
+          runId: childRunId,
+          stopReason: result.stopReason,
+        }),
+        parsedRequest: respondParsedRequest,
+        runId: childRunId,
+        spanName: "a2a.task.completed",
+        status: "completed",
+        tags: ["agent:recruiter", `operation:${activeDefinition.operation}`],
+      });
+
+      response = createExternalAgentResponse({
+        caller: routeContext.caller,
+        correlationId: routeContext.correlationId,
+        definition: activeDefinition,
+        durationMs: Date.now() - routeContext.startedAt,
+        messageId: respondParsedRequest.messageId,
+        quota,
+        receiverAgentId: respondParsedRequest.senderAgentId,
+        requestId: respondParsedRequest.requestId,
+        runId: childRunId,
+        senderAgentId: recruiterParticipant.agentId,
+        stepsUsed: result.stepsUsed,
+        stopReason: result.stopReason as InternalAgentStopReason,
+        taskStatus: "completed",
+        toolCallsUsed: result.toolCallsUsed,
+        traceId: respondParsedRequest.traceId,
+        reply: result.text,
+      });
+    }
 
     await emitExternalA2AProtocolEvent({
       completedAt,
