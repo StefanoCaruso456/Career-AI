@@ -327,6 +327,39 @@
   gap: 0.85rem;
 }
 
+.metadataGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.metadataItem {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.metadataItem dt,
+.metadataItem dd {
+  margin: 0;
+}
+
+.metadataItem dt {
+  color: rgba(237, 228, 219, 0.6);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.metadataItem dd {
+  color: #f7efe7;
+  line-height: 1.5;
+}
+
 .plainTextList {
   display: grid;
   gap: 0.6rem;

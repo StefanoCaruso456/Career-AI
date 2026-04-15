@@ -1,15 +1,16 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { JobDetailsDto } from "@/packages/contracts/src";
 import {
-  jobDetailsResponseSchema,
-  type JobDetailsDto,
-} from "@/packages/contracts/src";
+  fetchJobDetails,
+  getCachedJobDetails,
+} from "./job-details-client";
 import {
   createFallbackJobDetails,
   JobDetailsModal,
-  type JobDetailsPreview,
 } from "./job-details-modal";
+import type { JobDetailsPreview } from "./job-details-types";
 
 type JobDetailsTriggerProps = {
   applyAction: ReactNode;
@@ -17,8 +18,6 @@ type JobDetailsTriggerProps = {
   buttonLabel?: string;
   preview: JobDetailsPreview;
 };
-
-const jobDetailsCache = new Map<string, JobDetailsDto>();
 
 export function JobDetailsTrigger({
   applyAction,
@@ -29,7 +28,7 @@ export function JobDetailsTrigger({
   const requestSequence = useRef(0);
   const activeController = useRef<AbortController | null>(null);
   const [details, setDetails] = useState<JobDetailsDto>(
-    () => jobDetailsCache.get(preview.id) ?? createFallbackJobDetails(preview),
+    () => getCachedJobDetails(preview),
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -41,7 +40,7 @@ export function JobDetailsTrigger({
   }, []);
 
   useEffect(() => {
-    setDetails(jobDetailsCache.get(preview.id) ?? createFallbackJobDetails(preview));
+    setDetails(getCachedJobDetails(preview));
     setIsLoading(false);
     requestSequence.current += 1;
     activeController.current?.abort();
@@ -56,18 +55,10 @@ export function JobDetailsTrigger({
     preview.sourceLabel,
     preview.sourceUrl,
     preview.title,
+    preview.workplaceType,
   ]);
 
   async function loadDetails(forceRefresh = false) {
-    if (!forceRefresh) {
-      const cached = jobDetailsCache.get(preview.id);
-
-      if (cached) {
-        setDetails(cached);
-        return;
-      }
-    }
-
     const controller = new AbortController();
     const sequence = requestSequence.current + 1;
 
@@ -77,24 +68,14 @@ export function JobDetailsTrigger({
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/v1/jobs/${encodeURIComponent(preview.id)}/details`, {
-        cache: "no-store",
-        method: "GET",
+      const nextDetails = await fetchJobDetails(preview, {
+        forceRefresh,
         signal: controller.signal,
       });
-      const payload = (await response.json()) as unknown;
-      const parsed = jobDetailsResponseSchema.parse(payload);
 
-      if (!response.ok || !parsed.success || !parsed.data) {
-        throw new Error(parsed.error?.message ?? "Job details could not be loaded right now.");
+      if (requestSequence.current === sequence) {
+        setDetails(nextDetails);
       }
-
-      if (requestSequence.current !== sequence) {
-        return;
-      }
-
-      jobDetailsCache.set(preview.id, parsed.data);
-      setDetails(parsed.data);
     } catch (error) {
       if (controller.signal.aborted || requestSequence.current !== sequence) {
         return;

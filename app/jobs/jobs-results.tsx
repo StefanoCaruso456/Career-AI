@@ -1225,6 +1225,7 @@ export function JobsResults({
                       sourceLabel: job.sourceLabel,
                       sourceUrl: job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl,
                       title: job.title,
+                      workplaceType: job.workplaceType ?? "unknown",
                     }}
                   />
                 </div>

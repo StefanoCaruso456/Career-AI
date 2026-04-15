@@ -8,26 +8,14 @@ import {
   CalendarDays,
   ExternalLink,
   FileText,
+  Globe2,
   MapPin,
   RefreshCcw,
   X,
 } from "lucide-react";
 import type { JobDetailsDto, JobDetailsSource } from "@/packages/contracts/src";
+import type { JobDetailsPreview } from "./job-details-types";
 import styles from "./job-details-modal.module.css";
-
-export type JobDetailsPreview = {
-  applyUrl: string;
-  company: string | null;
-  descriptionSnippet?: string | null;
-  employmentType: string | null;
-  externalJobId: string | null;
-  id: string;
-  location: string | null;
-  postedAt: string | null;
-  sourceLabel: string;
-  sourceUrl: string;
-  title: string;
-};
 
 type JobDetailsModalProps = {
   applyAction: ReactNode;
@@ -64,6 +52,24 @@ function normalizeWhitespace(value: string | null | undefined) {
   const normalized = value.replace(/\s+/g, " ").trim();
 
   return normalized.length > 0 ? normalized : null;
+}
+
+function formatDisplayText(value: string | null | undefined) {
+  const normalized = normalizeWhitespace(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized
+    .replace(/[_-]+/g, " ")
+    .split(" ")
+    .map((segment) =>
+      segment.length > 0
+        ? `${segment.charAt(0).toUpperCase()}${segment.slice(1).toLowerCase()}`
+        : segment,
+    )
+    .join(" ");
 }
 
 function inferSourceFromPreview(preview: Pick<JobDetailsPreview, "sourceLabel" | "sourceUrl">) {
@@ -187,6 +193,11 @@ function createMetaRows(details: JobDetailsDto) {
       value: details.employmentType,
     },
     {
+      icon: Globe2,
+      label: "Workplace",
+      value: details.workplaceType ? formatDisplayText(details.workplaceType) : null,
+    },
+    {
       icon: CalendarDays,
       label: "Posted",
       value: details.postedAt ? formatTimestamp(details.postedAt) : null,
@@ -231,6 +242,7 @@ export function createFallbackJobDetails(
     sourceUrl: preview.sourceUrl,
     summary: description,
     title: preview.title,
+    workplaceType: preview.workplaceType,
   } satisfies JobDetailsDto;
 }
 
@@ -247,6 +259,9 @@ export function JobDetailsModal({
   const titleId = useId();
   const descriptionId = useId();
   const metaRows = createMetaRows(details);
+  const metadataEntries = Object.entries(details.metadata ?? {}).filter(
+    ([key, value]) => value !== null && key !== "Workplace type",
+  );
   const plainTextBlocks = buildPlainTextParagraphs(
     details.descriptionText && details.descriptionText !== details.summary
       ? details.descriptionText
@@ -465,6 +480,20 @@ export function JobDetailsModal({
                 <section className={styles.section}>
                   <h3>Compensation</h3>
                   <p>{details.salaryText}</p>
+                </section>
+              ) : null}
+
+              {metadataEntries.length > 0 ? (
+                <section className={styles.section}>
+                  <h3>Role context</h3>
+                  <dl className={styles.metadataGrid}>
+                    {metadataEntries.map(([key, value]) => (
+                      <div className={styles.metadataItem} key={key}>
+                        <dt>{key}</dt>
+                        <dd>{String(value)}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </section>
               ) : null}
 

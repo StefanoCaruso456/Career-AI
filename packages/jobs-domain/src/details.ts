@@ -705,6 +705,7 @@ function createBaseDetails(job: JobPostingDto, source: JobDetailsSource): JobDet
     sourceUrl: job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl,
     summary: job.descriptionSnippet,
     title: job.title,
+    workplaceType: job.workplaceType ?? null,
   });
 }
 
@@ -783,6 +784,7 @@ function normalizeDetailsFromDescription(args: {
     sourceUrl: args.sourceUrl ?? args.base.sourceUrl,
     summary,
     title: args.title ?? args.base.title,
+    workplaceType: args.base.workplaceType,
   });
 }
 

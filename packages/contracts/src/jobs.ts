@@ -197,6 +197,7 @@ export const jobDetailsSchema = z.object({
   company: z.string().nullable().default(null),
   location: z.string().nullable().default(null),
   employmentType: z.string().nullable().default(null),
+  workplaceType: jobWorkplaceTypeSchema.nullable().default(null),
   postedAt: z.string().datetime().nullable().default(null),
   externalJobId: z.string().nullable().default(null),
   source: jobDetailsSourceSchema,

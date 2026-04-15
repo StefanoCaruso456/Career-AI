@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JobListItem } from "./job-list-item";
 
@@ -18,6 +18,33 @@ vi.mock("@/lib/application-profiles/validation", async (importOriginal) => {
     getMissingRequiredFieldKeys: (...args: unknown[]) => mockGetMissingRequiredFieldKeys(...args),
   };
 });
+
+function createJob(overrides?: Partial<Parameters<typeof JobListItem>[0]["job"]>) {
+  return {
+    applyUrl: "https://boards.greenhouse.io/example/jobs/123",
+    canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
+    company: "Example",
+    employmentType: "Full-time",
+    externalJobId: "req-1",
+    id: "job_1",
+    isOrchestrationReady: true,
+    location: "New York, NY",
+    matchReason: "Strong alignment with product design experience.",
+    postedAt: "2026-04-12T12:00:00.000Z",
+    railKey: "greenhouse:example:job_1",
+    relevanceScore: 0.92,
+    salaryText: "$180k",
+    sourceKey: "greenhouse:example",
+    sourceLabel: "Example",
+    sourceType: "greenhouse" as const,
+    sourceUrl: "https://boards.greenhouse.io/example/jobs/123",
+    summary: "Lead end-to-end product design for the hiring experience.",
+    title: "Product Designer",
+    validationStatus: undefined,
+    workplaceType: "remote" as const,
+    ...overrides,
+  };
+}
 
 describe("JobListItem", () => {
   beforeEach(() => {
@@ -44,7 +71,7 @@ describe("JobListItem", () => {
     mockUseApplicationProfiles.mockReset();
   });
 
-  it("opens the profile modal instead of applying immediately when the reusable profile is incomplete", () => {
+  it("opens the reusable profile modal instead of applying immediately when the profile is incomplete", () => {
     const onApply = vi.fn(async () => "https://wd1.myworkdaysite.com/recruiting/example/job");
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
@@ -54,27 +81,21 @@ describe("JobListItem", () => {
 
     render(
       <JobListItem
-        job={{
+        job={createJob({
           applyUrl: "https://wd1.myworkdaysite.com/recruiting/example/job",
           canonicalApplyUrl: "https://wd1.myworkdaysite.com/recruiting/example/job",
           company: "Accenture",
-          id: "job_1",
-          isOrchestrationReady: false,
-          location: "Remote",
-          matchReason: "",
-          relevanceScore: null,
-          salaryText: null,
+          sourceKey: "workday:accenture",
           sourceLabel: "Accenture",
-          summary: null,
+          sourceType: "workday",
+          sourceUrl: "https://wd1.myworkdaysite.com/recruiting/example/job",
           title: "Application Designer",
-          validationStatus: undefined,
-          workplaceType: null,
-        }}
+        })}
         onApply={onApply}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "APPLY" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     expect(onApply).not.toHaveBeenCalled();
     expect(openSpy).not.toHaveBeenCalled();
@@ -89,29 +110,9 @@ describe("JobListItem", () => {
       .mockReturnValueOnce([])
       .mockReturnValueOnce([]);
 
-    render(
-      <JobListItem
-        job={{
-          applyUrl: "https://boards.greenhouse.io/example/jobs/123",
-          canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
-          company: "Example",
-          id: "job_1",
-          isOrchestrationReady: true,
-          location: "New York, NY",
-          matchReason: "",
-          relevanceScore: null,
-          salaryText: "$180k",
-          sourceLabel: "Example",
-          summary: null,
-          title: "Product Designer",
-          validationStatus: undefined,
-          workplaceType: "remote",
-        }}
-        onApply={onApply}
-      />,
-    );
+    render(<JobListItem job={createJob()} onApply={onApply} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "APPLY" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 
     await waitFor(() => {
       expect(onApply).toHaveBeenCalledTimes(1);
@@ -123,156 +124,27 @@ describe("JobListItem", () => {
     );
   });
 
-  it("opens an in-app details modal without leaving the current page", async () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+  it("surfaces the details affordance through both the card body and the secondary action", () => {
+    const onOpenDetails = vi.fn();
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL | Request) => {
-        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    render(<JobListItem job={createJob()} onOpenDetails={onOpenDetails} />);
 
-        expect(url).toBe("/api/v1/jobs/job_1/details");
+    fireEvent.click(screen.getByRole("button", { name: "Open details for Product Designer" }));
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
 
-        return new Response(
-          JSON.stringify({
-            success: true,
-            data: {
-              id: "job_1",
-              title: "Product Designer",
-              company: "Example",
-              location: "New York, NY",
-              employmentType: "Full-time",
-              postedAt: "2026-04-12T12:00:00.000Z",
-              externalJobId: "req-1",
-              source: "greenhouse",
-              sourceLabel: "Example",
-              sourceUrl: "https://boards.greenhouse.io/example/jobs/123",
-              descriptionHtml: "<p>Lead end-to-end product design for the hiring experience.</p>",
-              descriptionText: "Lead end-to-end product design for the hiring experience.",
-              summary: "Lead end-to-end product design for the hiring experience.",
-              responsibilities: ["Own the design system roadmap"],
-              qualifications: ["8+ years of product design experience"],
-              preferredQualifications: [],
-              salaryText: "$180k - $220k",
-              metadata: null,
-              contentStatus: "full",
-              fallbackMessage: null,
-            },
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          },
-        );
-      }),
-    );
-
-    render(
-      <JobListItem
-        job={{
-          applyUrl: "https://boards.greenhouse.io/example/jobs/123",
-          canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
-          company: "Example",
-          id: "job_1",
-          isOrchestrationReady: true,
-          location: "New York, NY",
-          matchReason: "",
-          relevanceScore: null,
-          salaryText: "$180k",
-          sourceLabel: "Example",
-          summary: "Lead end-to-end product design for the hiring experience.",
-          title: "Product Designer",
-          validationStatus: undefined,
-          workplaceType: "remote",
-        }}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Read more" }));
-
-    const dialog = await screen.findByRole("dialog", { name: "Product Designer" });
-
-    expect(dialog).toBeInTheDocument();
-    expect(
-      within(dialog).getAllByText("Lead end-to-end product design for the hiring experience.")[0],
-    ).toBeInTheDocument();
-    expect(openSpy).not.toHaveBeenCalled();
+    expect(onOpenDetails).toHaveBeenCalledTimes(2);
+    expect(onOpenDetails).toHaveBeenNthCalledWith(1, expect.objectContaining({ id: "job_1" }));
+    expect(onOpenDetails).toHaveBeenNthCalledWith(2, expect.objectContaining({ id: "job_1" }));
   });
 
-  it("renders plain-text descriptions as readable bullet lists when HTML is unavailable", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            data: {
-              id: "job_2",
-              title: "Data Scientist",
-              company: "Stripe",
-              location: "Remote",
-              employmentType: "Full-time",
-              postedAt: "2026-04-12T12:00:00.000Z",
-              externalJobId: "req-2",
-              source: "lever",
-              sourceLabel: "Stripe",
-              sourceUrl: "https://jobs.example.com/stripe/123",
-              descriptionHtml: null,
-              descriptionText: [
-                "Help teams make better decisions with trustworthy models.",
-                "",
-                "• Build and deploy decision systems",
-                "• Partner with product and design",
-              ].join("\n"),
-              summary: null,
-              responsibilities: [],
-              qualifications: [],
-              preferredQualifications: [],
-              salaryText: null,
-              metadata: null,
-              contentStatus: "partial",
-              fallbackMessage: null,
-            },
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          },
-        );
-      }),
-    );
+  it("marks the active job card as selected while the details view is open", () => {
+    const { container } = render(<JobListItem isSelected job={createJob()} />);
+    const article = container.querySelector("article");
 
-    render(
-      <JobListItem
-        job={{
-          applyUrl: "https://jobs.example.com/stripe/123",
-          canonicalApplyUrl: "https://jobs.example.com/stripe/123",
-          company: "Stripe",
-          id: "job_2",
-          isOrchestrationReady: true,
-          location: "Remote",
-          matchReason: "",
-          relevanceScore: null,
-          salaryText: null,
-          sourceLabel: "Stripe",
-          summary: "Help teams make better decisions with trustworthy models.",
-          title: "Data Scientist",
-          validationStatus: undefined,
-          workplaceType: "remote",
-        }}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Read more" }));
-
-    const dialog = await screen.findByRole("dialog", { name: "Data Scientist" });
-    const listItems = within(dialog).getAllByRole("listitem");
-
-    expect(listItems.some((item) => item.textContent === "Build and deploy decision systems")).toBe(
-      true,
-    );
-    expect(listItems.some((item) => item.textContent === "Partner with product and design")).toBe(
-      true,
+    expect(article).toHaveAttribute("data-selected", "true");
+    expect(screen.getByRole("button", { name: "Open details for Product Designer" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
   });
 });
