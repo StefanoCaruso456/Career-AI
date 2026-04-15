@@ -1,6 +1,8 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { findCredentialUserByEmail, verifyCredentialPassword } from "@/lib/credential-user-store";
 
 function normalizeBaseUrl(url: string) {
   return url.trim().replace(/\/+$/, "");
@@ -60,20 +62,64 @@ export const googleRedirectUri = publicBaseUrl
   ? `${publicBaseUrl}/api/auth/callback/google`
   : "";
 
+const authProviders: NextAuthOptions["providers"] = [
+  CredentialsProvider({
+    name: "Email and password",
+    credentials: {
+      email: {
+        label: "Email",
+        type: "email",
+      },
+      password: {
+        label: "Password",
+        type: "password",
+      },
+    },
+    async authorize(credentials) {
+      const email = credentials?.email?.toString().trim() ?? "";
+      const password = credentials?.password?.toString() ?? "";
+
+      if (!email || !password) {
+        return null;
+      }
+
+      const user = await findCredentialUserByEmail(email);
+
+      if (!user) {
+        return null;
+      }
+
+      const passwordMatches = verifyCredentialPassword(user, password);
+
+      if (!passwordMatches) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    },
+  }),
+];
+
+if (googleOAuthEnabled) {
+  authProviders.push(
+    GoogleProvider({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
+    }),
+  );
+}
+
 export const authOptions = {
-  providers: googleOAuthEnabled
-    ? [
-        GoogleProvider({
-          clientId: googleClientId,
-          clientSecret: googleClientSecret,
-          authorization: {
-            params: {
-              prompt: "select_account",
-            },
-          },
-        }),
-      ]
-    : [],
+  providers: authProviders,
   pages: {
     signIn: "/sign-in",
   },

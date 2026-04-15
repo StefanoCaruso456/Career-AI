@@ -16,8 +16,9 @@ export default async function SignInPage() {
         <div className={styles.eyebrow}>Verified access</div>
         <h1 className={styles.title}>Sign in to your Career AI workspace</h1>
         <p className={styles.copy}>
-          Use Google to verify your email, restore your session, and step straight into
-          your protected Career AI workspace.
+          Sign in to restore your session and step straight into your protected Career AI
+          workspace. Google one-click sign-in is available here, and email/password access is
+          available from the header authentication modal.
         </p>
 
         <GoogleSignInButton callbackUrl="/account" disabled={!googleOAuthEnabled} label="Sign in with Google" />

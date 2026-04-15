@@ -2,6 +2,7 @@
 
 import { ShieldCheck, Sparkles, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import styles from "./auth-modal.module.css";
@@ -31,8 +32,6 @@ function getModeCopy(mode: AuthMode) {
         "Build a verified career identity to increase credibility, attract employers, and get hired faster.",
       buttonLabel: "Continue with Google",
       emailActionLabel: "Create account",
-      formStatus:
-        "Use Google to open your workspace today.",
     };
   }
 
@@ -43,8 +42,6 @@ function getModeCopy(mode: AuthMode) {
       "Return to your workspace and pick up your verified profile where you left it.",
     buttonLabel: "Sign in with Google",
     emailActionLabel: "Sign in",
-    formStatus:
-      "Use Google to continue right now.",
   };
 }
 
@@ -66,6 +63,7 @@ export function AuthModalTrigger({
   const [isMounted, setIsMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>(defaultMode);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const passwordsMatch =
@@ -112,10 +110,18 @@ export function AuthModalTrigger({
   }
 
   function closeModal() {
+    if (isSubmitting) {
+      return;
+    }
+
     setIsOpen(false);
   }
 
   function handleModeChange(nextMode: AuthMode) {
+    if (isSubmitting) {
+      return;
+    }
+
     setMode(nextMode);
     setFormStatus(null);
   }
@@ -133,7 +139,7 @@ export function AuthModalTrigger({
     };
   }
 
-  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (mode === "signup" && formValues.password !== formValues.confirmPassword) {
@@ -141,7 +147,61 @@ export function AuthModalTrigger({
       return;
     }
 
-    setFormStatus(modeCopy.formStatus);
+    const email = formValues.email.trim().toLowerCase();
+    const password = formValues.password;
+
+    setFormStatus(null);
+    setIsSubmitting(true);
+
+    try {
+      if (mode === "signup") {
+        const registerResponse = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: formValues.name.trim(),
+            email,
+            password,
+          }),
+        });
+
+        const registerPayload = (await registerResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+
+        if (!registerResponse.ok) {
+          setFormStatus(
+            registerPayload?.error ??
+              "We could not create your account right now. Please try again.",
+          );
+          return;
+        }
+      }
+
+      const signInResult = await signIn("credentials", {
+        callbackUrl,
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (!signInResult || signInResult.error) {
+        setFormStatus(
+          mode === "signup"
+            ? "Account created, but we could not sign you in. Please try signing in."
+            : "Invalid email or password.",
+        );
+        return;
+      }
+
+      window.location.assign(signInResult.url ?? callbackUrl);
+    } catch {
+      setFormStatus("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const modeCopy = getModeCopy(mode);
@@ -180,6 +240,7 @@ export function AuthModalTrigger({
 
               <div className={styles.modeSwitch}>
                 <button
+                  disabled={isSubmitting}
                   className={mode === "signup" ? styles.modeButtonActive : styles.modeButton}
                   onClick={() => handleModeChange("signup")}
                   type="button"
@@ -187,6 +248,7 @@ export function AuthModalTrigger({
                   Sign up
                 </button>
                 <button
+                  disabled={isSubmitting}
                   className={mode === "signin" ? styles.modeButtonActive : styles.modeButton}
                   onClick={() => handleModeChange("signin")}
                   type="button"
@@ -261,8 +323,12 @@ export function AuthModalTrigger({
                   ) : null}
                 </div>
 
-                <button className={styles.emailAction} type="submit">
-                  {modeCopy.emailActionLabel}
+                <button className={styles.emailAction} disabled={isSubmitting || !passwordsMatch} type="submit">
+                  {isSubmitting
+                    ? mode === "signup"
+                      ? "Creating account..."
+                      : "Signing in..."
+                    : modeCopy.emailActionLabel}
                 </button>
 
                 {formStatus ? (
@@ -285,11 +351,11 @@ export function AuthModalTrigger({
                 <div className={styles.trustRow}>
                   <div className={styles.trustPill}>
                     <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                    Verified Google email only
+                    Secure email/password sign-in
                   </div>
                   <div className={styles.trustPill}>
                     <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
-                    Protected workspace entry
+                    Google sign-in also available
                   </div>
                 </div>
               </div>

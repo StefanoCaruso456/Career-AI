@@ -38,9 +38,12 @@ npm run dev
 The app runs locally at [http://localhost:3000](http://localhost:3000).
 The homepage assistant calls the official OpenAI Node SDK from the server-side `/api/chat` route and reads `OPENAI_API_KEY` and `OPENAI_MODEL` from the environment.
 
-## Google Auth
+## Authentication
 
-This app now includes Google sign-in using Auth.js and NextAuth route handlers.
+This app includes both:
+
+- email/password sign-up and sign-in using Auth.js Credentials
+- Google sign-in using Auth.js and NextAuth route handlers
 
 Required environment variables:
 
@@ -73,7 +76,9 @@ Local development values:
 
 After configuration:
 
-- `/sign-in` starts the Google flow
+- `POST /api/auth/register` creates a credentials-based user
+- the auth modal can create accounts with email/password
+- `/sign-in` supports Google sign-in
 - `/account` is a protected page that requires a valid session
 
 ## Deployment

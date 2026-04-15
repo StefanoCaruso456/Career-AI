@@ -51,8 +51,8 @@ export default async function AccountPage() {
               <span className={styles.eyebrow}>Authenticated workspace</span>
               <h1 className={styles.title}>{displayName}</h1>
               <p className={styles.subtitle}>
-                Google sign-in is live on the Railway deployment. This protected page confirms
-                the OAuth callback, session cookie, and account routing are working together.
+                This protected page confirms your sign-in session, secure auth cookies, and
+                account routing are working together.
               </p>
             </div>
           </div>
@@ -60,11 +60,11 @@ export default async function AccountPage() {
           <div className={styles.statusCard}>
             <div className={styles.statusRow}>
               <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
-              <span>Google session active</span>
+              <span>Session active</span>
             </div>
             <div className={styles.statusRow}>
               <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-              <span>Email verified by Google</span>
+              <span>Authenticated identity</span>
             </div>
           </div>
         </section>
@@ -83,7 +83,7 @@ export default async function AccountPage() {
               </div>
               <div>
                 <dt>Provider</dt>
-                <dd>Google OAuth</dd>
+                <dd>Career AI authentication</dd>
               </div>
             </dl>
           </article>
@@ -91,7 +91,8 @@ export default async function AccountPage() {
           <article className={styles.panel}>
             <h2>Recommended next steps</h2>
             <ul className={styles.list}>
-              <li>Store your Google client credentials in Railway production variables.</li>
+              <li>Set `NEXTAUTH_SECRET` and `NEXTAUTH_URL` in production variables.</li>
+              <li>Add Google OAuth variables if you want one-click social sign-in.</li>
               <li>Restrict access to future talent or recruiter flows using this session.</li>
               <li>Connect the authenticated user to a persistent Career AI identity record.</li>
             </ul>
