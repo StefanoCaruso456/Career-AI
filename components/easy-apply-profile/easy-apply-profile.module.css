@@ -41,12 +41,21 @@
   display: grid;
   gap: 0.62rem;
   max-width: 52rem;
+  flex: 1 1 auto;
+}
+
+.modalHeaderActions {
+  display: inline-flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.72rem;
+  flex: 0 0 auto;
 }
 
 .schemaBadge {
   display: inline-flex;
   align-items: center;
-  justify-self: flex-start;
+  align-self: center;
   padding: 0.45rem 0.72rem;
   border-radius: 999px;
   background: rgba(239, 167, 124, 0.14);
@@ -430,6 +439,53 @@
   width: 100%;
 }
 
+.applyButtonJobsCard {
+  min-height: 3.6rem;
+  padding: 0.95rem 1.15rem;
+  border-radius: 1.15rem;
+  border-color: rgba(24, 34, 51, 0.14);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 52%),
+    linear-gradient(135deg, #172233, #2a3950 54%, #31425c);
+  color: #f6eee4;
+  letter-spacing: -0.01em;
+  box-shadow:
+    0 18px 32px rgba(23, 34, 51, 0.18),
+    0 10px 24px rgba(232, 150, 115, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.applyButtonJobsCard span {
+  font-size: 1rem;
+}
+
+.applyButtonJobsCard svg {
+  color: #ffd8bc;
+}
+
+.applyButtonJobsCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(24, 34, 51, 0.18);
+  box-shadow:
+    0 22px 40px rgba(23, 34, 51, 0.22),
+    0 12px 28px rgba(232, 150, 115, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.applyButtonJobsCard:active {
+  transform: translateY(0);
+}
+
+.applyButtonJobsCard:focus-visible {
+  outline: 2px solid rgba(24, 34, 51, 0.9);
+  outline-offset: 4px;
+}
+
 .addButton {
   justify-self: flex-start;
 }
@@ -587,6 +643,14 @@
     min-height: auto;
   }
 
+  .modalHeader {
+    gap: 1rem;
+  }
+
+  .modalHeaderActions {
+    gap: 0.55rem;
+  }
+
   .stepper,
   .sectionGrid,
   .repeatableGrid,
@@ -601,6 +665,10 @@
   .repeatableCardHeader {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .modalHeaderActions {
+    align-self: flex-start;
   }
 
   .secondaryButton,

@@ -13,6 +13,7 @@ import styles from "./easy-apply-profile.module.css";
 
 type ProfileCompletionGuardProps = {
   buttonLabel?: string;
+  buttonVariant?: "default" | "jobs-card";
   className?: string;
   companyName: string;
   employerMissingFieldKeys?: string[];
@@ -29,6 +30,7 @@ function openExternalApply(applyUrl: string) {
 export function ProfileCompletionGuard({
   applyUrl,
   buttonLabel = "Apply",
+  buttonVariant = "default",
   className,
   companyName,
   employerMissingFieldKeys = [],
@@ -106,7 +108,9 @@ export function ProfileCompletionGuard({
     <>
       <button
         aria-haspopup="dialog"
-        className={`${styles.applyButton} ${className ?? ""}`}
+        className={`${styles.applyButton} ${
+          buttonVariant === "jobs-card" ? styles.applyButtonJobsCard : ""
+        } ${className ?? ""}`}
         disabled={isLoading && isAuthenticated}
         onClick={handleApplyClick}
         type="button"
