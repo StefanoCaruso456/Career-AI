@@ -28,6 +28,10 @@ export function EmployerCandidateDetailModal({
   const descriptionId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const careerIdHref = candidate.actions.careerIdUrl ?? candidate.actions.profileUrl ?? "#";
+  const trustProfileHref =
+    candidate.actions.profileUrl ?? candidate.actions.careerIdUrl
+      ? `${candidate.actions.profileUrl ?? candidate.actions.careerIdUrl}#trusted-profile`
+      : null;
   const headline =
     candidate.headline ??
     candidate.currentRole ??
@@ -179,8 +183,8 @@ export function EmployerCandidateDetailModal({
                 <Link className={styles.secondaryAction} href={`${careerIdHref}#private-access`}>
                   Request Career ID Access
                 </Link>
-                {candidate.actions.trustProfileUrl ? (
-                  <Link className={styles.secondaryAction} href={candidate.actions.trustProfileUrl}>
+                {trustProfileHref ? (
+                  <Link className={styles.secondaryAction} href={trustProfileHref}>
                     Review trust profile
                   </Link>
                 ) : (
