@@ -2232,9 +2232,9 @@ export function HeroComposer({
         throw new Error(payload.error || "The application link could not be opened.");
       }
 
-      window.open(payload.applyUrl, "_blank", "noopener,noreferrer");
+      return payload.applyUrl;
     } catch (error) {
-      showComposerError(
+      throw new Error(
         error instanceof Error ? error.message : "The application link could not be opened.",
       );
     }
