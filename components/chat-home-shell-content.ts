@@ -59,9 +59,10 @@ export type HeroComposerContent = {
 };
 
 type LandingStoryCard = {
+  comingSoon?: boolean;
   company: string;
   copy: string;
-  cta: string;
+  cta?: string;
   theme: StoryTheme;
   title: string;
 };
@@ -604,31 +605,35 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     ],
     stories: [
       {
-        company: "Lovable",
-        title: "Lovable turns AI-heavy application volume into proof-backed shortlists.",
-        copy: "Candidate evidence becomes readable trust, not another noisy PDF pile.",
-        cta: "Read Lovable's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "aura",
       },
       {
-        company: "Runway",
-        title: "Runway-style teams protect recruiter time with structured verification intake.",
-        copy: "Claims, artifacts, and reviewer actions stay linked from first upload to final decision.",
-        cta: "Read Runway's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "stream",
       },
       {
-        company: "Supabase",
-        title: "Supabase-grade operations keep trust workflows auditable without slowing hiring.",
-        copy: "Every status change flows through one verification engine with preserved provenance.",
-        cta: "Read Supabase's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "grid",
       },
       {
-        company: "Linear",
-        title: "Linear-level hiring loops share recruiter-safe profiles instead of raw evidence.",
-        copy: "The result is cleaner review, better candidate trust, and faster alignment.",
-        cta: "Read Linear's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "orb",
       },
     ],
