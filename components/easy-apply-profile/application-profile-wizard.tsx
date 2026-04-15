@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, CheckCircle2, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import {
   applicationProfileSteps,
@@ -240,7 +240,7 @@ export function ApplicationProfileWizard({
 
   return (
     <div className={styles.wizardShell}>
-      <ol className={styles.stepper} aria-label={`${config.label} profile steps`}>
+      <ol aria-label={`${config.label} profile steps`} className={styles.stepper}>
         {applicationProfileSteps.map((step, index) => {
           const isActive = step.id === currentStep.id;
           const isComplete = index < currentStepIndex;
@@ -252,7 +252,9 @@ export function ApplicationProfileWizard({
               key={step.id}
             >
               <div className={styles.stepCardTop}>
-                <span className={styles.stepNumber}>{index + 1}</span>
+                <span className={styles.stepNumber}>
+                  {isComplete ? <Check aria-hidden="true" size={14} strokeWidth={3} /> : index + 1}
+                </span>
               </div>
               <div className={styles.stepCopy}>
                 <strong className={styles.stepTitle}>{step.title}</strong>
