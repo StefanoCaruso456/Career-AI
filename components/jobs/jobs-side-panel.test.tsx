@@ -129,10 +129,15 @@ describe("JobsSidePanel", () => {
       />,
     );
 
+    expect(screen.queryByText("Review roles without leaving Career AI.")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Filter jobs by keyword")).not.toBeInTheDocument();
     expect(screen.getByText("Product Designer")).toBeInTheDocument();
     expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.getByText("ML Engineer")).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+
+    expect(screen.getByLabelText("Filter jobs by keyword")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Filter jobs by keyword"), {
       target: { value: "ml" },
     });
@@ -140,7 +145,7 @@ describe("JobsSidePanel", () => {
     expect(screen.queryByText("Product Designer")).not.toBeInTheDocument();
     expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
     expect(screen.getByText("ML Engineer")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("of 3 roles")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
 
@@ -215,5 +220,19 @@ describe("JobsSidePanel", () => {
       expect(screen.queryByRole("dialog", { name: "Product Designer" })).not.toBeInTheDocument();
     });
     expect(container.querySelector('[data-selected="true"]')).toBeNull();
+  });
+
+  it("lets the filter dropdown open and close without affecting the underlying list", () => {
+    render(<JobsSidePanel jobs={[createJob("job_1"), createJob("job_2", { title: "Backend Engineer" })]} />);
+
+    const trigger = screen.getByRole("button", { name: /filters/i });
+
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    expect(screen.queryByRole("dialog", { name: "Jobs rail filters" })).not.toBeInTheDocument();
+    expect(screen.getByText("Product Designer")).toBeInTheDocument();
+    expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
   });
 });
