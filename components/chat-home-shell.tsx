@@ -316,17 +316,21 @@ export function ChatHomeShell({
           </div>
 
           <div className={styles.storyGrid}>
-            {content.stories.map((story) => (
-              <article className={styles.storyCard} key={story.company}>
+            {content.stories.map((story, index) => (
+              <article className={styles.storyCard} key={`${story.company}-${story.theme}-${index}`}>
                 <StoryVisual theme={story.theme} />
                 <div className={styles.storyMeta}>
                   <strong>{story.company}</strong>
                   <h3>{story.title}</h3>
                   <p>{story.copy}</p>
-                  <Link className={styles.inlineLink} href="#footer">
-                    {story.cta}
-                    <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
-                  </Link>
+                  {story.comingSoon ? (
+                    <span className={styles.inlineSoon}>{story.cta}</span>
+                  ) : (
+                    <Link className={styles.inlineLink} href="#footer">
+                      {story.cta}
+                      <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}

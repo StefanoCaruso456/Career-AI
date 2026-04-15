@@ -2568,6 +2568,11 @@
   font-weight: 700;
 }
 
+.inlineSoon {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
 .solutionHeader {
   margin-bottom: 1.7rem;
 }
