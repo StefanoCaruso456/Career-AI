@@ -8,7 +8,7 @@ type LoadLatestJobListingsOptions = {
   signal?: AbortSignal;
 };
 
-const defaultLatestJobsLimit = 6;
+const defaultLatestJobsLimit = 12;
 
 export async function loadLatestJobListings(options: LoadLatestJobListingsOptions) {
   const response = await fetch("/api/v1/jobs/latest", {

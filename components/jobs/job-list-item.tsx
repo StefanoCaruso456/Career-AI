@@ -1,70 +1,120 @@
 "use client";
 
-import { ProfileCompletionGuard } from "@/components/easy-apply-profile/profile-completion-guard";
-import { resolveSchemaFamily } from "@/lib/application-profiles/resolver";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
-import { JobDetailsTrigger } from "@/components/jobs/job-details-trigger";
+import { JobApplyButton } from "@/components/jobs/job-apply-button";
+import {
+  formatRelativePostedAt,
+  getJobRailBadges,
+  normalizeEmploymentType,
+} from "@/components/jobs/job-rail-utils";
 import styles from "./jobs-side-panel.module.css";
 
 type JobListItemProps = {
+  isSelected?: boolean;
   job: JobListing;
   onApply?: (job: JobListing) => Promise<string> | string;
+  onOpenDetails?: (job: JobListing) => void;
 };
 
-export function JobListItem({ job, onApply }: JobListItemProps) {
-  const meta = [job.location, job.workplaceType, job.salaryText].filter(Boolean).join(" • ");
-  const schemaFamily = resolveSchemaFamily({
-    applyUrl: job.canonicalApplyUrl,
-    companyName: job.company,
-  });
+const EMPLOYMENT_BADGE_LABELS = {
+  contract: "Contract",
+  full_time: "Full-time",
+  internship: "Internship",
+  part_time: "Part-time",
+  temporary: "Temporary",
+  unknown: "Type unknown",
+} as const;
+
+export function JobListItem({
+  isSelected = false,
+  job,
+  onApply,
+  onOpenDetails,
+}: JobListItemProps) {
+  const employmentType = EMPLOYMENT_BADGE_LABELS[normalizeEmploymentType(job.employmentType)];
+  const postedLabel = formatRelativePostedAt(job.postedAt);
+  const badges = getJobRailBadges(job);
+  const supportingMeta = [job.location, employmentType, job.salaryText].filter(Boolean);
+  const preview = job.summary?.trim() || job.matchReason;
 
   return (
     <li className={styles.jobRow}>
-      <div className={styles.jobActions}>
-        <ProfileCompletionGuard
-          applyUrl={job.canonicalApplyUrl}
-          buttonLabel="APPLY"
-          buttonVariant="jobs-card"
-          className={styles.jobApplyButton}
-          companyName={job.company}
-          jobTitle={job.title}
-          resolveApplyUrl={onApply ? () => onApply(job) : undefined}
-          schemaFamily={schemaFamily}
-        />
-        <JobDetailsTrigger
-          applyAction={
-            <ProfileCompletionGuard
-              applyUrl={job.canonicalApplyUrl}
-              buttonLabel="Apply now"
-              buttonVariant="jobs-card"
-              companyName={job.company}
-              jobTitle={job.title}
-              resolveApplyUrl={onApply ? () => onApply(job) : undefined}
-              schemaFamily={schemaFamily}
-            />
-          }
-          buttonClassName={styles.jobDetailsButton}
-          buttonLabel="Read more"
-          preview={{
-            applyUrl: job.applyUrl,
-            company: job.company,
-            descriptionSnippet: job.summary,
-            employmentType: null,
-            externalJobId: null,
-            id: job.id,
-            location: job.location,
-            postedAt: null,
-            sourceLabel: job.sourceLabel,
-            sourceUrl: job.canonicalApplyUrl,
-            title: job.title,
+      <article
+        className={`${styles.jobCard} ${isSelected ? styles.jobCardSelected : ""}`}
+        data-selected={isSelected ? "true" : "false"}
+      >
+        <button
+          aria-label={`Open details for ${job.title}`}
+          aria-pressed={isSelected}
+          className={styles.jobCardButton}
+          onClick={() => {
+            onOpenDetails?.(job);
           }}
-        />
-      </div>
-      <div className={styles.jobCopy}>
-        <p className={styles.jobCompany}>{job.company}</p>
-        <p className={styles.jobTitle}>{job.title}</p>
-        {meta ? <p className={styles.jobMeta}>{meta}</p> : null}
-      </div>
+          type="button"
+        >
+          <div className={styles.jobCardTopline}>
+            <div className={styles.jobBadgeRow}>
+              {badges.map((badge) => (
+                <span
+                  className={`${styles.jobBadge} ${
+                    badge.tone === "accent"
+                      ? styles.jobBadgeAccent
+                      : badge.tone === "success"
+                        ? styles.jobBadgeSuccess
+                        : styles.jobBadgeNeutral
+                  }`}
+                  key={`${job.railKey}-${badge.label}`}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+            <span className={styles.jobPosted}>{postedLabel}</span>
+          </div>
+
+          <div className={styles.jobCopy}>
+            <p className={styles.jobCompany}>{job.company}</p>
+            <h3 className={styles.jobTitle}>{job.title}</h3>
+          </div>
+
+          {supportingMeta.length > 0 ? (
+            <div className={styles.jobMetaRow}>
+              {supportingMeta.map((item) => (
+                <span className={styles.jobMetaPill} key={`${job.railKey}-${item}`}>
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {preview ? <p className={styles.jobPreview}>{preview}</p> : null}
+
+          {job.matchReason ? (
+            <p className={styles.jobSignal}>
+              <span>Why it surfaced</span>
+              {job.matchReason}
+            </p>
+          ) : null}
+        </button>
+
+        <div className={styles.jobActions}>
+          <JobApplyButton
+            className={styles.jobApplyButton}
+            job={job}
+            label="Apply"
+            onApply={onApply}
+          />
+          <button
+            className={styles.jobDetailsButton}
+            onClick={() => {
+              onOpenDetails?.(job);
+            }}
+            type="button"
+          >
+            View details
+          </button>
+        </div>
+      </article>
     </li>
   );
 }
