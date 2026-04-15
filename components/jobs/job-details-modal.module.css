@@ -272,12 +272,19 @@
 .section li {
   color: rgba(235, 227, 218, 0.82);
   line-height: 1.74;
+  max-width: 74ch;
 }
 
 .section ul {
   display: grid;
   gap: 0.6rem;
   padding-left: 1.2rem;
+}
+
+.section li::marker,
+.plainTextList li::marker,
+.richText li::marker {
+  color: rgba(255, 196, 170, 0.9);
 }
 
 .richText {
@@ -318,6 +325,13 @@
 .plainText {
   display: grid;
   gap: 0.85rem;
+}
+
+.plainTextList {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding-left: 1.2rem;
 }
 
 .loadingState {

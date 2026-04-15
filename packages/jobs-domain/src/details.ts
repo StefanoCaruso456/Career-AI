@@ -103,11 +103,16 @@ const SECTION_LABEL_PATTERNS: Array<{
     patterns: [
       /\bqualifications?\b/i,
       /\brequirements?\b/i,
+      /\bminimum qualifications?\b/i,
+      /\bminimum requirements?\b/i,
+      /\bbasic qualifications?\b/i,
       /\bwhat we're looking for\b/i,
       /\bwhat we’re looking for\b/i,
       /\bwho you are\b/i,
       /\byou should have\b/i,
       /\bskills and experience\b/i,
+      /\ble métier est fait pour vous si vous avez\b/i,
+      /\ble metier est fait pour vous si vous avez\b/i,
       /\best fait pour vous si vous avez\b/i,
     ],
   },
@@ -115,9 +120,10 @@ const SECTION_LABEL_PATTERNS: Array<{
     key: "preferredQualifications",
     patterns: [
       /\bpreferred qualifications?\b/i,
+      /\bpreferred experience\b/i,
+      /\bpreferred skills?\b/i,
       /\bnice to have\b/i,
       /\bbonus points\b/i,
-      /\bpreferred\b/i,
       /\byou'll thrive if you have\b/i,
       /\byou’ll thrive if you have\b/i,
       /\bvous tirez votre épingle du jeu si vous avez\b/i,
@@ -146,6 +152,33 @@ function normalizeWhitespace(value: string | null | undefined) {
   }
 
   const normalized = value.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStructuredText(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = decodeHtmlEntities(value)
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeHtmlInput(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.replace(/\u00a0/g, " ").replace(/\r\n?/g, "\n").trim();
 
   return normalized.length > 0 ? normalized : null;
 }
@@ -196,7 +229,7 @@ function escapeHtml(value: string) {
 }
 
 function sanitizeJobDescriptionHtml(value: string | null | undefined) {
-  const normalized = normalizeWhitespace(value);
+  const normalized = normalizeHtmlInput(value);
 
   if (!normalized) {
     return null;
@@ -268,7 +301,19 @@ function htmlToText(value: string | null | undefined) {
     return null;
   }
 
-  const text = normalizeWhitespace(load(`<div>${value}</div>`)("div").text());
+  const $ = load(`<section>${value}</section>`);
+
+  $("br").replaceWith("\n");
+  $("li").each((_, element) => {
+    const text = normalizeWhitespace($(element).text());
+
+    if (text) {
+      $(element).text(`• ${text}`);
+    }
+  });
+  $("h1, h2, h3, h4, h5, h6, p, li, blockquote").append("\n\n");
+
+  const text = normalizeStructuredText($("section").text());
 
   return text;
 }
@@ -282,10 +327,42 @@ function pushUnique(target: string[], value: string | null) {
 }
 
 function splitListItems(value: string) {
-  return value
-    .split(/\n{2,}|\s*•\s*|\s*[\u2022\u25CF]\s*|;\s+/)
-    .map((item) => normalizeWhitespace(item))
+  const normalized = normalizeStructuredText(value);
+
+  if (!normalized) {
+    return [];
+  }
+
+  const segmented = normalized
+    .split(/\n{2,}|(?:^|\n)\s*[•\u2022\u25CF]\s*|;\s+(?=[A-Z0-9(])/)
+    .map((item) => normalizeStructuredText(item))
     .filter((item): item is string => Boolean(item));
+
+  if (segmented.length > 1) {
+    return segmented;
+  }
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => normalizeWhitespace(line.replace(/^[•\u2022\u25CF]\s*/, "")))
+    .filter((line): line is string => Boolean(line));
+
+  if (lines.length > 1) {
+    return lines;
+  }
+
+  if (!normalized.includes("\n") && normalized.length > 220) {
+    const sentences = normalized
+      .split(/(?<=[.!?])\s+(?=[A-Z0-9(])/)
+      .map((item) => normalizeWhitespace(item))
+      .filter((item): item is string => Boolean(item));
+
+    if (sentences.length > 1) {
+      return sentences;
+    }
+  }
+
+  return segmented;
 }
 
 function resolveSectionKey(label: string) {
@@ -293,6 +370,155 @@ function resolveSectionKey(label: string) {
     SECTION_LABEL_PATTERNS.find(({ patterns }) => patterns.some((pattern) => pattern.test(label)))?.key ??
     null
   );
+}
+
+function ensureGlobalFlag(flags: string) {
+  return flags.includes("g") ? flags : `${flags}g`;
+}
+
+function insertInlineSectionBreaks(value: string) {
+  let normalized = normalizeStructuredText(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  SECTION_LABEL_PATTERNS.filter(({ key }) => key !== "summary").forEach(({ patterns }) => {
+    patterns.forEach((pattern) => {
+      const inlineHeadingPattern = new RegExp(
+        `([.!?])\\s+(${pattern.source}(?:\\s*[:\\-–—]))`,
+        ensureGlobalFlag(pattern.flags),
+      );
+
+      normalized = normalized.replace(inlineHeadingPattern, "$1\n\n$2");
+    });
+  });
+
+  return normalized;
+}
+
+function splitIntoBlocks(value: string) {
+  const normalized = insertInlineSectionBreaks(value);
+
+  if (!normalized) {
+    return [];
+  }
+
+  const blocks: string[] = [];
+  let currentLines: string[] = [];
+
+  function flushCurrentLines() {
+    const block = normalizeStructuredText(currentLines.join("\n"));
+
+    if (block) {
+      blocks.push(block);
+    }
+
+    currentLines = [];
+  }
+
+  normalized.split("\n").forEach((line) => {
+    const trimmedLine = line.trim();
+
+    if (!trimmedLine) {
+      flushCurrentLines();
+      return;
+    }
+
+    const matchedLead = matchSectionLead(trimmedLine);
+
+    if (matchedLead && matchedLead.body === null) {
+      flushCurrentLines();
+      blocks.push(trimmedLine);
+      return;
+    }
+
+    currentLines.push(trimmedLine);
+  });
+
+  flushCurrentLines();
+
+  return blocks;
+}
+
+function matchSectionLead(value: string) {
+  const normalized = normalizeStructuredText(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  for (const { key, patterns } of SECTION_LABEL_PATTERNS) {
+    for (const pattern of patterns) {
+      const headingOnlyPattern = new RegExp(`^(?:${pattern.source})$`, pattern.flags);
+      const separatedBodyPattern = new RegExp(
+        `^(?:${pattern.source})(?:\\s*[:\\-–—]\\s*|\\s*\\n+\\s*)([\\s\\S]+)$`,
+        pattern.flags,
+      );
+      const inlineBodyPattern =
+        key === "summary"
+          ? null
+          : new RegExp(`^(?:${pattern.source})\\s+([\\s\\S]+)$`, pattern.flags);
+
+      if (headingOnlyPattern.test(normalized)) {
+        return { body: null, key } as const;
+      }
+
+      const separatedBodyMatch = normalized.match(separatedBodyPattern);
+
+      if (separatedBodyMatch) {
+        return {
+          body: normalizeStructuredText(separatedBodyMatch[1]),
+          key,
+        } as const;
+      }
+
+      const inlineBodyMatch = inlineBodyPattern?.exec(normalized);
+
+      if (inlineBodyMatch) {
+        return {
+          body: normalizeStructuredText(inlineBodyMatch[1]),
+          key,
+        } as const;
+      }
+    }
+  }
+
+  return null;
+}
+
+function pushSectionContent(
+  target: SectionExtraction,
+  key: SectionKey,
+  value: string | null,
+) {
+  if (!value) {
+    return;
+  }
+
+  if (key === "summary") {
+    target.summary =
+      target.summary === null
+        ? normalizeWhitespace(value)
+        : normalizeWhitespace(`${target.summary} ${value}`);
+    return;
+  }
+
+  if (key === "salary") {
+    target.salaryText =
+      target.salaryText === null
+        ? value
+        : normalizeStructuredText(`${target.salaryText}\n${value}`);
+    return;
+  }
+
+  if (!isListSectionKey(key)) {
+    return;
+  }
+
+  splitListItems(value).forEach((item) => {
+    pushUnique(target[key], item);
+  });
 }
 
 function extractSectionsFromHtml(value: string | null) {
@@ -377,69 +603,36 @@ function extractSectionsFromText(value: string | null) {
     return emptySections;
   }
 
-  const normalized = value.replace(/\r\n/g, "\n");
-  const markers = SECTION_LABEL_PATTERNS.flatMap(({ key, patterns }) =>
-    patterns
-      .map((pattern) => {
-        const match = normalized.match(pattern);
+  const blocks = splitIntoBlocks(value);
 
-        if (!match || typeof match.index !== "number") {
-          return null;
-        }
-
-        return {
-          index: match.index,
-          key,
-          label: match[0],
-        };
-      })
-      .filter((entry): entry is { index: number; key: SectionKey; label: string } => Boolean(entry)),
-  )
-    .sort((left, right) => left.index - right.index)
-    .filter(
-      (entry, index, array) =>
-        array.findIndex((candidate) => candidate.key === entry.key) === index,
-    );
-
-  if (markers.length === 0) {
-    emptySections.summary = normalizeWhitespace(normalized);
+  if (blocks.length === 0) {
     return emptySections;
   }
 
-  emptySections.summary = normalizeWhitespace(normalized.slice(0, markers[0].index));
+  let activeSection: SectionKey | null = null;
 
-  markers.forEach((marker, index) => {
-    const nextIndex = markers[index + 1]?.index ?? normalized.length;
-    const sectionBody = normalizeWhitespace(
-      normalized
-        .slice(marker.index + marker.label.length, nextIndex)
-        .replace(/^[:\-\s]+/, ""),
-    );
+  blocks.forEach((block) => {
+    const matchedLead = matchSectionLead(block);
 
-    if (!sectionBody) {
+    if (matchedLead) {
+      activeSection = matchedLead.key;
+      pushSectionContent(emptySections, matchedLead.key, matchedLead.body);
       return;
     }
 
-    if (marker.key === "salary") {
-      emptySections.salaryText = sectionBody;
+    if (!activeSection) {
+      pushSectionContent(emptySections, "summary", block);
       return;
     }
 
-    if (marker.key === "summary") {
-      emptySections.summary = emptySections.summary ?? sectionBody;
-      return;
-    }
-
-    if (!isListSectionKey(marker.key)) {
-      return;
-    }
-
-    const listSection = marker.key;
-
-    splitListItems(sectionBody).forEach((item) => {
-      pushUnique(emptySections[listSection], item);
-    });
+    pushSectionContent(emptySections, activeSection, block);
   });
+
+  if (!emptySections.summary) {
+    emptySections.summary = normalizeWhitespace(
+      blocks.find((block) => resolveSectionKey(block) === null) ?? null,
+    );
+  }
 
   return emptySections;
 }
@@ -538,10 +731,11 @@ function normalizeDetailsFromDescription(args: {
   title?: string | null;
 }) {
   const sanitizedDescriptionHtml = sanitizeJobDescriptionHtml(args.descriptionHtml);
+  const htmlDescriptionText = htmlToText(sanitizedDescriptionHtml);
   const normalizedDescriptionText =
-    normalizeWhitespace(args.descriptionText) ?? htmlToText(sanitizedDescriptionHtml);
+    normalizeStructuredText(args.descriptionText) ?? htmlDescriptionText;
   const htmlSections = extractSectionsFromHtml(sanitizedDescriptionHtml);
-  const textSections = extractSectionsFromText(normalizedDescriptionText);
+  const textSections = extractSectionsFromText(htmlDescriptionText ?? normalizedDescriptionText);
   const summary = htmlSections.summary ?? textSections.summary ?? args.base.summary;
   const responsibilities =
     htmlSections.responsibilities.length > 0
