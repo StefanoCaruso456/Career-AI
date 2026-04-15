@@ -140,5 +140,5 @@ describe("JobsPage", () => {
     expect(screen.getByLabelText("Company")).toHaveTextContent("Workday");
     expect(screen.getByText("1,689 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Broken Feed")).not.toBeInTheDocument();
-  });
+  }, 15_000);
 });

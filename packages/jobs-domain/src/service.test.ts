@@ -31,6 +31,7 @@ describe("jobs feed service", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-04-14T12:00:00.000Z"));
     delete process.env.GREENHOUSE_BOARD;
     delete process.env.GREENHOUSE_BOARD_TOKENS;
     delete process.env.LEVER_SITE_NAMES;

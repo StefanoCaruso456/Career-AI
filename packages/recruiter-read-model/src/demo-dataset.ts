@@ -30,7 +30,7 @@ import { generateRecruiterTrustProfile } from "./service";
 import { getRecruiterReadModelStore } from "./store";
 
 const RECRUITER_DEMO_DATASET_VERSION = "recruiter-demo-2026-04-v1";
-const RECRUITER_DEMO_CANDIDATE_COUNT = 200;
+const DEFAULT_RECRUITER_DEMO_CANDIDATE_COUNT = 200;
 const RECRUITER_DEMO_SEED_BATCH_SIZE = 8;
 const DEMO_ACTOR_ID = "system:recruiter-demo-dataset";
 const DEMO_SHARE_BASE_URL = "https://careerai.demo";
@@ -563,6 +563,19 @@ export function resetRecruiterDemoDatasetState() {
 
 export function getRecruiterDemoDatasetSnapshot() {
   return getDatasetState().snapshot;
+}
+
+function getRecruiterDemoCandidateCount() {
+  const configuredValue = Number.parseInt(
+    process.env.RECRUITER_DEMO_CANDIDATE_COUNT ?? "",
+    10,
+  );
+
+  if (!Number.isFinite(configuredValue) || configuredValue <= 0) {
+    return DEFAULT_RECRUITER_DEMO_CANDIDATE_COUNT;
+  }
+
+  return configuredValue;
 }
 
 export async function ensureRecruiterDemoDatasetLoaded(): Promise<RecruiterDemoDatasetSnapshot> {
@@ -1540,7 +1553,8 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
 }
 
 async function loadRecruiterDemoDataset(): Promise<RecruiterDemoDatasetSnapshot> {
-  const blueprints = Array.from({ length: RECRUITER_DEMO_CANDIDATE_COUNT }, (_, index) =>
+  const candidateCount = getRecruiterDemoCandidateCount();
+  const blueprints = Array.from({ length: candidateCount }, (_, index) =>
     buildCandidateBlueprint(index),
   );
   const seededCandidates = new Array<RecruiterDemoSeededCandidate>(blueprints.length);

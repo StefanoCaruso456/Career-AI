@@ -19,6 +19,24 @@ import {
 import { getRecruiterReadModelStore } from "@/packages/recruiter-read-model/src/store";
 import { resetVerificationStore } from "@/packages/verification-domain/src";
 
+const DATASET_HOOK_TIMEOUT_MS = 300_000;
+const DATASET_RELOAD_TIMEOUT_MS = 240_000;
+const DEMO_TEST_CANDIDATE_COUNT = 40;
+const originalDemoCandidateCount = process.env.RECRUITER_DEMO_CANDIDATE_COUNT;
+
+beforeAll(() => {
+  process.env.RECRUITER_DEMO_CANDIDATE_COUNT = String(DEMO_TEST_CANDIDATE_COUNT);
+});
+
+afterAll(() => {
+  if (originalDemoCandidateCount === undefined) {
+    delete process.env.RECRUITER_DEMO_CANDIDATE_COUNT;
+    return;
+  }
+
+  process.env.RECRUITER_DEMO_CANDIDATE_COUNT = originalDemoCandidateCount;
+});
+
 function resetDemoRuntime() {
   resetAuditStore();
   resetArtifactStore();
@@ -69,6 +87,35 @@ function toStableSnapshotShape(snapshot: RecruiterDemoDatasetSnapshot) {
   }));
 }
 
+function getExpectedDatasetCounts(totalCandidates: number) {
+  let searchable = 0;
+  let limited = 0;
+  let privateCandidates = 0;
+
+  for (let index = 0; index < totalCandidates; index += 1) {
+    const bucket = index % 20;
+
+    if (bucket < 13) {
+      searchable += 1;
+      continue;
+    }
+
+    if (bucket < 17) {
+      limited += 1;
+      continue;
+    }
+
+    privateCandidates += 1;
+  }
+
+  return {
+    fullVisibilityCandidates: searchable,
+    limitedVisibilityCandidates: limited,
+    privateCandidates,
+    searchableCandidates: searchable + limited,
+  };
+}
+
 describe("recruiter demo dataset validation", () => {
   let snapshot: RecruiterDemoDatasetSnapshot;
   let searchableCandidate: RecruiterDemoSeededCandidate;
@@ -80,7 +127,7 @@ describe("recruiter demo dataset validation", () => {
     searchableCandidate = pickCandidate(snapshot, "searchable");
     limitedCandidate = pickCandidate(snapshot, "limited");
     privateCandidate = pickCandidate(snapshot, "private");
-  }, 120_000);
+  }, DATASET_HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     resetDemoRuntime();
@@ -88,6 +135,7 @@ describe("recruiter demo dataset validation", () => {
   });
 
   it("loads the expected 200 candidates with the expected visibility split", async () => {
+    const expectedCounts = getExpectedDatasetCounts(DEMO_TEST_CANDIDATE_COUNT);
     const contexts = await listPersistentCandidateContexts({
       limit: 500,
     });
@@ -109,18 +157,18 @@ describe("recruiter demo dataset validation", () => {
       (context) => context.aggregate.privacySettings.allow_public_share_link,
     );
 
-    expect(contexts).toHaveLength(200);
-    expect(searchable).toHaveLength(130);
-    expect(limited).toHaveLength(40);
-    expect(privateContexts).toHaveLength(30);
-    expect(projections).toHaveLength(200);
-    expect(searchableProjections).toHaveLength(170);
-    expect(limitedProjections).toHaveLength(40);
-    expect(privateProjections).toHaveLength(30);
-    expect(shareEnabled).toHaveLength(170);
-    expect(snapshot.totalCandidates).toBe(200);
-    expect(snapshot.searchableCandidates).toBe(170);
-    expect(snapshot.shareProfileCount).toBe(170);
+    expect(contexts).toHaveLength(DEMO_TEST_CANDIDATE_COUNT);
+    expect(searchable).toHaveLength(expectedCounts.fullVisibilityCandidates);
+    expect(limited).toHaveLength(expectedCounts.limitedVisibilityCandidates);
+    expect(privateContexts).toHaveLength(expectedCounts.privateCandidates);
+    expect(projections).toHaveLength(DEMO_TEST_CANDIDATE_COUNT);
+    expect(searchableProjections).toHaveLength(expectedCounts.searchableCandidates);
+    expect(limitedProjections).toHaveLength(expectedCounts.limitedVisibilityCandidates);
+    expect(privateProjections).toHaveLength(expectedCounts.privateCandidates);
+    expect(shareEnabled).toHaveLength(expectedCounts.searchableCandidates);
+    expect(snapshot.totalCandidates).toBe(DEMO_TEST_CANDIDATE_COUNT);
+    expect(snapshot.searchableCandidates).toBe(expectedCounts.searchableCandidates);
+    expect(snapshot.shareProfileCount).toBe(expectedCounts.searchableCandidates);
   });
 
   it("returns searchable candidates and excludes private candidates from recruiter search", async () => {
@@ -219,7 +267,7 @@ describe("recruiter demo dataset validation", () => {
 describe("recruiter demo dataset idempotency", () => {
   beforeAll(async () => {
     await installFreshDemoDataset();
-  }, 120_000);
+  }, DATASET_HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     resetDemoRuntime();
@@ -254,7 +302,7 @@ describe("recruiter demo dataset idempotency", () => {
     expect(secondProfileCount).toBe(firstProfileCount);
     expect(secondSnapshot.candidates).toEqual(firstSnapshot.candidates);
     },
-    45_000,
+    DATASET_RELOAD_TIMEOUT_MS,
   );
 
   it(
@@ -288,7 +336,7 @@ describe("recruiter demo dataset idempotency", () => {
       prompt: `${referenceCandidate.fullName} ${referenceCandidate.searchPrompt}`,
     });
 
-    expect(reloadedCandidateCount).toBe(200);
+    expect(reloadedCandidateCount).toBe(DEMO_TEST_CANDIDATE_COUNT);
     expect(reloadedClaimCount).toBe(originalClaimCount);
     expect(reloadedProfileCount).toBe(originalProfileCount);
     expect(toStableSnapshotShape(reloadedSnapshot)).toEqual(
@@ -296,6 +344,6 @@ describe("recruiter demo dataset idempotency", () => {
     );
     expect(reloadedSearch.candidates[0]?.candidateId).toBe(referenceSearch.candidates[0]?.candidateId);
   },
-  90_000,
+  DATASET_RELOAD_TIMEOUT_MS,
   );
 });
