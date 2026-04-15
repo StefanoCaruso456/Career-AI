@@ -162,7 +162,6 @@ export function EasyApplyProfileModal({
       >
         <div className={styles.modalHeader}>
           <div className={styles.modalHeaderCopy}>
-            <div className={styles.schemaBadge}>{config.label}</div>
             <h2 className={styles.modalTitle}>{copy.title}</h2>
             <p className={styles.modalSubtitle}>{copy.subtitle}</p>
             <p className={styles.modalSupport}>{copy.support}</p>
@@ -172,14 +171,17 @@ export function EasyApplyProfileModal({
             </p>
           </div>
 
-          <button
-            aria-label="Close easy apply profile modal"
-            className={styles.closeButton}
-            onClick={onClose}
-            type="button"
-          >
-            <X aria-hidden="true" size={18} strokeWidth={2} />
-          </button>
+          <div className={styles.modalHeaderActions}>
+            <div className={styles.schemaBadge}>{config.label}</div>
+            <button
+              aria-label="Close easy apply profile modal"
+              className={styles.closeButton}
+              onClick={onClose}
+              type="button"
+            >
+              <X aria-hidden="true" size={18} strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
         <ApplicationProfileWizard

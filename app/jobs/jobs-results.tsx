@@ -1198,6 +1198,7 @@ export function JobsResults({
               <ProfileCompletionGuard
                 applyUrl={job.applyUrl}
                 buttonLabel="Apply"
+                buttonVariant="jobs-card"
                 className={styles.jobLink}
                 companyName={job.companyName}
                 jobTitle={job.title}
