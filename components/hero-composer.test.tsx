@@ -694,7 +694,7 @@ describe("HeroComposer", () => {
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(false);
   });
 
-  it("refreshes latest-jobs starter results through the dedicated latest jobs endpoint", async () => {
+  it("does not show a redundant rail refresh control after latest-jobs results open", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
     const conversation = createConversation("conversation_jobs", "project_jobs", [
       createMessage("message_user_jobs", "user", "Find new jobs for me."),
@@ -705,7 +705,6 @@ describe("HeroComposer", () => {
       ),
     ]);
     const initialJobs = [createJobPosting("job_1", "Figma", "Business Recruiter")];
-    const refreshedJobs = [createJobPosting("job_2", "OpenAI", "Product Designer")];
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = getRequestUrl(input);
@@ -726,10 +725,6 @@ describe("HeroComposer", () => {
         });
       }
 
-      if (url === "/api/v1/jobs/latest") {
-        return createJsonResponse(createJobsPanelResponse("Find new jobs for me.", refreshedJobs));
-      }
-
       throw new Error(`Unexpected fetch request: ${url}`);
     });
 
@@ -739,11 +734,11 @@ describe("HeroComposer", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Find NEW Jobs" }));
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Find NEW Jobs" })[0]!);
-
-    expect(await screen.findByText("Product Designer")).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Find NEW Jobs" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/jobs browser/i)).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(
+      false,
+    );
   });
 
   it("shows the employer candidate rail instead of the jobs rail for sourcing prompts", async () => {
