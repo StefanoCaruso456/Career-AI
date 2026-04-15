@@ -197,7 +197,7 @@ function sanitizeJobDescriptionHtml(value: string | null | undefined) {
     allowedTags: [...ALLOWED_DESCRIPTION_TAGS],
     nonTextTags: ["script", "style", "textarea", "noscript"],
     transformTags: {
-      a: (_tagName, attribs) => {
+      a: (_tagName, attribs): sanitizeHtml.Tag => {
         const href = attribs.href?.trim();
 
         if (!href || /^javascript:/i.test(href)) {
