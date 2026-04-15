@@ -31,6 +31,40 @@ function toTextValue(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
+function hasAnyTextValue(value: unknown) {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).some(
+      (item) => typeof item === "string" && item.trim().length > 0,
+    )
+  );
+}
+
+function formatSavedEntryCount(count: number) {
+  if (count <= 0) {
+    return "No saved entries yet";
+  }
+
+  return `${count} saved ${count === 1 ? "entry" : "entries"}`;
+}
+
+function summarizeRepeatableEntry(
+  entry: Record<string, unknown>,
+  field: FieldDefinition,
+) {
+  const repeatableFields = field.repeatable?.fields ?? [];
+
+  return repeatableFields
+    .map((repeatableField) => {
+      const value = entry[repeatableField.key];
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(" • ");
+}
+
 function RepeatableGroupField({
   errors,
   field,
@@ -48,11 +82,22 @@ function RepeatableGroupField({
     <div className={styles.repeatableStack}>
       {items.map((item, entryIndex) => {
         const entry = typeof item === "object" && item ? item : repeatableConfig.createEmptyItem();
+        const entrySummary =
+          typeof entry === "object" && entry
+            ? summarizeRepeatableEntry(entry as Record<string, unknown>, field)
+            : "";
 
         return (
           <article className={styles.repeatableCard} key={`${field.key}-${entryIndex}`}>
             <div className={styles.repeatableCardHeader}>
-              <span>{repeatableConfig.entryLabel} {entryIndex + 1}</span>
+              <div className={styles.repeatableCardHeaderCopy}>
+                <span className={styles.repeatableCardTitle}>
+                  {repeatableConfig.entryLabel} {entryIndex + 1}
+                </span>
+                <span className={styles.repeatableCardSummary}>
+                  {entrySummary || "Add the details we should reuse in future applications."}
+                </span>
+              </div>
               <button
                 className={styles.removeButton}
                 disabled={items.length <= (repeatableConfig.minItems ?? 1)}
@@ -77,7 +122,10 @@ function RepeatableGroupField({
 
                 if (repeatableField.type === "textarea") {
                   return (
-                    <label className={styles.field} key={errorKey}>
+                    <label
+                      className={`${styles.field} ${styles.repeatableFieldWide}`}
+                      key={errorKey}
+                    >
                       <span className={styles.fieldLabel}>{repeatableField.label}</span>
                       <textarea
                         className={styles.textarea}
@@ -207,11 +255,19 @@ export function ProfileFieldRenderer({
   }
 
   if (field.type === "repeatable") {
+    const items = Array.isArray(value) ? value : [];
+    const completedEntries = items.filter((item) => hasAnyTextValue(item)).length;
+
     return (
       <div className={styles.field} data-profile-field={field.key} data-invalid={error ? "true" : undefined}>
-        <div className={styles.fieldHeader}>
-          <span className={styles.fieldLabel}>{field.label}</span>
-          {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
+        <div className={styles.fieldHeaderRow}>
+          <div className={styles.fieldHeader}>
+            <span className={styles.fieldLabel}>{field.label}</span>
+            {field.helperText ? <span className={styles.fieldHint}>{field.helperText}</span> : null}
+          </div>
+          <span className={styles.fieldMetaBadge}>
+            {formatSavedEntryCount(completedEntries)}
+          </span>
         </div>
         <RepeatableGroupField
           errors={errors}

@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { getSchemaFamilyConfig } from "@/lib/application-profiles/config";
 import { mergeProfileWithDefaults } from "@/lib/application-profiles/defaults";
@@ -90,6 +90,8 @@ export function EasyApplyProfileModal({
   );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isUploadingResume, setIsUploadingResume] = useState(false);
+  const titleId = useId();
+  const descriptionId = useId();
   const copy = getModalCopy(mode);
   const config = getSchemaFamilyConfig(schemaFamily);
 
@@ -123,6 +125,24 @@ export function EasyApplyProfileModal({
 
     writeProfileDraft(userKey, schemaFamily, profileDraft);
   }, [isOpen, profileDraft, schemaFamily, userKey]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   async function handleSubmit(profile: AnyApplicationProfile) {
     setSaveError(null);
@@ -171,6 +191,8 @@ export function EasyApplyProfileModal({
     <div className={styles.overlay} onClick={onClose} role="presentation">
       <div
         aria-modal="true"
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
         className={styles.modal}
         onClick={(event) => {
           event.stopPropagation();
@@ -179,13 +201,34 @@ export function EasyApplyProfileModal({
       >
         <div className={styles.modalHeader}>
           <div className={styles.modalHeaderCopy}>
-            <h2 className={styles.modalTitle}>{copy.title}</h2>
-            <p className={styles.modalSubtitle}>{copy.subtitle}</p>
+            <span className={styles.modalEyebrow}>Reusable application profile</span>
+            <h2 className={styles.modalTitle} id={titleId}>
+              {copy.title}
+            </h2>
+            <p className={styles.modalSubtitle} id={descriptionId}>
+              {copy.subtitle}
+            </p>
             <p className={styles.modalSupport}>{copy.support}</p>
+
+            <div className={styles.modalContextGrid}>
+              <div className={styles.modalContextCard}>
+                <span className={styles.modalContextLabel}>Schema</span>
+                <strong className={styles.modalContextValue}>{config.label}</strong>
+              </div>
+              <div className={styles.modalContextCard}>
+                <span className={styles.modalContextLabel}>Company</span>
+                <strong className={styles.modalContextValue}>{companyName}</strong>
+              </div>
+              <div
+                className={`${styles.modalContextCard} ${styles.modalContextCardWide}`}
+              >
+                <span className={styles.modalContextLabel}>Profile prepared for</span>
+                <strong className={styles.modalContextValue}>{jobTitle}</strong>
+              </div>
+            </div>
           </div>
 
           <div className={styles.modalHeaderActions}>
-            <div className={styles.schemaBadge}>{config.label}</div>
             <button
               aria-label="Close easy apply profile modal"
               className={styles.closeButton}

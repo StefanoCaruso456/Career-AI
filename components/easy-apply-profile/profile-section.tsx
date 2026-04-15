@@ -26,6 +26,20 @@ type ProfileSectionProps = {
   section: SectionDefinition;
 };
 
+function getSectionLayout(fields: FieldDefinition[]) {
+  if (fields.length <= 1) {
+    return "single";
+  }
+
+  const repeatableCount = fields.filter((field) => field.type === "repeatable").length;
+
+  if (fields.length === 2 && repeatableCount === 1) {
+    return "featureSplit";
+  }
+
+  return "balanced";
+}
+
 export function ProfileSection({
   errors,
   extraFieldDefinitions = [],
@@ -54,6 +68,15 @@ export function ProfileSection({
       );
     });
 
+  const sectionLayout = getSectionLayout(fields);
+  const sectionGridClassName = [
+    styles.sectionGrid,
+    sectionLayout === "featureSplit" ? styles.sectionGridFeatureSplit : "",
+    sectionLayout === "single" ? styles.sectionGridSingle : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <section className={styles.sectionCard}>
       <div className={styles.sectionHeader}>
@@ -66,18 +89,39 @@ export function ProfileSection({
         ) : null}
       </div>
 
-      <div className={styles.sectionGrid}>
-        {fields.map((field) => (
-          <ProfileFieldRenderer
-            errors={errors}
-            field={field}
-            isUploadingResume={isUploadingResume}
-            key={field.key}
-            onChange={onChange}
-            onUploadResume={onUploadResume}
-            value={(profile as Record<string, unknown>)[field.key]}
-          />
-        ))}
+      <div className={sectionGridClassName}>
+        {fields.map((field) => {
+          const fieldClassName = [
+            styles.sectionFieldCell,
+            sectionLayout === "featureSplit" && field.type === "repeatable"
+              ? styles.sectionFieldCellFeature
+              : "",
+            sectionLayout === "featureSplit" && field.type !== "repeatable"
+              ? styles.sectionFieldCellSidebar
+              : "",
+            sectionLayout === "single" ? styles.sectionFieldCellSingle : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          return (
+            <div
+              className={fieldClassName}
+              data-field-key={field.key}
+              data-field-type={field.type}
+              key={field.key}
+            >
+              <ProfileFieldRenderer
+                errors={errors}
+                field={field}
+                isUploadingResume={isUploadingResume}
+                onChange={onChange}
+                onUploadResume={onUploadResume}
+                value={(profile as Record<string, unknown>)[field.key]}
+              />
+            </div>
+          );
+        })}
       </div>
     </section>
   );
