@@ -377,11 +377,13 @@ function ensureGlobalFlag(flags: string) {
 }
 
 function insertInlineSectionBreaks(value: string) {
-  let normalized = normalizeStructuredText(value);
+  const initialNormalized = normalizeStructuredText(value);
 
-  if (!normalized) {
+  if (!initialNormalized) {
     return null;
   }
+
+  let normalized: string = initialNormalized;
 
   SECTION_LABEL_PATTERNS.filter(({ key }) => key !== "summary").forEach(({ patterns }) => {
     patterns.forEach((pattern) => {
