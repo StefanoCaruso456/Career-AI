@@ -6,6 +6,15 @@ import {
   traceAgentHandoff,
 } from "@/lib/agent-handoff-tracing";
 import {
+  getA2AProtocolParticipantForAgent,
+  resolveA2AProtocolParticipant,
+  type A2AProtocolParticipant,
+} from "@/lib/a2a/participants";
+import {
+  emitA2AProtocolEvent,
+  type A2AProtocolContext,
+} from "@/lib/a2a/protocol-runtime";
+import {
   applyTraceResponseHeaders,
   getRequestTraceContext,
   traceSpan,
@@ -31,13 +40,16 @@ import {
 import {
   ApiError,
   externalAgentCardResponseSchema,
+  externalAgentEnvelopeAuthSchema,
   externalAgentDiscoveryResponseSchema,
   externalAgentErrorResponseSchema,
+  externalAgentProtocolContextSchema,
   externalAgentRequestMetadataSchema,
   externalAgentResponseMetadataSchema,
   externalAgentResultSchema,
   externalAgentSuccessResponseSchema,
   externalCandidateAgentRequestSchema,
+  internalAgentOperationSchema,
   externalRecruiterAgentRequestSchema,
   externalVerifierAgentRequestSchema,
   type ExternalAgentError,
@@ -47,13 +59,32 @@ import {
   type InternalAgentStopReason,
 } from "@/packages/contracts/src";
 
-type ExternalAgentParsedRequest<TPayload> = {
+export type ExternalAgentParsedRequest<TPayload> = {
   agentType: InternalAgentRole;
+  auth: z.infer<typeof externalAgentEnvelopeAuthSchema>;
+  context: z.infer<typeof externalAgentProtocolContextSchema>;
+  conversationId: string | null;
+  deadline: string | null;
+  idempotencyKey: string | null;
+  messageId: string;
   metadata: z.infer<typeof externalAgentRequestMetadataSchema>;
-  operation: "respond";
+  operation: z.infer<typeof internalAgentOperationSchema>;
+  parentRunId: string | null;
   payload: TPayload;
+  protocolVersion: ExternalAgentProtocolVersion;
+  receiverAgentId: string;
+  replyTo: string | null;
   requestId: string;
+  senderAgentId: string;
+  sentAt: string;
+  taskType: z.infer<typeof internalAgentOperationSchema>;
+  threadId: string | null;
+  traceId: string;
   version: ExternalAgentProtocolVersion;
+};
+
+export type ExternalAgentOperationDefinition = Omit<ExternalAgentRouteDefinition, "operation"> & {
+  operation: z.infer<typeof internalAgentOperationSchema>;
 };
 
 type ExternalAgentRouteContext = {
@@ -69,6 +100,11 @@ type ExternalDiscoveryContext = {
   caller: ExternalAgentCaller;
   correlationId: string;
   requestId: string;
+};
+
+type ExternalAgentProtocolResolution = {
+  receiverParticipant: A2AProtocolParticipant;
+  senderParticipant: A2AProtocolParticipant;
 };
 
 function getBaseUrl(request: Request) {
@@ -193,6 +229,183 @@ function buildExternalAgentAuditMetadata(
   };
 }
 
+export function withExternalRequestedOperation(
+  definition: ExternalAgentRouteDefinition,
+  operation: InternalAgentOperation,
+): ExternalAgentOperationDefinition {
+  return {
+    ...definition,
+    operation,
+  };
+}
+
+export function assertExternalA2AEnvelopeIdentity(args: {
+  caller: ExternalAgentCaller;
+  correlationId: string;
+  definition: Pick<ExternalAgentOperationDefinition, "agentType" | "endpointPath" | "operation">;
+  parsedRequest: Pick<
+    ExternalAgentParsedRequest<unknown>,
+    "auth" | "receiverAgentId" | "requestId" | "senderAgentId"
+  >;
+}): ExternalAgentProtocolResolution {
+  const senderParticipant = resolveA2AProtocolParticipant(args.parsedRequest.senderAgentId);
+  const receiverParticipant = getA2AProtocolParticipantForAgent(args.definition.agentType);
+
+  if (!senderParticipant) {
+    throw new ApiError({
+      errorCode: "FORBIDDEN",
+      status: 403,
+      message: "The senderAgentId is not registered for A2A dispatch.",
+      details: {
+        senderAgentId: args.parsedRequest.senderAgentId,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  if (args.parsedRequest.receiverAgentId !== receiverParticipant.agentId) {
+    throw new ApiError({
+      errorCode: "FORBIDDEN",
+      status: 403,
+      message: "The receiverAgentId does not match the target agent route.",
+      details: {
+        expectedReceiverAgentId: receiverParticipant.agentId,
+        receiverAgentId: args.parsedRequest.receiverAgentId,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  if (
+    args.parsedRequest.auth?.authenticatedSenderId &&
+    args.parsedRequest.auth.authenticatedSenderId !== args.parsedRequest.senderAgentId
+  ) {
+    throw new ApiError({
+      errorCode: "FORBIDDEN",
+      status: 403,
+      message: "The authenticated sender identity does not match senderAgentId.",
+      details: {
+        authenticatedSenderId: args.parsedRequest.auth.authenticatedSenderId,
+        senderAgentId: args.parsedRequest.senderAgentId,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  if (
+    args.parsedRequest.auth?.serviceName &&
+    args.parsedRequest.auth.serviceName !== args.caller.identity.serviceName
+  ) {
+    throw new ApiError({
+      errorCode: "FORBIDDEN",
+      status: 403,
+      message: "The protocol auth metadata does not match the authenticated calling service.",
+      details: {
+        authenticatedServiceName: args.caller.identity.serviceName,
+        protocolServiceName: args.parsedRequest.auth.serviceName,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  if (senderParticipant.authSubject !== args.caller.identity.id) {
+    throw new ApiError({
+      errorCode: "FORBIDDEN",
+      status: 403,
+      message: "The senderAgentId is not authorized for the authenticated caller.",
+      details: {
+        authenticatedSubject: args.caller.identity.id,
+        senderAgentId: args.parsedRequest.senderAgentId,
+      },
+      correlationId: args.correlationId,
+    });
+  }
+
+  return {
+    receiverParticipant,
+    senderParticipant,
+  };
+}
+
+export function buildExternalA2AProtocolContext(args: {
+  completedAt?: string | null;
+  definition: Pick<ExternalAgentOperationDefinition, "endpointPath" | "operation">;
+  handoffId?: string | null;
+  handoffMetadata?: Record<string, unknown>;
+  handoffStatus?: A2AProtocolContext["status"] | null;
+  parsedRequest: ExternalAgentParsedRequest<unknown>;
+  runId: string;
+  status: A2AProtocolContext["status"];
+}) {
+  return {
+    authJson: args.parsedRequest.auth ?? {},
+    completedAt: args.completedAt ?? null,
+    contextJson: args.parsedRequest.context ?? {},
+    conversationId: args.parsedRequest.conversationId,
+    deadlineAt: args.parsedRequest.deadline,
+    handoffId: args.handoffId ?? null,
+    handoffMetadata: args.handoffMetadata ?? {},
+    handoffStatus: args.handoffStatus ?? null,
+    handoffType: args.handoffId ? "external_a2a_dispatch" : null,
+    idempotencyKey: args.parsedRequest.idempotencyKey,
+    messageId: args.parsedRequest.messageId,
+    operation: args.definition.operation,
+    parentRunId: args.parsedRequest.parentRunId,
+    payloadJson:
+      args.parsedRequest.payload && typeof args.parsedRequest.payload === "object"
+        ? (args.parsedRequest.payload as Record<string, unknown>)
+        : {},
+    protocolVersion: args.parsedRequest.protocolVersion,
+    receiverAgentId: args.parsedRequest.receiverAgentId,
+    replyTo: args.parsedRequest.replyTo,
+    requestId: args.parsedRequest.requestId,
+    runId: args.runId,
+    senderAgentId: args.parsedRequest.senderAgentId,
+    sentAt: args.parsedRequest.sentAt,
+    sourceEndpoint:
+      args.parsedRequest.context.sourceEndpoint ?? args.parsedRequest.replyTo ?? null,
+    status: args.status,
+    targetEndpoint: args.definition.endpointPath,
+    taskType: args.parsedRequest.taskType,
+    threadId: args.parsedRequest.threadId,
+    traceId: args.parsedRequest.traceId,
+  } satisfies A2AProtocolContext;
+}
+
+export async function emitExternalA2AProtocolEvent(args: {
+  completedAt?: string | null;
+  definition: Pick<ExternalAgentOperationDefinition, "endpointPath" | "operation">;
+  eventName: string;
+  handoffId?: string | null;
+  handoffMetadata?: Record<string, unknown>;
+  handoffStatus?: A2AProtocolContext["status"] | null;
+  input?: unknown;
+  output?: unknown;
+  parsedRequest: ExternalAgentParsedRequest<unknown>;
+  runId: string;
+  spanName: string;
+  status: A2AProtocolContext["status"];
+  tags?: string[];
+}) {
+  return emitA2AProtocolEvent({
+    eventName: args.eventName,
+    input: args.input,
+    output: args.output,
+    protocolContext: buildExternalA2AProtocolContext({
+      completedAt: args.completedAt,
+      definition: args.definition,
+      handoffId: args.handoffId,
+      handoffMetadata: args.handoffMetadata,
+      handoffStatus: args.handoffStatus,
+      parsedRequest: args.parsedRequest,
+      runId: args.runId,
+      status: args.status,
+    }),
+    spanName: args.spanName,
+    tags: ["external_a2a", ...(args.tags ?? [])],
+  });
+}
+
 function applyExternalA2AHeaders(args: {
   response: Response;
   agentType?: InternalAgentRole | null;
@@ -262,10 +475,25 @@ function parseExternalAgentEnvelope<TPayload>(args: {
 
   return {
     agentType: envelope.agentType,
+    auth: envelope.auth,
+    context: envelope.context,
+    conversationId: envelope.conversationId,
+    deadline: envelope.deadline,
+    idempotencyKey: envelope.idempotencyKey,
+    messageId: envelope.messageId,
     metadata: envelope.metadata,
     operation: envelope.operation,
+    parentRunId: envelope.parentRunId,
     payload: envelope.payload as TPayload,
+    protocolVersion: envelope.protocolVersion,
+    receiverAgentId: envelope.receiverAgentId,
+    replyTo: envelope.replyTo,
     requestId: envelope.requestId ?? args.fallbackRequestId,
+    senderAgentId: envelope.senderAgentId,
+    sentAt: envelope.sentAt,
+    taskType: envelope.taskType,
+    threadId: envelope.threadId,
+    traceId: envelope.traceId,
     version: envelope.version,
   } satisfies ExternalAgentParsedRequest<TPayload>;
 }
@@ -392,46 +620,6 @@ export async function resolveExternalAgentRouteContext(
     userId: null,
   });
 
-  emitAgentHandoffEvent({
-    event: "start",
-    metadata: {
-      a2aProtocolVersion: "a2a.v1",
-      a2aRequestId: fallbackRequestId,
-      authSubject: caller.identity.id,
-      handoffReason: "external_a2a_request",
-      handoffType: "external_a2a_dispatch",
-      operation: definition.operation,
-      parentRunId: runContext.runId,
-      targetAgentType: definition.agentType,
-      targetEndpoint: definition.endpointPath,
-      taskStatus: "started",
-    },
-    output: {
-      request_id: fallbackRequestId,
-    },
-    tags: ["external_a2a"],
-  });
-
-  emitAgentHandoffEvent({
-    event: "authz",
-    metadata: {
-      a2aProtocolVersion: "a2a.v1",
-      a2aRequestId: fallbackRequestId,
-      authSubject: caller.identity.id,
-      handoffReason: "external_caller_authorized",
-      handoffType: "external_a2a_dispatch",
-      operation: definition.operation,
-      parentRunId: runContext.runId,
-      permissionDecision: "allowed",
-      targetAgentType: definition.agentType,
-      targetEndpoint: definition.endpointPath,
-    },
-    output: {
-      request_id: fallbackRequestId,
-    },
-    tags: ["external_a2a"],
-  });
-
   return {
     caller,
     correlationId,
@@ -440,6 +628,54 @@ export async function resolveExternalAgentRouteContext(
     runContext,
     startedAt: Date.now(),
   } satisfies ExternalAgentRouteContext;
+}
+
+export function emitExternalAgentRouteAcceptedEvents(args: {
+  caller: ExternalAgentCaller;
+  definition: Pick<ExternalAgentOperationDefinition, "agentType" | "endpointPath" | "operation">;
+  requestId: string;
+  runId: string;
+  version: ExternalAgentProtocolVersion;
+}) {
+  emitAgentHandoffEvent({
+    event: "start",
+    metadata: {
+      a2aProtocolVersion: args.version,
+      a2aRequestId: args.requestId,
+      authSubject: args.caller.identity.id,
+      handoffReason: "external_a2a_request",
+      handoffType: "external_a2a_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.runId,
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpointPath,
+      taskStatus: "started",
+    },
+    output: {
+      request_id: args.requestId,
+    },
+    tags: ["external_a2a"],
+  });
+
+  emitAgentHandoffEvent({
+    event: "authz",
+    metadata: {
+      a2aProtocolVersion: args.version,
+      a2aRequestId: args.requestId,
+      authSubject: args.caller.identity.id,
+      handoffReason: "external_caller_authorized",
+      handoffType: "external_a2a_dispatch",
+      operation: args.definition.operation,
+      parentRunId: args.runId,
+      permissionDecision: "allowed",
+      targetAgentType: args.definition.agentType,
+      targetEndpoint: args.definition.endpointPath,
+    },
+    output: {
+      request_id: args.requestId,
+    },
+    tags: ["external_a2a"],
+  });
 }
 
 export function resolveExternalDiscoveryContext(
@@ -499,7 +735,7 @@ export async function parseExternalAgentRequest<TPayload>(args: {
 export function reserveExternalAgentQuota(args: {
   caller: ExternalAgentCaller;
   correlationId: string;
-  definition: ExternalAgentRouteDefinition;
+  definition: ExternalAgentOperationDefinition;
   requestId: string;
   runId: string;
 }) {
@@ -537,7 +773,7 @@ export function reserveExternalDiscoveryQuota(args: {
 export function logExternalAgentRequestReceived(args: {
   caller: ExternalAgentCaller;
   correlationId: string;
-  definition: ExternalAgentRouteDefinition;
+  definition: ExternalAgentOperationDefinition;
   requestId: string;
   runId: string;
   version: ExternalAgentProtocolVersion;
@@ -589,10 +825,10 @@ export function logExternalDiscoveryReceived(args: {
   });
 }
 
-export async function traceExternalAgentInvocation<TResult extends { stopReason?: string }>(args: {
+export async function traceExternalAgentInvocation<TResult>(args: {
   childRunId: string;
   caller: ExternalAgentCaller;
-  definition: ExternalAgentRouteDefinition;
+  definition: ExternalAgentOperationDefinition;
   parentRunId: string;
   requestId: string;
   version: ExternalAgentProtocolVersion;
@@ -651,7 +887,10 @@ export async function traceExternalAgentInvocation<TResult extends { stopReason?
     }),
     output: (value: TResult) => ({
       request_id: args.requestId,
-      stop_reason: value.stopReason ?? null,
+      stop_reason:
+        value && typeof value === "object" && "stopReason" in (value as Record<string, unknown>)
+          ? ((value as { stopReason?: string | null }).stopReason ?? null)
+          : null,
     }),
     tags: ["external_a2a"],
     type: "task",
@@ -675,7 +914,10 @@ export async function traceExternalAgentInvocation<TResult extends { stopReason?
     },
     output: {
       request_id: args.requestId,
-      stop_reason: result.stopReason ?? null,
+      stop_reason:
+        result && typeof result === "object" && "stopReason" in (result as Record<string, unknown>)
+          ? ((result as { stopReason?: string | null }).stopReason ?? null)
+          : null,
     },
     tags: ["external_a2a"],
   });
@@ -686,26 +928,40 @@ export async function traceExternalAgentInvocation<TResult extends { stopReason?
 export function createExternalAgentResponse(args: {
   caller: ExternalAgentCaller;
   correlationId: string;
-  definition: ExternalAgentRouteDefinition;
+  definition: ExternalAgentOperationDefinition;
   durationMs: number;
-  parentRunId: string;
+  artifacts?: unknown[];
+  completedAt?: string;
+  confidence?: number | null;
+  errors?: ExternalAgentError[];
+  nextActions?: unknown[];
   presentationSummary?: unknown;
   quota: InternalAgentQuotaMetadata | null;
+  result?: unknown;
   requestId: string;
+  receiverAgentId: string;
   runId: string;
-  stepsUsed: number;
-  stopReason: InternalAgentStopReason;
-  toolCallsUsed: number;
-  reply: string;
+  senderAgentId: string;
+  messageId: string;
+  status?: "success";
+  taskStatus?: A2AProtocolContext["status"];
+  traceId: string;
+  stepsUsed?: number;
+  stopReason?: InternalAgentStopReason;
+  toolCallsUsed?: number;
+  reply?: string;
 }) {
-  const result = externalAgentResultSchema.parse({
-    presentationSummary: args.presentationSummary ?? null,
-    reply: args.reply,
-    runId: args.runId,
-    stepsUsed: args.stepsUsed,
-    stopReason: args.stopReason,
-    toolCallsUsed: args.toolCallsUsed,
-  });
+  const completedAt = args.completedAt ?? new Date().toISOString();
+  const result =
+    args.result ??
+    externalAgentResultSchema.parse({
+      presentationSummary: args.presentationSummary ?? null,
+      reply: args.reply ?? "",
+      runId: args.runId,
+      stepsUsed: args.stepsUsed ?? 0,
+      stopReason: args.stopReason ?? "completed",
+      toolCallsUsed: args.toolCallsUsed ?? 0,
+    });
   const metadata = buildMetadata({
     callerServiceName: args.caller.identity.serviceName,
     correlationId: args.correlationId,
@@ -732,7 +988,7 @@ export function createExternalAgentResponse(args: {
         childRunId: args.runId,
         definition: args.definition,
         handoffReason: "external_a2a_request",
-        parentRunId: args.parentRunId,
+        parentRunId: args.runId,
         permissionDecision: "allowed",
         protocolVersion: "a2a.v1",
         requestId: args.requestId,
@@ -750,13 +1006,25 @@ export function createExternalAgentResponse(args: {
     successResponse(
       externalAgentSuccessResponseSchema.parse({
         agentType: args.definition.agentType,
+        artifacts: args.artifacts ?? [],
+        completedAt,
+        confidence: args.confidence ?? null,
         error: null,
+        errors: args.errors ?? [],
+        messageId: args.messageId,
         metadata,
+        nextActions: args.nextActions ?? [],
         ok: true,
         operation: args.definition.operation,
+        protocolVersion: "a2a.v1",
+        receiverAgentId: args.receiverAgentId,
         requestId: args.requestId,
         result,
-        taskStatus: "completed",
+        runId: args.runId,
+        senderAgentId: args.senderAgentId,
+        status: args.status ?? "success",
+        taskStatus: args.taskStatus ?? "completed",
+        traceId: args.traceId,
         version: "a2a.v1",
       }),
       args.correlationId,
@@ -774,10 +1042,11 @@ export function createExternalAgentErrorResponse(args: {
   childRunId?: string | null;
   caller?: ExternalAgentCaller | null;
   correlationId: string;
-  definition: ExternalAgentRouteDefinition;
+  definition: ExternalAgentOperationDefinition;
   durationMs: number;
   error: unknown;
-  parentRunId?: string | null;
+  messageId?: string | null;
+  parsedRequest?: ExternalAgentParsedRequest<unknown> | null;
   quota?: InternalAgentQuotaMetadata | null;
   requestId: string;
   runId?: string | null;
@@ -806,6 +1075,15 @@ export function createExternalAgentErrorResponse(args: {
     endpoint: args.definition.endpointPath,
     quota: args.quota ?? derivedQuota,
   });
+  const senderAgentId =
+    getA2AProtocolParticipantForAgent(args.definition.agentType).agentId;
+  const receiverAgentId =
+    args.parsedRequest?.senderAgentId ??
+    resolveA2AProtocolParticipant("careerai.gateway.employer_search")?.agentId ??
+    "careerai.gateway.employer_search";
+  const traceId = args.parsedRequest?.traceId ?? getRequestTraceContext()?.traceId ?? args.requestId;
+  const messageId = args.parsedRequest?.messageId ?? args.messageId ?? args.requestId;
+  const completedAt = new Date().toISOString();
 
   if (args.caller) {
     logExternalA2AAuditEvent({
@@ -825,7 +1103,7 @@ export function createExternalAgentErrorResponse(args: {
           childRunId: args.childRunId ?? null,
           definition: args.definition,
           handoffReason: apiError.errorCode.toLowerCase(),
-          parentRunId: args.parentRunId ?? null,
+          parentRunId: args.parsedRequest?.parentRunId ?? null,
           permissionDecision:
             apiError.status === 401 || apiError.status === 403 || apiError.status === 429
               ? "denied"
@@ -847,13 +1125,24 @@ export function createExternalAgentErrorResponse(args: {
     NextResponse.json(
       externalAgentErrorResponseSchema.parse({
         agentType: args.definition.agentType,
+        artifacts: [],
+        completedAt,
         error: normalizedError,
+        errors: [normalizedError],
+        messageId,
         metadata,
+        nextActions: [],
         ok: false,
         operation: args.definition.operation,
+        protocolVersion: "a2a.v1",
+        receiverAgentId,
         requestId: args.requestId,
         result: null,
+        runId: args.childRunId ?? args.runId ?? args.requestId,
+        senderAgentId,
+        status: "error",
         taskStatus: "failed",
+        traceId,
         version: "a2a.v1",
       }),
       {
@@ -907,6 +1196,7 @@ export function createExternalDiscoveryListResponse(args: {
           correlationId: args.correlationId,
           requestId: args.requestId,
         },
+        protocolVersion: "a2a.v1",
         version: "a2a.v1",
       }),
       args.correlationId,
@@ -952,6 +1242,7 @@ export function createExternalAgentCardResponse(args: {
           correlationId: args.correlationId,
           requestId: args.requestId,
         },
+        protocolVersion: "a2a.v1",
         version: "a2a.v1",
       }),
       args.correlationId,

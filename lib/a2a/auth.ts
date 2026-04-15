@@ -116,6 +116,24 @@ function getExternalAgentCredentials() {
     .filter((entry): entry is ExternalAgentCredential => Boolean(entry));
 }
 
+export function resolveExternalAgentBearerTokenForService(args: {
+  serviceActorId?: string | null;
+  serviceName: string;
+}) {
+  const normalizedServiceActorId = normalizeConfiguredValue(args.serviceActorId);
+  const normalizedServiceName = normalizeConfiguredValue(args.serviceName);
+
+  const match = getExternalAgentCredentials().find((credential) => {
+    if (normalizedServiceActorId && credential.serviceActorId === normalizedServiceActorId) {
+      return true;
+    }
+
+    return normalizedServiceName ? credential.serviceName === normalizedServiceName : false;
+  });
+
+  return match?.token ?? null;
+}
+
 function hasMatchingToken(actualToken: string, expectedToken: string) {
   const actualBuffer = Buffer.from(actualToken);
   const expectedBuffer = Buffer.from(expectedToken);

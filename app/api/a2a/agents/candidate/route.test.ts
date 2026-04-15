@@ -37,6 +37,41 @@ function getTraceCallOptions(name: string) {
   return matchingCall?.[0] as { metadata?: Record<string, unknown>; name?: string } | undefined;
 }
 
+function buildCandidateEnvelope(overrides?: Record<string, unknown>) {
+  return {
+    agentType: "candidate",
+    auth: {
+      authType: "external_service_bearer",
+      authenticatedSenderId: "external_service:partner-123",
+      serviceName: "partner-runtime",
+    },
+    context: {
+      callerName: "partner-runtime",
+      correlationId: "corr_123",
+      sourceEndpoint: "/partner/candidate",
+    },
+    messageId: "msg_ext_candidate_123",
+    metadata: {
+      callerName: "partner-runtime",
+    },
+    operation: "respond",
+    payload: {
+      message: "Summarize my profile",
+      messages: [],
+      talentIdentityId: "tal_123",
+    },
+    protocolVersion: "a2a.v1",
+    receiverAgentId: "careerai.agent.candidate",
+    requestId: "req_ext_candidate_123",
+    senderAgentId: "external_service:partner-123",
+    sentAt: "2026-04-15T00:00:00.000Z",
+    taskType: "respond",
+    traceId: "trace_123",
+    version: "a2a.v1",
+    ...(overrides ?? {}),
+  };
+}
+
 describe("POST /api/a2a/agents/candidate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -76,18 +111,7 @@ describe("POST /api/a2a/agents/candidate", () => {
     const response = await POST(
       new Request("https://career.ai/api/a2a/agents/candidate", {
         body: JSON.stringify({
-          agentType: "candidate",
-          metadata: {
-            callerName: "partner-runtime",
-          },
-          operation: "respond",
-          payload: {
-            message: "Summarize my profile",
-            messages: [],
-            talentIdentityId: "tal_123",
-          },
-          requestId: "req_ext_candidate_123",
-          version: "a2a.v1",
+          ...buildCandidateEnvelope(),
         }),
         headers: {
           authorization: "Bearer ext-secret",
@@ -103,12 +127,16 @@ describe("POST /api/a2a/agents/candidate", () => {
       agentType: "candidate",
       ok: true,
       operation: "respond",
+      protocolVersion: "a2a.v1",
+      receiverAgentId: "external_service:partner-123",
       requestId: "req_ext_candidate_123",
       result: {
         reply: "External candidate reply",
         runId: "run_123",
         stopReason: "completed",
       },
+      senderAgentId: "careerai.agent.candidate",
+      status: "success",
       taskStatus: "completed",
       version: "a2a.v1",
     });
@@ -125,6 +153,11 @@ describe("POST /api/a2a/agents/candidate", () => {
         "agent.handoff.authz",
         "agent.handoff.dispatch",
         "agent.handoff.complete",
+        "a2a.message.received",
+        "a2a.task.accepted",
+        "a2a.task.running",
+        "a2a.task.completed",
+        "a2a.response.sent",
         "external.a2a.agent.candidate.respond",
       ]),
     );
@@ -149,15 +182,10 @@ describe("POST /api/a2a/agents/candidate", () => {
     const response = await POST(
       new Request("https://career.ai/api/a2a/agents/candidate", {
         body: JSON.stringify({
-          agentType: "candidate",
-          operation: "respond",
-          payload: {
-            message: "Summarize my profile",
-            messages: [],
-            talentIdentityId: "tal_123",
-          },
-          requestId: "req_ext_candidate_denied",
-          version: "a2a.v1",
+          ...buildCandidateEnvelope({
+            messageId: "msg_ext_candidate_denied",
+            requestId: "req_ext_candidate_denied",
+          }),
         }),
         headers: {
           authorization: "Bearer ext-secret",
@@ -189,14 +217,10 @@ describe("POST /api/a2a/agents/candidate", () => {
     await POST(
       new Request("https://career.ai/api/a2a/agents/candidate", {
         body: JSON.stringify({
-          agentType: "candidate",
-          operation: "respond",
-          payload: {
-            message: "First request",
-            messages: [],
-            talentIdentityId: "tal_123",
-          },
-          version: "a2a.v1",
+          ...buildCandidateEnvelope({
+            messageId: "msg_ext_candidate_first",
+            requestId: "req_ext_candidate_first",
+          }),
         }),
         headers: {
           authorization: "Bearer ext-secret",
@@ -209,14 +233,10 @@ describe("POST /api/a2a/agents/candidate", () => {
     const response = await POST(
       new Request("https://career.ai/api/a2a/agents/candidate", {
         body: JSON.stringify({
-          agentType: "candidate",
-          operation: "respond",
-          payload: {
-            message: "Second request",
-            messages: [],
-            talentIdentityId: "tal_123",
-          },
-          version: "a2a.v1",
+          ...buildCandidateEnvelope({
+            messageId: "msg_ext_candidate_second",
+            requestId: "req_ext_candidate_second",
+          }),
         }),
         headers: {
           authorization: "Bearer ext-secret",

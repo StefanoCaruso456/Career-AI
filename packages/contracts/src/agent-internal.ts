@@ -6,14 +6,25 @@ import {
 } from "./presentation";
 
 export const internalAgentSchemaVersions = ["v1"] as const;
-export const internalAgentOperations = ["respond"] as const;
+export const internalAgentOperations = ["respond", "candidate_search"] as const;
 export const internalAgentAuthTypes = ["internal_service_bearer"] as const;
+export const a2aTaskLifecycleStatuses = [
+  "accepted",
+  "running",
+  "awaiting_input",
+  "completed",
+  "failed",
+  "partial",
+  "cancelled",
+] as const;
 
 export const internalAgentSchemaVersionSchema = z.enum(internalAgentSchemaVersions);
 export const internalAgentOperationSchema = z.enum(internalAgentOperations);
 export const internalAgentRequiredAuthTypeSchema = z.enum(internalAgentAuthTypes);
 export const internalAgentRoleSchema = z.enum(["candidate", "recruiter", "verifier"]);
+export const agentIdSchema = z.string().trim().min(1).max(200);
 export const internalAgentMessageRoleSchema = z.enum(["assistant", "user"]);
+export const a2aTaskLifecycleStatusSchema = z.enum(a2aTaskLifecycleStatuses);
 export const internalAgentStopReasonSchema = z.enum([
   "completed",
   "empty_response",
@@ -177,6 +188,7 @@ export const internalAgentCapabilitySchema = z.object({
 });
 
 export const internalAgentCardSchema = z.object({
+  agentId: agentIdSchema,
   agentType: internalAgentRoleSchema,
   allowedTools: z.array(z.string().trim().min(1)).min(1),
   capabilities: z.array(internalAgentCapabilitySchema).min(1),
@@ -190,7 +202,9 @@ export const internalAgentCardSchema = z.object({
 
 export type InternalAgentSchemaVersion = z.infer<typeof internalAgentSchemaVersionSchema>;
 export type InternalAgentRole = z.infer<typeof internalAgentRoleSchema>;
+export type AgentId = z.infer<typeof agentIdSchema>;
 export type InternalAgentMessage = z.infer<typeof internalAgentMessageSchema>;
+export type A2ATaskLifecycleStatus = z.infer<typeof a2aTaskLifecycleStatusSchema>;
 export type InternalAgentStopReason = z.infer<typeof internalAgentStopReasonSchema>;
 export type CandidateAgentRequest = z.infer<typeof candidateAgentRequestSchema>;
 export type RecruiterAgentRequest = z.infer<typeof recruiterAgentRequestSchema>;
