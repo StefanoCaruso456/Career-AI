@@ -198,4 +198,81 @@ describe("JobListItem", () => {
     ).toBeInTheDocument();
     expect(openSpy).not.toHaveBeenCalled();
   });
+
+  it("renders plain-text descriptions as readable bullet lists when HTML is unavailable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              id: "job_2",
+              title: "Data Scientist",
+              company: "Stripe",
+              location: "Remote",
+              employmentType: "Full-time",
+              postedAt: "2026-04-12T12:00:00.000Z",
+              externalJobId: "req-2",
+              source: "lever",
+              sourceLabel: "Stripe",
+              sourceUrl: "https://jobs.example.com/stripe/123",
+              descriptionHtml: null,
+              descriptionText: [
+                "Help teams make better decisions with trustworthy models.",
+                "",
+                "• Build and deploy decision systems",
+                "• Partner with product and design",
+              ].join("\n"),
+              summary: null,
+              responsibilities: [],
+              qualifications: [],
+              preferredQualifications: [],
+              salaryText: null,
+              metadata: null,
+              contentStatus: "partial",
+              fallbackMessage: null,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    render(
+      <JobListItem
+        job={{
+          applyUrl: "https://jobs.example.com/stripe/123",
+          canonicalApplyUrl: "https://jobs.example.com/stripe/123",
+          company: "Stripe",
+          id: "job_2",
+          isOrchestrationReady: true,
+          location: "Remote",
+          matchReason: "",
+          relevanceScore: null,
+          salaryText: null,
+          sourceLabel: "Stripe",
+          summary: "Help teams make better decisions with trustworthy models.",
+          title: "Data Scientist",
+          validationStatus: undefined,
+          workplaceType: "remote",
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Read more" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Data Scientist" });
+    const listItems = within(dialog).getAllByRole("listitem");
+
+    expect(listItems.some((item) => item.textContent === "Build and deploy decision systems")).toBe(
+      true,
+    );
+    expect(listItems.some((item) => item.textContent === "Partner with product and design")).toBe(
+      true,
+    );
+  });
 });

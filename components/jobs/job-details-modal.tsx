@@ -38,6 +38,16 @@ type JobDetailsModalProps = {
   onRetry?: (() => void) | undefined;
 };
 
+type PlainTextBlock =
+  | {
+      items: string[];
+      type: "list";
+    }
+  | {
+      text: string;
+      type: "paragraph";
+    };
+
 function getFocusableElements(container: HTMLElement) {
   return Array.from(
     container.querySelectorAll<HTMLElement>(
@@ -100,13 +110,63 @@ function formatTimestamp(value: string | null) {
 
 function buildPlainTextParagraphs(value: string | null) {
   if (!value) {
-    return [];
+    return [] satisfies PlainTextBlock[];
   }
 
-  return value
+  const normalized = value
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n?/g, "\n")
     .split(/\n{2,}/)
-    .map((paragraph) => normalizeWhitespace(paragraph))
-    .filter((paragraph): paragraph is string => Boolean(paragraph));
+    .map((block) =>
+      block
+        .split("\n")
+        .map((line) => line.replace(/[ \t]+/g, " ").trim())
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .filter(Boolean);
+
+  const blocks: PlainTextBlock[] = [];
+
+  normalized.forEach((block) => {
+    const lines = block
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      return;
+    }
+
+    const bulletLines = lines.filter((line) => /^[•\u2022\u25CF-]\s+/.test(line));
+
+    if (bulletLines.length === lines.length) {
+      blocks.push({
+        items: bulletLines.map((line) => line.replace(/^[•\u2022\u25CF-]\s+/, "").trim()),
+        type: "list",
+      });
+      return;
+    }
+
+    if (lines.length > 1 && lines.slice(1).every((line) => /^[•\u2022\u25CF-]\s+/.test(line))) {
+      blocks.push({
+        text: lines[0],
+        type: "paragraph",
+      });
+      blocks.push({
+        items: lines.slice(1).map((line) => line.replace(/^[•\u2022\u25CF-]\s+/, "").trim()),
+        type: "list",
+      });
+      return;
+    }
+
+    blocks.push({
+      text: lines.map((line) => normalizeWhitespace(line) ?? line).join(" "),
+      type: "paragraph",
+    });
+  });
+
+  return blocks;
 }
 
 function createMetaRows(details: JobDetailsDto) {
@@ -187,7 +247,7 @@ export function JobDetailsModal({
   const titleId = useId();
   const descriptionId = useId();
   const metaRows = createMetaRows(details);
-  const plainTextParagraphs = buildPlainTextParagraphs(
+  const plainTextBlocks = buildPlainTextParagraphs(
     details.descriptionText && details.descriptionText !== details.summary
       ? details.descriptionText
       : details.descriptionText,
@@ -416,13 +476,21 @@ export function JobDetailsModal({
                     dangerouslySetInnerHTML={{ __html: details.descriptionHtml }}
                   />
                 </section>
-              ) : plainTextParagraphs.length > 0 ? (
+              ) : plainTextBlocks.length > 0 ? (
                 <section className={styles.section}>
                   <h3>Description</h3>
                   <div className={styles.plainText}>
-                    {plainTextParagraphs.map((paragraph) => (
-                      <p key={paragraph}>{paragraph}</p>
-                    ))}
+                    {plainTextBlocks.map((block, index) =>
+                      block.type === "list" ? (
+                        <ul className={styles.plainTextList} key={`list-${index}`}>
+                          {block.items.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p key={`paragraph-${index}`}>{block.text}</p>
+                      ),
+                    )}
                   </div>
                 </section>
               ) : (

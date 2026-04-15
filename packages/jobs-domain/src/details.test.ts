@@ -150,4 +150,54 @@ describe("job details service", () => {
     expect(details.qualifications).toContain("10+ years in SAP consulting");
     expect(details.fallbackMessage).toBeNull();
   });
+
+  it("preserves plain-text section formatting for requirements and preferred qualifications", async () => {
+    getPersistedJobPostingByIdMock.mockResolvedValue(
+      createJob({
+        applyUrl: "https://jobs.lever.co/stripe/123",
+        canonicalJobUrl: "https://jobs.lever.co/stripe/123",
+        companyName: "Stripe",
+        descriptionSnippet: "Build decision systems that improve product outcomes.",
+        externalId: "123",
+        externalSourceJobId: "123",
+        id: "lever:stripe:123",
+        rawPayload: {
+          descriptionPlain: [
+            "Build decision systems that improve product outcomes.",
+            "",
+            "Minimum Requirements",
+            "PhD + 3 years of data science experience.",
+            "MS/MA + 6 years of data science experience.",
+            "",
+            "Preferred Qualifications",
+            "Experience deploying models in production.",
+            "Experience designing and running experiments.",
+          ].join("\n"),
+          hostedUrl: "https://jobs.lever.co/stripe/123",
+          id: "123",
+        },
+        sourceKey: "lever:stripe",
+        sourceLabel: "Stripe",
+        title: "Data Scientist",
+      }),
+    );
+
+    const details = await getJobDetails({
+      jobId: "lever:stripe:123",
+    });
+
+    expect(details.contentStatus).toBe("full");
+    expect(details.descriptionText).toContain("Minimum Requirements");
+    expect(details.qualifications).toEqual([
+      "PhD + 3 years of data science experience.",
+      "MS/MA + 6 years of data science experience.",
+    ]);
+    expect(details.preferredQualifications).toEqual([
+      "Experience deploying models in production.",
+      "Experience designing and running experiments.",
+    ]);
+    expect(
+      details.preferredQualifications.some((item) => /preferred qualifications/i.test(item)),
+    ).toBe(false);
+  });
 });
