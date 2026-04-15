@@ -164,7 +164,7 @@ describe("EmployerCandidatesPage", () => {
 
     expect(trustProfileLinks).toHaveLength(2);
     trustProfileLinks.forEach((link) => {
-      expect(link).toHaveAttribute("href", "/share/token-123");
+      expect(link).toHaveAttribute("href", "#trusted-profile");
     });
   });
 

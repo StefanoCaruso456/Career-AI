@@ -833,7 +833,7 @@ describe("HeroComposer", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review trust profile" })).toHaveAttribute(
       "href",
-      "/share/0f0d4b93-15d2-4a2e-8297-9dc6165ddf75",
+      "/employer/candidates?candidateId=tal_123#trusted-profile",
     );
     expect(screen.queryByRole("button", { name: "APPLY" })).not.toBeInTheDocument();
     expect(

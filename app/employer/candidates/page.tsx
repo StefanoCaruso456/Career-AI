@@ -70,8 +70,8 @@ export default async function EmployerCandidatesPage({
             <Link className={styles.primaryAction} href="/employer">
               Back to employer workspace
             </Link>
-            {trace?.actions.trustProfileUrl ? (
-              <Link className={styles.secondaryAction} href={trace.actions.trustProfileUrl}>
+            {trace ? (
+              <Link className={styles.secondaryAction} href="#trusted-profile">
                 Review trust profile
               </Link>
             ) : null}
@@ -101,7 +101,7 @@ export default async function EmployerCandidatesPage({
 
         {trace ? (
           <div className={styles.grid}>
-            <section className={styles.primaryPanel}>
+            <section className={styles.primaryPanel} id="trusted-profile">
               <div className={styles.identityRow}>
                 <div>
                   <p className={styles.careerIdLabel}>Career ID</p>
@@ -263,13 +263,9 @@ export default async function EmployerCandidatesPage({
                   <Link className={styles.primaryAction} href={trace.actions.careerIdUrl ?? "#"}>
                     View Career ID
                   </Link>
-                  {trace.actions.trustProfileUrl ? (
-                    <Link className={styles.secondaryAction} href={trace.actions.trustProfileUrl}>
+                  <Link className={styles.secondaryAction} href="#trusted-profile">
                       Review trust profile
-                    </Link>
-                  ) : (
-                    <span className={styles.disabledAction}>Trust profile unavailable</span>
-                  )}
+                  </Link>
                 </div>
               </div>
               <div className={styles.metricCard}>
