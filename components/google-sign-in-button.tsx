@@ -108,7 +108,7 @@ export function GoogleSignInButton({
         if (persona) {
           persistPreferredPersona(persona);
         }
-        void signIn("google", { callbackUrl }).catch(() => {
+        void signIn("google", { callbackUrl }, { prompt: "select_account" }).catch(() => {
           setIsPending(false);
         });
       }}

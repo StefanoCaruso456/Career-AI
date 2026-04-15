@@ -10,6 +10,10 @@ function readFirstEnv(...keys: string[]) {
   return "";
 }
 
+function normalizeBaseUrl(value: string) {
+  return value.trim().replace(/\/+$/, "");
+}
+
 export function getDatabaseUrl() {
   return readFirstEnv("DATABASE_URL");
 }
@@ -49,13 +53,13 @@ export function getPublicBaseUrl() {
   const configuredUrl = readFirstEnv("NEXTAUTH_URL", "AUTH_URL");
 
   if (configuredUrl) {
-    return configuredUrl;
+    return normalizeBaseUrl(configuredUrl);
   }
 
   const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN?.trim();
 
   if (railwayPublicDomain) {
-    return `https://${railwayPublicDomain}`;
+    return normalizeBaseUrl(`https://${railwayPublicDomain}`);
   }
 
   return "";

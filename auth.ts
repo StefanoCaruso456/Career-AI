@@ -1,5 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import {
@@ -9,6 +10,7 @@ import {
   getGoogleClientSecret,
   getPublicBaseUrl,
 } from "@/auth-config";
+import { findCredentialUserByEmail, verifyCredentialPassword } from "@/lib/credential-user-store";
 
 type GoogleProfile = {
   email?: string;
@@ -55,7 +57,7 @@ function getProviderUserId(
   },
 ) {
   if (provider !== "google") {
-    return args.tokenProviderUserId ?? null;
+    return args.accountProviderUserId ?? args.tokenProviderUserId ?? args.tokenSub ?? null;
   }
 
   return (
@@ -97,16 +99,65 @@ function toOnboardingStatus(value: unknown) {
   return null;
 }
 
+const authProviders: NextAuthOptions["providers"] = [
+  CredentialsProvider({
+    name: "Email and password",
+    credentials: {
+      email: {
+        label: "Email",
+        type: "email",
+      },
+      password: {
+        label: "Password",
+        type: "password",
+      },
+    },
+    async authorize(credentials) {
+      const email = credentials?.email?.toString().trim() ?? "";
+      const password = credentials?.password?.toString() ?? "";
+
+      if (!email || !password) {
+        return null;
+      }
+
+      const user = await findCredentialUserByEmail(email);
+
+      if (!user) {
+        return null;
+      }
+
+      const passwordMatches = verifyCredentialPassword(user, password);
+
+      if (!passwordMatches) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    },
+  }),
+];
+
+if (googleOAuthEnabled) {
+  authProviders.push(
+    GoogleProvider({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
+      authorization: {
+        params: {
+          prompt: "select_account",
+        },
+      },
+    }),
+  );
+}
+
 export const authOptions = {
   secret: authSecret || undefined,
-  providers: googleOAuthEnabled
-    ? [
-        GoogleProvider({
-          clientId: googleClientId,
-          clientSecret: googleClientSecret,
-        }),
-      ]
-    : [],
+  providers: authProviders,
   pages: {
     signIn: "/sign-in",
   },

@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { signIn } from "next-auth/react";
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { useGoogleAuthStatus } from "./use-google-auth-status";
@@ -99,6 +100,7 @@ export function AuthModalTrigger({
   const [isOpen, setIsOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>(defaultMode);
   const [persona, setPersona] = useState<Persona>("job_seeker");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const passwordsMatch =
@@ -154,21 +156,34 @@ export function AuthModalTrigger({
   function openModal() {
     setAuthMode(defaultMode);
     setPersona("job_seeker");
+    setIsSubmitting(false);
     setFormValues(emptyFormValues);
     setFormStatus(null);
     setIsOpen(true);
   }
 
   function closeModal() {
+    if (isSubmitting) {
+      return;
+    }
+
     setIsOpen(false);
   }
 
   function handleAuthModeChange(nextMode: AuthMode) {
+    if (isSubmitting) {
+      return;
+    }
+
     setAuthMode(nextMode);
     setFormStatus(null);
   }
 
   function handlePersonaChange(nextPersona: Persona) {
+    if (isSubmitting) {
+      return;
+    }
+
     setPersona(nextPersona);
     setFormStatus(null);
   }
@@ -186,7 +201,7 @@ export function AuthModalTrigger({
     };
   }
 
-  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (authMode === "signup" && formValues.password !== formValues.confirmPassword) {
@@ -194,7 +209,75 @@ export function AuthModalTrigger({
       return;
     }
 
-    setFormStatus(modeCopy.formStatus);
+    if (persona === "employer") {
+      setFormStatus(
+        authMode === "signup"
+          ? "Email/password sign-up is not enabled yet for employer workspaces. Use Google to continue."
+          : "Email/password sign-in is not enabled yet for employer workspaces. Use Google to continue.",
+      );
+      return;
+    }
+
+    const email = formValues.email.trim().toLowerCase();
+    const password = formValues.password;
+
+    if (!email || !password) {
+      setFormStatus("Please enter your email and password.");
+      return;
+    }
+
+    setFormStatus(null);
+    setIsSubmitting(true);
+
+    try {
+      if (authMode === "signup") {
+        const registerResponse = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: formValues.name.trim(),
+            email,
+            password,
+          }),
+        });
+
+        const registerPayload = (await registerResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+
+        if (!registerResponse.ok) {
+          setFormStatus(
+            registerPayload?.error ??
+              "We could not create your account right now. Please try again.",
+          );
+          return;
+        }
+      }
+
+      const signInResult = await signIn("credentials", {
+        callbackUrl: authCallbackUrl,
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (!signInResult || signInResult.error) {
+        setFormStatus(
+          authMode === "signup"
+            ? "Account created, but we could not sign you in. Please try signing in."
+            : "Invalid email or password.",
+        );
+        return;
+      }
+
+      window.location.assign(signInResult.url ?? authCallbackUrl);
+    } catch {
+      setFormStatus("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const modal =
@@ -234,6 +317,7 @@ export function AuthModalTrigger({
                   <span className={styles.selectorLabel}>Access</span>
                   <div className={styles.modeSwitch}>
                     <button
+                      disabled={isSubmitting}
                       className={authMode === "signup" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handleAuthModeChange("signup")}
                       type="button"
@@ -241,6 +325,7 @@ export function AuthModalTrigger({
                       Sign up
                     </button>
                     <button
+                      disabled={isSubmitting}
                       className={authMode === "signin" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handleAuthModeChange("signin")}
                       type="button"
@@ -254,6 +339,7 @@ export function AuthModalTrigger({
                   <span className={styles.selectorLabel}>Experience</span>
                   <div className={styles.modeSwitch}>
                     <button
+                      disabled={isSubmitting}
                       className={persona === "job_seeker" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handlePersonaChange("job_seeker")}
                       type="button"
@@ -261,6 +347,7 @@ export function AuthModalTrigger({
                       {personaConfigs.job_seeker.shortLabel}
                     </button>
                     <button
+                      disabled={isSubmitting}
                       className={persona === "employer" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handlePersonaChange("employer")}
                       type="button"
@@ -337,8 +424,12 @@ export function AuthModalTrigger({
                   ) : null}
                 </div>
 
-                <button className={styles.emailAction} type="submit">
-                  {modeCopy.emailActionLabel}
+                <button className={styles.emailAction} disabled={isSubmitting || !passwordsMatch} type="submit">
+                  {isSubmitting
+                    ? authMode === "signup"
+                      ? "Creating account..."
+                      : "Signing in..."
+                    : modeCopy.emailActionLabel}
                 </button>
 
                 {formStatus ? (
