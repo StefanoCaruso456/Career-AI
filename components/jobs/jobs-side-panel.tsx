@@ -10,7 +10,7 @@ type JobsSidePanelProps = {
   errorMessage?: string | null;
   isLoading?: boolean;
   jobs: JobListing[];
-  onApply?: (job: JobListing) => void;
+  onApply?: (job: JobListing) => Promise<string> | string;
   onClose?: () => void;
   onRefresh?: () => void;
 };

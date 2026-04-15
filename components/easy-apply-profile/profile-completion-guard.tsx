@@ -17,6 +17,7 @@ type ProfileCompletionGuardProps = {
   companyName: string;
   employerMissingFieldKeys?: string[];
   jobTitle: string;
+  resolveApplyUrl?: (() => Promise<string> | string) | undefined;
   schemaFamily: SchemaFamily;
   applyUrl: string;
 };
@@ -32,6 +33,7 @@ export function ProfileCompletionGuard({
   companyName,
   employerMissingFieldKeys = [],
   jobTitle,
+  resolveApplyUrl,
   schemaFamily,
 }: ProfileCompletionGuardProps) {
   const {
@@ -45,6 +47,7 @@ export function ProfileCompletionGuard({
     uploadResume,
     userKey,
   } = useApplicationProfiles();
+  const [applyError, setApplyError] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMissingFieldsModal, setShowMissingFieldsModal] = useState(false);
   const profile = profiles[getApplicationProfileKey(schemaFamily)];
@@ -68,6 +71,18 @@ export function ProfileCompletionGuard({
     );
   }
 
+  async function continueToApply() {
+    try {
+      setApplyError(null);
+      const nextApplyUrl = await resolveApplyUrl?.();
+      openExternalApply(nextApplyUrl ?? applyUrl);
+    } catch (error) {
+      setApplyError(
+        error instanceof Error ? error.message : "The application link could not be opened.",
+      );
+    }
+  }
+
   function handleApplyClick() {
     if (!isAuthenticated) {
       redirectToSignIn();
@@ -84,7 +99,7 @@ export function ProfileCompletionGuard({
       return;
     }
 
-    openExternalApply(applyUrl);
+    void continueToApply();
   }
 
   return (
@@ -119,7 +134,7 @@ export function ProfileCompletionGuard({
             schemaFamily,
           });
           setShowProfileModal(false);
-          openExternalApply(applyUrl);
+          await continueToApply();
         }}
         onUploadResume={uploadResume}
         persisted={persisted}
@@ -143,7 +158,7 @@ export function ProfileCompletionGuard({
             schemaFamily,
           });
           setShowMissingFieldsModal(false);
-          openExternalApply(applyUrl);
+          await continueToApply();
         }}
         onUploadResume={uploadResume}
         persisted={persisted}
@@ -151,7 +166,7 @@ export function ProfileCompletionGuard({
         userKey={userKey}
       />
 
-      {error ? <p className={styles.inlineError}>{error}</p> : null}
+      {applyError || error ? <p className={styles.inlineError}>{applyError ?? error}</p> : null}
     </>
   );
 }
