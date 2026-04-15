@@ -18,6 +18,22 @@ const jobsDomainMocks = vi.hoisted(() => ({
 
 vi.mock("@/packages/jobs-domain/src", () => jobsDomainMocks);
 
+vi.mock("@/components/easy-apply-profile/profile-completion-guard", () => ({
+  ProfileCompletionGuard: ({
+    applyUrl,
+    buttonLabel,
+    className,
+  }: {
+    applyUrl: string;
+    buttonLabel: string;
+    className?: string;
+  }) => (
+    <a className={className} href={applyUrl}>
+      {buttonLabel}
+    </a>
+  ),
+}));
+
 function createJob(): JobPostingDto {
   return {
     id: "job-1",

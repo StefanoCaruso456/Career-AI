@@ -96,7 +96,8 @@
 
 .jobsRailClose:focus-visible,
 .jobsRailRefresh:focus-visible,
-.jobApplyButton:focus-visible {
+.jobApplyButton:focus-visible,
+.jobDetailsButton:focus-visible {
   outline: 2px solid rgba(255, 162, 126, 0.9);
   outline-offset: 3px;
 }
@@ -144,9 +145,15 @@
 .jobRow {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   gap: 0.9rem;
   min-width: 0;
+}
+
+.jobActions {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: stretch;
 }
 
 .jobApplyButton {
@@ -176,6 +183,31 @@
   border-color: rgba(255, 124, 92, 0.65);
   background: rgba(46, 28, 24, 0.92);
   color: #ffd4c8;
+}
+
+.jobDetailsButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.9rem;
+  min-width: 3.55rem;
+  padding: 0.2rem 0.45rem;
+  border: none;
+  background: transparent;
+  color: rgba(255, 213, 197, 0.84);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.jobDetailsButton:hover {
+  transform: translateY(-1px);
+  color: #fff1eb;
 }
 
 .jobCopy {

@@ -5,6 +5,16 @@ export const DEFAULT_LATEST_JOBS_PROMPT = "Find new jobs for me.";
 export const jobSourceLaneSchema = z.enum(["ats_direct", "aggregator"]);
 export const jobSourceQualitySchema = z.enum(["high_signal", "coverage"]);
 export const jobSourceStatusSchema = z.enum(["connected", "degraded", "not_configured"]);
+export const jobDetailsSourceSchema = z.enum([
+  "workday",
+  "greenhouse",
+  "lever",
+  "ashby",
+  "workable",
+  "linkedin",
+  "other",
+]);
+export const jobDetailsContentStatusSchema = z.enum(["full", "partial", "unavailable"]);
 export const jobSourceTrustTierSchema = z.enum([
   "trusted_direct",
   "trusted_aggregator",
@@ -172,6 +182,47 @@ export const jobsFeedResponseSchema = z.object({
   sources: z.array(jobSourceSnapshotSchema),
   summary: jobsFeedSummarySchema,
   storage: jobsFeedStorageSchema,
+});
+
+export const jobDetailsMetadataValueSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+export const jobDetailsSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  company: z.string().nullable().default(null),
+  location: z.string().nullable().default(null),
+  employmentType: z.string().nullable().default(null),
+  postedAt: z.string().datetime().nullable().default(null),
+  externalJobId: z.string().nullable().default(null),
+  source: jobDetailsSourceSchema,
+  sourceLabel: z.string(),
+  sourceUrl: z.string().url(),
+  descriptionHtml: z.string().nullable().default(null),
+  descriptionText: z.string().nullable().default(null),
+  summary: z.string().nullable().default(null),
+  responsibilities: z.array(z.string()).default([]),
+  qualifications: z.array(z.string()).default([]),
+  preferredQualifications: z.array(z.string()).default([]),
+  salaryText: z.string().nullable().default(null),
+  metadata: z.record(z.string(), jobDetailsMetadataValueSchema).nullable().default(null),
+  contentStatus: jobDetailsContentStatusSchema.default("unavailable"),
+  fallbackMessage: z.string().nullable().default(null),
+});
+
+export const jobDetailsResponseSchema = z.object({
+  success: z.boolean(),
+  data: jobDetailsSchema.optional(),
+  error: z
+    .object({
+      code: z.string(),
+      message: z.string(),
+    })
+    .optional(),
 });
 
 export const jobSearchFiltersSchema = z.object({
@@ -414,6 +465,8 @@ export const validateJobsInputSchema = z.object({
 });
 
 export type JobSourceLane = z.infer<typeof jobSourceLaneSchema>;
+export type JobDetailsSource = z.infer<typeof jobDetailsSourceSchema>;
+export type JobDetailsContentStatus = z.infer<typeof jobDetailsContentStatusSchema>;
 export type JobSourceQuality = z.infer<typeof jobSourceQualitySchema>;
 export type JobSourceStatus = z.infer<typeof jobSourceStatusSchema>;
 export type JobSourceTrustTier = z.infer<typeof jobSourceTrustTierSchema>;
@@ -434,6 +487,8 @@ export type JobSourceSnapshotDto = z.infer<typeof jobSourceSnapshotSchema>;
 export type JobsFeedSummaryDto = z.infer<typeof jobsFeedSummarySchema>;
 export type JobsFeedStorageDto = z.infer<typeof jobsFeedStorageSchema>;
 export type JobsFeedResponseDto = z.infer<typeof jobsFeedResponseSchema>;
+export type JobDetailsDto = z.infer<typeof jobDetailsSchema>;
+export type JobDetailsResponseDto = z.infer<typeof jobDetailsResponseSchema>;
 export type JobSearchFiltersDto = z.infer<typeof jobSearchFiltersSchema>;
 export type JobSearchQueryDto = z.infer<typeof jobSearchQuerySchema>;
 export type JobSeekerProfileContextDto = z.infer<typeof jobSeekerProfileContextSchema>;

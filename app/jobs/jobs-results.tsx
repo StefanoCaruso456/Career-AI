@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { ProfileCompletionGuard } from "@/components/easy-apply-profile/profile-completion-guard";
+import { JobDetailsTrigger } from "@/components/jobs/job-details-trigger";
 import { resolveSchemaFamilyForJob } from "@/lib/application-profiles/resolver";
 import {
   jobsFeedResponseSchema,
@@ -1175,6 +1176,7 @@ export function JobsResults({
         <div className={styles.jobsGrid}>
           {visibleJobs.map((job) => {
             const jobMeta = [job.location, job.department, job.commitment].filter(Boolean).join(" • ");
+            const schemaFamily = resolveSchemaFamilyForJob(job);
 
             return (
               <article className={styles.jobCard} key={job.id}>
@@ -1188,15 +1190,44 @@ export function JobsResults({
                 <div className={styles.jobFooter}>
                   <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
                 </div>
-                <ProfileCompletionGuard
-                  applyUrl={job.applyUrl}
-                  buttonLabel="Apply"
-                  buttonVariant="jobs-card"
-                  className={styles.jobLink}
-                  companyName={job.companyName}
-                  jobTitle={job.title}
-                  schemaFamily={resolveSchemaFamilyForJob(job)}
-                />
+                <div className={styles.jobActions}>
+                  <ProfileCompletionGuard
+                    applyUrl={job.applyUrl}
+                    buttonLabel="Apply"
+                    buttonVariant="jobs-card"
+                    className={styles.jobLink}
+                    companyName={job.companyName}
+                    jobTitle={job.title}
+                    schemaFamily={schemaFamily}
+                  />
+                  <JobDetailsTrigger
+                    applyAction={
+                      <ProfileCompletionGuard
+                        applyUrl={job.applyUrl}
+                        buttonLabel="Apply now"
+                        buttonVariant="jobs-card"
+                        companyName={job.companyName}
+                        jobTitle={job.title}
+                        schemaFamily={schemaFamily}
+                      />
+                    }
+                    buttonClassName={styles.jobDetailsButton}
+                    buttonLabel="View details"
+                    preview={{
+                      applyUrl: job.applyUrl,
+                      company: job.companyName,
+                      descriptionSnippet: job.descriptionSnippet,
+                      employmentType: job.commitment,
+                      externalJobId: job.externalSourceJobId ?? job.externalId,
+                      id: job.id,
+                      location: job.location,
+                      postedAt: job.updatedAt ?? job.postedAt,
+                      sourceLabel: job.sourceLabel,
+                      sourceUrl: job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl,
+                      title: job.title,
+                    }}
+                  />
+                </div>
               </article>
             );
           })}

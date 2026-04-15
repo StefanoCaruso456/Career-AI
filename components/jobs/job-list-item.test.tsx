@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JobListItem } from "./job-list-item";
 
@@ -121,5 +121,81 @@ describe("JobListItem", () => {
       "_blank",
       "noopener,noreferrer",
     );
+  });
+
+  it("opens an in-app details modal without leaving the current page", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        expect(url).toBe("/api/v1/jobs/job_1/details");
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              id: "job_1",
+              title: "Product Designer",
+              company: "Example",
+              location: "New York, NY",
+              employmentType: "Full-time",
+              postedAt: "2026-04-12T12:00:00.000Z",
+              externalJobId: "req-1",
+              source: "greenhouse",
+              sourceLabel: "Example",
+              sourceUrl: "https://boards.greenhouse.io/example/jobs/123",
+              descriptionHtml: "<p>Lead end-to-end product design for the hiring experience.</p>",
+              descriptionText: "Lead end-to-end product design for the hiring experience.",
+              summary: "Lead end-to-end product design for the hiring experience.",
+              responsibilities: ["Own the design system roadmap"],
+              qualifications: ["8+ years of product design experience"],
+              preferredQualifications: [],
+              salaryText: "$180k - $220k",
+              metadata: null,
+              contentStatus: "full",
+              fallbackMessage: null,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    render(
+      <JobListItem
+        job={{
+          applyUrl: "https://boards.greenhouse.io/example/jobs/123",
+          canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
+          company: "Example",
+          id: "job_1",
+          isOrchestrationReady: true,
+          location: "New York, NY",
+          matchReason: "",
+          relevanceScore: null,
+          salaryText: "$180k",
+          sourceLabel: "Example",
+          summary: "Lead end-to-end product design for the hiring experience.",
+          title: "Product Designer",
+          validationStatus: undefined,
+          workplaceType: "remote",
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Read more" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Product Designer" });
+
+    expect(dialog).toBeInTheDocument();
+    expect(
+      within(dialog).getAllByText("Lead end-to-end product design for the hiring experience.")[0],
+    ).toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
   });
 });
