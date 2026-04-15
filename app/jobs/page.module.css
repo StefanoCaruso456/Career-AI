@@ -358,7 +358,6 @@
 }
 
 .jobLink {
-  margin-top: auto;
   width: 100%;
   min-height: 3.6rem;
   padding: 0.95rem 1.15rem;
@@ -407,6 +406,48 @@
 }
 
 .jobLink.jobLink:focus-visible {
+  outline: 2px solid rgba(24, 34, 51, 0.9);
+  outline-offset: 4px;
+}
+
+.jobActions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: auto;
+}
+
+.jobDetailsButton {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.85rem;
+  padding: 0.82rem 1rem;
+  border: 1px solid rgba(24, 34, 51, 0.12);
+  border-radius: 1.05rem;
+  background: rgba(255, 255, 255, 0.48);
+  color: #182232;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.jobDetailsButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(24, 34, 51, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 16px 28px rgba(23, 34, 51, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.jobDetailsButton:focus-visible {
   outline: 2px solid rgba(24, 34, 51, 0.9);
   outline-offset: 4px;
 }

@@ -1899,6 +1899,104 @@ async function collectLiveSourceCollections(windowDays: number | null) {
   ]);
 }
 
+function parseJobId(jobId: string) {
+  const segments = jobId.split(":");
+
+  if (segments.length < 3) {
+    return null;
+  }
+
+  const [sourceFamily, sourceSlug, ...externalIdSegments] = segments;
+
+  return {
+    externalId: externalIdSegments.join(":"),
+    sourceKey: `${sourceFamily}:${sourceSlug}`,
+  };
+}
+
+async function fetchLiveJobsForSourceKey(sourceKey: string) {
+  const { greenhouseBoards, leverSites, ashbyBoards, workdayBoards } = getDirectSourceSpecs();
+  const aggregatorSpecs = getAggregatorSpecs();
+  const workableXmlFeedSpec = getWorkableXmlFeedSpec();
+  const greenhouseSource = greenhouseBoards.find((source) => source.key === sourceKey);
+
+  if (greenhouseSource) {
+    const payload = await fetchJson(
+      `https://boards-api.greenhouse.io/v1/boards/${greenhouseSource.token}/jobs?content=true`,
+    );
+
+    return mapGreenhouseJobs(greenhouseSource, payload);
+  }
+
+  const leverSource = leverSites.find((source) => source.key === sourceKey);
+
+  if (leverSource) {
+    const payload = await fetchLeverPostings(leverSource.site);
+
+    return mapLeverJobs(leverSource, payload);
+  }
+
+  const ashbySource = ashbyBoards.find((source) => source.key === sourceKey);
+
+  if (ashbySource) {
+    const payload = await fetchJson(
+      `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(ashbySource.boardName)}`,
+    );
+
+    return mapAshbyJobs(ashbySource, payload);
+  }
+
+  const workdaySource = workdayBoards.find((source) => source.key === sourceKey);
+
+  if (workdaySource) {
+    const payload = await fetchWorkdayPostings(workdaySource);
+
+    return mapWorkdayJobs(workdaySource, payload);
+  }
+
+  const aggregatorSource = aggregatorSpecs.find((source) => source.key === sourceKey);
+
+  if (aggregatorSource) {
+    const payload = await fetchJson(aggregatorSource.feedUrl, aggregatorSource.apiKey);
+
+    return mapAggregatorJobs(aggregatorSource, payload);
+  }
+
+  if (workableXmlFeedSpec?.key === sourceKey) {
+    const xml = await fetchText(workableXmlFeedSpec.feedUrl);
+
+    return mapWorkableXmlJobs(workableXmlFeedSpec, xml);
+  }
+
+  return [];
+}
+
+export async function getLiveJobPostingById(args: { jobId: string }) {
+  const parsedJobId = parseJobId(args.jobId);
+
+  if (!parsedJobId) {
+    return null;
+  }
+
+  try {
+    const jobs = await fetchLiveJobsForSourceKey(parsedJobId.sourceKey);
+
+    return (
+      jobs.find((job) => job.id === args.jobId) ??
+      jobs.find((job) => job.externalId === parsedJobId.externalId) ??
+      null
+    );
+  } catch (error) {
+    console.error("Live job lookup failed.", {
+      error,
+      jobId: args.jobId,
+      sourceKey: parsedJobId.sourceKey,
+    });
+
+    return null;
+  }
+}
+
 async function getLiveJobsFeedPreview(args: {
   companies?: string[];
   generatedAt: string;

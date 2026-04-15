@@ -114,6 +114,57 @@ describe("JobsResults", () => {
     expect(screen.queryByText("Details are still coming in from the source.")).not.toBeInTheDocument();
   });
 
+  it("opens a reusable in-app details modal from the job cards", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        expect(url).toBe("/api/v1/jobs/job-1/details");
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              id: "job-1",
+              title: "Role 1",
+              company: "Figma",
+              location: "San Francisco, CA",
+              employmentType: "Full-time",
+              postedAt: "2026-04-10T12:00:00.000Z",
+              externalJobId: "external-1",
+              source: "greenhouse",
+              sourceLabel: "Figma",
+              sourceUrl: "https://jobs.example.com/1",
+              descriptionHtml: "<p>Read the full role without leaving Career AI.</p>",
+              descriptionText: "Read the full role without leaving Career AI.",
+              summary: "Read the full role without leaving Career AI.",
+              responsibilities: ["Guide end-to-end product direction"],
+              qualifications: [],
+              preferredQualifications: [],
+              salaryText: "$120,000 - $150,000",
+              metadata: null,
+              contentStatus: "full",
+              fallbackMessage: null,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
+
+    render(<JobsResults jobs={[createJob(1)]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+
+    expect(await screen.findByRole("dialog", { name: "Role 1" })).toBeInTheDocument();
+    expect(await screen.findByText("Guide end-to-end product direction")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open original post/i })).toBeInTheDocument();
+  });
+
   it("loads company-filtered results directly instead of hydrating the full catalog", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),

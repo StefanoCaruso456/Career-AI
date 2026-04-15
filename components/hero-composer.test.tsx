@@ -48,6 +48,23 @@ vi.mock("@/components/prompt-composer-attachments", () => ({
   PromptComposerAttachments: () => null,
 }));
 
+vi.mock("@/components/jobs/job-list-item", () => ({
+  JobListItem: ({
+    job,
+  }: {
+    job: {
+      company: string;
+      title: string;
+    };
+  }) => (
+    <li>
+      <button type="button">APPLY</button>
+      <span>{job.company}</span>
+      <span>{job.title}</span>
+    </li>
+  ),
+}));
+
 vi.mock("@/components/use-chat-attachment-drafts", () => ({
   useChatAttachmentDrafts: () => useChatAttachmentDraftsMock(),
 }));
