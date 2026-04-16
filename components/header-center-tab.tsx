@@ -14,6 +14,7 @@ export function HeaderCenterTab() {
   const isAgentBuild =
     pathname === "/agent-build" || pathname.startsWith("/agent-build/");
   const isJobs = pathname === "/jobs" || pathname.startsWith("/jobs/");
+  const isWallet = pathname === "/wallet" || pathname.startsWith("/wallet/");
 
   if (routePersona === "employer") {
     return (
@@ -44,6 +45,13 @@ export function HeaderCenterTab() {
         href="/jobs"
       >
         Jobs
+      </Link>
+      <Link
+        aria-current={isWallet ? "page" : undefined}
+        className={isWallet ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
+        href="/wallet"
+      >
+        Wallet
       </Link>
     </div>
   );
