@@ -43,6 +43,11 @@ import { mapJobsPanelToListings } from "@/lib/jobs/map-jobs-to-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import type { Persona } from "@/lib/personas";
 import {
+  clampStarterRailScrollTarget,
+  getNextStarterRailScrollFrame,
+  getNormalizedStarterRailWheelDelta,
+} from "@/components/starter-rail-scroll";
+import {
   DEFAULT_LATEST_JOBS_PROMPT,
   type ChatConversation,
   type ChatProjectActivitySnapshot,
@@ -690,6 +695,8 @@ export function HeroComposer({
   const composerDockRef = useRef<HTMLFormElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const starterRailRef = useRef<HTMLDivElement>(null);
+  const starterRailScrollFrameRef = useRef<number | null>(null);
+  const starterRailScrollTargetRef = useRef<number | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
   const sidebarDeleteCancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -775,6 +782,14 @@ export function HeroComposer({
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (starterRailScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -2667,6 +2682,54 @@ export function HeroComposer({
     return threads.filter((thread) => thread.projectId === projectId);
   }
 
+  function flushStarterRailScrollAnimation() {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      starterRailScrollFrameRef.current = null;
+      starterRailScrollTargetRef.current = null;
+      return;
+    }
+
+    const targetLeft = clampStarterRailScrollTarget({
+      clientWidth: starterRail.clientWidth,
+      scrollWidth: starterRail.scrollWidth,
+      targetLeft: starterRailScrollTargetRef.current ?? starterRail.scrollLeft,
+    });
+    const nextFrame = getNextStarterRailScrollFrame({
+      currentLeft: starterRail.scrollLeft,
+      targetLeft,
+    });
+
+    if (nextFrame.done) {
+      starterRail.scrollLeft = targetLeft;
+      starterRailScrollFrameRef.current = null;
+      starterRailScrollTargetRef.current = targetLeft;
+      return;
+    }
+
+    starterRail.scrollLeft = nextFrame.left;
+    starterRailScrollFrameRef.current = window.requestAnimationFrame(flushStarterRailScrollAnimation);
+  }
+
+  function scrollStarterRailTo(targetLeft: number) {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return;
+    }
+
+    starterRailScrollTargetRef.current = clampStarterRailScrollTarget({
+      clientWidth: starterRail.clientWidth,
+      scrollWidth: starterRail.scrollWidth,
+      targetLeft,
+    });
+
+    if (starterRailScrollFrameRef.current === null) {
+      starterRailScrollFrameRef.current = window.requestAnimationFrame(flushStarterRailScrollAnimation);
+    }
+  }
+
   function scrollStarterRailBy(offset: number) {
     const starterRail = starterRailRef.current;
 
@@ -2674,10 +2737,7 @@ export function HeroComposer({
       return;
     }
 
-    starterRail.scrollBy({
-      behavior: "smooth",
-      left: offset,
-    });
+    scrollStarterRailTo((starterRailScrollTargetRef.current ?? starterRail.scrollLeft) + offset);
   }
 
   function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -2695,19 +2755,13 @@ export function HeroComposer({
 
     if (event.key === "Home") {
       event.preventDefault();
-      starterRailRef.current?.scrollTo({
-        behavior: "smooth",
-        left: 0,
-      });
+      scrollStarterRailTo(0);
       return;
     }
 
     if (event.key === "End") {
       event.preventDefault();
-      starterRailRef.current?.scrollTo({
-        behavior: "smooth",
-        left: starterRailRef.current.scrollWidth,
-      });
+      scrollStarterRailTo(starterRailRef.current.scrollWidth);
     }
   }
 
@@ -2718,18 +2772,34 @@ export function HeroComposer({
       return;
     }
 
-    const intendedHorizontalDelta =
-      Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    const normalizedDelta = getNormalizedStarterRailWheelDelta({
+      clientWidth: starterRail.clientWidth,
+      deltaMode: event.deltaMode,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+    });
 
-    if (intendedHorizontalDelta === 0) {
+    if (normalizedDelta === 0) {
+      return;
+    }
+
+    const currentTarget = clampStarterRailScrollTarget({
+      clientWidth: starterRail.clientWidth,
+      scrollWidth: starterRail.scrollWidth,
+      targetLeft: starterRailScrollTargetRef.current ?? starterRail.scrollLeft,
+    });
+    const nextTarget = clampStarterRailScrollTarget({
+      clientWidth: starterRail.clientWidth,
+      scrollWidth: starterRail.scrollWidth,
+      targetLeft: currentTarget + normalizedDelta,
+    });
+
+    if (Math.abs(nextTarget - currentTarget) <= 0.5) {
       return;
     }
 
     event.preventDefault();
-    starterRail.scrollBy({
-      behavior: "auto",
-      left: intendedHorizontalDelta,
-    });
+    scrollStarterRailTo(nextTarget);
   }
 
   function renderStarterAction(action: HeroComposerAction) {
