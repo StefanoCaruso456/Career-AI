@@ -120,7 +120,7 @@
 
 .homeMarkShell {
   position: relative;
-  width: 2.34rem;
+  width: 3.3rem;
   height: 2.34rem;
   overflow: visible;
   flex-shrink: 0;
@@ -589,8 +589,8 @@
   }
 
   .navTab {
-    min-width: 9.25rem;
-    padding-inline: 1.1rem;
+    min-width: 7.6rem;
+    padding-inline: 0.95rem;
   }
 }
 
@@ -618,7 +618,7 @@
   }
 
   .homeMarkShell {
-    width: 1.95rem;
+    width: 2.7rem;
     height: 1.95rem;
   }
 

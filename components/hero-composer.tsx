@@ -44,10 +44,8 @@ import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import type { Persona } from "@/lib/personas";
 import {
   clampStarterRailScrollTarget,
-  getLoopedStarterRailScrollTarget,
   getNextStarterRailScrollFrame,
   getNormalizedStarterRailWheelDelta,
-  getStarterRailMaxScroll,
 } from "@/components/starter-rail-scroll";
 import {
   DEFAULT_LATEST_JOBS_PROMPT,
@@ -219,6 +217,8 @@ const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
 const attachmentInputAccept = supportedChatAttachmentTypes
   .map((type) => `.${type.extension}`)
   .join(",");
+const STARTER_RAIL_COPY_COUNT = 3;
+const STARTER_RAIL_PRIMARY_COPY_INDEX = 1;
 const defaultEmployerCandidateSearchFilters: EmployerCandidateSearchFiltersDto = {
   certifications: [],
   credibilityThreshold: null,
@@ -697,7 +697,10 @@ export function HeroComposer({
   const composerDockRef = useRef<HTMLFormElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const starterRailRef = useRef<HTMLDivElement>(null);
+  const starterRailCycleWidthRef = useRef<number | null>(null);
   const starterRailScrollFrameRef = useRef<number | null>(null);
+  const starterRailProgrammaticScrollRef = useRef(false);
+  const starterRailScrollRecenteringRef = useRef(false);
   const starterRailScrollTargetRef = useRef<number | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
@@ -786,11 +789,48 @@ export function HeroComposer({
 
   useEffect(() => {
     return () => {
-      if (starterRailScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
-      }
+      cancelStarterRailScrollAnimation();
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (!isLandingState) {
+      cancelStarterRailScrollAnimation();
+      starterRailProgrammaticScrollRef.current = false;
+      starterRailCycleWidthRef.current = null;
+      starterRailScrollTargetRef.current = null;
+      return;
+    }
+
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return;
+    }
+
+    let cancelled = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let frameId = window.requestAnimationFrame(() => {
+      if (cancelled) {
+        return;
+      }
+
+      syncStarterRailLoopPosition({ preserveOffset: false });
+    });
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(() => {
+        syncStarterRailLoopPosition();
+      });
+      resizeObserver.observe(starterRail);
+    }
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+      resizeObserver?.disconnect();
+    };
+  }, [isLandingState, starterActions.length]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -2688,6 +2728,116 @@ export function HeroComposer({
     return threads.filter((thread) => thread.projectId === projectId);
   }
 
+  function getStarterRailCycleWidth() {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return null;
+    }
+
+    const cachedCycleWidth = starterRailCycleWidthRef.current;
+
+    if (cachedCycleWidth && cachedCycleWidth > 0) {
+      return cachedCycleWidth;
+    }
+
+    const firstCopy = starterRail.querySelector<HTMLElement>('[data-starter-rail-copy="0"]');
+    const computedStyle = window.getComputedStyle(starterRail);
+    const gapValue = computedStyle.columnGap || computedStyle.gap || "0";
+    const gap = Number.parseFloat(gapValue) || 0;
+    const measuredCycleWidth =
+      firstCopy && firstCopy.offsetWidth > 0
+        ? firstCopy.offsetWidth + gap
+        : starterRail.scrollWidth / STARTER_RAIL_COPY_COUNT;
+
+    if (measuredCycleWidth <= 0) {
+      return null;
+    }
+
+    starterRailCycleWidthRef.current = measuredCycleWidth;
+    return measuredCycleWidth;
+  }
+
+  function cancelStarterRailScrollAnimation() {
+    if (starterRailScrollFrameRef.current === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(starterRailScrollFrameRef.current);
+    starterRailScrollFrameRef.current = null;
+  }
+
+  function syncStarterRailTargetToCurrentPosition() {
+    const starterRail = starterRailRef.current;
+
+    starterRailScrollTargetRef.current = starterRail ? starterRail.scrollLeft : null;
+  }
+
+  function recenterStarterRailScrollPosition() {
+    const starterRail = starterRailRef.current;
+    const cycleWidth = getStarterRailCycleWidth();
+
+    if (!starterRail || !cycleWidth) {
+      return;
+    }
+
+    let nextLeft = starterRail.scrollLeft;
+
+    while (nextLeft < cycleWidth) {
+      nextLeft += cycleWidth;
+    }
+
+    while (nextLeft >= cycleWidth * 2) {
+      nextLeft -= cycleWidth;
+    }
+
+    if (Math.abs(nextLeft - starterRail.scrollLeft) <= 0.1) {
+      return;
+    }
+
+    const delta = nextLeft - starterRail.scrollLeft;
+    starterRailScrollRecenteringRef.current = true;
+    starterRail.scrollLeft = nextLeft;
+
+    if (starterRailScrollTargetRef.current !== null) {
+      starterRailScrollTargetRef.current += delta;
+    }
+
+    starterRailScrollRecenteringRef.current = false;
+  }
+
+  function syncStarterRailLoopPosition(options?: {
+    preserveOffset?: boolean;
+  }) {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return;
+    }
+
+    const previousCycleWidth = starterRailCycleWidthRef.current;
+    starterRailCycleWidthRef.current = null;
+    const nextCycleWidth = getStarterRailCycleWidth();
+
+    if (!nextCycleWidth) {
+      return;
+    }
+
+    const shouldPreserveOffset = options?.preserveOffset ?? true;
+    let nextLeft = nextCycleWidth;
+
+    if (shouldPreserveOffset && previousCycleWidth && previousCycleWidth > 0) {
+      const offsetWithinCycle =
+        ((starterRail.scrollLeft - previousCycleWidth) % previousCycleWidth + previousCycleWidth) %
+        previousCycleWidth;
+      nextLeft += offsetWithinCycle;
+    }
+
+    starterRailProgrammaticScrollRef.current = true;
+    starterRail.scrollLeft = nextLeft;
+    starterRailScrollTargetRef.current = nextLeft;
+  }
+
   function flushStarterRailScrollAnimation() {
     const starterRail = starterRailRef.current;
 
@@ -2708,13 +2858,17 @@ export function HeroComposer({
     });
 
     if (nextFrame.done) {
+      starterRailProgrammaticScrollRef.current = true;
       starterRail.scrollLeft = targetLeft;
+      recenterStarterRailScrollPosition();
       starterRailScrollFrameRef.current = null;
-      starterRailScrollTargetRef.current = targetLeft;
+      starterRailScrollTargetRef.current = starterRail.scrollLeft;
       return;
     }
 
+    starterRailProgrammaticScrollRef.current = true;
     starterRail.scrollLeft = nextFrame.left;
+    recenterStarterRailScrollPosition();
     starterRailScrollFrameRef.current = window.requestAnimationFrame(flushStarterRailScrollAnimation);
   }
 
@@ -2743,67 +2897,26 @@ export function HeroComposer({
       return;
     }
 
-    const maxScroll = getStarterRailMaxScroll(
-      starterRail.scrollWidth,
-      starterRail.clientWidth,
-    );
-
-    if (maxScroll <= 0) {
-      return;
-    }
-
     const currentTarget = starterRailScrollTargetRef.current ?? starterRail.scrollLeft;
-    const nextTarget = currentTarget + offset;
+    scrollStarterRailTo(currentTarget + offset);
+  }
 
-    if (nextTarget >= maxScroll) {
-      const wrappedTarget = getLoopedStarterRailScrollTarget({
-        clientWidth: starterRail.clientWidth,
-        scrollWidth: starterRail.scrollWidth,
-        targetLeft: nextTarget,
-      });
+  function applyStarterRailManualScroll(offset: number) {
+    const starterRail = starterRailRef.current;
 
-      if (starterRailScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
-        starterRailScrollFrameRef.current = null;
-      }
-
-      starterRail.scrollLeft = 0;
-      starterRailScrollTargetRef.current = 0;
-
-      if (wrappedTarget > 0) {
-        scrollStarterRailTo(wrappedTarget);
-      }
-
+    if (!starterRail) {
       return;
     }
 
-    if (nextTarget <= 0) {
-      const wrappedTarget = getLoopedStarterRailScrollTarget({
-        clientWidth: starterRail.clientWidth,
-        scrollWidth: starterRail.scrollWidth,
-        targetLeft: nextTarget,
-      });
-
-      if (starterRailScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
-        starterRailScrollFrameRef.current = null;
-      }
-
-      starterRail.scrollLeft = maxScroll;
-      starterRailScrollTargetRef.current = maxScroll;
-
-      if (wrappedTarget < maxScroll) {
-        scrollStarterRailTo(wrappedTarget);
-      }
-
-      return;
-    }
-
-    scrollStarterRailTo(nextTarget);
+    cancelStarterRailScrollAnimation();
+    starterRail.scrollLeft += offset;
+    recenterStarterRailScrollPosition();
+    syncStarterRailTargetToCurrentPosition();
   }
 
   function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     const starterRail = starterRailRef.current;
+    const cycleWidth = getStarterRailCycleWidth();
 
     if (!starterRail) {
       return;
@@ -2823,14 +2936,34 @@ export function HeroComposer({
 
     if (event.key === "Home") {
       event.preventDefault();
-      scrollStarterRailTo(0);
+      scrollStarterRailTo(cycleWidth ?? 0);
       return;
     }
 
     if (event.key === "End") {
       event.preventDefault();
-      scrollStarterRailTo(starterRail.scrollWidth);
+      scrollStarterRailTo(
+        cycleWidth !== null
+          ? cycleWidth + Math.max(0, cycleWidth - starterRail.clientWidth)
+          : starterRail.scrollWidth,
+      );
     }
+  }
+
+  function handleStarterRailScroll() {
+    if (starterRailScrollRecenteringRef.current) {
+      return;
+    }
+
+    if (starterRailProgrammaticScrollRef.current) {
+      starterRailProgrammaticScrollRef.current = false;
+      recenterStarterRailScrollPosition();
+      return;
+    }
+
+    cancelStarterRailScrollAnimation();
+    recenterStarterRailScrollPosition();
+    syncStarterRailTargetToCurrentPosition();
   }
 
   function handleStarterRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -2852,21 +2985,32 @@ export function HeroComposer({
     }
 
     event.preventDefault();
-    scrollStarterRailBy(normalizedDelta);
+    applyStarterRailManualScroll(normalizedDelta);
   }
 
-  function renderStarterAction(action: HeroComposerAction) {
+  function renderStarterAction(
+    action: HeroComposerAction,
+    options?: {
+      copyIndex?: number;
+      isGhostCopy?: boolean;
+    },
+  ) {
+    const copyKeySuffix = options?.copyIndex !== undefined ? `-${options.copyIndex}` : "";
+    const isGhostCopy = options?.isGhostCopy ?? false;
+
     if (action.kind !== "link") {
       return (
         <button
+          aria-hidden={isGhostCopy ? true : undefined}
           className={[
             styles.starterQuestionPill,
             action.accent === "jobs" ? styles.starterQuestionPillJobs : "",
           ]
             .filter(Boolean)
             .join(" ")}
-          key={action.label}
+          key={`${action.label}${copyKeySuffix}`}
           onClick={() => handleStarterAction(action)}
+          tabIndex={isGhostCopy ? -1 : undefined}
           type="button"
         >
           {action.label}
@@ -2876,6 +3020,7 @@ export function HeroComposer({
 
     return (
       <Link
+        aria-hidden={isGhostCopy ? true : undefined}
         className={[
           styles.starterQuestionPill,
           action.accent === "primary" ? styles.starterQuestionPillPrimary : "",
@@ -2883,7 +3028,8 @@ export function HeroComposer({
           .filter(Boolean)
           .join(" ")}
         href={action.href}
-        key={action.label}
+        key={`${action.label}${copyKeySuffix}`}
+        tabIndex={isGhostCopy ? -1 : undefined}
       >
         {action.label}
       </Link>
@@ -3357,12 +3503,36 @@ export function HeroComposer({
             aria-label="Starter prompts"
             className={styles.heroStarterRail}
             onKeyDown={handleStarterRailKeyDown}
+            onScroll={handleStarterRailScroll}
             onWheel={handleStarterRailWheel}
             ref={starterRailRef}
             role="group"
             tabIndex={0}
           >
-            {starterActions.map((action) => renderStarterAction(action))}
+            {Array.from({ length: STARTER_RAIL_COPY_COUNT }, (_, copyIndex) => {
+              const isGhostCopy = copyIndex !== STARTER_RAIL_PRIMARY_COPY_INDEX;
+
+              return (
+                <div
+                  aria-hidden={isGhostCopy ? true : undefined}
+                  className={[
+                    styles.heroStarterRailCopy,
+                    isGhostCopy ? styles.heroStarterRailGhostCopy : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  data-starter-rail-copy={copyIndex}
+                  key={`starter-rail-copy-${copyIndex}`}
+                >
+                  {starterActions.map((action) =>
+                    renderStarterAction(action, {
+                      copyIndex,
+                      isGhostCopy,
+                    }),
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}

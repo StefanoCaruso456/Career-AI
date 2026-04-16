@@ -34,6 +34,7 @@ describe("HeaderCenterTab", () => {
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");
   });
 
   it("renders Candidates in the floating header for employer routes", () => {
@@ -68,6 +69,17 @@ describe("HeaderCenterTab", () => {
     expect(link).toHaveClass(styles.navTabCurrent);
   });
 
+  it("marks Wallet as current on the wallet route", () => {
+    mockUsePathname.mockReturnValue("/wallet");
+
+    render(<HeaderCenterTab />);
+
+    const link = screen.getByRole("link", { name: "Wallet" });
+    expect(link).toHaveAttribute("href", "/wallet");
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveClass(styles.navTabCurrent);
+  });
+
   it("keeps shared settings routes on the public navigation tabs", () => {
     mockUsePathname.mockReturnValue("/settings");
 
@@ -75,6 +87,7 @@ describe("HeaderCenterTab", () => {
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");
     expect(screen.queryByRole("link", { name: "Candidates" })).not.toBeInTheDocument();
   });
 
@@ -85,6 +98,7 @@ describe("HeaderCenterTab", () => {
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");
     expect(screen.queryByRole("link", { name: "Candidates" })).not.toBeInTheDocument();
   });
 });

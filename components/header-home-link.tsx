@@ -30,7 +30,7 @@ export function HeaderHomeLink() {
           className={styles.homeMarkImage}
           fill
           priority
-          sizes="44px"
+          sizes="56px"
           src="/career-ai-header-logo.png"
         />
       </span>

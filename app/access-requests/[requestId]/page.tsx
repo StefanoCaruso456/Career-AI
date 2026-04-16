@@ -87,106 +87,108 @@ export default async function AccessRequestReviewPage({
       sessionActor.actorId === review.subject.talentIdentityId;
 
     return (
-      <main className={styles.page}>
-        <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
-          <section className={styles.pageHero}>
-            <span className={styles.eyebrow}>Secure review</span>
-            <h1>Review Career ID access request</h1>
-            <p className={styles.lead}>
-              All channels route back to this secure page. Approving or rejecting here creates a
-              durable audit trail and updates recruiter access immediately.
-            </p>
-          </section>
+      <div className={styles.pageCanvas}>
+        <main className={styles.page}>
+          <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
+            <section className={styles.pageHero}>
+              <span className={styles.eyebrow}>Secure review</span>
+              <h1>Review Career ID access request</h1>
+              <p className={styles.lead}>
+                All channels route back to this secure page. Approving or rejecting here creates a
+                durable audit trail and updates recruiter access immediately.
+              </p>
+            </section>
 
-          <section className={styles.card}>
-            <div className={styles.stack}>
-              <div className={styles.listHeader}>
-                <div>
-                  <h2>{review.requester.organizationName}</h2>
-                  <p className={styles.smallNote}>
-                    Requested by {review.requester.requesterName}
-                  </p>
+            <section className={styles.card}>
+              <div className={styles.stack}>
+                <div className={styles.listHeader}>
+                  <div>
+                    <h2>{review.requester.organizationName}</h2>
+                    <p className={styles.smallNote}>
+                      Requested by {review.requester.requesterName}
+                    </p>
+                  </div>
+                  <span className={[styles.pill, getStatusPillClass(displayStatus)].join(" ")}>
+                    {formatStatusLabel(displayStatus)}
+                  </span>
                 </div>
-                <span className={[styles.pill, getStatusPillClass(displayStatus)].join(" ")}>
-                  {formatStatusLabel(displayStatus)}
-                </span>
+
+                <div className={styles.metaGrid}>
+                  <article className={styles.metaCard}>
+                    <span className={styles.metaLabel}>Requested scope</span>
+                    <strong className={styles.metaValue}>{formatScopeLabel(review.scope)}</strong>
+                  </article>
+                  <article className={styles.metaCard}>
+                    <span className={styles.metaLabel}>Reason</span>
+                    <strong className={styles.metaValue}>{review.justification}</strong>
+                  </article>
+                  <article className={styles.metaCard}>
+                    <span className={styles.metaLabel}>Requested duration</span>
+                    <strong className={styles.metaValue}>
+                      {review.requestedDurationDaysOptional
+                        ? `${review.requestedDurationDaysOptional} days`
+                        : "No expiration requested"}
+                    </strong>
+                  </article>
+                  <article className={styles.metaCard}>
+                    <span className={styles.metaLabel}>Review channel</span>
+                    <strong className={styles.metaValue}>
+                      {review.reviewAccess.channel.replaceAll("_", " ")}
+                    </strong>
+                  </article>
+                  <article className={styles.metaCard}>
+                    <span className={styles.metaLabel}>Access lifecycle</span>
+                    <strong className={styles.metaValue}>{formatStatusLabel(displayStatus)}</strong>
+                  </article>
+                </div>
+
+                {review.status === "granted" && review.grantLifecycleStatusOptional === "active" ? (
+                  <p className={styles.statusMessage + " " + styles.statusMessageSuccess}>
+                    Access approved.
+                    {review.grantedExpiresAtOptional
+                      ? ` The current grant expires at ${review.grantedExpiresAtOptional}.`
+                      : " The current grant does not have an expiration."}
+                  </p>
+                ) : null}
+
+                {review.status === "granted" && review.grantLifecycleStatusOptional === "revoked" ? (
+                  <p className={styles.statusMessage + " " + styles.statusMessageError}>
+                    Access was revoked
+                    {review.grantRevokedAtOptional ? ` at ${review.grantRevokedAtOptional}.` : "."}
+                  </p>
+                ) : null}
+
+                {review.status === "granted" && review.grantLifecycleStatusOptional === "expired" ? (
+                  <p className={styles.statusMessage + " " + styles.statusMessageError}>
+                    Access expired
+                    {review.grantedExpiresAtOptional
+                      ? ` at ${review.grantedExpiresAtOptional}.`
+                      : "."}
+                  </p>
+                ) : null}
+
+                {review.status === "rejected" ? (
+                  <p className={styles.statusMessage + " " + styles.statusMessageError}>
+                    This request has already been rejected.
+                  </p>
+                ) : null}
               </div>
+            </section>
 
-              <div className={styles.metaGrid}>
-                <article className={styles.metaCard}>
-                  <span className={styles.metaLabel}>Requested scope</span>
-                  <strong className={styles.metaValue}>{formatScopeLabel(review.scope)}</strong>
-                </article>
-                <article className={styles.metaCard}>
-                  <span className={styles.metaLabel}>Reason</span>
-                  <strong className={styles.metaValue}>{review.justification}</strong>
-                </article>
-                <article className={styles.metaCard}>
-                  <span className={styles.metaLabel}>Requested duration</span>
-                  <strong className={styles.metaValue}>
-                    {review.requestedDurationDaysOptional
-                      ? `${review.requestedDurationDaysOptional} days`
-                      : "No expiration requested"}
-                  </strong>
-                </article>
-                <article className={styles.metaCard}>
-                  <span className={styles.metaLabel}>Review channel</span>
-                  <strong className={styles.metaValue}>
-                    {review.reviewAccess.channel.replaceAll("_", " ")}
-                  </strong>
-                </article>
-                <article className={styles.metaCard}>
-                  <span className={styles.metaLabel}>Access lifecycle</span>
-                  <strong className={styles.metaValue}>{formatStatusLabel(displayStatus)}</strong>
-                </article>
-              </div>
+            <AccessRequestReviewActions
+              canRevoke={canRevoke}
+              request={review}
+              reviewTokenOptional={token}
+            />
 
-              {review.status === "granted" && review.grantLifecycleStatusOptional === "active" ? (
-                <p className={styles.statusMessage + " " + styles.statusMessageSuccess}>
-                  Access approved.
-                  {review.grantedExpiresAtOptional
-                    ? ` The current grant expires at ${review.grantedExpiresAtOptional}.`
-                    : " The current grant does not have an expiration."}
-                </p>
-              ) : null}
-
-              {review.status === "granted" && review.grantLifecycleStatusOptional === "revoked" ? (
-                <p className={styles.statusMessage + " " + styles.statusMessageError}>
-                  Access was revoked
-                  {review.grantRevokedAtOptional ? ` at ${review.grantRevokedAtOptional}.` : "."}
-                </p>
-              ) : null}
-
-              {review.status === "granted" && review.grantLifecycleStatusOptional === "expired" ? (
-                <p className={styles.statusMessage + " " + styles.statusMessageError}>
-                  Access expired
-                  {review.grantedExpiresAtOptional
-                    ? ` at ${review.grantedExpiresAtOptional}.`
-                    : "."}
-                </p>
-              ) : null}
-
-              {review.status === "rejected" ? (
-                <p className={styles.statusMessage + " " + styles.statusMessageError}>
-                  This request has already been rejected.
-                </p>
-              ) : null}
+            <div className={styles.actions}>
+              <Link className={styles.secondaryButton} href="/account/access-requests">
+                Back to inbox
+              </Link>
             </div>
-          </section>
-
-          <AccessRequestReviewActions
-            canRevoke={canRevoke}
-            request={review}
-            reviewTokenOptional={token}
-          />
-
-          <div className={styles.actions}>
-            <Link className={styles.secondaryButton} href="/account/access-requests">
-              Back to inbox
-            </Link>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     );
   } catch (error) {
     const message =
@@ -195,22 +197,24 @@ export default async function AccessRequestReviewPage({
         : "We couldn't verify that review link.";
 
     return (
-      <main className={styles.page}>
-        <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
-          <section className={styles.card}>
-            <div className={styles.stack}>
-              <span className={styles.eyebrow}>Review unavailable</span>
-              <h1>We couldn't open this secure request</h1>
-              <p className={styles.lead}>{message}</p>
-              <div className={styles.actions}>
-                <Link className={styles.secondaryButton} href="/account/access-requests">
-                  Open candidate inbox
-                </Link>
+      <div className={styles.pageCanvas}>
+        <main className={styles.page}>
+          <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
+            <section className={styles.card}>
+              <div className={styles.stack}>
+                <span className={styles.eyebrow}>Review unavailable</span>
+                <h1>We couldn't open this secure request</h1>
+                <p className={styles.lead}>{message}</p>
+                <div className={styles.actions}>
+                  <Link className={styles.secondaryButton} href="/account/access-requests">
+                    Open candidate inbox
+                  </Link>
+                </div>
               </div>
-            </div>
-          </section>
-        </div>
-      </main>
+            </section>
+          </div>
+        </main>
+      </div>
     );
   }
 }

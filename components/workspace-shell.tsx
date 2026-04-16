@@ -28,7 +28,7 @@ export function WorkspaceShell({
   const pathname = usePathname();
 
   return (
-    <>
+    <div className={styles.pageCanvas}>
       <section className={styles.section}>
         <div className={styles.shell}>
           <div className={styles.copyBlock}>
@@ -56,6 +56,6 @@ export function WorkspaceShell({
       </section>
 
       {children}
-    </>
+    </div>
   );
 }
