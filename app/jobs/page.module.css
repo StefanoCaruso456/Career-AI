@@ -2,9 +2,9 @@
   --jobs-shell-surface: rgba(47, 45, 47, 0.94);
   --jobs-shell-surface-top: rgba(61, 58, 63, 0.97);
   --jobs-shell-surface-bottom: rgba(41, 39, 43, 0.99);
-  --jobs-panel: rgba(22, 26, 34, 0.92);
-  --jobs-card-top: rgba(39, 45, 57, 0.96);
-  --jobs-card-bottom: rgba(21, 25, 33, 0.98);
+  --jobs-panel: rgba(43, 43, 43, 0.94);
+  --jobs-card-top: rgba(55, 55, 55, 0.96);
+  --jobs-card-bottom: rgba(45, 45, 45, 0.98);
   --jobs-line: rgba(255, 255, 255, 0.08);
   --jobs-line-strong: rgba(255, 255, 255, 0.12);
   --jobs-text-primary: #f7f9fc;
@@ -371,8 +371,6 @@
   border-radius: 1.45rem;
   border: 1px solid var(--jobs-line-strong);
   background:
-    radial-gradient(circle at top right, rgba(141, 127, 255, 0.12), transparent 24%),
-    radial-gradient(circle at bottom left, rgba(96, 146, 255, 0.06), transparent 22%),
     linear-gradient(180deg, var(--jobs-card-top), var(--jobs-card-bottom)),
     var(--jobs-panel);
   box-shadow:
