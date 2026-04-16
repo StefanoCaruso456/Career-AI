@@ -1250,14 +1250,30 @@ describe("HeroComposer", () => {
     expect(locationInput).toHaveValue("Austin ");
   });
 
-  it("loads a starter prompt into the composer without submitting it", async () => {
+  it("submits a starter prompt when the user clicks a homepage pill", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_general", "Verified profile")]);
+    const conversation = createConversation("conversation_general", "project_general", [
+      createMessage("message_user_general", "user", "How can I get hired faster?"),
+      createMessage(
+        "message_assistant_general",
+        "assistant",
+        "Start by strengthening the proof attached to your Career ID.",
+      ),
+    ]);
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = getRequestUrl(input);
 
       if (url === "/api/chat/state") {
         return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          conversation,
+          userMessage: conversation.messages[0],
+        });
       }
 
       throw new Error(`Unexpected fetch request: ${url}`);
@@ -1269,12 +1285,21 @@ describe("HeroComposer", () => {
 
     const composer = await screen.findByRole("textbox", { name: "Message composer" });
 
-    fireEvent.click(screen.getByRole("button", { name: "How is this different from a resume builder?" }));
+    fireEvent.click(screen.getByRole("button", { name: "How can I get hired faster?" }));
 
-    expect(composer).toHaveValue("How is this different from a resume builder?");
     expect(
-      fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat"),
-    ).toBe(false);
+      await screen.findByText("Start by strengthening the proof attached to your Career ID."),
+    ).toBeInTheDocument();
+    expect(composer).toHaveValue("");
+
+    const chatRequest = fetchMock.mock.calls.find(
+      ([input]) => getRequestUrl(input) === "/api/chat",
+    ) as [string | URL | Request, RequestInit?] | undefined;
+    const requestBody = JSON.parse(String(chatRequest?.[1]?.body ?? "{}")) as {
+      message?: string;
+    };
+
+    expect(requestBody.message).toBe("How can I get hired faster?");
   });
 
   it("does not show the jobs side panel for non-job prompts", async () => {
