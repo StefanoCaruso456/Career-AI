@@ -464,6 +464,8 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         { id: "project-hiring-signals", label: "Hiring signals" },
       ],
       starterActions: [
+        { kind: "prompt", label: "How can I get hired faster?" },
+        { kind: "prompt", label: "Why is this a secure career identity platform?" },
         {
           accent: "jobs",
           kind: "latest_jobs",
@@ -471,7 +473,6 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         },
         { kind: "prompt", label: "What does the agent actually do?" },
         { kind: "prompt", label: "How is this different from a resume builder?" },
-        { kind: "prompt", label: "How does the agent help me get hired faster?" },
         {
           accent: "primary",
           kind: "link",
