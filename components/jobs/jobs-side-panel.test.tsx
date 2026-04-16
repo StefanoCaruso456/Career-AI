@@ -282,4 +282,28 @@ describe("JobsSidePanel", () => {
     expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
     expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
   });
+
+  it("shows company and location options from the broader filter metadata, not only the rendered cards", () => {
+    render(
+      <JobsSidePanel
+        filterOptions={{
+          companies: ["Accenture", "Cisco", "LinkedIn"],
+          locations: ["Buenos Aires, Argentina", "London, United Kingdom", "Austin, TX"],
+        }}
+        jobs={[createJob("job_1", { company: "Accenture", location: "Buenos Aires" })]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+
+    const companySelect = screen.getByLabelText("Company");
+    const locationSelect = screen.getByLabelText("Location");
+
+    expect(companySelect).toHaveTextContent("Accenture");
+    expect(companySelect).toHaveTextContent("Cisco");
+    expect(companySelect).toHaveTextContent("LinkedIn");
+    expect(locationSelect).toHaveTextContent("Argentina");
+    expect(locationSelect).toHaveTextContent("United Kingdom");
+    expect(locationSelect).toHaveTextContent("United States");
+  });
 });

@@ -52,6 +52,7 @@ import {
   type EmployerCandidateMatchDto,
   type EmployerCandidateSearchFiltersDto,
   type EmployerCandidateSearchResponseDto,
+  type JobRailFilterOptionsDto,
   type JobsPanelResponseDto,
   type ChatWorkspacePersistence,
   type ChatWorkspaceSnapshot,
@@ -654,6 +655,8 @@ export function HeroComposer({
   const [isCandidateAssistDismissed, setIsCandidateAssistDismissed] = useState(false);
   const [jobsAssistListings, setJobsAssistListings] = useState<JobListing[]>([]);
   const [jobsAssistEmptyState, setJobsAssistEmptyState] = useState<string | null>(null);
+  const [jobsAssistFilterOptions, setJobsAssistFilterOptions] =
+    useState<JobRailFilterOptionsDto | null>(null);
   const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
   const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
   const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
@@ -844,6 +847,7 @@ export function HeroComposer({
       setIsJobsAssistLoading(false);
       setJobsAssistEmptyState(null);
       setJobsAssistError(null);
+      setJobsAssistFilterOptions(null);
       setJobsAssistListings([]);
       setJobsAssistLoadedRequestKey(null);
       return;
@@ -879,6 +883,7 @@ export function HeroComposer({
         startTransition(() => {
           setJobsAssistListings(result.listings);
           setJobsAssistEmptyState(result.rail.emptyState);
+          setJobsAssistFilterOptions(result.rail.filterOptions ?? null);
           setJobsAssistError(null);
           setJobsAssistLoadedRequestKey(jobsAssistRequestKey);
           setIsJobsAssistLoading(false);
@@ -890,6 +895,7 @@ export function HeroComposer({
         }
 
         setJobsAssistEmptyState(null);
+        setJobsAssistFilterOptions(null);
         setJobsAssistError(
           error instanceof Error
             ? error.message
@@ -1437,6 +1443,7 @@ export function HeroComposer({
     const jobsMode = deriveJobsAssistMode(jobsPanel.query.prompt) ?? "search";
     setJobsAssistListings(mapJobsPanelToListings(jobsPanel));
     setJobsAssistEmptyState(jobsPanel.rail.emptyState);
+    setJobsAssistFilterOptions(jobsPanel.rail.filterOptions ?? null);
     setJobsAssistLoadedRequestKey(
       createJobsAssistRequestKey(jobsMode, jobsPanel.query.prompt, 0),
     );
@@ -3391,6 +3398,7 @@ export function HeroComposer({
               <JobsSidePanel
                 emptyStateMessage={jobsAssistEmptyState}
                 errorMessage={jobsAssistError}
+                filterOptions={jobsAssistFilterOptions}
                 isLoading={isJobsAssistLoading}
                 jobs={jobsAssistListings}
                 onApply={handleApplyJob}

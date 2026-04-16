@@ -70,6 +70,7 @@ export type JobSearchCatalogResult = {
   rail: {
     cards: JobRailCardDto[];
     emptyState: string | null;
+    filterOptions?: JobSearchRetrievalResultDto["rail"]["filterOptions"];
   };
   rankingSummary: JobSearchRetrievalResultDto["rankingSummary"];
   resultQuality: JobSearchRetrievalResultDto["resultQuality"];
@@ -1096,6 +1097,7 @@ export async function searchJobsCatalog(args: {
     rail: {
       cards: railCards,
       emptyState: buildRetrievalEmptyState(searchResult.results),
+      filterOptions: searchResult.availableFilterOptions,
     },
     rankingSummary: searchResult.rankingSummary,
     resultQuality: searchResult.resultQuality,

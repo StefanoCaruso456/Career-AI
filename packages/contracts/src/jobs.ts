@@ -370,6 +370,11 @@ export const jobRailCardSchema = z.object({
   workplaceType: jobWorkplaceTypeSchema.nullable(),
 });
 
+export const jobRailFilterOptionsSchema = z.object({
+  companies: z.array(z.string()),
+  locations: z.array(z.string()),
+});
+
 export const jobSearchRetrievalResultSchema = z.object({
   appliedFilters: jobSearchAppliedFiltersSchema,
   debugMeta: jobSearchDebugMetaSchema,
@@ -389,6 +394,7 @@ export const jobSearchRetrievalResultSchema = z.object({
   rail: z.object({
     cards: z.array(jobRailCardSchema),
     emptyState: z.string().nullable(),
+    filterOptions: jobRailFilterOptionsSchema.optional(),
   }),
   rankingSummary: jobSearchRankingSummarySchema,
   resultQuality: jobSeekerResultQualitySchema,
@@ -435,6 +441,7 @@ export const jobsPanelResponseSchema = z.object({
   rail: z.object({
     cards: z.array(jobRailCardSchema),
     emptyState: z.string().nullable(),
+    filterOptions: jobRailFilterOptionsSchema.optional(),
   }),
   totalMatches: z.number().int().nonnegative(),
 });
@@ -500,6 +507,7 @@ export type JobSearchAppliedFiltersDto = z.infer<typeof jobSearchAppliedFiltersS
 export type JobSearchRankingSummaryDto = z.infer<typeof jobSearchRankingSummarySchema>;
 export type JobSearchDebugMetaDto = z.infer<typeof jobSearchDebugMetaSchema>;
 export type JobRailCardDto = z.infer<typeof jobRailCardSchema>;
+export type JobRailFilterOptionsDto = z.infer<typeof jobRailFilterOptionsSchema>;
 export type JobSearchRetrievalResultDto = z.infer<typeof jobSearchRetrievalResultSchema>;
 export type JobSeekerAgentTraceEntryDto = z.infer<typeof jobSeekerAgentTraceEntrySchema>;
 export type JobSeekerAgentMetadataDto = z.infer<typeof jobSeekerAgentMetadataSchema>;

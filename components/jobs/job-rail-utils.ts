@@ -31,6 +31,11 @@ export type JobRailBadge = {
   tone: "accent" | "neutral" | "success";
 };
 
+export type JobRailOptionOverrides = {
+  companies?: string[] | null;
+  locations?: string[] | null;
+};
+
 export const DEFAULT_JOB_RAIL_FILTERS: JobRailFilters = {
   company: "all",
   employmentType: "all",
@@ -438,18 +443,21 @@ export function normalizeEmploymentType(value: string | null | undefined) {
   return "unknown" satisfies Exclude<JobRailEmploymentFilter, "all">;
 }
 
-export function getJobRailOptions(jobs: JobListing[]) {
+export function getJobRailOptions(
+  jobs: JobListing[],
+  overrides?: JobRailOptionOverrides | null,
+) {
   const companies = Array.from(
     new Set(
-      jobs
-        .map((job) => job.company?.trim())
+      (overrides?.companies?.length ? overrides.companies : jobs.map((job) => job.company))
+        .map((company) => company?.trim())
         .filter((value): value is string => Boolean(value)),
     ),
   ).sort((left, right) => left.localeCompare(right));
   const locations = Array.from(
     new Set(
-      jobs
-        .map((job) => getJobRailLocationLabel(job.location))
+      (overrides?.locations?.length ? overrides.locations : jobs.map((job) => job.location))
+        .map((location) => getJobRailLocationLabel(location))
         .filter((value): value is string => Boolean(value)),
     ),
   ).sort((left, right) => left.localeCompare(right));

@@ -305,6 +305,48 @@ describe("jobs search service", () => {
     expect(result.jobs[0]?.companyName).toBe("Cisco");
   });
 
+  it("exposes broader rail filter options than the rendered job slice", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: [
+        createJob({
+          companyName: "Accenture",
+          id: "job_accenture_ar",
+          location: "Buenos Aires, Argentina",
+          postedAt: "2026-04-10T12:00:00.000Z",
+          title: "Fraud Investigations Senior Analyst",
+        }),
+        createJob({
+          companyName: "Cisco",
+          id: "job_cisco_us",
+          location: "Austin, TX",
+          postedAt: "2026-04-09T12:00:00.000Z",
+          title: "Software Engineer",
+        }),
+        createJob({
+          companyName: "LinkedIn",
+          id: "job_linkedin_uk",
+          location: "London, United Kingdom",
+          postedAt: "2026-04-08T12:00:00.000Z",
+          title: "ML Engineer",
+        }),
+      ],
+      sources: [{ key: "workday:accenture" }, { key: "workday:cisco" }, { key: "linkedin:linkedin" }],
+    });
+
+    const result = await browseLatestJobsPanel({
+      limit: 1,
+    });
+
+    expect(result.jobs).toHaveLength(1);
+    expect(result.rail.filterOptions?.companies).toEqual(["Accenture", "Cisco", "LinkedIn"]);
+    expect(result.rail.filterOptions?.locations).toEqual([
+      "Austin, TX",
+      "Buenos Aires, Argentina",
+      "London, United Kingdom",
+    ]);
+  });
+
   it("infers company-first prompts from the available job snapshot", async () => {
     getJobsFeedSnapshotMock.mockResolvedValue({
       generatedAt: "2026-04-10T00:00:00.000Z",

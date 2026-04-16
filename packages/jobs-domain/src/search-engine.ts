@@ -269,6 +269,10 @@ type SearchRankedCandidate = {
 };
 
 type SearchPassResult = {
+  availableFilterOptions: {
+    companies: string[];
+    locations: string[];
+  };
   appliedFilters: JobSearchFiltersDto & {
     limit: number;
     offset: number;
@@ -347,6 +351,17 @@ function phraseMatchScore(queryPhrases: string[], haystack: string) {
   const hits = queryPhrases.filter((phrase) => normalizedHaystack.includes(normalizeHumanLabel(phrase)));
 
   return hits.length / queryPhrases.length;
+}
+
+function buildAvailableFilterOptions(candidates: SearchRankedCandidate[]) {
+  return {
+    companies: uniq(candidates.map((candidate) => candidate.job.companyName)).sort((left, right) =>
+      left.localeCompare(right),
+    ),
+    locations: uniq(candidates.map((candidate) => candidate.job.location)).sort((left, right) =>
+      left.localeCompare(right),
+    ),
+  };
 }
 
 function parseCompactNumber(value: string) {
@@ -1750,6 +1765,7 @@ export function runHybridJobSearchPass(args: {
   const searchLatencyMs = Date.now() - startedAt;
 
   return {
+    availableFilterOptions: buildAvailableFilterOptions(mergedCandidates),
     appliedFilters,
     debugMeta: {
       candidateCountAfterFiltering: filteredDocuments.length,
