@@ -82,6 +82,8 @@ export function JobsSidePanel({
   const requestSequence = useRef(0);
   const activeController = useRef<AbortController | null>(null);
   const railScrollTop = useRef(0);
+  const filtersScrollTop = useRef(0);
+  const filtersChangedWhileOpen = useRef(false);
   const railOptions = getJobRailOptions(jobs, filterOptions);
   const activeFilterCount = getActiveFilterCount(filters);
   const filteredJobs = filterAndSortJobsForRail(jobs, {
@@ -114,12 +116,12 @@ export function JobsSidePanel({
         return;
       }
 
-      setIsFiltersOpen(false);
+      closeFilters();
     }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setIsFiltersOpen(false);
+        closeFilters();
       }
     }
 
@@ -131,6 +133,32 @@ export function JobsSidePanel({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isFiltersOpen]);
+
+  function updateFilters(
+    updater:
+      | typeof DEFAULT_JOB_RAIL_FILTERS
+      | ((current: typeof DEFAULT_JOB_RAIL_FILTERS) => typeof DEFAULT_JOB_RAIL_FILTERS),
+  ) {
+    filtersChangedWhileOpen.current = true;
+    setFilters(updater);
+  }
+
+  function openFilters() {
+    filtersScrollTop.current = bodyRef.current?.scrollTop ?? 0;
+    filtersChangedWhileOpen.current = false;
+    restoreRailScroll(bodyRef.current, 0);
+    setIsFiltersOpen(true);
+  }
+
+  function closeFilters() {
+    setIsFiltersOpen(false);
+
+    if (!filtersChangedWhileOpen.current) {
+      window.requestAnimationFrame(() => {
+        restoreRailScroll(bodyRef.current, filtersScrollTop.current);
+      });
+    }
+  }
 
   useEffect(() => {
     if (!selectedJobKey) {
@@ -226,7 +254,12 @@ export function JobsSidePanel({
                 isFiltersOpen ? styles.jobsRailFilterTriggerActive : ""
               }`}
               onClick={() => {
-                setIsFiltersOpen((current) => !current);
+                if (isFiltersOpen) {
+                  closeFilters();
+                  return;
+                }
+
+                openFilters();
               }}
               type="button"
             >
@@ -248,7 +281,7 @@ export function JobsSidePanel({
               <button
                 className={styles.jobsRailReset}
                 onClick={() => {
-                  setFilters(DEFAULT_JOB_RAIL_FILTERS);
+                  updateFilters(DEFAULT_JOB_RAIL_FILTERS);
                 }}
                 type="button"
               >
@@ -268,7 +301,7 @@ export function JobsSidePanel({
           </div>
         </div>
 
-        <div className={styles.jobsRailBody} ref={bodyRef}>
+        <div className={styles.jobsRailBody} data-testid="jobs-rail-body" ref={bodyRef}>
           {isFiltersOpen ? (
             <div
               aria-label="Jobs rail filters"
@@ -281,7 +314,7 @@ export function JobsSidePanel({
                 <input
                   aria-label="Filter jobs by keyword"
                   onChange={(event) => {
-                    setFilters((current) => ({
+                    updateFilters((current) => ({
                       ...current,
                       keyword: event.target.value,
                     }));
@@ -300,7 +333,7 @@ export function JobsSidePanel({
                     }`}
                     key={option}
                     onClick={() => {
-                      setFilters((current) => ({
+                      updateFilters((current) => ({
                         ...current,
                         workplaceType: option,
                       }));
@@ -317,7 +350,7 @@ export function JobsSidePanel({
                   <span>Company</span>
                   <select
                     onChange={(event) => {
-                      setFilters((current) => ({
+                      updateFilters((current) => ({
                         ...current,
                         company: event.target.value,
                       }));
@@ -337,7 +370,7 @@ export function JobsSidePanel({
                   <span>Location</span>
                   <select
                     onChange={(event) => {
-                      setFilters((current) => ({
+                      updateFilters((current) => ({
                         ...current,
                         location: event.target.value,
                       }));
@@ -357,7 +390,7 @@ export function JobsSidePanel({
                   <span>Employment</span>
                   <select
                     onChange={(event) => {
-                      setFilters((current) => ({
+                      updateFilters((current) => ({
                         ...current,
                         employmentType: event.target.value as typeof filters.employmentType,
                       }));
@@ -377,7 +410,7 @@ export function JobsSidePanel({
                   <span>Posted</span>
                   <select
                     onChange={(event) => {
-                      setFilters((current) => ({
+                      updateFilters((current) => ({
                         ...current,
                         postedDate: event.target.value as typeof filters.postedDate,
                       }));
@@ -416,7 +449,7 @@ export function JobsSidePanel({
               <button
                 className={styles.jobsRailResetInline}
                 onClick={() => {
-                  setFilters(DEFAULT_JOB_RAIL_FILTERS);
+                  updateFilters(DEFAULT_JOB_RAIL_FILTERS);
                 }}
                 type="button"
               >

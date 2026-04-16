@@ -2748,6 +2748,12 @@ export function HeroComposer({
   }
 
   function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return;
+    }
+
     if (event.key === "ArrowRight") {
       event.preventDefault();
       scrollStarterRailBy(220);
@@ -2768,12 +2774,6 @@ export function HeroComposer({
 
     if (event.key === "End") {
       event.preventDefault();
-      const starterRail = starterRailRef.current;
-
-      if (!starterRail) {
-        return;
-      }
-
       scrollStarterRailTo(starterRail.scrollWidth);
     }
   }

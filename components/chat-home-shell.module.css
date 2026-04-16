@@ -364,6 +364,11 @@
   padding-bottom: 1rem;
 }
 
+.chatStageLanding .chatStagePrimary {
+  display: flex;
+  flex-direction: column;
+}
+
 .chatStage::before {
   content: none;
 }
@@ -1338,9 +1343,12 @@
 }
 
 .chatTranscriptLanding {
-  justify-content: flex-end;
-  padding-bottom: calc(10.5rem + env(safe-area-inset-bottom, 0px));
-  scroll-padding-bottom: calc(10.5rem + env(safe-area-inset-bottom, 0px));
+  order: 2;
+  flex: 1 1 auto;
+  justify-content: flex-start;
+  min-height: 0;
+  padding-bottom: 0;
+  scroll-padding-bottom: 0;
 }
 
 .chatTranscriptConversation {
@@ -1791,11 +1799,13 @@
 }
 
 .composerDockLanding {
-  bottom: -0.95rem;
-}
-
-.chatStageLanding .composerDockLanding {
-  bottom: env(safe-area-inset-bottom, 0px);
+  order: 1;
+  position: relative;
+  bottom: auto;
+  left: auto;
+  width: min(100%, 44rem);
+  margin: 0 auto 0.85rem;
+  transform: none;
 }
 
 .composerTop {
@@ -3653,7 +3663,8 @@
   }
 
   .composerDockLanding {
-    bottom: 0.9rem;
+    width: 100%;
+    margin-bottom: 0.75rem;
   }
 
   .starterQuestionStack {
@@ -3735,8 +3746,8 @@
   }
 
   .chatTranscriptLanding {
-    padding-bottom: calc(10.75rem + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(10.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: 0;
+    scroll-padding-bottom: 0;
   }
 
   .navShell {
