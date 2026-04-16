@@ -305,6 +305,28 @@ describe("jobs search service", () => {
     expect(result.jobs[0]?.companyName).toBe("Cisco");
   });
 
+  it("uses a broader default latest-jobs window so rail filters have enough roles to work with", async () => {
+    getJobsFeedSnapshotMock.mockResolvedValue({
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      jobs: Array.from({ length: 16 }, (_, index) =>
+        createJob({
+          companyName: `Company ${index + 1}`,
+          id: `job_${index + 1}`,
+          location: "Remote",
+          postedAt: `2026-04-${String(16 - index).padStart(2, "0")}T12:00:00.000Z`,
+          title: `Role ${index + 1}`,
+        }),
+      ),
+      sources: Array.from({ length: 16 }, (_, index) => ({
+        key: `workday:company-${index + 1}`,
+      })),
+    });
+
+    const result = await browseLatestJobsPanel();
+
+    expect(result.jobs).toHaveLength(16);
+  });
+
   it("exposes broader rail filter options than the rendered job slice", async () => {
     getJobsFeedSnapshotMock.mockResolvedValue({
       generatedAt: "2026-04-10T00:00:00.000Z",

@@ -9,7 +9,7 @@ type LoadJobListingsOptions = {
   signal?: AbortSignal;
 };
 
-const defaultJobAssistLimit = 12;
+const defaultJobAssistLimit = 24;
 
 export async function loadJobListings(options: LoadJobListingsOptions) {
   const response = await fetch("/api/v1/jobs/search", {

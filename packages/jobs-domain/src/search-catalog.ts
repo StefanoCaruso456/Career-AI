@@ -35,7 +35,7 @@ import {
 } from "./search-engine";
 import { getJobsFeedSnapshot } from "./service";
 
-const DEFAULT_PANEL_LIMIT = 8;
+const DEFAULT_PANEL_LIMIT = 24;
 const DEFAULT_SEARCH_WINDOW_DAYS = 30;
 
 type CandidateProfileDefaults = {
@@ -1049,7 +1049,7 @@ export async function searchJobsCatalog(args: {
   const generatedAt = new Date().toISOString();
   const searchResult = runHybridJobSearch({
     jobs: snapshot.jobs,
-    limit: Math.max(1, Math.min(args.limit ?? DEFAULT_PANEL_LIMIT, 12)),
+    limit: Math.max(1, Math.min(args.limit ?? DEFAULT_PANEL_LIMIT, 24)),
     offset: Math.max(0, args.offset ?? 0),
     profileContext,
     query,
