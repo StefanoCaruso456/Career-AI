@@ -1,25 +1,26 @@
 .jobsRail {
-  --jobs-rail-panel-top: rgba(67, 65, 72, 0.96);
-  --jobs-rail-panel-bottom: rgba(44, 43, 48, 0.99);
-  --jobs-rail-surface: rgba(39, 38, 42, 0.96);
-  --jobs-rail-card-top: rgba(78, 76, 83, 0.94);
-  --jobs-rail-card-bottom: rgba(56, 54, 60, 0.98);
-  --jobs-rail-card-surface: rgba(52, 50, 55, 0.94);
-  --jobs-rail-line: rgba(255, 255, 255, 0.09);
-  --jobs-rail-line-strong: rgba(255, 255, 255, 0.14);
+  --jobs-rail-panel-top: rgba(55, 55, 55, 0.96);
+  --jobs-rail-panel-bottom: rgba(45, 45, 45, 0.98);
+  --jobs-rail-surface: rgba(43, 43, 43, 0.94);
+  --jobs-rail-card-top: rgba(74, 72, 79, 0.95);
+  --jobs-rail-card-bottom: rgba(58, 56, 62, 0.98);
+  --jobs-rail-card-surface: rgba(61, 59, 65, 0.96);
+  --jobs-rail-line: rgba(255, 255, 255, 0.1);
+  --jobs-rail-line-strong: rgba(255, 255, 255, 0.16);
   --jobs-rail-text: #f7f7fb;
   --jobs-rail-text-muted: rgba(233, 236, 244, 0.78);
   --jobs-rail-text-soft: rgba(213, 218, 228, 0.6);
   --jobs-rail-accent-line: rgba(148, 139, 255, 0.34);
   --jobs-rail-accent-fill: rgba(137, 128, 255, 0.14);
   --jobs-rail-accent-surface: rgba(49, 45, 74, 0.96);
-  --jobs-rail-success-line: rgba(176, 196, 131, 0.38);
-  --jobs-rail-success-fill: rgba(166, 187, 122, 0.15);
-  --jobs-rail-success-surface: rgba(41, 49, 32, 0.96);
-  --jobs-rail-cta-line: rgba(181, 199, 137, 0.46);
-  --jobs-rail-cta-fill: rgba(166, 188, 121, 0.16);
-  --jobs-rail-cta-surface: rgba(44, 54, 33, 0.96);
-  --jobs-rail-cta-text: #eef4dc;
+  --jobs-rail-success-line: rgba(204, 172, 137, 0.34);
+  --jobs-rail-success-fill: rgba(194, 160, 123, 0.14);
+  --jobs-rail-success-surface: rgba(77, 61, 49, 0.95);
+  --jobs-rail-success-text: #f7e8d8;
+  --jobs-rail-cta-line: rgba(212, 176, 136, 0.44);
+  --jobs-rail-cta-fill: rgba(198, 160, 120, 0.18);
+  --jobs-rail-cta-surface: rgba(89, 67, 52, 0.96);
+  --jobs-rail-cta-text: #fff2e6;
   position: relative;
   z-index: 2;
   display: grid;
@@ -32,7 +33,7 @@
   border: 1px solid var(--jobs-rail-line);
   border-radius: 1.9rem;
   background:
-    radial-gradient(circle at top right, rgba(136, 127, 255, 0.08), transparent 34%),
+    radial-gradient(circle at top right, rgba(136, 127, 255, 0.06), transparent 34%),
     linear-gradient(
       180deg,
       var(--jobs-rail-panel-top),
@@ -40,7 +41,7 @@
     ),
     var(--jobs-rail-surface);
   box-shadow:
-    0 32px 58px rgba(0, 0, 0, 0.32),
+    0 28px 52px rgba(0, 0, 0, 0.3),
     inset 1px 1px 0 rgba(255, 255, 255, 0.06);
   -webkit-backdrop-filter: blur(18px) saturate(155%);
   backdrop-filter: blur(18px) saturate(155%);
@@ -257,8 +258,8 @@
   border: 1px solid var(--jobs-rail-line);
   border-radius: 1rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
-    rgba(22, 23, 27, 0.34);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.016)),
+    rgba(34, 34, 37, 0.72);
   color: var(--jobs-rail-text-soft);
 }
 
@@ -286,9 +287,9 @@
   border: 1px solid var(--jobs-rail-line);
   border-radius: 1.2rem;
   background:
-    radial-gradient(circle at top right, rgba(136, 127, 255, 0.1), transparent 34%),
-    linear-gradient(180deg, rgba(60, 57, 64, 0.94), rgba(38, 37, 41, 0.92)),
-    rgba(36, 35, 39, 0.92);
+    radial-gradient(circle at top right, rgba(136, 127, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(58, 58, 58, 0.96), rgba(45, 45, 45, 0.94)),
+    rgba(43, 43, 43, 0.94);
   box-shadow:
     0 22px 40px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -358,8 +359,8 @@
   border: 1px solid var(--jobs-rail-line);
   border-radius: 0.95rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(22, 23, 27, 0.32);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.048), rgba(255, 255, 255, 0.018)),
+    rgba(34, 34, 37, 0.68);
   color: var(--jobs-rail-text);
   font-size: 0.84rem;
 }
@@ -393,8 +394,8 @@
   border: 1px solid var(--jobs-rail-line);
   border-radius: 1.25rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(22, 23, 27, 0.28);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018)),
+    rgba(35, 35, 38, 0.7);
 }
 
 .jobsFilteredEmpty p {
@@ -418,7 +419,7 @@
     linear-gradient(180deg, var(--jobs-rail-card-top), var(--jobs-rail-card-bottom)),
     var(--jobs-rail-card-surface);
   box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.14),
+    0 16px 30px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition:
     transform 180ms ease,
@@ -431,7 +432,7 @@
   transform: translateY(-1px);
   border-color: rgba(156, 147, 255, 0.24);
   box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.18),
+    0 20px 38px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -484,7 +485,9 @@
 }
 
 .jobBadgeNeutral {
-  background: rgba(20, 23, 29, 0.4);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(31, 32, 36, 0.72);
   color: rgba(240, 244, 252, 0.78);
 }
 
@@ -497,9 +500,9 @@
 
 .jobBadgeSuccess {
   background:
-    linear-gradient(180deg, rgba(166, 187, 122, 0.17), rgba(255, 255, 255, 0.03)),
-    rgba(41, 49, 32, 0.92);
-  color: #ecf5d6;
+    linear-gradient(180deg, var(--jobs-rail-success-fill), rgba(255, 255, 255, 0.03)),
+    var(--jobs-rail-success-surface);
+  color: var(--jobs-rail-success-text);
 }
 
 .jobPosted {
@@ -544,7 +547,9 @@
   padding: 0.22rem 0.62rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(20, 23, 29, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(31, 32, 36, 0.58);
   color: rgba(233, 236, 244, 0.72);
   font-size: 0.73rem;
 }
@@ -605,15 +610,21 @@
     background 180ms ease,
     color 180ms ease,
     box-shadow 180ms ease;
+  box-shadow:
+    0 12px 24px rgba(58, 42, 31, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .jobApplyButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(191, 210, 149, 0.62);
+  border-color: rgba(229, 191, 149, 0.56);
   background:
-    linear-gradient(180deg, rgba(166, 188, 121, 0.2), rgba(255, 255, 255, 0.04)),
-    rgba(50, 61, 38, 0.98);
-  color: #f6faea;
+    linear-gradient(180deg, rgba(214, 174, 133, 0.24), rgba(255, 255, 255, 0.04)),
+    rgba(101, 76, 59, 0.98);
+  color: #fff7ef;
+  box-shadow:
+    0 16px 28px rgba(71, 51, 37, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .jobDetailsButton {
@@ -624,7 +635,9 @@
   padding: 0.64rem 0.82rem;
   border: 1px solid var(--jobs-rail-line);
   border-radius: 0.98rem;
-  background: rgba(20, 23, 29, 0.26);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(33, 34, 38, 0.62);
   color: var(--jobs-rail-text-muted);
   font-size: 0.8rem;
   font-weight: 700;
