@@ -2959,7 +2959,6 @@ export function HeroComposer({
 
     if (starterRailProgrammaticScrollRef.current) {
       starterRailProgrammaticScrollRef.current = false;
-      recenterStarterRailScrollPosition();
       return;
     }
 
