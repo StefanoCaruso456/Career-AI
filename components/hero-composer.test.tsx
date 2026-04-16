@@ -572,6 +572,44 @@ describe("HeroComposer", () => {
     expect((starterRail as HTMLDivElement).scrollLeft).toBe(930);
   });
 
+  it("hands the starter rail back to wheel input immediately when a queued animation exists", async () => {
+    render(<HeroComposer />);
+
+    const starterRail = screen.getByRole("group", { name: "Starter prompts" });
+    const firstCopy = starterRail.querySelector('[data-starter-rail-copy="0"]');
+
+    Object.defineProperty(firstCopy as HTMLDivElement, "offsetWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(starterRail, "clientWidth", {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(starterRail, "scrollWidth", {
+      configurable: true,
+      value: 2700,
+    });
+    Object.defineProperty(starterRail, "scrollLeft", {
+      configurable: true,
+      value: 1580,
+      writable: true,
+    });
+
+    fireEvent.keyDown(starterRail, { key: "ArrowRight" });
+    fireEvent.wheel(starterRail, {
+      deltaMode: 0,
+      deltaX: 0,
+      deltaY: 60,
+    });
+
+    expect((starterRail as HTMLDivElement).scrollLeft).toBe(1640);
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect((starterRail as HTMLDivElement).scrollLeft).toBe(1640);
+  });
+
   it("keeps the composer editable while a reply is pending without allowing a second send", async () => {
     const project = createProject("project_verified_profile", "Verified profile");
     const firstConversation = createConversation("conversation_123", project.id, [
