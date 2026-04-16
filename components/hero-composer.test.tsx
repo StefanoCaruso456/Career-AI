@@ -606,6 +606,7 @@ describe("HeroComposer", () => {
     const conversation = {
       ...createConversation("conversation_sidebar", project.id, [
         createMessage("message_sidebar_user", "user", "Show me the latest updates."),
+        createMessage("message_sidebar_assistant", "assistant", "Here are the latest updates."),
       ]),
       label: "Hiring intro chat",
     };
@@ -617,8 +618,12 @@ describe("HeroComposer", () => {
         return createJsonResponse(createWorkspaceSnapshot([project], [conversation]));
       }
 
-      if (url === "/api/v1/jobs/latest") {
-        return createJsonResponse(createLatestJobsPanelResponse());
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          conversation,
+          userMessage: conversation.messages[0],
+        });
       }
 
       throw new Error(`Unexpected fetch request: ${url}`);
@@ -628,6 +633,14 @@ describe("HeroComposer", () => {
 
     render(<HeroComposer />);
 
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    fireEvent.change(composer, {
+      target: { value: "Show me the latest updates." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByLabelText("Conversation navigation")).toBeInTheDocument();
     expect(await screen.findByText("Recent")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hiring intro chat" })).toBeInTheDocument();
 
@@ -656,6 +669,7 @@ describe("HeroComposer", () => {
     const conversation = {
       ...createConversation("conversation_sidebar", project.id, [
         createMessage("message_sidebar_user", "user", "Show me the latest updates."),
+        createMessage("message_sidebar_assistant", "assistant", "Here are the latest updates."),
       ]),
       label: "Hiring intro chat",
     };
@@ -667,8 +681,12 @@ describe("HeroComposer", () => {
         return createJsonResponse(createWorkspaceSnapshot([project], [conversation]));
       }
 
-      if (url === "/api/v1/jobs/latest") {
-        return createJsonResponse(createLatestJobsPanelResponse());
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          conversation,
+          userMessage: conversation.messages[0],
+        });
       }
 
       throw new Error(`Unexpected fetch request: ${url}`);
@@ -677,6 +695,11 @@ describe("HeroComposer", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     render(<HeroComposer />);
+    fireEvent.change(await screen.findByRole("textbox", { name: "Message composer" }), {
+      target: { value: "Show me the latest updates." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByLabelText("Conversation navigation")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Project actions" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Rename project" }));
 
@@ -687,22 +710,14 @@ describe("HeroComposer", () => {
     expect(renameInput).toHaveValue("Verified profile");
   });
 
-  it("opens the latest jobs rail by default on landing without rendering the old workspace rail", async () => {
+  it("keeps both rails hidden on landing until the first prompt runs", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
-    const jobs = [
-      createJobPosting("job_1", "Figma", "Business Recruiter"),
-      createJobPosting("job_2", "OpenAI", "Product Designer"),
-    ];
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = getRequestUrl(input);
 
       if (url === "/api/chat/state") {
         return createJsonResponse(workspace);
-      }
-
-      if (url === "/api/v1/jobs/latest") {
-        return createJsonResponse(createLatestJobsPanelResponse(jobs));
       }
 
       throw new Error(`Unexpected fetch request: ${url}`);
@@ -712,25 +727,16 @@ describe("HeroComposer", () => {
 
     render(<HeroComposer />);
 
-    expect(await screen.findByLabelText("Jobs assist panel")).toBeInTheDocument();
-    expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
-    expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "Message composer" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Conversation navigation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Expand conversation sidebar" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Jobs assist panel")).not.toBeInTheDocument();
     expect(
       screen.queryByText(
         "The left stays for navigation, the center stays open for chat, and the right keeps your next moves within reach.",
       ),
     ).not.toBeInTheDocument();
-    const latestJobsRequest = fetchMock.mock.calls.find(
-      ([input]) => getRequestUrl(input) === "/api/v1/jobs/latest",
-    );
-    const latestJobsBody = JSON.parse(String(latestJobsRequest?.[1]?.body ?? "{}")) as {
-      conversationId?: string | null;
-      limit?: number;
-    };
-
-    expect(latestJobsBody.conversationId).toBeNull();
-    expect(latestJobsBody.limit).toBe(24);
-    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(true);
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(false);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat")).toBe(false);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(false);
   });
@@ -778,6 +784,9 @@ describe("HeroComposer", () => {
 
     const composer = await screen.findByRole("textbox", { name: "Message composer" });
 
+    expect(screen.queryByLabelText("Conversation navigation")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Jobs assist panel")).not.toBeInTheDocument();
+
     fireEvent.change(composer, {
       target: {
         value: "Find jobs for AI product designers",
@@ -786,6 +795,7 @@ describe("HeroComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByLabelText("Jobs assist panel")).toBeInTheDocument();
+    expect(screen.getByLabelText("Conversation navigation")).toBeInTheDocument();
     expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
     expect(await screen.findByText("Figma")).toBeInTheDocument();
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
@@ -805,7 +815,7 @@ describe("HeroComposer", () => {
 
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(true);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat/latest-jobs")).toBe(false);
-    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(true);
+    expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(false);
   });
 
   it("does not show a redundant rail refresh control after latest-jobs results open", async () => {
@@ -825,10 +835,6 @@ describe("HeroComposer", () => {
 
       if (url === "/api/chat/state") {
         return createJsonResponse(workspace);
-      }
-
-      if (url === "/api/v1/jobs/latest") {
-        return createJsonResponse(createLatestJobsPanelResponse(initialJobs));
       }
 
       if (url === "/api/chat/latest-jobs") {
@@ -855,7 +861,7 @@ describe("HeroComposer", () => {
     expect(screen.queryByRole("button", { name: "Find NEW Jobs" })).not.toBeInTheDocument();
     expect(screen.queryByText(/jobs browser/i)).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/latest")).toBe(
-      true,
+      false,
     );
   });
 
@@ -1179,9 +1185,10 @@ describe("HeroComposer", () => {
 
     render(<HeroComposer />);
 
-    expect(await screen.findByLabelText("Jobs assist panel")).toBeInTheDocument();
-
     const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    expect(screen.queryByLabelText("Conversation navigation")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Jobs assist panel")).not.toBeInTheDocument();
 
     fireEvent.change(composer, {
       target: {
@@ -1191,6 +1198,7 @@ describe("HeroComposer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByText("It helps candidates build a verifiable Career ID.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Conversation navigation")).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.queryByLabelText("Jobs assist panel")).not.toBeInTheDocument();
     });

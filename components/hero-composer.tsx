@@ -733,7 +733,6 @@ export function HeroComposer({
     !hasBlockedAttachments;
   const activeComposerNotice =
     voiceNotice?.tone === "active" ? voiceNotice : composerNotice ?? voiceNotice;
-  const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const activeProjectPersistence = activeProjectId
     ? projectPersistence[activeProjectId] ?? null
@@ -751,14 +750,12 @@ export function HeroComposer({
   const latestJobPrompt = latestJobPromptEntry?.content.trim() ?? null;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
-  const shouldShowDefaultLandingJobsRail = !isEmployerMode && isLandingState;
+  const workspaceVisible = hasActiveConversation || isProjectHomeVisible;
   const jobsAssistMode =
     !isEmployerMode && !isProjectHomeVisible
       ? latestJobPrompt
         ? deriveJobsAssistMode(latestJobPrompt)
-        : shouldShowDefaultLandingJobsRail
-          ? "latest"
-          : null
+        : null
       : null;
   const jobsAssistPrompt = jobsAssistMode
     ? latestJobPrompt ?? DEFAULT_LATEST_JOBS_PROMPT
