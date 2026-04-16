@@ -13,6 +13,30 @@ export function clampStarterRailScrollTarget(args: {
   );
 }
 
+export function getLoopedStarterRailScrollTarget(args: {
+  clientWidth: number;
+  scrollWidth: number;
+  targetLeft: number;
+}) {
+  const maxScroll = getStarterRailMaxScroll(args.scrollWidth, args.clientWidth);
+
+  if (maxScroll <= 0) {
+    return 0;
+  }
+
+  if (args.targetLeft >= 0 && args.targetLeft <= maxScroll) {
+    return args.targetLeft;
+  }
+
+  const wrappedTarget = args.targetLeft % maxScroll;
+
+  if (wrappedTarget === 0) {
+    return 0;
+  }
+
+  return wrappedTarget > 0 ? wrappedTarget : maxScroll + wrappedTarget;
+}
+
 export function getNormalizedStarterRailWheelDelta(args: {
   clientWidth: number;
   deltaMode: number;

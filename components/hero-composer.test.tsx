@@ -460,6 +460,34 @@ describe("HeroComposer", () => {
     expect(screen.queryByText("Project was not found.")).not.toBeInTheDocument();
   });
 
+  it("loops the starter rail back to the beginning when navigation continues past the right edge", async () => {
+    render(<HeroComposer />);
+
+    const starterRail = screen.getByRole("group", { name: "Starter prompts" });
+
+    Object.defineProperty(starterRail, "clientWidth", {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(starterRail, "scrollWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(starterRail, "scrollLeft", {
+      configurable: true,
+      value: 580,
+      writable: true,
+    });
+
+    fireEvent.keyDown(starterRail, { key: "ArrowRight" });
+
+    await waitFor(() => {
+      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(150);
+    });
+
+    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(300);
+  });
+
   it("keeps the composer editable while a reply is pending without allowing a second send", async () => {
     const project = createProject("project_verified_profile", "Verified profile");
     const firstConversation = createConversation("conversation_123", project.id, [

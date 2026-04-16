@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampStarterRailScrollTarget,
+  getLoopedStarterRailScrollTarget,
   getNextStarterRailScrollFrame,
   getNormalizedStarterRailWheelDelta,
   getStarterRailMaxScroll,
@@ -21,6 +22,30 @@ describe("starter rail scroll helpers", () => {
         clientWidth: 720,
         scrollWidth: 1320,
         targetLeft: 900,
+      }),
+    ).toBe(600);
+  });
+
+  it("wraps the target scroll position when the rail loops past either edge", () => {
+    expect(
+      getLoopedStarterRailScrollTarget({
+        clientWidth: 720,
+        scrollWidth: 1320,
+        targetLeft: 640,
+      }),
+    ).toBe(40);
+    expect(
+      getLoopedStarterRailScrollTarget({
+        clientWidth: 720,
+        scrollWidth: 1320,
+        targetLeft: -40,
+      }),
+    ).toBe(560);
+    expect(
+      getLoopedStarterRailScrollTarget({
+        clientWidth: 720,
+        scrollWidth: 1320,
+        targetLeft: 600,
       }),
     ).toBe(600);
   });

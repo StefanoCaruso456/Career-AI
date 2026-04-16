@@ -44,8 +44,10 @@ import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import type { Persona } from "@/lib/personas";
 import {
   clampStarterRailScrollTarget,
+  getLoopedStarterRailScrollTarget,
   getNextStarterRailScrollFrame,
   getNormalizedStarterRailWheelDelta,
+  getStarterRailMaxScroll,
 } from "@/components/starter-rail-scroll";
 import {
   DEFAULT_LATEST_JOBS_PROMPT,
@@ -2744,7 +2746,63 @@ export function HeroComposer({
       return;
     }
 
-    scrollStarterRailTo((starterRailScrollTargetRef.current ?? starterRail.scrollLeft) + offset);
+    const maxScroll = getStarterRailMaxScroll(
+      starterRail.scrollWidth,
+      starterRail.clientWidth,
+    );
+
+    if (maxScroll <= 0) {
+      return;
+    }
+
+    const currentTarget = starterRailScrollTargetRef.current ?? starterRail.scrollLeft;
+    const nextTarget = currentTarget + offset;
+
+    if (nextTarget > maxScroll) {
+      const wrappedTarget = getLoopedStarterRailScrollTarget({
+        clientWidth: starterRail.clientWidth,
+        scrollWidth: starterRail.scrollWidth,
+        targetLeft: nextTarget,
+      });
+
+      if (starterRailScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
+        starterRailScrollFrameRef.current = null;
+      }
+
+      starterRail.scrollLeft = 0;
+      starterRailScrollTargetRef.current = 0;
+
+      if (wrappedTarget > 0) {
+        scrollStarterRailTo(wrappedTarget);
+      }
+
+      return;
+    }
+
+    if (nextTarget < 0) {
+      const wrappedTarget = getLoopedStarterRailScrollTarget({
+        clientWidth: starterRail.clientWidth,
+        scrollWidth: starterRail.scrollWidth,
+        targetLeft: nextTarget,
+      });
+
+      if (starterRailScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
+        starterRailScrollFrameRef.current = null;
+      }
+
+      starterRail.scrollLeft = maxScroll;
+      starterRailScrollTargetRef.current = maxScroll;
+
+      if (wrappedTarget < maxScroll) {
+        scrollStarterRailTo(wrappedTarget);
+      }
+
+      return;
+    }
+
+    scrollStarterRailTo(nextTarget);
   }
 
   function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -2796,23 +2854,8 @@ export function HeroComposer({
       return;
     }
 
-    const currentTarget = clampStarterRailScrollTarget({
-      clientWidth: starterRail.clientWidth,
-      scrollWidth: starterRail.scrollWidth,
-      targetLeft: starterRailScrollTargetRef.current ?? starterRail.scrollLeft,
-    });
-    const nextTarget = clampStarterRailScrollTarget({
-      clientWidth: starterRail.clientWidth,
-      scrollWidth: starterRail.scrollWidth,
-      targetLeft: currentTarget + normalizedDelta,
-    });
-
-    if (Math.abs(nextTarget - currentTarget) <= 0.5) {
-      return;
-    }
-
     event.preventDefault();
-    scrollStarterRailTo(nextTarget);
+    scrollStarterRailBy(normalizedDelta);
   }
 
   function renderStarterAction(action: HeroComposerAction) {
