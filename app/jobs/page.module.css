@@ -1,15 +1,16 @@
 .page {
-  --jobs-shell-surface: rgba(43, 43, 43, 0.94);
-  --jobs-shell-surface-top: rgba(55, 55, 55, 0.96);
-  --jobs-shell-surface-bottom: rgba(45, 45, 45, 0.98);
-  --jobs-panel: rgba(25, 28, 34, 0.9);
-  --jobs-panel-strong: rgba(32, 36, 43, 0.94);
-  --jobs-panel-soft: rgba(20, 23, 29, 0.86);
+  --jobs-shell-surface: rgba(47, 45, 47, 0.94);
+  --jobs-shell-surface-top: rgba(61, 58, 63, 0.97);
+  --jobs-shell-surface-bottom: rgba(41, 39, 43, 0.99);
+  --jobs-panel: rgba(22, 26, 34, 0.92);
+  --jobs-card-top: rgba(39, 45, 57, 0.96);
+  --jobs-card-bottom: rgba(21, 25, 33, 0.98);
   --jobs-line: rgba(255, 255, 255, 0.08);
   --jobs-line-strong: rgba(255, 255, 255, 0.12);
   --jobs-text-primary: #f7f9fc;
   --jobs-text-secondary: rgba(222, 228, 239, 0.72);
   --jobs-text-tertiary: rgba(184, 193, 208, 0.74);
+  --jobs-accent-text: #fff7f1;
   min-height: 100vh;
   position: relative;
   isolation: isolate;
@@ -120,7 +121,8 @@
   border-radius: 1.75rem;
   border: 1px solid var(--jobs-line-strong);
   background:
-    radial-gradient(circle at top right, rgba(141, 127, 255, 0.1), transparent 28%),
+    radial-gradient(circle at top right, rgba(152, 136, 255, 0.12), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(220, 176, 146, 0.08), transparent 24%),
     linear-gradient(
       180deg,
       var(--jobs-shell-surface-top),
@@ -173,7 +175,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 58%),
-    linear-gradient(135deg, rgba(34, 39, 48, 0.98), rgba(24, 28, 35, 0.96));
+    linear-gradient(135deg, rgba(37, 41, 49, 0.98), rgba(23, 26, 33, 0.96));
   box-shadow:
     0 20px 34px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -215,7 +217,7 @@
   border: 1px solid rgba(255, 255, 255, 0.09);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 62%),
-    linear-gradient(180deg, rgba(34, 39, 48, 0.96), rgba(21, 24, 31, 0.95));
+    linear-gradient(180deg, rgba(39, 43, 52, 0.96), rgba(23, 26, 32, 0.96));
   box-shadow:
     0 16px 26px rgba(0, 0, 0, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -261,7 +263,7 @@
   border-color: rgba(141, 127, 255, 0.42);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.09), transparent 62%),
-    linear-gradient(180deg, rgba(39, 45, 56, 0.98), rgba(24, 28, 35, 0.95));
+    linear-gradient(180deg, rgba(45, 50, 62, 0.98), rgba(26, 30, 37, 0.96));
 }
 
 .filterSelect:focus {
@@ -274,7 +276,7 @@
   padding: 0.76rem 1.08rem;
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 56%),
-    linear-gradient(135deg, rgba(38, 43, 53, 0.98), rgba(24, 28, 35, 0.96));
+    linear-gradient(135deg, rgba(49, 45, 46, 0.98), rgba(30, 30, 34, 0.96));
   color: #f6eee4;
   box-shadow:
     0 16px 28px rgba(0, 0, 0, 0.22),
@@ -287,7 +289,7 @@
 .clearFiltersButton:hover {
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.1), transparent 56%),
-    linear-gradient(135deg, rgba(43, 49, 61, 0.99), rgba(28, 33, 41, 0.97));
+    linear-gradient(135deg, rgba(56, 51, 53, 0.99), rgba(35, 34, 39, 0.97));
 }
 
 .clearFiltersButton:focus-visible,
@@ -326,9 +328,11 @@
 
 .resultsTotal {
   padding: 0.45rem 0.85rem;
-  border: 1px solid var(--jobs-line);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 58%),
+    linear-gradient(180deg, rgba(43, 47, 55, 0.92), rgba(28, 32, 39, 0.92));
   color: var(--jobs-text-primary);
   font-size: 0.84rem;
   font-weight: 600;
@@ -367,8 +371,9 @@
   border-radius: 1.45rem;
   border: 1px solid var(--jobs-line-strong);
   background:
-    radial-gradient(circle at top right, rgba(141, 127, 255, 0.08), transparent 28%),
-    linear-gradient(180deg, rgba(36, 40, 48, 0.96), rgba(24, 27, 33, 0.94)),
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.12), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(96, 146, 255, 0.06), transparent 22%),
+    linear-gradient(180deg, var(--jobs-card-top), var(--jobs-card-bottom)),
     var(--jobs-panel);
   box-shadow:
     0 24px 48px rgba(0, 0, 0, 0.28),
@@ -381,9 +386,10 @@
 
 .jobCard:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: rgba(167, 180, 255, 0.2);
   box-shadow:
     0 28px 54px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(118, 134, 255, 0.08),
     inset 1px 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -398,7 +404,7 @@
 }
 
 .cardEyebrow {
-  color: rgba(160, 186, 255, 0.84);
+  color: rgba(168, 186, 255, 0.88);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -432,12 +438,12 @@
 
 .jobMeta {
   margin: 0;
-  color: var(--jobs-text-secondary);
+  color: rgba(214, 222, 236, 0.76);
   font-size: 0.95rem;
 }
 
 .jobFooter {
-  color: var(--jobs-text-tertiary);
+  color: rgba(184, 193, 208, 0.66);
   font-size: 0.82rem;
   letter-spacing: 0.01em;
 }
@@ -459,14 +465,15 @@
 }
 
 .jobLink.jobLink {
-  border-color: rgba(255, 206, 176, 0.18);
+  border-color: rgba(233, 195, 165, 0.34);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 52%),
-    linear-gradient(135deg, #4c3228, #5f3d2f 54%, #7f5847);
+    linear-gradient(135deg, #654335, #825a47 56%, #9a6f59);
   box-shadow:
-    0 18px 32px rgba(0, 0, 0, 0.22),
-    0 10px 24px rgba(232, 150, 115, 0.16),
+    0 18px 32px rgba(0, 0, 0, 0.24),
+    0 10px 24px rgba(201, 136, 102, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  color: var(--jobs-accent-text);
 }
 
 .jobLink.jobLink span {
@@ -474,15 +481,15 @@
 }
 
 .jobLink.jobLink svg {
-  color: #ffd8bc;
+  color: #ffe0ca;
 }
 
 .jobLink.jobLink:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 220, 194, 0.26);
+  border-color: rgba(246, 213, 189, 0.46);
   box-shadow:
     0 22px 40px rgba(0, 0, 0, 0.28),
-    0 12px 28px rgba(232, 150, 115, 0.2),
+    0 14px 30px rgba(201, 136, 102, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -511,7 +518,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.05rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    linear-gradient(180deg, rgba(52, 56, 64, 0.92), rgba(36, 40, 47, 0.94)),
     rgba(255, 255, 255, 0.03);
   color: var(--jobs-text-primary);
   font: inherit;
@@ -527,12 +534,12 @@
 
 .jobDetailsButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.18);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)),
+    linear-gradient(180deg, rgba(58, 63, 72, 0.94), rgba(40, 45, 53, 0.96)),
     rgba(255, 255, 255, 0.04);
   box-shadow:
-    0 18px 30px rgba(0, 0, 0, 0.18),
+    0 18px 30px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -554,7 +561,7 @@
   border-radius: 999px;
   padding: 0.78rem 1.2rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    linear-gradient(180deg, rgba(49, 53, 61, 0.92), rgba(32, 37, 45, 0.94)),
     rgba(255, 255, 255, 0.03);
   color: var(--jobs-text-primary);
   box-shadow:
