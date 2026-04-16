@@ -1,6 +1,6 @@
 "use client";
 
-import { LoaderCircle, Sparkles } from "lucide-react";
+import { ArrowUpRight, LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { getPersonaSignInRoute } from "@/lib/personas";
 import { getApplicationProfileKey } from "@/lib/application-profiles/defaults";
@@ -62,6 +62,7 @@ export function ProfileCompletionGuard({
     profile,
     schemaFamily,
   });
+  const ApplyIcon = buttonVariant === "jobs-card" ? ArrowUpRight : Sparkles;
 
   function redirectToSignIn() {
     const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -118,7 +119,7 @@ export function ProfileCompletionGuard({
         {isLoading && isAuthenticated ? (
           <LoaderCircle className={styles.inlineSpinner} aria-hidden="true" size={16} strokeWidth={2} />
         ) : (
-          <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
+          <ApplyIcon aria-hidden="true" size={16} strokeWidth={2} />
         )}
         <span>{isLoading && isAuthenticated ? "Checking profile..." : buttonLabel}</span>
       </button>

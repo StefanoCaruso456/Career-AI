@@ -505,7 +505,8 @@
 }
 
 .jobLink.jobLink svg {
-  color: var(--jobs-cta-icon);
+  color: currentColor;
+  opacity: 0.92;
 }
 
 .jobLink.jobLink:hover {
