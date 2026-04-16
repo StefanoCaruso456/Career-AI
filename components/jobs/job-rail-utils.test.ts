@@ -3,6 +3,7 @@ import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import {
   DEFAULT_JOB_RAIL_FILTERS,
   filterAndSortJobsForRail,
+  getJobRailOptions,
   type JobRailEmploymentFilter,
   type JobRailPostedDateFilter,
   type JobRailSourceFilter,
@@ -56,7 +57,7 @@ const jobs: JobListing[] = [
   createJob("greenhouse-full-time", {
     company: "Beta",
     employmentType: "Full-time",
-    location: "Boston, MA",
+    location: "London, United Kingdom",
     postedAt: "2026-04-13T12:00:00.000Z",
     relevanceScore: 0.97,
     sourceKey: "greenhouse:beta",
@@ -147,7 +148,33 @@ function getTitles(filters: Partial<typeof DEFAULT_JOB_RAIL_FILTERS> = {}) {
 describe("filterAndSortJobsForRail", () => {
   it("filters company and location dropdowns against the visible jobs", () => {
     expect(getTitles({ company: "Beta" })).toEqual(["Senior Product Designer"]);
-    expect(getTitles({ location: "Seattle, WA" })).toEqual(["Temporary Recruiting Coordinator"]);
+    expect(getTitles({ location: "United Kingdom" })).toEqual(["Senior Product Designer"]);
+  });
+
+  it("builds country-level location options and drops noisy raw values", () => {
+    const locationJobs = [
+      createJob("brazil-city", {
+        location: "Nova Lima, Shopping Alta Vila",
+      }),
+      createJob("uk-country", {
+        location: "London, United Kingdom",
+      }),
+      createJob("us-state", {
+        location: "Austin, TX",
+      }),
+      createJob("junk-id", {
+        location: "ATCI-5305360-S1946317",
+      }),
+      createJob("negotiable", {
+        location: "Location Negotiable",
+      }),
+    ];
+
+    expect(getJobRailOptions(locationJobs).locations).toEqual([
+      "Brazil",
+      "United Kingdom",
+      "United States",
+    ]);
   });
 
   it("supports every employment dropdown enum", () => {

@@ -94,6 +94,276 @@ function normalizeHumanLabel(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+const REGION_DISPLAY_NAMES = new Intl.DisplayNames(["en"], {
+  type: "region",
+});
+const REGION_LABEL_LOOKUP = createRegionLabelLookup();
+const LONG_REGION_LOOKUP_KEYS = Array.from(REGION_LABEL_LOOKUP.keys())
+  .filter((key) => key.length >= 4)
+  .sort((left, right) => right.length - left.length);
+const US_STATE_CODES = new Set([
+  "al",
+  "ak",
+  "az",
+  "ar",
+  "ca",
+  "co",
+  "ct",
+  "de",
+  "fl",
+  "ga",
+  "hi",
+  "ia",
+  "id",
+  "il",
+  "in",
+  "ks",
+  "ky",
+  "la",
+  "ma",
+  "md",
+  "me",
+  "mi",
+  "mn",
+  "mo",
+  "ms",
+  "mt",
+  "nc",
+  "nd",
+  "ne",
+  "nh",
+  "nj",
+  "nm",
+  "nv",
+  "ny",
+  "oh",
+  "ok",
+  "or",
+  "pa",
+  "ri",
+  "sc",
+  "sd",
+  "tn",
+  "tx",
+  "ut",
+  "va",
+  "vt",
+  "wa",
+  "wi",
+  "wv",
+  "wy",
+  "dc",
+]);
+const US_STATE_NAMES = new Set([
+  "alabama",
+  "alaska",
+  "arizona",
+  "arkansas",
+  "california",
+  "colorado",
+  "connecticut",
+  "delaware",
+  "florida",
+  "georgia",
+  "hawaii",
+  "idaho",
+  "illinois",
+  "indiana",
+  "iowa",
+  "kansas",
+  "kentucky",
+  "louisiana",
+  "maine",
+  "maryland",
+  "massachusetts",
+  "michigan",
+  "minnesota",
+  "mississippi",
+  "missouri",
+  "montana",
+  "nebraska",
+  "nevada",
+  "new hampshire",
+  "new jersey",
+  "new mexico",
+  "new york",
+  "north carolina",
+  "north dakota",
+  "ohio",
+  "oklahoma",
+  "oregon",
+  "pennsylvania",
+  "rhode island",
+  "south carolina",
+  "south dakota",
+  "tennessee",
+  "texas",
+  "utah",
+  "vermont",
+  "virginia",
+  "washington",
+  "west virginia",
+  "wisconsin",
+  "wyoming",
+  "district of columbia",
+]);
+const CANADA_PROVINCE_CODES = new Set([
+  "ab",
+  "bc",
+  "mb",
+  "nb",
+  "nl",
+  "ns",
+  "nt",
+  "nu",
+  "on",
+  "pe",
+  "qc",
+  "sk",
+  "yt",
+]);
+const CANADA_PROVINCE_NAMES = new Set([
+  "alberta",
+  "british columbia",
+  "manitoba",
+  "new brunswick",
+  "newfoundland and labrador",
+  "nova scotia",
+  "northwest territories",
+  "nunavut",
+  "ontario",
+  "prince edward island",
+  "quebec",
+  "saskatchewan",
+  "yukon",
+]);
+const CITY_COUNTRY_FALLBACKS = new Map<string, string>([
+  ["austin", "United States"],
+  ["boston", "United States"],
+  ["buenos aires", "Argentina"],
+  ["chicago", "United States"],
+  ["denver", "United States"],
+  ["london", "United Kingdom"],
+  ["miami", "United States"],
+  ["new york", "United States"],
+  ["nova lima", "Brazil"],
+  ["phoenix", "United States"],
+  ["san francisco", "United States"],
+  ["sao paulo", "Brazil"],
+  ["seattle", "United States"],
+]);
+
+function createRegionLabelLookup() {
+  const lookup = new Map<string, string>();
+
+  for (let first = 65; first <= 90; first += 1) {
+    for (let second = 65; second <= 90; second += 1) {
+      const code = String.fromCharCode(first, second);
+
+      try {
+        const label = REGION_DISPLAY_NAMES.of(code);
+
+        if (!label || label === code) {
+          continue;
+        }
+
+        lookup.set(normalizeHumanLabel(label), label);
+        lookup.set(normalizeHumanLabel(code), label);
+      } catch {
+        // Ignore invalid region codes.
+      }
+    }
+  }
+
+  lookup.set("usa", "United States");
+  lookup.set("united states of america", "United States");
+  lookup.set("uk", "United Kingdom");
+  lookup.set("great britain", "United Kingdom");
+  lookup.set("brasil", "Brazil");
+  lookup.set("uae", "United Arab Emirates");
+
+  return lookup;
+}
+
+function findCountryLabel(value: string) {
+  const normalized = normalizeHumanLabel(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  const exactMatch = REGION_LABEL_LOOKUP.get(normalized);
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  for (const key of LONG_REGION_LOOKUP_KEYS) {
+    if (normalized.includes(key)) {
+      return REGION_LABEL_LOOKUP.get(key) ?? null;
+    }
+  }
+
+  return null;
+}
+
+function getLocationSegments(location: string) {
+  return Array.from(
+    new Set(
+      [location, ...location.split(/[,;/|()]+/), ...location.split(/\s[-–]\s/)]
+        .map((segment) => segment.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function isNoisyLocationValue(value: string) {
+  return (
+    /^(?:[a-z]{2,}-)?\d[a-z0-9-]*$/i.test(value) ||
+    /^[a-z]{2,}(?:-\d+){1,}[a-z0-9-]*$/i.test(value) ||
+    /\b(location negotiable|multiple locations|various locations|worldwide|global)\b/i.test(value)
+  );
+}
+
+export function getJobRailLocationLabel(location: string | null | undefined) {
+  const value = location?.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  if (isNoisyLocationValue(value)) {
+    return null;
+  }
+
+  for (const segment of getLocationSegments(value)) {
+    const countryLabel = findCountryLabel(segment);
+
+    if (countryLabel) {
+      return countryLabel;
+    }
+  }
+
+  const normalizedValue = normalizeHumanLabel(value);
+  const lastSegment = normalizeHumanLabel(getLocationSegments(value).at(-1) ?? "");
+
+  if (US_STATE_CODES.has(lastSegment) || US_STATE_NAMES.has(lastSegment)) {
+    return "United States";
+  }
+
+  if (CANADA_PROVINCE_CODES.has(lastSegment) || CANADA_PROVINCE_NAMES.has(lastSegment)) {
+    return "Canada";
+  }
+
+  for (const [city, country] of CITY_COUNTRY_FALLBACKS) {
+    if (normalizedValue.startsWith(city)) {
+      return country;
+    }
+  }
+
+  return null;
+}
+
 function getJobTimestamp(postedAt: string | null) {
   if (!postedAt) {
     return null;
@@ -179,7 +449,7 @@ export function getJobRailOptions(jobs: JobListing[]) {
   const locations = Array.from(
     new Set(
       jobs
-        .map((job) => job.location?.trim())
+        .map((job) => getJobRailLocationLabel(job.location))
         .filter((value): value is string => Boolean(value)),
     ),
   ).sort((left, right) => left.localeCompare(right));
@@ -336,7 +606,7 @@ export function filterAndSortJobsForRail(
         .join(" ")
         .toLowerCase();
       const normalizedCompany = normalizeHumanLabel(job.company);
-      const normalizedLocation = normalizeHumanLabel(job.location ?? "");
+      const normalizedLocation = normalizeHumanLabel(getJobRailLocationLabel(job.location) ?? "");
       const workplaceType = job.workplaceType ?? "unknown";
       const employmentType = normalizeEmploymentType(job.employmentType);
       const sourceType = inferJobSourceType(job);
