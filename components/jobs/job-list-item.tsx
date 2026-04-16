@@ -24,7 +24,6 @@ const EMPLOYMENT_BADGE_LABELS = {
   internship: "Internship",
   part_time: "Part-time",
   temporary: "Temporary",
-  unknown: "Type unknown",
 } as const;
 const HIDDEN_MATCH_REASONS = new Set(["Verified live listing"]);
 
@@ -34,7 +33,11 @@ export function JobListItem({
   onApply,
   onOpenDetails,
 }: JobListItemProps) {
-  const employmentType = EMPLOYMENT_BADGE_LABELS[normalizeEmploymentType(job.employmentType)];
+  const normalizedEmploymentType = normalizeEmploymentType(job.employmentType);
+  const employmentType =
+    normalizedEmploymentType === "unknown"
+      ? null
+      : EMPLOYMENT_BADGE_LABELS[normalizedEmploymentType];
   const postedLabel = formatRelativePostedAt(job.postedAt);
   const badges = getJobRailBadges(job);
   const salaryText = formatSalaryTextForRail(job.salaryText);
