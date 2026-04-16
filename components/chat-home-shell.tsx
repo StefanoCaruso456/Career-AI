@@ -296,8 +296,14 @@ export function ChatHomeShell({
 
           <div className={styles.proofBand}>
             {content.proofSurfaces.map((surface) => (
-              <span className={styles.proofWordmark} key={surface}>
-                {surface}
+              <span
+                className={styles.proofWordmark}
+                key={typeof surface === "string" ? surface : surface.label}
+              >
+                <span>{typeof surface === "string" ? surface : surface.label}</span>
+                {typeof surface === "string" || !surface.note ? null : (
+                  <span className={styles.proofWordmarkNote}>{surface.note}</span>
+                )}
               </span>
             ))}
           </div>
