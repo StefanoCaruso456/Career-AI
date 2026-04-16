@@ -11,9 +11,12 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1.9rem;
   background:
-    radial-gradient(circle at top, rgba(255, 183, 144, 0.07), transparent 30%),
-    linear-gradient(180deg, rgba(54, 48, 46, 0.84), rgba(33, 31, 31, 0.74)),
-    rgba(33, 31, 31, 0.72);
+    linear-gradient(
+      180deg,
+      var(--hero-shell-surface-top, rgba(55, 55, 55, 0.96)),
+      var(--hero-shell-surface-bottom, rgba(45, 45, 45, 0.98))
+    ),
+    var(--hero-shell-surface, rgba(43, 43, 43, 0.94));
   box-shadow:
     0 32px 58px rgba(0, 0, 0, 0.28),
     inset 1px 1px 0 rgba(255, 255, 255, 0.06);

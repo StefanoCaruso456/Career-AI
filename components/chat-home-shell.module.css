@@ -36,6 +36,9 @@
   --hero-panel: rgba(22, 25, 31, 0.9);
   --hero-panel-strong: rgba(27, 31, 38, 0.94);
   --hero-panel-soft: rgba(19, 22, 28, 0.84);
+  --hero-shell-surface: rgba(43, 43, 43, 0.94);
+  --hero-shell-surface-top: rgba(55, 55, 55, 0.96);
+  --hero-shell-surface-bottom: rgba(45, 45, 45, 0.98);
   --hero-border: rgba(255, 255, 255, 0.08);
   --hero-border-strong: rgba(255, 255, 255, 0.12);
   --hero-accent-line: rgba(191, 201, 223, 0.18);
@@ -503,8 +506,8 @@
   border: 1px solid var(--hero-border);
   border-radius: 2rem;
   background:
-    linear-gradient(180deg, rgba(33, 35, 43, 0.98), rgba(24, 26, 31, 0.99)),
-    var(--hero-panel);
+    linear-gradient(180deg, var(--hero-shell-surface-top), var(--hero-shell-surface-bottom)),
+    var(--hero-shell-surface);
   box-shadow: var(--hero-shadow-md);
   animation: chatSidebarEnter 260ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
@@ -1778,8 +1781,8 @@
   border-radius: 2rem;
   border: 1px solid var(--hero-border);
   background:
-    linear-gradient(180deg, rgba(55, 55, 55, 0.96), rgba(45, 45, 45, 0.98)),
-    var(--hero-panel);
+    linear-gradient(180deg, var(--hero-shell-surface-top), var(--hero-shell-surface-bottom)),
+    var(--hero-shell-surface);
   box-shadow:
     0 24px 46px rgba(0, 0, 0, 0.32),
     inset 1px 1px 0 rgba(255, 255, 255, 0.04);
