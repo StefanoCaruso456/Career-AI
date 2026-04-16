@@ -92,6 +92,7 @@ describe("JobsSidePanel", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     mockGetMissingRequiredFieldKeys.mockReset();
     mockUseApplicationProfiles.mockReset();
   });
@@ -335,5 +336,92 @@ describe("JobsSidePanel", () => {
     expect(locationSelect).toHaveTextContent("Argentina");
     expect(locationSelect).toHaveTextContent("United Kingdom");
     expect(locationSelect).toHaveTextContent("United States");
+  });
+
+  it("loads company-scoped jobs when the selected company is not already in the rendered rail", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        expect(url).toBe("/api/v1/jobs?limit=24&company=Cisco");
+
+        return new Response(
+          JSON.stringify({
+            generatedAt: "2026-04-16T05:00:00.000Z",
+            jobs: [
+              {
+                applyUrl: "https://workday.example.com/cisco/job_2",
+                canonicalApplyUrl: "https://workday.example.com/cisco/job_2",
+                canonicalJobUrl: "https://workday.example.com/cisco/job_2",
+                commitment: "Contract",
+                companyName: "Cisco",
+                department: null,
+                descriptionSnippet: "Build resilient backend systems for recruiting workflows.",
+                externalId: "job_2",
+                externalSourceJobId: "job_2-req",
+                id: "job_2",
+                location: "Austin, TX",
+                matchReasons: [],
+                matchSummary: "Build resilient backend systems for recruiting workflows.",
+                orchestrationReadiness: true,
+                postedAt: "2026-04-12T12:00:00.000Z",
+                relevanceScore: 0.87,
+                salaryText: null,
+                sourceLane: "ats_direct",
+                sourceKey: "workday:cisco",
+                sourceLabel: "Cisco",
+                sourceQuality: "high_signal",
+                title: "Backend Engineer",
+                updatedAt: "2026-04-12T12:00:00.000Z",
+                validationStatus: "active_verified",
+                workplaceType: "hybrid",
+              },
+            ],
+            sources: [],
+            storage: {
+              lastSyncAt: "2026-04-16T05:00:00.000Z",
+              mode: "database",
+              persistedJobs: 1,
+              persistedSources: 1,
+            },
+            summary: {
+              aggregatorJobs: 0,
+              connectedSourceCount: 1,
+              coverageSourceCount: 1,
+              directAtsJobs: 1,
+              highSignalSourceCount: 1,
+              sourceCount: 1,
+              totalJobs: 1,
+            },
+          }),
+          {
+            headers: { "content-type": "application/json" },
+            status: 200,
+          },
+        );
+      }),
+    );
+
+    render(
+      <JobsSidePanel
+        filterOptions={{
+          companies: ["Accenture", "Cisco"],
+          locations: ["Austin, TX", "Buenos Aires, Argentina"],
+        }}
+        jobs={[createJob("job_1", { company: "Accenture", location: "Buenos Aires" })]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Cisco" },
+    });
+
+    expect(screen.getByText("Loading Cisco roles from your jobs feed.")).toBeInTheDocument();
+
+    expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Product Designer")).not.toBeInTheDocument();
   });
 });
