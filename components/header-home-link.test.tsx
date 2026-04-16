@@ -44,8 +44,8 @@ describe("HeaderHomeLink", () => {
 
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.homeAction);
-    expect(link).toHaveClass(styles.homeActionCurrent);
-    expect(link).toHaveClass(styles.navTabCurrent);
+    expect(link).not.toHaveClass(styles.homeActionCurrent);
+    expect(link).not.toHaveClass(styles.navTabCurrent);
     expect(logo).not.toBeNull();
     expect(logo).toHaveAttribute("src", "/career-ai-header-logo.png");
   });

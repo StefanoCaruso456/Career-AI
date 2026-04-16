@@ -16,13 +16,14 @@ export function HeaderHomeLink() {
       ? getPostAuthRoute(routePersona)
       : "/";
   const isHome = pathname === homeHref;
+  const shouldGlowAsCurrent = isHome && pathname !== "/";
 
   return (
     <Link
       aria-current={isHome ? "page" : undefined}
       aria-label="Career AI home"
       className={
-        isHome
+        shouldGlowAsCurrent
           ? `${styles.homeAction} ${styles.homeActionCurrent} ${styles.navTabCurrent}`
           : styles.homeAction
       }
