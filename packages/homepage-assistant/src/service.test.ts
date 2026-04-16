@@ -199,10 +199,15 @@ describe("homepage assistant service", () => {
     });
     expect(createResponseMock).toHaveBeenCalledWith({
       model: "gpt-5",
-      instructions: expect.stringContaining("Career AI"),
+      instructions: expect.stringContaining("Ground every answer in the truth"),
       input: "Summarize the product",
       store: false,
     });
+    expect(createResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instructions: expect.stringContaining("Next steps"),
+      }),
+    );
     expect(traceSpanMock.mock.calls.map(([options]) => options.name)).toEqual(
       expect.arrayContaining([
         "workflow.homepage_assistant.reply",
@@ -532,6 +537,23 @@ describe("homepage assistant service", () => {
     await expect(
       generateHomepageAssistantReply("What does the agent actually do?"),
     ).resolves.toContain("turns your Career ID into a recruiter-ready trust layer");
+    await expect(
+      generateHomepageAssistantReply("What does the agent actually do?"),
+    ).resolves.toContain("Next steps:");
+
+    expect(createResponseMock).not.toHaveBeenCalled();
+    expect(openAIConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the deterministic secure identity explanation for the homepage starter prompt", async () => {
+    createResponseMock.mockResolvedValue({ output_text: "  model output that should not be used  " });
+
+    await expect(
+      generateHomepageAssistantReply("Why is this a secure career identity platform?"),
+    ).resolves.toContain("permission-based sharing");
+    await expect(
+      generateHomepageAssistantReply("Why is this a secure career identity platform?"),
+    ).resolves.toContain("Next steps:");
 
     expect(createResponseMock).not.toHaveBeenCalled();
     expect(openAIConstructorMock).not.toHaveBeenCalled();
