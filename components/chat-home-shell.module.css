@@ -271,7 +271,7 @@
 
 .heroTitle {
   margin: clamp(1.4rem, 3.8vw, 2.25rem) 0 clamp(1rem, 2.8vw, 1.5rem);
-  max-height: 18rem;
+  max-height: 24rem;
   color: var(--hero-text);
   font-family:
     var(--font-body),
@@ -3707,7 +3707,7 @@
     max-width: 15ch;
     font-size: clamp(2.2rem, 10vw, 3.6rem);
     line-height: 0.97;
-    max-height: 14rem;
+    max-height: 19rem;
     margin: 1.1rem 0 0.95rem;
   }
 
