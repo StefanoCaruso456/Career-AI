@@ -231,6 +231,8 @@ describe("JobsSidePanel", () => {
 
     fireEvent.click(trigger);
     expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+    expect(screen.queryByText("Source")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sort")).not.toBeInTheDocument();
 
     fireEvent.click(trigger);
     expect(screen.queryByRole("dialog", { name: "Jobs rail filters" })).not.toBeInTheDocument();

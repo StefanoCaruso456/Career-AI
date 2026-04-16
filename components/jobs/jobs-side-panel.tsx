@@ -16,8 +16,6 @@ import {
   filterAndSortJobsForRail,
   getJobRailOptions,
   POSTED_DATE_LABELS,
-  SORT_LABELS,
-  SOURCE_FILTER_LABELS,
   WORKPLACE_FILTER_LABELS,
 } from "@/components/jobs/job-rail-utils";
 import { createFallbackJobDetails, JobDetailsModal } from "./job-details-modal";
@@ -42,8 +40,6 @@ function getActiveFilterCount(filters: typeof DEFAULT_JOB_RAIL_FILTERS) {
     filters.keyword.trim().length > 0,
     filters.location !== "all",
     filters.postedDate !== "any",
-    filters.sort !== "relevance",
-    filters.source !== "all",
     filters.workplaceType !== "all",
   ].filter(Boolean).length;
 }
@@ -378,26 +374,6 @@ export function JobsSidePanel({
                 </label>
 
                 <label className={styles.jobsField}>
-                  <span>Source</span>
-                  <select
-                    onChange={(event) => {
-                      setFilters((current) => ({
-                        ...current,
-                        source: event.target.value as typeof filters.source,
-                      }));
-                    }}
-                    value={filters.source}
-                  >
-                    <option value="all">All sources</option>
-                    {railOptions.sources.map((source) => (
-                      <option key={source} value={source}>
-                        {SOURCE_FILTER_LABELS[source]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className={styles.jobsField}>
                   <span>Posted</span>
                   <select
                     onChange={(event) => {
@@ -410,25 +386,6 @@ export function JobsSidePanel({
                   >
                     <option value="any">Any time</option>
                     {Object.entries(POSTED_DATE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className={styles.jobsField}>
-                  <span>Sort</span>
-                  <select
-                    onChange={(event) => {
-                      setFilters((current) => ({
-                        ...current,
-                        sort: event.target.value as typeof filters.sort,
-                      }));
-                    }}
-                    value={filters.sort}
-                  >
-                    {Object.entries(SORT_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
