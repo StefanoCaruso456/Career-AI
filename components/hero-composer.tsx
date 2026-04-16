@@ -108,6 +108,7 @@ type SidebarDeleteDraft =
     };
 
 type JobsAssistMode = "latest" | "search";
+const JOBS_ASSIST_RESULT_LIMIT = 24;
 
 type TranscriptScrollIntent =
   | {
@@ -883,13 +884,13 @@ export function HeroComposer({
       jobsAssistMode === "latest"
         ? loadLatestJobListings({
             conversationId: currentThreadId,
-            limit: 6,
+            limit: JOBS_ASSIST_RESULT_LIMIT,
             refresh: false,
             signal: abortController.signal,
           })
         : loadJobListings({
             conversationId: currentThreadId,
-            limit: 6,
+            limit: JOBS_ASSIST_RESULT_LIMIT,
             prompt: jobsAssistPrompt,
             refresh: false,
             signal: abortController.signal,
@@ -1412,6 +1413,7 @@ export function HeroComposer({
       body: JSON.stringify({
         clientRequestId: args.clientRequestId,
         conversationId: args.conversationId,
+        limit: JOBS_ASSIST_RESULT_LIMIT,
         projectId: args.projectId,
       }),
     });

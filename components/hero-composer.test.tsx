@@ -628,6 +628,14 @@ describe("HeroComposer", () => {
     expect(await screen.findAllByRole("button", { name: "Find NEW Jobs" })).toHaveLength(1);
     expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
+    const latestJobsRequest = fetchMock.mock.calls.find(
+      ([input]) => getRequestUrl(input) === "/api/chat/latest-jobs",
+    );
+    const latestJobsBody = JSON.parse(String(latestJobsRequest?.[1]?.body ?? "{}")) as {
+      limit?: number;
+    };
+
+    expect(latestJobsBody.limit).toBe(24);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat/latest-jobs")).toBe(true);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat")).toBe(false);
     expect(fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/v1/jobs/search")).toBe(false);
@@ -683,6 +691,14 @@ describe("HeroComposer", () => {
     expect(await screen.findAllByRole("button", { name: "APPLY" })).toHaveLength(2);
     expect(await screen.findByText("Figma")).toBeInTheDocument();
     expect(await screen.findByText("Business Recruiter")).toBeInTheDocument();
+    const jobsSearchRequest = fetchMock.mock.calls.find(
+      ([input]) => getRequestUrl(input) === "/api/v1/jobs/search",
+    );
+    const jobsSearchBody = JSON.parse(String(jobsSearchRequest?.[1]?.body ?? "{}")) as {
+      limit?: number;
+    };
+
+    expect(jobsSearchBody.limit).toBe(24);
     fireEvent.click(screen.getByRole("button", { name: "Close jobs panel" }));
 
     await waitFor(() => {

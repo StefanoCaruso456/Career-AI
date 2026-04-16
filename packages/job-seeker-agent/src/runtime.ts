@@ -439,7 +439,7 @@ function broadenSearchResult(result: JobSearchCatalogResult) {
 function buildSearchToolArgs(state: JobSeekerAgentState, query: JobSearchCatalogResult["query"]): SearchJobsToolInput {
   return {
     conversationId: state.conversationId,
-    limit: 8,
+    limit: 24,
     ownerId: state.ownerId,
     profileContext: state.profileContext,
     prompt: query.effectivePrompt ?? query.prompt,
@@ -451,7 +451,7 @@ function buildSearchToolArgs(state: JobSeekerAgentState, query: JobSearchCatalog
 function buildBrowseLatestJobsToolArgs(state: JobSeekerAgentState) {
   return {
     conversationId: state.conversationId,
-    limit: 8,
+    limit: 24,
     ownerId: state.ownerId,
     prompt: state.userQuery,
     refresh: state.loopCount === 0,
