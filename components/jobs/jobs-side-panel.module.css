@@ -1,4 +1,25 @@
 .jobsRail {
+  --jobs-rail-panel-top: rgba(67, 65, 72, 0.96);
+  --jobs-rail-panel-bottom: rgba(44, 43, 48, 0.99);
+  --jobs-rail-surface: rgba(39, 38, 42, 0.96);
+  --jobs-rail-card-top: rgba(78, 76, 83, 0.94);
+  --jobs-rail-card-bottom: rgba(56, 54, 60, 0.98);
+  --jobs-rail-card-surface: rgba(52, 50, 55, 0.94);
+  --jobs-rail-line: rgba(255, 255, 255, 0.09);
+  --jobs-rail-line-strong: rgba(255, 255, 255, 0.14);
+  --jobs-rail-text: #f7f7fb;
+  --jobs-rail-text-muted: rgba(233, 236, 244, 0.78);
+  --jobs-rail-text-soft: rgba(213, 218, 228, 0.6);
+  --jobs-rail-accent-line: rgba(148, 139, 255, 0.34);
+  --jobs-rail-accent-fill: rgba(137, 128, 255, 0.14);
+  --jobs-rail-accent-surface: rgba(49, 45, 74, 0.96);
+  --jobs-rail-success-line: rgba(176, 196, 131, 0.38);
+  --jobs-rail-success-fill: rgba(166, 187, 122, 0.15);
+  --jobs-rail-success-surface: rgba(41, 49, 32, 0.96);
+  --jobs-rail-cta-line: rgba(181, 199, 137, 0.46);
+  --jobs-rail-cta-fill: rgba(166, 188, 121, 0.16);
+  --jobs-rail-cta-surface: rgba(44, 54, 33, 0.96);
+  --jobs-rail-cta-text: #eef4dc;
   position: relative;
   z-index: 2;
   display: grid;
@@ -8,17 +29,18 @@
   min-width: 0;
   max-height: calc(var(--chat-stage-shell-height, 100vh) - 0.75rem);
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 1.9rem;
   background:
+    radial-gradient(circle at top right, rgba(136, 127, 255, 0.08), transparent 34%),
     linear-gradient(
       180deg,
-      var(--hero-shell-surface-top, rgba(55, 55, 55, 0.96)),
-      var(--hero-shell-surface-bottom, rgba(45, 45, 45, 0.98))
+      var(--jobs-rail-panel-top),
+      var(--jobs-rail-panel-bottom)
     ),
-    var(--hero-shell-surface, rgba(43, 43, 43, 0.94));
+    var(--jobs-rail-surface);
   box-shadow:
-    0 32px 58px rgba(0, 0, 0, 0.28),
+    0 32px 58px rgba(0, 0, 0, 0.32),
     inset 1px 1px 0 rgba(255, 255, 255, 0.06);
   -webkit-backdrop-filter: blur(18px) saturate(155%);
   backdrop-filter: blur(18px) saturate(155%);
@@ -60,10 +82,10 @@
   justify-content: center;
   width: 2.4rem;
   height: 2.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 244, 239, 0.9);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--jobs-rail-text-muted);
   cursor: pointer;
   transition:
     transform 180ms ease,
@@ -74,9 +96,9 @@
 
 .jobsRailClose:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 124, 92, 0.45);
-  background: rgba(255, 124, 92, 0.1);
-  color: #fff2ed;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--jobs-rail-text);
 }
 
 .jobsRailClose:focus-visible,
@@ -88,7 +110,7 @@
 .jobCardButton:focus-visible,
 .jobApplyButton:focus-visible,
 .jobDetailsButton:focus-visible {
-  outline: 2px solid rgba(255, 171, 133, 0.96);
+  outline: 2px solid rgba(152, 143, 255, 0.96);
   outline-offset: 3px;
 }
 
@@ -109,7 +131,7 @@
 .jobsRailBody::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.16);
   background-clip: padding-box;
 }
 
@@ -120,10 +142,10 @@
   gap: 0.42rem;
   min-height: 2rem;
   padding: 0.42rem 0.78rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 234, 223, 0.86);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--jobs-rail-text-muted);
   font-size: 0.77rem;
   font-weight: 700;
   cursor: pointer;
@@ -136,17 +158,17 @@
 
 .jobsRailFilterTrigger:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 173, 137, 0.26);
-  background: rgba(255, 173, 137, 0.08);
-  color: #fff3ed;
+  border-color: rgba(162, 153, 255, 0.28);
+  background: rgba(137, 128, 255, 0.1);
+  color: var(--jobs-rail-text);
 }
 
 .jobsRailFilterTriggerActive {
-  border-color: rgba(255, 163, 126, 0.34);
+  border-color: var(--jobs-rail-accent-line);
   background:
-    linear-gradient(180deg, rgba(255, 153, 117, 0.16), rgba(255, 255, 255, 0.04)),
-    rgba(46, 31, 27, 0.96);
-  color: #ffe6db;
+    linear-gradient(180deg, rgba(137, 128, 255, 0.17), rgba(255, 255, 255, 0.04)),
+    var(--jobs-rail-accent-surface);
+  color: #ece8ff;
 }
 
 .jobsRailFilterCount {
@@ -177,18 +199,19 @@
   min-height: 1.9rem;
   padding: 0.35rem 0.65rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 225, 214, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--jobs-rail-text-muted);
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 .jobsRailReset,
 .jobsRailResetInline {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 230, 220, 0.82);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--jobs-rail-text-muted);
   font-size: 0.77rem;
   font-weight: 700;
   cursor: pointer;
@@ -213,9 +236,9 @@
 .jobsRailReset:hover,
 .jobsRailResetInline:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 173, 137, 0.26);
-  background: rgba(255, 173, 137, 0.08);
-  color: #fff2eb;
+  border-color: rgba(162, 153, 255, 0.26);
+  background: rgba(137, 128, 255, 0.08);
+  color: var(--jobs-rail-text);
 }
 
 .jobsRailReset:disabled {
@@ -231,25 +254,25 @@
   gap: 0.55rem;
   min-height: 2.85rem;
   padding: 0.18rem 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 1rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.015);
-  color: rgba(255, 235, 225, 0.72);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    rgba(22, 23, 27, 0.34);
+  color: var(--jobs-rail-text-soft);
 }
 
 .jobsSearchField input {
   min-width: 0;
   border: none;
   background: transparent;
-  color: #fff7f1;
+  color: var(--jobs-rail-text);
   font-size: 0.86rem;
   line-height: 1.4;
 }
 
 .jobsSearchField input::placeholder {
-  color: rgba(255, 234, 222, 0.45);
+  color: rgba(233, 236, 244, 0.42);
 }
 
 .jobsSearchField input:focus {
@@ -260,14 +283,14 @@
   display: grid;
   gap: 0.78rem;
   padding: 0.95rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 1.2rem;
   background:
-    radial-gradient(circle at top right, rgba(255, 168, 132, 0.1), transparent 34%),
-    linear-gradient(180deg, rgba(52, 47, 45, 0.9), rgba(31, 29, 29, 0.86)),
-    rgba(31, 29, 29, 0.84);
+    radial-gradient(circle at top right, rgba(136, 127, 255, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(60, 57, 64, 0.94), rgba(38, 37, 41, 0.92)),
+    rgba(36, 35, 39, 0.92);
   box-shadow:
-    0 22px 40px rgba(0, 0, 0, 0.18),
+    0 22px 40px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
@@ -280,10 +303,10 @@
 .jobsQuickFilter {
   min-height: 2rem;
   padding: 0.42rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(250, 238, 232, 0.72);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--jobs-rail-text-soft);
   font-size: 0.76rem;
   font-weight: 700;
   cursor: pointer;
@@ -296,16 +319,16 @@
 
 .jobsQuickFilter:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 174, 138, 0.24);
-  color: #fff5ef;
+  border-color: rgba(162, 153, 255, 0.24);
+  color: var(--jobs-rail-text);
 }
 
 .jobsQuickFilterActive {
-  border-color: rgba(255, 163, 126, 0.34);
+  border-color: var(--jobs-rail-accent-line);
   background:
-    linear-gradient(180deg, rgba(255, 153, 117, 0.16), rgba(255, 255, 255, 0.04)),
-    rgba(46, 31, 27, 0.96);
-  color: #ffe6db;
+    linear-gradient(180deg, rgba(137, 128, 255, 0.17), rgba(255, 255, 255, 0.04)),
+    var(--jobs-rail-accent-surface);
+  color: #ece8ff;
 }
 
 .jobsFilterGrid {
@@ -321,7 +344,7 @@
 }
 
 .jobsField span {
-  color: rgba(255, 233, 221, 0.56);
+  color: rgba(233, 236, 244, 0.54);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -332,12 +355,12 @@
   min-width: 0;
   min-height: 2.55rem;
   padding: 0.58rem 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 0.95rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.015);
-  color: #fff7f1;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    rgba(22, 23, 27, 0.32);
+  color: var(--jobs-rail-text);
   font-size: 0.84rem;
 }
 
@@ -353,7 +376,7 @@
 .jobsRailError,
 .jobsRailLoading {
   margin: 0;
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--jobs-rail-text-soft);
   font-size: 0.9rem;
   line-height: 1.6;
 }
@@ -367,16 +390,16 @@
   gap: 0.72rem;
   justify-items: start;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 1.25rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.015);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    rgba(22, 23, 27, 0.28);
 }
 
 .jobsFilteredEmpty p {
   margin: 0;
-  color: rgba(255, 244, 238, 0.78);
+  color: var(--jobs-rail-text-muted);
   font-size: 0.88rem;
   line-height: 1.55;
 }
@@ -389,12 +412,14 @@
   display: grid;
   gap: 0.82rem;
   padding: 0.95rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 1.35rem;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.02);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    linear-gradient(180deg, var(--jobs-rail-card-top), var(--jobs-rail-card-bottom)),
+    var(--jobs-rail-card-surface);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -404,20 +429,20 @@
 
 .jobCard:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 162, 126, 0.22);
+  border-color: rgba(156, 147, 255, 0.24);
   box-shadow:
-    0 16px 30px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    0 18px 34px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .jobCardSelected {
-  border-color: rgba(255, 167, 132, 0.44);
+  border-color: rgba(150, 141, 255, 0.42);
   background:
-    radial-gradient(circle at top right, rgba(255, 161, 122, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    rgba(255, 255, 255, 0.03);
+    radial-gradient(circle at top right, rgba(136, 127, 255, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(88, 85, 96, 0.96), rgba(62, 59, 69, 0.98)),
+    rgba(57, 54, 61, 0.96);
   box-shadow:
-    0 22px 40px rgba(0, 0, 0, 0.18),
+    0 22px 40px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
@@ -459,22 +484,26 @@
 }
 
 .jobBadgeNeutral {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(248, 238, 231, 0.72);
+  background: rgba(20, 23, 29, 0.4);
+  color: rgba(240, 244, 252, 0.78);
 }
 
 .jobBadgeAccent {
-  background: rgba(255, 161, 122, 0.12);
-  color: #ffdccc;
+  background:
+    linear-gradient(180deg, rgba(137, 128, 255, 0.16), rgba(255, 255, 255, 0.03)),
+    rgba(49, 45, 74, 0.92);
+  color: #ece8ff;
 }
 
 .jobBadgeSuccess {
-  background: rgba(120, 219, 185, 0.13);
-  color: #d7fff0;
+  background:
+    linear-gradient(180deg, rgba(166, 187, 122, 0.17), rgba(255, 255, 255, 0.03)),
+    rgba(41, 49, 32, 0.92);
+  color: #ecf5d6;
 }
 
 .jobPosted {
-  color: rgba(255, 235, 225, 0.52);
+  color: rgba(233, 236, 244, 0.56);
   font-size: 0.74rem;
   line-height: 1.4;
   white-space: nowrap;
@@ -488,7 +517,7 @@
 
 .jobCompany {
   margin: 0;
-  color: rgba(255, 247, 240, 0.86);
+  color: rgba(244, 246, 251, 0.88);
   font-size: 0.84rem;
   font-weight: 600;
   line-height: 1.35;
@@ -496,7 +525,7 @@
 
 .jobTitle {
   margin: 0;
-  color: #ffd1c0;
+  color: var(--jobs-rail-text);
   font-size: 1rem;
   line-height: 1.38;
   letter-spacing: -0.02em;
@@ -514,9 +543,9 @@
   min-height: 1.7rem;
   padding: 0.22rem 0.62rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 237, 228, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 23, 29, 0.28);
+  color: rgba(233, 236, 244, 0.72);
   font-size: 0.73rem;
 }
 
@@ -524,7 +553,7 @@
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
-  color: rgba(250, 240, 232, 0.72);
+  color: var(--jobs-rail-text-muted);
   font-size: 0.82rem;
   line-height: 1.62;
   -webkit-box-orient: vertical;
@@ -535,13 +564,13 @@
   display: grid;
   gap: 0.22rem;
   margin: 0;
-  color: rgba(255, 227, 216, 0.58);
+  color: rgba(220, 225, 236, 0.64);
   font-size: 0.76rem;
   line-height: 1.55;
 }
 
 .jobSignal span {
-  color: rgba(255, 210, 193, 0.88);
+  color: rgba(241, 244, 251, 0.88);
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -560,12 +589,12 @@
   min-height: 2.65rem;
   width: 100%;
   padding: 0.64rem 0.82rem;
-  border: 1px solid rgba(255, 141, 104, 0.46);
+  border: 1px solid var(--jobs-rail-cta-line);
   border-radius: 0.98rem;
   background:
-    linear-gradient(180deg, rgba(255, 141, 104, 0.14), rgba(255, 255, 255, 0.03)),
-    rgba(39, 26, 22, 0.92);
-  color: rgba(255, 214, 198, 0.98);
+    linear-gradient(180deg, var(--jobs-rail-cta-fill), rgba(255, 255, 255, 0.03)),
+    var(--jobs-rail-cta-surface);
+  color: var(--jobs-rail-cta-text);
   font-size: 0.83rem;
   font-weight: 800;
   letter-spacing: 0.02em;
@@ -580,9 +609,11 @@
 
 .jobApplyButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 141, 104, 0.62);
-  background: rgba(52, 33, 28, 0.96);
-  color: #fff0e8;
+  border-color: rgba(191, 210, 149, 0.62);
+  background:
+    linear-gradient(180deg, rgba(166, 188, 121, 0.2), rgba(255, 255, 255, 0.04)),
+    rgba(50, 61, 38, 0.98);
+  color: #f6faea;
 }
 
 .jobDetailsButton {
@@ -591,10 +622,10 @@
   justify-content: center;
   min-height: 2.65rem;
   padding: 0.64rem 0.82rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-rail-line);
   border-radius: 0.98rem;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 232, 221, 0.86);
+  background: rgba(20, 23, 29, 0.26);
+  color: var(--jobs-rail-text-muted);
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
@@ -607,9 +638,9 @@
 
 .jobDetailsButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(255, 170, 135, 0.22);
-  background: rgba(255, 170, 135, 0.08);
-  color: #fff4ee;
+  border-color: rgba(152, 143, 255, 0.24);
+  background: rgba(137, 128, 255, 0.08);
+  color: var(--jobs-rail-text);
 }
 
 @media (max-width: 780px) {
