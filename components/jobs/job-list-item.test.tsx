@@ -161,4 +161,18 @@ describe("JobListItem", () => {
     expect(screen.queryByText("Verified live listing")).not.toBeInTheDocument();
     expect(screen.queryByText("Why it surfaced")).not.toBeInTheDocument();
   });
+
+  it("compacts verbose compensation copy into a clean salary pill", () => {
+    render(
+      <JobListItem
+        job={createJob({
+          salaryText:
+            "Compensation: The annual base salary range for this role is $180,000 - $220,000 annually, plus equity.",
+        })}
+      />,
+    );
+
+    expect(screen.getByText("$180,000 - $220,000 a year")).toBeInTheDocument();
+    expect(screen.queryByText(/Compensation:/i)).not.toBeInTheDocument();
+  });
 });

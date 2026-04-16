@@ -338,6 +338,69 @@ describe("JobsSidePanel", () => {
     expect(locationSelect).toHaveTextContent("United States");
   });
 
+  it("hydrates a missing salary pill from the job details endpoint for visible roles", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      expect(url).toBe("/api/v1/jobs/job_1/details");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            id: "job_1",
+            title: "Product Designer",
+            company: "Example",
+            location: "New York, NY",
+            employmentType: "Full-time",
+            workplaceType: "remote",
+            postedAt: "2026-04-12T12:00:00.000Z",
+            externalJobId: "job_1-req",
+            source: "workday",
+            sourceLabel: "Example",
+            sourceUrl: "https://workday.example.com/example/job_1",
+            descriptionHtml: "<p>Lead end-to-end product design for the hiring experience.</p>",
+            descriptionText: "Lead end-to-end product design for the hiring experience.",
+            summary: "Lead end-to-end product design for the hiring experience.",
+            responsibilities: [],
+            qualifications: [],
+            preferredQualifications: [],
+            salaryText: "$180,000 - $220,000 a year",
+            metadata: null,
+            contentStatus: "full",
+            fallbackMessage: null,
+          },
+        }),
+        {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsSidePanel
+        jobs={[
+          createJob("job_1", {
+            salaryText: null,
+            sourceKey: "workday:example",
+            sourceLabel: "Example",
+            sourceType: "workday",
+            sourceUrl: "https://workday.example.com/example/job_1",
+          }),
+        ]}
+      />,
+    );
+
+    expect(await screen.findByText("$180,000 - $220,000 a year")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("loads company-scoped jobs when the selected company is not already in the rendered rail", async () => {
     vi.stubGlobal(
       "fetch",
@@ -367,7 +430,7 @@ describe("JobsSidePanel", () => {
                 orchestrationReadiness: true,
                 postedAt: "2026-04-12T12:00:00.000Z",
                 relevanceScore: 0.87,
-                salaryText: null,
+                salaryText: "$120,000 - $140,000 a year",
                 sourceLane: "ats_direct",
                 sourceKey: "workday:cisco",
                 sourceLabel: "Cisco",

@@ -36,6 +36,33 @@ type JobPostingJsonLd = {
   applicantLocationRequirements?: {
     name?: string;
   };
+  baseSalary?:
+    | {
+        currency?: string;
+        unitText?: string;
+        value?:
+          | {
+              maxValue?: number | string;
+              minValue?: number | string;
+              unitText?: string;
+              value?: number | string;
+            }
+          | number
+          | string;
+      }
+    | Array<{
+        currency?: string;
+        unitText?: string;
+        value?:
+          | {
+              maxValue?: number | string;
+              minValue?: number | string;
+              unitText?: string;
+              value?: number | string;
+            }
+          | number
+          | string;
+      }>;
   datePosted?: string;
   description?: string;
   employmentType?: string;
@@ -484,6 +511,133 @@ function matchSectionLead(value: string) {
         } as const;
       }
     }
+  }
+
+  return null;
+}
+
+function parseJsonLdNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.replace(/,/g, "").trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatSalaryAmount(amount: number, currencyCode: string | null) {
+  const hasFractionalComponent = !Number.isInteger(amount);
+  const normalizedCurrencyCode = normalizeWhitespace(currencyCode)?.toUpperCase() ?? null;
+
+  if (normalizedCurrencyCode) {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        currency: normalizedCurrencyCode,
+        maximumFractionDigits: hasFractionalComponent ? 2 : 0,
+        minimumFractionDigits: hasFractionalComponent ? 2 : 0,
+        style: "currency",
+      }).format(amount);
+    } catch {
+      // Fall back to a plain numeric value when the currency code is unsupported.
+    }
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: hasFractionalComponent ? 2 : 0,
+    minimumFractionDigits: hasFractionalComponent ? 2 : 0,
+  }).format(amount);
+}
+
+function normalizeSalaryUnitLabel(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase().replace(/[^a-z]/g, "");
+
+  switch (normalized) {
+    case "hour":
+    case "hourly":
+      return "an hour";
+    case "day":
+    case "daily":
+      return "a day";
+    case "week":
+    case "weekly":
+      return "a week";
+    case "month":
+    case "monthly":
+      return "a month";
+    case "year":
+    case "yearly":
+    case "annual":
+    case "annually":
+      return "a year";
+    default:
+      return null;
+  }
+}
+
+function formatWorkdaySalaryText(posting: JobPostingJsonLd) {
+  const salaryCandidates = Array.isArray(posting.baseSalary)
+    ? posting.baseSalary
+    : posting.baseSalary
+      ? [posting.baseSalary]
+      : [];
+
+  for (const candidate of salaryCandidates) {
+    if (!isRecord(candidate)) {
+      continue;
+    }
+
+    const value = isRecord(candidate.value) ? candidate.value : null;
+    const directValue = parseJsonLdNumber(candidate.value);
+    let minimumValue = parseJsonLdNumber(value?.minValue);
+    let maximumValue = parseJsonLdNumber(value?.maxValue);
+    const exactValue = parseJsonLdNumber(value?.value) ?? directValue;
+
+    if (minimumValue === null && maximumValue === null && exactValue !== null) {
+      minimumValue = exactValue;
+      maximumValue = exactValue;
+    }
+
+    if (minimumValue === null && maximumValue !== null) {
+      minimumValue = maximumValue;
+    }
+
+    if (maximumValue === null && minimumValue !== null) {
+      maximumValue = minimumValue;
+    }
+
+    if (minimumValue === null || maximumValue === null) {
+      continue;
+    }
+
+    if (maximumValue < minimumValue) {
+      [minimumValue, maximumValue] = [maximumValue, minimumValue];
+    }
+
+    const currencyCode = typeof candidate.currency === "string" ? candidate.currency : null;
+    const amountLabel =
+      minimumValue === maximumValue
+        ? formatSalaryAmount(minimumValue, currencyCode)
+        : `${formatSalaryAmount(minimumValue, currencyCode)} - ${formatSalaryAmount(maximumValue, currencyCode)}`;
+    const unitLabel = normalizeSalaryUnitLabel(
+      typeof value?.unitText === "string"
+        ? value.unitText
+        : typeof candidate.unitText === "string"
+          ? candidate.unitText
+          : null,
+    );
+
+    return unitLabel ? `${amountLabel} ${unitLabel}` : amountLabel;
   }
 
   return null;
@@ -963,6 +1117,7 @@ async function hydrateMissingDetails(job: JobPostingDto, current: JobDetailsDto,
       externalJobId: normalizeWhitespace(posting.identifier?.value) ?? current.externalJobId,
       location: formatWorkdayLocation(posting) ?? current.location,
       postedAt: posting.datePosted ? new Date(posting.datePosted).toISOString() : current.postedAt,
+      salaryText: formatWorkdaySalaryText(posting) ?? current.salaryText,
       sourceUrl: job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl,
       title: normalizeWhitespace(posting.title) ?? current.title,
     });

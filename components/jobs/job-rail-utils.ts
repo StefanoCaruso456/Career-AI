@@ -586,6 +586,81 @@ export function buildJobDetailsPreview(job: JobListing): JobDetailsPreview {
   };
 }
 
+function normalizeSalaryFrequencyLabel(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase().replace(/[^a-z]/g, "");
+
+  switch (normalized) {
+    case "hour":
+    case "hourly":
+      return "an hour";
+    case "day":
+    case "daily":
+      return "a day";
+    case "week":
+    case "weekly":
+      return "a week";
+    case "month":
+    case "monthly":
+      return "a month";
+    case "year":
+    case "yearly":
+    case "annual":
+    case "annually":
+      return "a year";
+    default:
+      return null;
+  }
+}
+
+function normalizeSalaryAmount(amount: string, currencySymbol: string | null) {
+  const trimmedAmount = amount.trim();
+
+  if (trimmedAmount.length === 0) {
+    return null;
+  }
+
+  if (/^[£$€]/.test(trimmedAmount) || !currencySymbol) {
+    return trimmedAmount;
+  }
+
+  return `${currencySymbol}${trimmedAmount}`;
+}
+
+export function formatSalaryTextForRail(value: string | null | undefined) {
+  const normalized = value?.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim() ?? null;
+
+  if (!normalized) {
+    return null;
+  }
+
+  const salaryMatch = normalized.match(
+    /([$£€])?\s*(\d[\d,]*(?:\.\d+)?\s*[kKmM]?)(?:\s*(?:-|–|to)\s*([$£€])?\s*(\d[\d,]*(?:\.\d+)?\s*[kKmM]?))?/i,
+  );
+  const frequencyMatch = normalized.match(
+    /(?:\/\s*|per\s+|a\s+|an\s+)(hour|day|week|month|year)\b|(hourly|daily|weekly|monthly|annually|annual|yearly)\b/i,
+  );
+
+  if (salaryMatch) {
+    const leadingCurrencySymbol = salaryMatch[1] ?? salaryMatch[3] ?? null;
+    const firstAmount = normalizeSalaryAmount(salaryMatch[2] ?? "", leadingCurrencySymbol);
+    const secondAmount = normalizeSalaryAmount(salaryMatch[4] ?? "", leadingCurrencySymbol);
+    const frequencyLabel = normalizeSalaryFrequencyLabel(
+      frequencyMatch?.[1] ?? frequencyMatch?.[2] ?? null,
+    );
+
+    if (firstAmount) {
+      const amountLabel =
+        secondAmount && secondAmount !== firstAmount
+          ? `${firstAmount} - ${secondAmount}`
+          : firstAmount;
+
+      return frequencyLabel ? `${amountLabel} ${frequencyLabel}` : amountLabel;
+    }
+  }
+
+  return normalized.length <= 48 ? normalized : null;
+}
+
 function compareText(left: string | null | undefined, right: string | null | undefined) {
   return (left ?? "").localeCompare(right ?? "", undefined, {
     sensitivity: "base",

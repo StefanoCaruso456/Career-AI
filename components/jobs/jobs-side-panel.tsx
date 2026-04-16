@@ -49,6 +49,13 @@ function getActiveFilterCount(filters: typeof DEFAULT_JOB_RAIL_FILTERS) {
   ].filter(Boolean).length;
 }
 
+function hasOwnSalaryOverride(
+  record: Record<string, string | null>,
+  jobId: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(record, jobId);
+}
+
 function restoreRailScroll(container: HTMLDivElement | null, top: number) {
   if (!container) {
     return;
@@ -84,6 +91,7 @@ export function JobsSidePanel({
   const [companyScopeError, setCompanyScopeError] = useState<string | null>(null);
   const [isCompanyScopeLoading, setIsCompanyScopeLoading] = useState(false);
   const [selectedJobKey, setSelectedJobKey] = useState<string | null>(null);
+  const [salaryOverrides, setSalaryOverrides] = useState<Record<string, string | null>>({});
   const bodyRef = useRef<HTMLDivElement>(null);
   const filtersRef = useRef<HTMLDivElement>(null);
   const filtersPopoverRef = useRef<HTMLDivElement>(null);
@@ -93,16 +101,25 @@ export function JobsSidePanel({
   const filtersScrollTop = useRef(0);
   const filtersChangedWhileOpen = useRef(false);
   const companyScopeRequestSequence = useRef(0);
+  const salaryHydrationInFlight = useRef(new Set<string>());
   const scopedJobs = filters.company === "all" ? jobs : companyScopedJobs ?? jobs;
-  const railOptions = getJobRailOptions(scopedJobs, filterOptions);
+  const resolvedScopedJobs = scopedJobs.map((job) =>
+    hasOwnSalaryOverride(salaryOverrides, job.id)
+      ? {
+          ...job,
+          salaryText: salaryOverrides[job.id],
+        }
+      : job,
+  );
+  const railOptions = getJobRailOptions(resolvedScopedJobs, filterOptions);
   const activeFilterCount = getActiveFilterCount(filters);
-  const filteredJobs = filterAndSortJobsForRail(scopedJobs, {
+  const filteredJobs = filterAndSortJobsForRail(resolvedScopedJobs, {
     ...filters,
     keyword: deferredKeyword,
   });
   const hasActiveFilters = activeFilterCount > 0;
   const activeJob = selectedJobKey
-    ? scopedJobs.find((job) => job.railKey === selectedJobKey) ?? null
+    ? resolvedScopedJobs.find((job) => job.railKey === selectedJobKey) ?? null
     : null;
   const loadingMessage = isLoading
     ? "Pulling the latest roles from your live jobs feed."
@@ -242,7 +259,7 @@ export function JobsSidePanel({
       return;
     }
 
-    const nextActiveJob = scopedJobs.find((job) => job.railKey === selectedJobKey);
+    const nextActiveJob = resolvedScopedJobs.find((job) => job.railKey === selectedJobKey);
 
     if (!nextActiveJob) {
       setActivePreview(null);
@@ -258,7 +275,74 @@ export function JobsSidePanel({
     setActiveDetails((current) =>
       current && current.id === nextPreview.id ? current : getCachedJobDetails(nextPreview),
     );
-  }, [scopedJobs, selectedJobKey]);
+  }, [resolvedScopedJobs, selectedJobKey]);
+
+  useEffect(() => {
+    const jobsMissingSalary = filteredJobs
+      .filter(
+        (job) =>
+          !job.salaryText &&
+          !hasOwnSalaryOverride(salaryOverrides, job.id) &&
+          !salaryHydrationInFlight.current.has(job.id),
+      )
+      .slice(0, 8);
+
+    if (jobsMissingSalary.length === 0) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    jobsMissingSalary.forEach((job) => {
+      salaryHydrationInFlight.current.add(job.id);
+    });
+
+    void (async () => {
+      const hydratedSalaries = await Promise.all(
+        jobsMissingSalary.map(async (job) => {
+          try {
+            const details = await fetchJobDetails(buildJobDetailsPreview(job), {
+              signal: controller.signal,
+            });
+
+            return [job.id, details.salaryText ?? null] as const;
+          } catch {
+            return [job.id, null] as const;
+          } finally {
+            salaryHydrationInFlight.current.delete(job.id);
+          }
+        }),
+      );
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setSalaryOverrides((current) => {
+        const next = { ...current };
+        let changed = false;
+
+        hydratedSalaries.forEach(([jobId, salaryText]) => {
+          if (hasOwnSalaryOverride(current, jobId)) {
+            return;
+          }
+
+          next[jobId] = salaryText;
+          changed = true;
+        });
+
+        return changed ? next : current;
+      });
+    })();
+
+    return () => {
+      controller.abort();
+
+      jobsMissingSalary.forEach((job) => {
+        salaryHydrationInFlight.current.delete(job.id);
+      });
+    };
+  }, [filteredJobs, salaryOverrides]);
 
   async function loadDetails(preview: JobDetailsPreview, forceRefresh = false) {
     const controller = new AbortController();
