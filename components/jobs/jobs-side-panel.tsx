@@ -2,8 +2,13 @@
 
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import type { JobDetailsDto, JobRailFilterOptionsDto } from "@/packages/contracts/src";
+import {
+  jobsFeedResponseSchema,
+  type JobDetailsDto,
+  type JobRailFilterOptionsDto,
+} from "@/packages/contracts/src";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
+import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
   fetchJobDetails,
@@ -75,6 +80,9 @@ export function JobsSidePanel({
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [companyScopedJobs, setCompanyScopedJobs] = useState<JobListing[] | null>(null);
+  const [companyScopeError, setCompanyScopeError] = useState<string | null>(null);
+  const [isCompanyScopeLoading, setIsCompanyScopeLoading] = useState(false);
   const [selectedJobKey, setSelectedJobKey] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const filtersRef = useRef<HTMLDivElement>(null);
@@ -84,16 +92,24 @@ export function JobsSidePanel({
   const railScrollTop = useRef(0);
   const filtersScrollTop = useRef(0);
   const filtersChangedWhileOpen = useRef(false);
-  const railOptions = getJobRailOptions(jobs, filterOptions);
+  const companyScopeRequestSequence = useRef(0);
+  const scopedJobs = filters.company === "all" ? jobs : companyScopedJobs ?? jobs;
+  const railOptions = getJobRailOptions(scopedJobs, filterOptions);
   const activeFilterCount = getActiveFilterCount(filters);
-  const filteredJobs = filterAndSortJobsForRail(jobs, {
+  const filteredJobs = filterAndSortJobsForRail(scopedJobs, {
     ...filters,
     keyword: deferredKeyword,
   });
   const hasActiveFilters = activeFilterCount > 0;
   const activeJob = selectedJobKey
-    ? jobs.find((job) => job.railKey === selectedJobKey) ?? null
+    ? scopedJobs.find((job) => job.railKey === selectedJobKey) ?? null
     : null;
+  const loadingMessage = isLoading
+    ? "Pulling the latest roles from your live jobs feed."
+    : isCompanyScopeLoading
+      ? `Loading ${filters.company} roles from your jobs feed.`
+      : null;
+  const railErrorMessage = companyScopeError ?? errorMessage;
 
   useEffect(() => {
     return () => {
@@ -161,11 +177,72 @@ export function JobsSidePanel({
   }
 
   useEffect(() => {
+    if (filters.company === "all") {
+      companyScopeRequestSequence.current += 1;
+      setCompanyScopedJobs(null);
+      setCompanyScopeError(null);
+      setIsCompanyScopeLoading(false);
+      return;
+    }
+
+    const requestSequence = companyScopeRequestSequence.current + 1;
+    const searchParams = new URLSearchParams({
+      limit: String(Math.max(jobs.length, 24)),
+    });
+    searchParams.append("company", filters.company);
+
+    companyScopeRequestSequence.current = requestSequence;
+    setCompanyScopeError(null);
+    setIsCompanyScopeLoading(true);
+    setCompanyScopedJobs(null);
+
+    void fetch(`/api/v1/jobs?${searchParams.toString()}`, {
+      cache: "no-store",
+      method: "GET",
+    })
+      .then(async (response) => {
+        const payload = (await response.json()) as { error?: string; message?: string };
+
+        if (!response.ok) {
+          throw new Error(payload.error || payload.message || "Jobs could not be loaded right now.");
+        }
+
+        return jobsFeedResponseSchema.parse(payload);
+      })
+      .then((snapshot) => {
+        if (companyScopeRequestSequence.current !== requestSequence) {
+          return;
+        }
+
+        setCompanyScopedJobs(mapJobsToListings(snapshot.jobs));
+      })
+      .catch((error) => {
+        if (companyScopeRequestSequence.current !== requestSequence) {
+          return;
+        }
+
+        setCompanyScopedJobs([]);
+        setCompanyScopeError(
+          error instanceof Error
+            ? error.message
+            : `${filters.company} roles could not be loaded right now.`,
+        );
+      })
+      .finally(() => {
+        if (companyScopeRequestSequence.current !== requestSequence) {
+          return;
+        }
+
+        setIsCompanyScopeLoading(false);
+      });
+  }, [filters.company, jobs.length]);
+
+  useEffect(() => {
     if (!selectedJobKey) {
       return;
     }
 
-    const nextActiveJob = jobs.find((job) => job.railKey === selectedJobKey);
+    const nextActiveJob = scopedJobs.find((job) => job.railKey === selectedJobKey);
 
     if (!nextActiveJob) {
       setActivePreview(null);
@@ -181,7 +258,7 @@ export function JobsSidePanel({
     setActiveDetails((current) =>
       current && current.id === nextPreview.id ? current : getCachedJobDetails(nextPreview),
     );
-  }, [jobs, selectedJobKey]);
+  }, [scopedJobs, selectedJobKey]);
 
   async function loadDetails(preview: JobDetailsPreview, forceRefresh = false) {
     const controller = new AbortController();
@@ -429,21 +506,21 @@ export function JobsSidePanel({
             </div>
           ) : null}
 
-          {isLoading ? (
-            <p className={styles.jobsRailLoading}>Pulling the latest roles from your live jobs feed.</p>
+          {loadingMessage ? (
+            <p className={styles.jobsRailLoading}>{loadingMessage}</p>
           ) : null}
 
-          {!isLoading && errorMessage && jobs.length === 0 ? (
-            <p className={styles.jobsRailError}>{errorMessage}</p>
+          {!loadingMessage && railErrorMessage && scopedJobs.length === 0 ? (
+            <p className={styles.jobsRailError}>{railErrorMessage}</p>
           ) : null}
 
-          {!isLoading && !errorMessage && jobs.length === 0 ? (
+          {!loadingMessage && !railErrorMessage && scopedJobs.length === 0 ? (
             <p className={styles.jobsRailEmpty}>
               {emptyStateMessage ?? "No live jobs are available from the current jobs source yet."}
             </p>
           ) : null}
 
-          {!isLoading && jobs.length > 0 && filteredJobs.length === 0 ? (
+          {!loadingMessage && scopedJobs.length > 0 && filteredJobs.length === 0 ? (
             <div className={styles.jobsFilteredEmpty}>
               <p>No roles match the current filters.</p>
               <button
