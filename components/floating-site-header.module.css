@@ -1,12 +1,12 @@
 .header {
-  --header-accent: #7768ff;
-  --header-accent-strong: #8d7fff;
-  --header-accent-soft: rgba(119, 104, 255, 0.14);
-  --header-accent-softer: rgba(119, 104, 255, 0.08);
-  --header-accent-line: rgba(141, 127, 255, 0.28);
-  --header-accent-line-strong: rgba(141, 127, 255, 0.48);
-  --header-accent-shadow: rgba(119, 104, 255, 0.24);
-  --header-accent-shadow-strong: rgba(119, 104, 255, 0.34);
+  --header-accent: #5c88ff;
+  --header-accent-strong: #8fb6ff;
+  --header-accent-soft: rgba(92, 136, 255, 0.16);
+  --header-accent-softer: rgba(92, 136, 255, 0.08);
+  --header-accent-line: rgba(143, 182, 255, 0.3);
+  --header-accent-line-strong: rgba(143, 182, 255, 0.52);
+  --header-accent-shadow: rgba(52, 102, 220, 0.24);
+  --header-accent-shadow-strong: rgba(52, 102, 220, 0.36);
   position: fixed;
   top: var(--site-header-top-offset);
   left: 50%;
@@ -102,13 +102,13 @@
 .accountActionCurrent {
   border-color: var(--header-accent-line-strong);
   background:
-    radial-gradient(circle at 50% 0%, rgba(141, 127, 255, 0.18), transparent 62%),
+    radial-gradient(circle at 50% 0%, rgba(143, 182, 255, 0.24), transparent 62%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05)),
-    linear-gradient(180deg, rgba(119, 104, 255, 0.14), rgba(22, 20, 44, 0.84));
+    linear-gradient(180deg, rgba(92, 136, 255, 0.18), rgba(14, 23, 42, 0.88));
   color: #f7fbff;
   box-shadow:
-    0 20px 32px rgba(19, 15, 46, 0.28),
-    0 0 0 1px rgba(141, 127, 255, 0.16),
+    0 20px 32px rgba(10, 18, 36, 0.34),
+    0 0 0 1px rgba(143, 182, 255, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   backdrop-filter: blur(18px) saturate(150%);
@@ -239,8 +239,8 @@
 .primaryAction {
   padding: 0.84rem 1.24rem;
   border-radius: 1.2rem;
-  border: 1px solid rgba(174, 164, 255, 0.28);
-  background: linear-gradient(135deg, #7063ff 0%, #8073ff 52%, #9588ff 100%);
+  border: 1px solid rgba(143, 182, 255, 0.32);
+  background: linear-gradient(135deg, #4e78f2 0%, #6a96ff 52%, #8fb6ff 100%);
   color: #ffffff;
   box-shadow:
     0 22px 36px var(--header-accent-shadow-strong),
@@ -360,13 +360,13 @@
   min-width: 18.75rem;
   padding: 0.8rem;
   border-radius: 1.2rem;
-  border: 1px solid rgba(141, 127, 255, 0.24);
+  border: 1px solid rgba(143, 182, 255, 0.24);
   background:
-    radial-gradient(circle at top right, rgba(141, 127, 255, 0.14), transparent 38%),
-    linear-gradient(180deg, rgba(43, 44, 57, 0.96), rgba(27, 28, 37, 0.98));
+    radial-gradient(circle at top right, rgba(143, 182, 255, 0.16), transparent 38%),
+    linear-gradient(180deg, rgba(36, 41, 56, 0.96), rgba(21, 25, 36, 0.98));
   box-shadow:
     0 22px 44px rgba(0, 0, 0, 0.34),
-    0 0 0 1px rgba(141, 127, 255, 0.1),
+    0 0 0 1px rgba(143, 182, 255, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   -webkit-backdrop-filter: blur(18px) saturate(150%);
   backdrop-filter: blur(18px) saturate(150%);
@@ -430,9 +430,9 @@
   align-items: center;
   padding: 0.34rem 0.64rem;
   border-radius: 999px;
-  border: 1px solid rgba(141, 127, 255, 0.26);
-  background: rgba(141, 127, 255, 0.12);
-  color: #f3f0ff;
+  border: 1px solid rgba(143, 182, 255, 0.28);
+  background: rgba(92, 136, 255, 0.14);
+  color: #ebf3ff;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -441,7 +441,7 @@
 
 .settingsPanelDivider {
   height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(141, 127, 255, 0.22), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(143, 182, 255, 0.22), rgba(255, 255, 255, 0.04));
 }
 
 .settingsItem {
@@ -484,13 +484,13 @@
 }
 
 .settingsItemCurrent {
-  border-color: rgba(141, 127, 255, 0.28);
+  border-color: rgba(143, 182, 255, 0.28);
   background:
-    linear-gradient(180deg, rgba(141, 127, 255, 0.16), rgba(255, 255, 255, 0.04)),
-    rgba(22, 20, 44, 0.72);
+    linear-gradient(180deg, rgba(92, 136, 255, 0.16), rgba(255, 255, 255, 0.04)),
+    rgba(16, 27, 48, 0.74);
   color: #f7fbff;
   box-shadow:
-    0 14px 24px rgba(19, 15, 46, 0.24),
+    0 14px 24px rgba(10, 18, 36, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
@@ -545,7 +545,7 @@
 .accountAction:focus-visible,
 .settingsTrigger:focus-visible,
 .settingsItem:focus-visible {
-  outline: 2px solid rgba(141, 127, 255, 0.44);
+  outline: 2px solid rgba(143, 182, 255, 0.46);
   outline-offset: 2px;
 }
 
