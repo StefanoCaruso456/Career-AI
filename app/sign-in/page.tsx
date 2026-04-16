@@ -68,10 +68,6 @@ export default async function SignInPage({
     persona === "employer"
       ? "Use Google to verify your email, restore your employer session, and continue into the hiring workspace."
       : "Use Google to verify your email, restore your session, and continue into your persistent Career AI onboarding or account workspace.";
-  const note =
-    persona === "employer"
-      ? "After authentication, you will land in the employer workspace scaffold so your team can continue from the employer-facing experience."
-      : "After authentication, the app provisions your persistent user and identity records, then routes you into onboarding or your account based on saved progress.";
 
   return (
     <main className={styles.page}>
@@ -79,11 +75,7 @@ export default async function SignInPage({
         <div className={styles.eyebrow}>{personaConfig.signInEyebrow}</div>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.copy}>{copy}</p>
-        <GoogleSignInPanel
-          callbackUrl={callbackUrl}
-          note={note}
-          persona={persona}
-        />
+        <GoogleSignInPanel callbackUrl={callbackUrl} persona={persona} />
       </section>
     </main>
   );
