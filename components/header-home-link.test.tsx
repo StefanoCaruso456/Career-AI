@@ -45,6 +45,7 @@ describe("HeaderHomeLink", () => {
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.homeAction);
     expect(link).toHaveClass(styles.homeActionCurrent);
+    expect(link).toHaveClass(styles.navTabCurrent);
     expect(logo).not.toBeNull();
     expect(logo).toHaveAttribute("src", "/career-ai-header-logo.png");
   });
@@ -58,6 +59,7 @@ describe("HeaderHomeLink", () => {
     expect(link).not.toHaveAttribute("aria-current");
     expect(link).toHaveClass(styles.homeAction);
     expect(link).not.toHaveClass(styles.homeActionCurrent);
+    expect(link).not.toHaveClass(styles.navTabCurrent);
   });
 
   it("routes employer candidate pages back to the employer overview", () => {
@@ -79,6 +81,7 @@ describe("HeaderHomeLink", () => {
     expect(link).toHaveAttribute("href", "/employer");
     expect(link).toHaveAttribute("aria-current", "page");
     expect(link).toHaveClass(styles.homeActionCurrent);
+    expect(link).toHaveClass(styles.navTabCurrent);
   });
 
   it("uses the replacement header logo asset", () => {

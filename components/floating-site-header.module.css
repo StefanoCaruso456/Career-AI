@@ -63,14 +63,14 @@
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  min-height: 3.05rem;
-  padding: 0.4rem 1.05rem 0.4rem 0.48rem;
+  min-height: 2.95rem;
+  padding: 0.5rem 1rem 0.5rem 0.64rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
   box-shadow: none;
   justify-content: flex-start;
-  gap: 0.72rem;
+  gap: 0.64rem;
 }
 
 .centerNav {
@@ -120,8 +120,8 @@
 
 .homeMarkShell {
   position: relative;
-  width: 3.3rem;
-  height: 2.34rem;
+  width: 2.7rem;
+  height: 1.92rem;
   overflow: visible;
   flex-shrink: 0;
 }
@@ -135,9 +135,9 @@
 .homeBrandWordmark {
   color: #f7f7f7;
   font-family: var(--font-display), sans-serif;
-  font-size: 1.34rem;
+  font-size: 1.14rem;
   font-weight: 700;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.045em;
   line-height: 0.92;
   text-shadow: 0 10px 18px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
@@ -580,12 +580,12 @@
   }
 
   .homeAction {
-    min-height: 2.9rem;
-    padding: 0.34rem 0.9rem 0.34rem 0.4rem;
+    min-height: 2.8rem;
+    padding: 0.42rem 0.88rem 0.42rem 0.56rem;
   }
 
   .homeBrandWordmark {
-    font-size: 1.2rem;
+    font-size: 1.06rem;
   }
 
   .navTab {
@@ -601,8 +601,8 @@
   }
 
   .homeAction {
-    min-height: 2.72rem;
-    padding: 0.28rem 0.72rem 0.28rem 0.32rem;
+    min-height: 2.62rem;
+    padding: 0.32rem 0.68rem 0.32rem 0.46rem;
   }
 
   .centerNav {
@@ -618,13 +618,13 @@
   }
 
   .homeMarkShell {
-    width: 2.7rem;
-    height: 1.95rem;
+    width: 2.4rem;
+    height: 1.7rem;
   }
 
   .homeBrandWordmark {
-    font-size: 1.08rem;
-    letter-spacing: -0.045em;
+    font-size: 0.98rem;
+    letter-spacing: -0.04em;
   }
 
   .actions {
