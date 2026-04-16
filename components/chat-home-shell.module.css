@@ -322,20 +322,13 @@
   width: 100%;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding: 0.25rem 0.15rem 0.55rem;
+  padding: 0.25rem 0.35rem 0.55rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-behavior: smooth;
-  scroll-padding-inline: 0.15rem;
+  scroll-padding-inline: 0.35rem;
   touch-action: pan-x;
   -webkit-overflow-scrolling: touch;
-  mask-image: linear-gradient(
-    90deg,
-    transparent 0,
-    rgba(0, 0, 0, 1) 1rem,
-    rgba(0, 0, 0, 1) calc(100% - 1rem),
-    transparent 100%
-  );
 }
 
 .heroStarterRail::-webkit-scrollbar {
@@ -1561,7 +1554,8 @@
   justify-content: center;
   flex: 0 0 auto;
   min-height: 2.85rem;
-  max-width: min(82vw, 20rem);
+  width: max-content;
+  max-width: min(92vw, 32rem);
   padding: 0.82rem 1.12rem;
   border: 1px solid var(--hero-border);
   border-radius: 999px;
@@ -3675,8 +3669,8 @@
   }
 
   .starterQuestionPill {
-    max-width: min(85vw, 20rem);
-    width: auto;
+    width: max-content;
+    max-width: min(94vw, 26rem);
   }
 
   .composerFooter {
