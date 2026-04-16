@@ -3,20 +3,33 @@ import type {
   JobSeekerToolName,
   JobSearchQueryDto,
   JobSearchRetrievalResultDto,
+  JobSearchQuerySummaryDto,
+  JobSearchOutcomeDto,
   JobsPanelResponseDto,
 } from "@/packages/contracts/src";
 import { jobsPanelResponseSchema } from "@/packages/contracts/src";
 import {
-  browseLatestJobsCatalog,
+  browseLatestJobsCatalog as browseLatestJobsCatalogLegacy,
   buildLatestJobsBrowseQuery,
   buildJobRailCards,
   findSimilarJobsCatalog,
   getJobPostingDetails,
   parseJobSearchQuery,
   resolveJobSeekerProfileContext,
-  searchJobsCatalog,
+  searchJobsCatalog as searchJobsCatalogLegacy,
   validateJobsCatalog,
 } from "./search-catalog";
+import {
+  browseLatestJobsCatalogV2,
+  isJobSearchRetrievalV2Enabled,
+  searchJobsCatalogV2,
+} from "./job-search-retrieval/service";
+
+type SearchJobsCatalogResponse = JobSearchRetrievalResultDto & {
+  assistantMessage?: string;
+  querySummary?: JobSearchQuerySummaryDto;
+  searchOutcome?: JobSearchOutcomeDto;
+};
 
 function isNewestJobsBrowseQuery(query: JobSearchQueryDto) {
   return (
@@ -54,12 +67,18 @@ function inferResultQuality(result: JobSearchRetrievalResultDto) {
 }
 
 function buildAssistantMessage(args: {
+  fallbackCount?: number;
   jobs: JobPostingDto[];
   query: JobSearchQueryDto;
+  searchOutcome?: JobSearchOutcomeDto;
 }) {
   const isNewestBrowse = isNewestJobsBrowseQuery(args.query);
 
   if (args.jobs.length === 0) {
+    if (args.searchOutcome?.zeroResultReasons?.length) {
+      return `I found no grounded job matches yet. I applied the requested filters and ${args.searchOutcome.wideningApplied ? `widened via ${args.searchOutcome.wideningSteps.join("; ")}` : "kept the search exact"} before hitting these blockers: ${args.searchOutcome.zeroResultReasons.join("; ")}.`;
+    }
+
     if (isNewestBrowse) {
       return "I couldn’t find any live jobs across the connected sources right now.";
     }
@@ -74,6 +93,18 @@ function buildAssistantMessage(args: {
       .join("; ");
 
     return `Here are the newest live jobs across all connected sources. Latest roles: ${latestRoles}.`;
+  }
+
+  if (args.searchOutcome) {
+    const compensationSuffix =
+      args.searchOutcome.knownCompensationCount || args.searchOutcome.unknownCompensationCount
+        ? ` ${args.searchOutcome.knownCompensationCount ?? 0} have known compensation${(args.searchOutcome.unknownCompensationCount ?? 0) > 0 ? ` and ${args.searchOutcome.unknownCompensationCount} do not list salary` : ""}.`
+        : "";
+    const wideningSuffix = args.searchOutcome.wideningApplied
+      ? ` Widening used: ${args.searchOutcome.wideningSteps.join("; ")}.`
+      : "";
+
+    return `I found ${args.searchOutcome.exactMatchCount} exact matches and ${args.searchOutcome.fallbackMatchCount} fallback matches.${compensationSuffix}${wideningSuffix}`.trim();
   }
 
   const roleSegment = args.query.filters.role ? ` ${args.query.filters.role}` : "";
@@ -99,15 +130,18 @@ function buildAssistantMessage(args: {
 }
 
 function buildJobsPanelResponse(args: {
-  result: Awaited<ReturnType<typeof searchJobsCatalog>>;
+  result: SearchJobsCatalogResponse;
   selectedTool: JobSeekerToolName;
   terminationReason: string;
 }) {
   const resultQuality = inferResultQuality(args.result);
-  const assistantMessage = buildAssistantMessage({
-    jobs: args.result.results,
-    query: args.result.query,
-  });
+  const assistantMessage =
+    args.result.assistantMessage ??
+    buildAssistantMessage({
+      jobs: args.result.results,
+      query: args.result.query,
+      searchOutcome: args.result.searchOutcome,
+    });
   const isNewestBrowse = isNewestJobsBrowseQuery(args.result.query);
 
   return jobsPanelResponseSchema.parse({
@@ -132,6 +166,7 @@ function buildJobsPanelResponse(args: {
     panelCount: args.result.returnedCount,
     profileContext: args.result.profileContext,
     query: args.result.query,
+    querySummary: args.result.querySummary,
     rail: {
       cards: buildJobRailCards(args.result.results),
       emptyState:
@@ -140,8 +175,27 @@ function buildJobsPanelResponse(args: {
           : args.result.rail.emptyState,
       filterOptions: args.result.rail.filterOptions,
     },
+    searchOutcome: args.result.searchOutcome,
     totalMatches: args.result.totalCandidateCount,
   });
+}
+
+export async function searchJobsCatalog(args: Parameters<typeof searchJobsCatalogLegacy>[0]): Promise<SearchJobsCatalogResponse> {
+  if (isJobSearchRetrievalV2Enabled()) {
+    return searchJobsCatalogV2(args);
+  }
+
+  return searchJobsCatalogLegacy(args);
+}
+
+export async function browseLatestJobsCatalog(
+  args?: Parameters<typeof browseLatestJobsCatalogLegacy>[0],
+): Promise<SearchJobsCatalogResponse> {
+  if (isJobSearchRetrievalV2Enabled()) {
+    return browseLatestJobsCatalogV2(args);
+  }
+
+  return browseLatestJobsCatalogLegacy(args);
 }
 
 export async function searchJobsPanel(args: {
@@ -198,13 +252,11 @@ export async function browseLatestJobsPanel(args?: {
 }
 
 export {
-  browseLatestJobsCatalog,
   buildLatestJobsBrowseQuery,
   buildJobRailCards,
   findSimilarJobsCatalog,
   getJobPostingDetails,
   parseJobSearchQuery,
   resolveJobSeekerProfileContext,
-  searchJobsCatalog,
   validateJobsCatalog,
 };
