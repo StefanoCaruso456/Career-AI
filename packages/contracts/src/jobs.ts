@@ -344,17 +344,39 @@ export const jobSearchRankingSummarySchema = z.object({
 export const jobSearchDebugMetaSchema = z.object({
   candidateCountAfterFiltering: z.number().int().nonnegative(),
   candidateCountAfterMerging: z.number().int().nonnegative(),
+  candidateCountsByStage: z.record(z.string(), z.number().int().nonnegative()).optional(),
   duplicateCount: z.number().int().nonnegative(),
+  engineVersion: z.string().optional(),
   fallbackApplied: jobSearchFallbackSchema,
   filteredOutCount: z.number().int().nonnegative(),
   invalidCount: z.number().int().nonnegative(),
   lexicalCandidateCount: z.number().int().nonnegative(),
+  latencyBreakdownMs: z.record(z.string(), z.number().int().nonnegative()).optional(),
   mergedCandidateCount: z.number().int().nonnegative(),
   searchLatencyMs: z.number().int().nonnegative(),
   semanticCandidateCount: z.number().int().nonnegative(),
   sourceCount: z.number().int().nonnegative(),
   staleCount: z.number().int().nonnegative(),
   structuredCandidateCount: z.number().int().nonnegative(),
+  wideningSteps: z.array(z.string()).optional(),
+  zeroResultReasons: z.array(z.string()).optional(),
+});
+
+export const jobSearchQuerySummarySchema = z.object({
+  appliedFilters: z.record(z.string(), z.unknown()),
+  normalizedUserIntent: z.string(),
+});
+
+export const jobSearchOutcomeSchema = z.object({
+  exactMatchCount: z.number().int().nonnegative(),
+  fallbackMatchCount: z.number().int().nonnegative(),
+  knownCompensationCount: z.number().int().nonnegative().optional(),
+  totalCandidatesBeforeRerank: z.number().int().nonnegative(),
+  totalResultsReturned: z.number().int().nonnegative(),
+  unknownCompensationCount: z.number().int().nonnegative().optional(),
+  wideningApplied: z.boolean(),
+  wideningSteps: z.array(z.string()),
+  zeroResultReasons: z.array(z.string()).default([]),
 });
 
 export const jobRailCardSchema = z.object({
@@ -390,6 +412,7 @@ export const jobSearchRetrievalResultSchema = z.object({
   generatedAt: z.string().datetime(),
   profileContext: jobSeekerProfileContextSchema.nullable(),
   query: jobSearchQuerySchema,
+  querySummary: jobSearchQuerySummarySchema.optional(),
   queryInterpretation: jobSearchQueryInterpretationSchema,
   rail: z.object({
     cards: z.array(jobRailCardSchema),
@@ -400,6 +423,7 @@ export const jobSearchRetrievalResultSchema = z.object({
   resultQuality: jobSeekerResultQualitySchema,
   results: z.array(jobPostingSchema),
   returnedCount: z.number().int().nonnegative(),
+  searchOutcome: jobSearchOutcomeSchema.optional(),
   totalCandidateCount: z.number().int().nonnegative(),
 });
 
@@ -438,11 +462,13 @@ export const jobsPanelResponseSchema = z.object({
   panelCount: z.number().int().nonnegative(),
   profileContext: jobSeekerProfileContextSchema.nullable(),
   query: jobSearchQuerySchema,
+  querySummary: jobSearchQuerySummarySchema.optional(),
   rail: z.object({
     cards: z.array(jobRailCardSchema),
     emptyState: z.string().nullable(),
     filterOptions: jobRailFilterOptionsSchema.optional(),
   }),
+  searchOutcome: jobSearchOutcomeSchema.optional(),
   totalMatches: z.number().int().nonnegative(),
 });
 
@@ -506,6 +532,8 @@ export type JobSearchFallbackDto = z.infer<typeof jobSearchFallbackSchema>;
 export type JobSearchAppliedFiltersDto = z.infer<typeof jobSearchAppliedFiltersSchema>;
 export type JobSearchRankingSummaryDto = z.infer<typeof jobSearchRankingSummarySchema>;
 export type JobSearchDebugMetaDto = z.infer<typeof jobSearchDebugMetaSchema>;
+export type JobSearchQuerySummaryDto = z.infer<typeof jobSearchQuerySummarySchema>;
+export type JobSearchOutcomeDto = z.infer<typeof jobSearchOutcomeSchema>;
 export type JobRailCardDto = z.infer<typeof jobRailCardSchema>;
 export type JobRailFilterOptionsDto = z.infer<typeof jobRailFilterOptionsSchema>;
 export type JobSearchRetrievalResultDto = z.infer<typeof jobSearchRetrievalResultSchema>;

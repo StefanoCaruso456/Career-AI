@@ -1,163 +1,99 @@
-# Job Search Retrieval Service
+# Job Search Retrieval Architecture
 
-## Architecture summary
+## Current flow
 
-The job seeker runtime now calls a dedicated retrieval layer that treats jobs as structured entities instead of generic chat text. The service:
+Before the v2 engine, job retrieval already existed, but it was centered on a thin `JobPostingDto` plus a mixed search parser/ranker pipeline:
 
-- accepts a raw natural-language request plus structured filters when available
-- normalizes the request into typed retrieval signals
-- loads the live jobs inventory
-- applies hard validation and strict filters first
-- scores the remaining jobs with a hybrid ranker
-- broadens once when the initial search is over-constrained
-- returns grounded, UI-ready results plus debug metadata
+- prompt parsing in `search-catalog.ts`
+- hybrid scoring in `search-engine.ts`
+- inventory persistence in `job_postings`
+- jobs panel and API integration through `search.ts` and `/api/v1/jobs/search`
 
-## Typed input
+That flow worked for basic retrieval, but it still leaned heavily on string matching and partial metadata.
 
-The shared contracts define a retrieval-oriented input model through:
+## New flow
 
-- `searchJobsToolInputSchema`
-- `jobSearchFiltersSchema`
-- `jobSearchQuerySchema`
+The v2 engine introduces a metadata-first retrieval pipeline in `packages/jobs-domain/src/job-search-retrieval/`:
 
-Supported fields include:
+1. parse query
+2. normalize filters
+3. map inventory into a canonical job record shape
+4. apply hard filters against canonical metadata
+5. run lexical retrieval over title/company/team/skills/description
+6. run semantic reranking on the narrowed candidate set
+7. widen deterministically when exact matches are sparse
+8. build explanations, diagnostics, and user-facing messaging
 
-- `rawQuery`
-- `normalizedRoles`
-- `skills`
-- `locations`
-- `remotePreference`
-- `seniority`
-- `employmentType`
-- `industries`
-- `salaryMin`
-- `salaryMax`
-- `profileContext`
-- `careerIdContext`
-- `excludeTerms`
-- `limit`
-- `offset`
+This engine is feature-flagged behind `JOB_SEARCH_RETRIEVAL_V2_ENABLED` so the active route can be upgraded safely.
 
-## Typed output
+## Canonical schema
 
-The retrieval layer returns `jobSearchRetrievalResultSchema` with:
+The canonical mapping layer derives a stable search shape from persisted job DTOs plus raw payload JSON:
 
-- `results`
-- `totalCandidateCount`
-- `returnedCount`
-- `queryInterpretation`
-- `appliedFilters`
-- `rankingSummary`
-- `resultQuality`
-- `fallbackApplied`
-- `debugMeta`
-
-Each result record includes grounded job fields, match reasons, relevance score, parsed salary range, and a ranking breakdown.
-
-## Query normalization
-
-Normalization combines the current structured `JobSearchQueryDto` with prompt parsing. The service derives:
-
-- normalized role families
-- adjacent roles
-- company terms
-- location terms
-- remote / hybrid / onsite preference
+- title, title family, title cluster, title tokens
+- normalized company metadata
+- structured location fields:
+  - city
+  - state
+  - state code
+  - metro
+  - country
+  - remote / hybrid / onsite flags
 - seniority
 - employment type
-- industry tags
-- salary bounds
-- exclusion terms
-- semantic themes
-- profile signals used for ranking boosts
+- compensation min/max/currency/period
+- required vs preferred skills
+- team / department
+- eligibility hints such as sponsorship and clearance
+- normalized description text and searchable chunks
 
-Generic “find jobs for me” prompts stay broad, while explicit constraints remain explicit.
+The canonical layer is intentionally in code first so retrieval quality can improve immediately without blocking on a full storage migration.
 
-## Retrieval methodology
+## Widening strategy
 
-The retrieval pass uses three layers:
+Widening is deterministic and user-visible.
 
-1. Structured gating
-- removes invalid, expired, stale, duplicate, excluded, wrong-company, wrong-location, wrong-remote-only, wrong-salary, and wrong-employment-type jobs
+Current v2 order:
 
-2. Lexical retrieval
-- exact and near-exact phrase overlap for title, role, company, skill, and location language
+- location: city/state -> metro -> state -> country -> remote fallback
+- recency: exact window -> last 3 days -> last 7 days
+- title: exact normalized title -> title family -> broader role cluster
+- compensation: exact threshold -> 10 percent relaxation when the minimum is not strict -> unknown-compensation bucket
 
-3. Semantic-style retrieval
-- concept-vector similarity built from role-family aliases, adjacent roles, themes, description text, profile signals, and industry tags
-
-The candidate sets are merged and then ranked.
-
-## Ranking methodology
-
-Ranking is explicit and inspectable. Each result gets a `rankingBreakdown` with:
-
-- `titleMatchScore`
-- `lexicalScore`
-- `semanticScore`
-- `skillOverlapScore`
-- `locationScore`
-- `remotePreferenceScore`
-- `seniorityScore`
-- `employmentTypeScore`
-- `industryScore`
-- `profileAlignmentScore`
-- `freshnessScore`
-- `trustScore`
-- `mismatchPenalty`
-- `finalScore`
-
-The final score uses dynamic weights so explicit user constraints matter more when present.
-
-## Fallback behavior
-
-When the initial pass is `weak` or `empty`, the service broadens once in a deterministic order:
-
-- relax location for remote-only searches
-- relax seniority
-- trim long skill lists
-- relax employment type
-- relax salary bounds
-- broaden exact roles into adjacent role families
-
-The applied fallback is returned in `fallbackApplied` and mirrored in `debugMeta`.
-
-## Result quality
-
-The tool labels each search as:
-
-- `strong`
-- `acceptable`
-- `weak`
-- `empty`
-
-This label is based on final scores, top-match alignment, and how many genuinely aligned jobs survived the threshold.
+Exact and widened results are tracked separately in the response contract.
 
 ## Observability
 
-The retrieval result exposes:
+The v2 engine records and returns:
 
-- `queryInterpretation`
-- `appliedFilters`
-- candidate counts after filtering, lexical scoring, semantic scoring, and merging
-- duplicate / invalid / stale counts
-- fallback metadata
-- ranking weights and top ranking signals
-- total latency
+- normalized query summary
+- exact and fallback counts
+- stage counts by retrieval phase
+- widening steps
+- zero-result reasons
+- latency breakdown by stage
+- engine version
 
-This makes it possible to explain why a search returned what it returned.
+Database observability now persists richer job search event JSON in `job_search_events`, in addition to the previous prompt/result metadata.
 
-## Current limitations
+## Test coverage
 
-- The semantic layer is currently an in-process concept-vector scorer, not an external embedding index yet.
-- Inventory fields are still constrained by the existing normalized job schema; full responsibilities / qualifications / skills extraction is still partial.
-- Location broadening is string-based and does not yet use geographic proximity.
-- Salary filtering depends on parseable salary text being present.
+The new test plan covers:
 
-## Recommended next improvements
+- parser normalization
+- recency distinctions
+- compensation parsing
+- deterministic workplace filtering
+- metadata-first Austin / Texas / remote matching
+- team and skill ranking
+- widening behavior
+- zero-result UX
+- feature-flagged integration
 
-1. Add a persistent vector index over title + summary + full description text.
-2. Normalize more structured fields at ingestion time: skills, seniority, industry, salary, remote type.
-3. Add geographic normalization for metro / state / nearby matching.
-4. Add offline relevance evaluation datasets for representative job seeker prompts.
-5. Feed retrieval debug metrics into product analytics so weak-result prompts are easy to spot and improve.
+See [docs/testing/job-search-retrieval-test-plan.md](/Users/stefanocaruso/Desktop/career-ai-job-search/docs/testing/job-search-retrieval-test-plan.md).
+
+## Rollout strategy
+
+- Legacy retrieval remains the default until `JOB_SEARCH_RETRIEVAL_V2_ENABLED` is turned on.
+- The route contract stays backward compatible by keeping the existing jobs panel payload and adding richer optional diagnostics.
+- Because raw payload JSON is already persisted, the new engine can run without a blocking re-ingestion step, though future backfill work would still improve metadata quality.

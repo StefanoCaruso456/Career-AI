@@ -645,14 +645,20 @@ export async function recordJobValidationEvents(args: {
 }
 
 export async function recordJobSearchEvent(args: {
+  candidateCounts?: Record<string, number>;
   conversationId?: string | null;
+  engineVersion?: string;
+  latencyBreakdownMs?: Record<string, number>;
   latencyMs: number;
   origin: JobSearchOrigin;
   ownerId: string;
   prompt: string;
   query: JobSearchQueryDto;
+  querySummary?: Record<string, unknown>;
   resultCount: number;
   resultJobIds: string[];
+  wideningSteps?: string[];
+  zeroResultReasons?: string[];
 }) {
   const eventId = `job_search_${randomUUID()}`;
 
@@ -670,10 +676,18 @@ export async function recordJobSearchEvent(args: {
         career_id_signals_json,
         result_count,
         result_job_ids_json,
+        engine_version,
+        query_summary_json,
+        candidate_counts_json,
+        widening_steps_json,
+        zero_result_reasons_json,
+        latency_breakdown_ms_json,
         latency_ms,
         created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, $10, $11::jsonb, $12, NOW())
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9::jsonb, $10, $11::jsonb, $12, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17::jsonb, $18, NOW()
+      )
     `,
     [
       eventId,
@@ -687,6 +701,12 @@ export async function recordJobSearchEvent(args: {
       JSON.stringify(args.query.careerIdSignals),
       args.resultCount,
       JSON.stringify(args.resultJobIds),
+      args.engineVersion ?? "legacy",
+      JSON.stringify(args.querySummary ?? {}),
+      JSON.stringify(args.candidateCounts ?? {}),
+      JSON.stringify(args.wideningSteps ?? []),
+      JSON.stringify(args.zeroResultReasons ?? []),
+      JSON.stringify(args.latencyBreakdownMs ?? {}),
       args.latencyMs,
     ],
   );
