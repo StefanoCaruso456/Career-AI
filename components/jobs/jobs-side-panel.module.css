@@ -6,10 +6,12 @@
   --jobs-rail-card-bottom: rgba(58, 56, 62, 0.98);
   --jobs-rail-card-surface: rgba(61, 59, 65, 0.96);
   --jobs-rail-line: rgba(255, 255, 255, 0.1);
+  --jobs-rail-shell-line: rgba(163, 170, 255, 0.28);
   --jobs-rail-line-strong: rgba(255, 255, 255, 0.16);
   --jobs-rail-text: #f7f7fb;
   --jobs-rail-text-muted: rgba(233, 236, 244, 0.78);
   --jobs-rail-text-soft: rgba(213, 218, 228, 0.6);
+  --jobs-rail-company-text: rgba(168, 186, 255, 0.88);
   --jobs-rail-accent-line: rgba(148, 139, 255, 0.34);
   --jobs-rail-accent-fill: rgba(137, 128, 255, 0.14);
   --jobs-rail-accent-surface: rgba(49, 45, 74, 0.96);
@@ -17,10 +19,11 @@
   --jobs-rail-success-fill: rgba(161, 151, 255, 0.14);
   --jobs-rail-success-surface: rgba(77, 70, 122, 0.62);
   --jobs-rail-success-text: #f1eeff;
-  --jobs-rail-cta-line: rgba(165, 207, 255, 0.42);
-  --jobs-rail-cta-fill: rgba(151, 200, 255, 0.18);
-  --jobs-rail-cta-surface: rgba(72, 102, 138, 0.74);
-  --jobs-rail-cta-text: #eef7ff;
+  --jobs-rail-cta-top: #474a68;
+  --jobs-rail-cta-mid: #5a5f86;
+  --jobs-rail-cta-bottom: #7076a6;
+  --jobs-rail-cta-line: rgba(163, 170, 255, 0.34);
+  --jobs-rail-cta-text: #f5f7ff;
   position: relative;
   z-index: 2;
   display: grid;
@@ -30,7 +33,7 @@
   min-width: 0;
   max-height: calc(var(--chat-stage-shell-height, 100vh) - 0.75rem);
   padding: 1rem;
-  border: 1px solid var(--jobs-rail-line);
+  border: 1px solid var(--jobs-rail-shell-line);
   border-radius: 1.9rem;
   background:
     radial-gradient(circle at top right, rgba(136, 127, 255, 0.06), transparent 34%),
@@ -42,6 +45,7 @@
     var(--jobs-rail-surface);
   box-shadow:
     0 28px 52px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(118, 134, 255, 0.08),
     inset 1px 1px 0 rgba(255, 255, 255, 0.06);
   -webkit-backdrop-filter: blur(18px) saturate(155%);
   backdrop-filter: blur(18px) saturate(155%);
@@ -530,10 +534,12 @@
 
 .jobCompany {
   margin: 0;
-  color: rgba(244, 246, 251, 0.88);
-  font-size: 0.84rem;
-  font-weight: 600;
-  line-height: 1.35;
+  color: var(--jobs-rail-company-text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .jobTitle {
@@ -607,8 +613,13 @@
   border: 1px solid var(--jobs-rail-cta-line);
   border-radius: 0.98rem;
   background:
-    linear-gradient(180deg, var(--jobs-rail-cta-fill), rgba(255, 255, 255, 0.03)),
-    var(--jobs-rail-cta-surface);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 52%),
+    linear-gradient(
+      135deg,
+      var(--jobs-rail-cta-top),
+      var(--jobs-rail-cta-mid) 56%,
+      var(--jobs-rail-cta-bottom)
+    );
   color: var(--jobs-rail-cta-text);
   font-size: 0.83rem;
   font-weight: 800;
@@ -621,20 +632,22 @@
     color 180ms ease,
     box-shadow 180ms ease;
   box-shadow:
-    0 12px 24px rgba(38, 71, 104, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 18px 32px rgba(0, 0, 0, 0.24),
+    0 10px 24px rgba(116, 124, 206, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .jobApplyButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(184, 222, 255, 0.58);
+  border-color: rgba(187, 193, 255, 0.46);
   background:
-    linear-gradient(180deg, rgba(173, 214, 255, 0.24), rgba(255, 255, 255, 0.04)),
-    rgba(83, 117, 157, 0.86);
-  color: #f4fbff;
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.18), transparent 52%),
+    linear-gradient(135deg, #505474, #646a94 56%, #7a81b3);
+  color: #f8f9ff;
   box-shadow:
-    0 16px 28px rgba(44, 80, 118, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 22px 40px rgba(0, 0, 0, 0.28),
+    0 14px 30px rgba(122, 130, 214, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .jobDetailsButton {
