@@ -48,6 +48,157 @@ function IntroSectionTitle({
   );
 }
 
+function CareerAiAgentExchangeMark() {
+  return (
+    <g
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      transform="translate(2 2)"
+    >
+      <g strokeWidth="2.4">
+        <rect x="1" y="8" width="18" height="13" rx="5.5" />
+        <path d="M10 8V4.8" />
+        <path d="M6.4 21V24.4" />
+        <path d="M13.6 21V24.4" />
+      </g>
+      <circle cx="7" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="3.2" r="1.4" fill="currentColor" stroke="none" />
+
+      <g strokeWidth="2.4" transform="translate(34 0)">
+        <rect x="1" y="8" width="18" height="13" rx="5.5" />
+        <path d="M10 8V4.8" />
+        <path d="M6.4 21V24.4" />
+        <path d="M13.6 21V24.4" />
+      </g>
+      <circle cx="41" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="47" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="44" cy="3.2" r="1.4" fill="currentColor" stroke="none" />
+
+      <path d="M22.8 12.5h8.4" strokeWidth="2.15" />
+      <path d="M27.2 9.3 31.6 12.5 27.2 15.7" strokeWidth="2.15" />
+      <path d="M31.2 17.1h-8.4" strokeWidth="2.15" />
+      <path d="M26.8 13.9 22.4 17.1 26.8 20.3" strokeWidth="2.15" />
+    </g>
+  );
+}
+
+function GlobalVerificationArt() {
+  return (
+    <svg
+      aria-hidden="true"
+      className={styles.globalVisualArt}
+      viewBox="0 0 480 240"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="globalSurface" x1="56" x2="424" y1="18" y2="222" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#162137" />
+          <stop offset="0.58" stopColor="#0e1523" />
+          <stop offset="1" stopColor="#0a1019" />
+        </linearGradient>
+        <radialGradient id="globalGlow" cx="0" cy="0" r="1" gradientTransform="translate(240 132) rotate(90) scale(94 170)" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#79a8ff" stopOpacity="0.34" />
+          <stop offset="0.42" stopColor="#4d7aff" stopOpacity="0.18" />
+          <stop offset="1" stopColor="#0d1320" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="nodeGlow" cx="0" cy="0" r="1" gradientTransform="translate(72 42) rotate(90) scale(58 78)" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#97b8ff" stopOpacity="0.34" />
+          <stop offset="1" stopColor="#97b8ff" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="nodeFill" x1="22" x2="122" y1="8" y2="84" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#8f9ad5" stopOpacity="0.92" />
+          <stop offset="1" stopColor="#536ab3" stopOpacity="0.58" />
+        </linearGradient>
+        <linearGradient id="nodeStroke" x1="12" x2="132" y1="14" y2="74" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#8bb0ff" />
+          <stop offset="1" stopColor="#9bc4ff" stopOpacity="0.48" />
+        </linearGradient>
+        <linearGradient id="bridgeStroke" x1="114" x2="366" y1="126" y2="126" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#76bcff" stopOpacity="0.92" />
+          <stop offset="0.5" stopColor="#c3e5ff" />
+          <stop offset="1" stopColor="#76bcff" stopOpacity="0.92" />
+        </linearGradient>
+        <linearGradient id="bubbleFill" x1="224" x2="258" y1="92" y2="134" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#f4fbff" />
+          <stop offset="1" stopColor="#cae3ff" />
+        </linearGradient>
+      </defs>
+
+      <rect x="0.5" y="0.5" width="479" height="239" rx="26" fill="url(#globalSurface)" />
+      <rect x="0.5" y="0.5" width="479" height="239" rx="26" stroke="#ffffff" strokeOpacity="0.08" />
+      <rect x="1" y="1" width="478" height="238" rx="25.5" fill="url(#globalGlow)" />
+
+      <g opacity="0.22">
+        {[
+          [118, 40],
+          [154, 54],
+          [201, 38],
+          [243, 48],
+          [290, 40],
+          [332, 58],
+          [96, 182],
+          [146, 198],
+          [201, 184],
+          [278, 196],
+          [330, 184],
+          [380, 198],
+        ].map(([cx, cy], index) => (
+          <circle key={`${cx}-${cy}-${index}`} cx={cx} cy={cy} fill="#d2e6ff" r="2.6" />
+        ))}
+      </g>
+
+      <path
+        d="M146 132C179 110 209 101 240 101C271 101 301 110 334 132"
+        fill="none"
+        opacity="0.94"
+        stroke="url(#bridgeStroke)"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M154 144C186 164 213 173 240 173C267 173 294 164 326 144"
+        fill="none"
+        opacity="0.32"
+        stroke="url(#bridgeStroke)"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+
+      <g transform="translate(76 86)">
+        <ellipse cx="70" cy="50" rx="82" ry="58" fill="url(#nodeGlow)" />
+        <rect x="0" y="10" width="140" height="78" rx="39" fill="url(#nodeFill)" />
+        <rect x="0.75" y="10.75" width="138.5" height="76.5" rx="38.25" stroke="url(#nodeStroke)" strokeWidth="1.5" />
+        <rect x="6" y="16" width="128" height="66" rx="33" fill="#ffffff" fillOpacity="0.06" />
+        <g color="#232535" transform="translate(34 34)">
+          <CareerAiAgentExchangeMark />
+        </g>
+      </g>
+
+      <g transform="translate(264 86)">
+        <ellipse cx="70" cy="50" rx="82" ry="58" fill="url(#nodeGlow)" />
+        <rect x="0" y="10" width="140" height="78" rx="39" fill="url(#nodeFill)" />
+        <rect x="0.75" y="10.75" width="138.5" height="76.5" rx="38.25" stroke="url(#nodeStroke)" strokeWidth="1.5" />
+        <rect x="6" y="16" width="128" height="66" rx="33" fill="#ffffff" fillOpacity="0.06" />
+        <g color="#232535" transform="translate(34 34)">
+          <CareerAiAgentExchangeMark />
+        </g>
+      </g>
+
+      <g transform="translate(218 96)">
+        <path
+          d="M18 0C27.941 0 36 8.059 36 18C36 27.941 27.941 36 18 36H9.6L1 44L4.8 34.2C1.77 30.869 0 26.443 0 21.6V18C0 8.059 8.059 0 18 0Z"
+          fill="url(#bubbleFill)"
+          stroke="#5db3ff"
+          strokeWidth="2.5"
+        />
+      </g>
+    </svg>
+  );
+}
+
 function SolutionVisual({ variant }: { variant: SolutionVariant }) {
   if (variant === "verificationStack") {
     return (
@@ -165,10 +316,7 @@ function SolutionVisual({ variant }: { variant: SolutionVariant }) {
   if (variant === "globalVerification") {
     return (
       <div className={styles.globalVisual}>
-        <div className={styles.globalLabel}>US • UK • BR • SG</div>
-        <div className={styles.globalArcMain} />
-        <div className={styles.globalArcAlt} />
-        <div className={styles.globalHalo} />
+        <GlobalVerificationArt />
       </div>
     );
   }
