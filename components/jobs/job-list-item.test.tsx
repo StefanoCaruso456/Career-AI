@@ -175,4 +175,17 @@ describe("JobListItem", () => {
     expect(screen.getByText("$180,000 - $220,000 a year")).toBeInTheDocument();
     expect(screen.queryByText(/Compensation:/i)).not.toBeInTheDocument();
   });
+
+  it("hides the employment pill when the source does not specify a job type", () => {
+    render(
+      <JobListItem
+        job={createJob({
+          employmentType: null,
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Type unknown")).not.toBeInTheDocument();
+    expect(screen.getByText("New York, NY")).toBeInTheDocument();
+  });
 });
