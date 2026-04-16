@@ -121,14 +121,8 @@
   border-radius: 1.75rem;
   border: 1px solid var(--jobs-line-strong);
   background:
-    radial-gradient(circle at top right, rgba(152, 136, 255, 0.12), transparent 30%),
-    radial-gradient(circle at bottom left, rgba(220, 176, 146, 0.08), transparent 24%),
-    linear-gradient(
-      180deg,
-      var(--jobs-shell-surface-top),
-      var(--jobs-shell-surface-bottom)
-    ),
-    var(--jobs-shell-surface);
+    linear-gradient(180deg, var(--jobs-card-top), var(--jobs-card-bottom)),
+    var(--jobs-panel);
   box-shadow:
     0 28px 56px rgba(0, 0, 0, 0.28),
     inset 1px 1px 0 rgba(255, 255, 255, 0.05);
