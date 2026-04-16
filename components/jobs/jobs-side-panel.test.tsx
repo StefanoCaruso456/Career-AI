@@ -240,6 +240,34 @@ describe("JobsSidePanel", () => {
     expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
   });
 
+  it("scrolls the filter popover into view when the rail is already scrolled", () => {
+    render(
+      <JobsSidePanel
+        jobs={[
+          createJob("job_1"),
+          createJob("job_2", { title: "Backend Engineer" }),
+          createJob("job_3", { title: "ML Engineer" }),
+        ]}
+      />,
+    );
+
+    const railBody = screen.getByTestId("jobs-rail-body") as HTMLDivElement & {
+      scrollTo?: (options: { top: number }) => void;
+    };
+    const scrollTo = vi.fn(({ top }: { top: number }) => {
+      railBody.scrollTop = top;
+    });
+
+    railBody.scrollTop = 240;
+    railBody.scrollTo = scrollTo;
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+    expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
+    expect(railBody.scrollTop).toBe(0);
+  });
+
   it("keeps the filter popover open while interacting with quick filters and dropdowns", () => {
     render(
       <JobsSidePanel
