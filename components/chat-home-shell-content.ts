@@ -55,6 +55,20 @@ export type HeroComposerContent = {
     label: string;
   }>;
   starterActions: HeroComposerAction[];
+  workspaceRail?: {
+    ariaLabel: string;
+    cards: Array<{
+      badges: string[];
+      description: string;
+      id: string;
+      meta: string[];
+      primaryAction: HeroComposerAction;
+      secondaryAction?: HeroComposerAction;
+      title: string;
+    }>;
+    eyebrow: string;
+    lead: string;
+  };
   typingLabel: string;
 };
 
@@ -241,6 +255,36 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         { kind: "prompt", label: "How do we find aligned talent with more confidence?" },
         { accent: "primary", kind: "link", href: "#solutions", label: "See employer workflows" },
       ],
+      workspaceRail: {
+        ariaLabel: "Employer workspace rail",
+        cards: [
+          {
+            badges: ["Filters", "Sourcing"],
+            description:
+              "Open the structured recruiter filters, pressure-test the brief, and keep the center column focused on the live conversation.",
+            id: "employer-rail-sourcing",
+            meta: ["Structured search", "Reusable brief"],
+            primaryAction: { accent: "jobs", kind: "filters", label: "Find aligned candidates" },
+            secondaryAction: { kind: "prompt", label: "How do we surface aligned talent faster?" },
+            title: "Build a tighter sourcing brief without leaving the workspace",
+          },
+          {
+            badges: ["Prompt", "Hiring review"],
+            description:
+              "Use the side rail for review-oriented prompts while candidate summaries and recruiter context stay uncluttered in the main thread.",
+            id: "employer-rail-review",
+            meta: ["Screening clarity", "Faster alignment"],
+            primaryAction: {
+              kind: "prompt",
+              label: "How do we verify candidate credibility faster?",
+            },
+            secondaryAction: { kind: "link", href: "#solutions", label: "See workflows" },
+            title: "Keep hiring guidance one click away while the chat stays open",
+          },
+        ],
+        eyebrow: "Workspace rail",
+        lead: "A second surface for sourcing actions and hiring prompts while the middle stays clean and conversation-first.",
+      },
       typingLabel: "Thinking through your hiring workflow...",
     },
     heroTitle:
@@ -479,9 +523,55 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
           label: "Start Building My Career ID",
         },
       ],
-      typingLabel: "Thinking...",
+      workspaceRail: {
+        ariaLabel: "Job seeker workspace rail",
+        cards: [
+          {
+            badges: ["Jobs", "Profile-first"],
+            description:
+              "Launch a fresh jobs pass from your verified profile and keep the main column open for the actual search conversation.",
+            id: "job-seeker-rail-jobs",
+            meta: ["Latest openings", "One-click start"],
+            primaryAction: { accent: "jobs", kind: "latest_jobs", label: "Find NEW Jobs" },
+            secondaryAction: {
+              accent: "jobs",
+              kind: "prompt",
+              label: "Find jobs that match my verified profile.",
+            },
+            title: "Start your search from the trust you have already built",
+          },
+          {
+            badges: ["Career ID", "Builder"],
+            description:
+              "Turn your work history, proof, and story into something stronger than a resume without breaking the homepage flow.",
+            id: "job-seeker-rail-builder",
+            meta: ["Portable identity", "Recruiter-readable"],
+            primaryAction: {
+              accent: "primary",
+              kind: "link",
+              href: "/agent-build",
+              label: "Build My Career ID",
+            },
+            secondaryAction: { kind: "prompt", label: "Help me start my Career ID." },
+            title: "Open the builder when you are ready to strengthen your profile",
+          },
+          {
+            badges: ["Prompt", "Strategy"],
+            description:
+              "Use the rail for faster next-step guidance while the center stays clean for whatever you want to ask the agent.",
+            id: "job-seeker-rail-strategy",
+            meta: ["Career strategy", "Proof-first guidance"],
+            primaryAction: { kind: "prompt", label: "How does the agent help me get hired faster?" },
+            secondaryAction: { kind: "prompt", label: "What should I verify first?" },
+            title: "Keep practical career moves visible while you chat",
+          },
+        ],
+        eyebrow: "Workspace rail",
+        lead: "The left stays for navigation, the center stays open for chat, and the right keeps your next moves within reach.",
+      },
+      typingLabel: "Thinking through your next move...",
     },
-    heroTitle: "A trusted identity platform that gets candidates hired faster.",
+    heroTitle: "Build a verified career identity that helps you stand out and get hired faster.",
     introPrimaryCta: "Explore the platform",
     introRailEyebrow: "How Career AI works",
     introRailItems: [
