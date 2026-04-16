@@ -1,12 +1,52 @@
 .page {
+  --jobs-shell-surface: rgba(43, 43, 43, 0.94);
+  --jobs-shell-surface-top: rgba(55, 55, 55, 0.96);
+  --jobs-shell-surface-bottom: rgba(45, 45, 45, 0.98);
+  --jobs-panel: rgba(25, 28, 34, 0.9);
+  --jobs-panel-strong: rgba(32, 36, 43, 0.94);
+  --jobs-panel-soft: rgba(20, 23, 29, 0.86);
+  --jobs-line: rgba(255, 255, 255, 0.08);
+  --jobs-line-strong: rgba(255, 255, 255, 0.12);
+  --jobs-text-primary: #f7f9fc;
+  --jobs-text-secondary: rgba(222, 228, 239, 0.72);
+  --jobs-text-tertiary: rgba(184, 193, 208, 0.74);
   min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   padding:
     calc(var(--site-header-clearance) + 1.15rem)
     clamp(1.5rem, 2.8vw, 2.6rem)
     clamp(2.5rem, 4vw, 3.4rem);
+  background:
+    radial-gradient(circle at 50% -18%, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, #14171b 0%, #101216 48%, #0d0f13 100%);
+  color: var(--jobs-text-primary);
+}
+
+.page::before,
+.page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.page::before {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.32) 0.9px, transparent 1px);
+  background-size: 14px 14px;
+  opacity: 0.34;
+}
+
+.page::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.24), transparent 44%);
 }
 
 .shell {
+  position: relative;
+  z-index: 1;
   max-width: 1180px;
   margin: 0 auto;
   display: grid;
@@ -15,7 +55,7 @@
 
 .intro {
   padding: 0.35rem 0 0.15rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--jobs-line);
 }
 
 .introCopy,
@@ -40,7 +80,7 @@
   font-size: clamp(2rem, 3.9vw, 3rem);
   line-height: 0.96;
   letter-spacing: -0.05em;
-  color: var(--text-primary);
+  color: var(--jobs-text-primary);
 }
 
 .subtitle,
@@ -48,7 +88,7 @@
 .envCard span,
 .feedItem p {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--jobs-text-secondary);
 }
 
 .subtitle {
@@ -78,13 +118,18 @@
   gap: 1rem;
   padding: 1.28rem;
   border-radius: 1.75rem;
-  border: 1px solid rgba(217, 223, 232, 0.88);
+  border: 1px solid var(--jobs-line-strong);
   background:
-    linear-gradient(180deg, rgba(239, 243, 248, 0.98), rgba(229, 234, 241, 0.96)),
-    #e6ebf1;
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.1), transparent 28%),
+    linear-gradient(
+      180deg,
+      var(--jobs-shell-surface-top),
+      var(--jobs-shell-surface-bottom)
+    ),
+    var(--jobs-shell-surface);
   box-shadow:
-    0 20px 42px rgba(0, 0, 0, 0.18),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+    0 28px 56px rgba(0, 0, 0, 0.28),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .noResultsState {
@@ -125,13 +170,13 @@
   gap: 0.8rem;
   padding: 0.98rem 1.05rem;
   border-radius: 1.25rem;
-  border: 1px solid rgba(24, 34, 51, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 58%),
-    linear-gradient(135deg, #1f2838, #2a3549 54%, #32405a);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 58%),
+    linear-gradient(135deg, rgba(34, 39, 48, 0.98), rgba(24, 28, 35, 0.96));
   box-shadow:
-    0 16px 28px rgba(23, 34, 51, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    0 20px 34px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   color: #dfe8f7;
 }
 
@@ -167,13 +212,13 @@
   padding: 0.8rem 0.88rem;
   min-width: 0;
   border-radius: 1.2rem;
-  border: 1px solid rgba(24, 34, 51, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 62%),
-    linear-gradient(180deg, rgba(31, 40, 56, 0.98), rgba(24, 31, 44, 0.95));
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 62%),
+    linear-gradient(180deg, rgba(34, 39, 48, 0.96), rgba(21, 24, 31, 0.95));
   box-shadow:
-    0 14px 24px rgba(23, 34, 51, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    0 16px 26px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .filterLabel {
@@ -213,10 +258,10 @@
 }
 
 .filterControl:focus-within {
-  border-color: rgba(24, 34, 51, 0.24);
+  border-color: rgba(141, 127, 255, 0.42);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 62%),
-    linear-gradient(180deg, rgba(35, 45, 63, 0.98), rgba(27, 35, 49, 0.95));
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.09), transparent 62%),
+    linear-gradient(180deg, rgba(39, 45, 56, 0.98), rgba(24, 28, 35, 0.95));
 }
 
 .filterSelect:focus {
@@ -224,16 +269,16 @@
 }
 
 .clearFiltersButton {
-  border: 1px solid rgba(24, 34, 51, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
   padding: 0.76rem 1.08rem;
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 56%),
-    linear-gradient(135deg, #1c2636, #263247 58%, #31405a);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 56%),
+    linear-gradient(135deg, rgba(38, 43, 53, 0.98), rgba(24, 28, 35, 0.96));
   color: #f6eee4;
   box-shadow:
-    0 14px 26px rgba(23, 34, 51, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    0 16px 28px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
@@ -241,20 +286,20 @@
 
 .clearFiltersButton:hover {
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 56%),
-    linear-gradient(135deg, #202c3d, #2b3850 58%, #364662);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.1), transparent 56%),
+    linear-gradient(135deg, rgba(43, 49, 61, 0.99), rgba(28, 33, 41, 0.97));
 }
 
 .clearFiltersButton:focus-visible,
 .filterControl:focus-within,
 .searchField:focus-within {
-  outline: 2px solid rgba(24, 34, 51, 0.9);
+  outline: 2px solid rgba(141, 127, 255, 0.9);
   outline-offset: 4px;
 }
 
 .filterHint {
   margin: 0;
-  color: #607083;
+  color: var(--jobs-text-secondary);
   font-size: 0.9rem;
   line-height: 1.6;
 }
@@ -271,7 +316,7 @@
 .resultsTotal,
 .loadMoreNote {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--jobs-text-secondary);
   line-height: 1.6;
 }
 
@@ -281,10 +326,10 @@
 
 .resultsTotal {
   padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--jobs-line);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--jobs-text-primary);
   font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -320,13 +365,26 @@
   height: 100%;
   min-height: 100%;
   border-radius: 1.45rem;
-  border: 1px solid rgba(217, 223, 232, 0.88);
+  border: 1px solid var(--jobs-line-strong);
   background:
-    linear-gradient(180deg, rgba(239, 243, 248, 0.98), rgba(229, 234, 241, 0.96)),
-    #e6ebf1;
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(36, 40, 48, 0.96), rgba(24, 27, 33, 0.94)),
+    var(--jobs-panel);
   box-shadow:
-    0 20px 42px rgba(0, 0, 0, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+    0 24px 48px rgba(0, 0, 0, 0.28),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.jobCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 28px 54px rgba(0, 0, 0, 0.32),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .jobFooter,
@@ -340,7 +398,7 @@
 }
 
 .cardEyebrow {
-  color: #6d7d90;
+  color: rgba(160, 186, 255, 0.84);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -356,11 +414,10 @@
 .emptyState h3,
 .feedItem h3 {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--jobs-text-primary);
 }
 
 .jobCopy h3 {
-  color: #172233;
   font-size: 1.2rem;
   line-height: 1.18;
   letter-spacing: -0.03em;
@@ -375,12 +432,12 @@
 
 .jobMeta {
   margin: 0;
-  color: #607083;
+  color: var(--jobs-text-secondary);
   font-size: 0.95rem;
 }
 
 .jobFooter {
-  color: #7a8897;
+  color: var(--jobs-text-tertiary);
   font-size: 0.82rem;
   letter-spacing: 0.01em;
 }
@@ -402,12 +459,12 @@
 }
 
 .jobLink.jobLink {
-  border-color: rgba(24, 34, 51, 0.14);
+  border-color: rgba(255, 206, 176, 0.18);
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 52%),
-    linear-gradient(135deg, #172233, #2a3950 54%, #31425c);
+    linear-gradient(135deg, #4c3228, #5f3d2f 54%, #7f5847);
   box-shadow:
-    0 18px 32px rgba(23, 34, 51, 0.18),
+    0 18px 32px rgba(0, 0, 0, 0.22),
     0 10px 24px rgba(232, 150, 115, 0.16),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
@@ -422,9 +479,9 @@
 
 .jobLink.jobLink:hover {
   transform: translateY(-2px);
-  border-color: rgba(24, 34, 51, 0.18);
+  border-color: rgba(255, 220, 194, 0.26);
   box-shadow:
-    0 22px 40px rgba(23, 34, 51, 0.22),
+    0 22px 40px rgba(0, 0, 0, 0.28),
     0 12px 28px rgba(232, 150, 115, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
@@ -434,7 +491,7 @@
 }
 
 .jobLink.jobLink:focus-visible {
-  outline: 2px solid rgba(24, 34, 51, 0.9);
+  outline: 2px solid rgba(255, 219, 195, 0.95);
   outline-offset: 4px;
 }
 
@@ -451,12 +508,12 @@
   justify-content: center;
   min-height: 2.85rem;
   padding: 0.82rem 1rem;
-  border: 1px solid rgba(24, 34, 51, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1.05rem;
   background:
-    linear-gradient(180deg, rgba(244, 247, 251, 0.98), rgba(233, 238, 244, 0.96)),
-    #edf2f7;
-  color: #182232;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+  color: var(--jobs-text-primary);
   font: inherit;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -470,17 +527,17 @@
 
 .jobDetailsButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(24, 34, 51, 0.18);
+  border-color: rgba(255, 255, 255, 0.15);
   background:
-    linear-gradient(180deg, rgba(248, 250, 253, 0.99), rgba(238, 242, 247, 0.97)),
-    #f1f4f8;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.04);
   box-shadow:
-    0 16px 28px rgba(23, 34, 51, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    0 18px 30px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .jobDetailsButton:focus-visible {
-  outline: 2px solid rgba(24, 34, 51, 0.9);
+  outline: 2px solid rgba(141, 127, 255, 0.9);
   outline-offset: 4px;
 }
 
@@ -493,16 +550,16 @@
 }
 
 .loadMoreButton {
-  border: 1px solid rgba(217, 223, 232, 0.88);
+  border: 1px solid var(--jobs-line-strong);
   border-radius: 999px;
   padding: 0.78rem 1.2rem;
   background:
-    linear-gradient(180deg, rgba(239, 243, 248, 0.98), rgba(229, 234, 241, 0.96)),
-    #e6ebf1;
-  color: #182232;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+  color: var(--jobs-text-primary);
   box-shadow:
-    0 18px 34px rgba(0, 0, 0, 0.16),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+    0 22px 40px rgba(0, 0, 0, 0.22),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
@@ -514,8 +571,8 @@
 .loadMoreButton:hover {
   transform: translateY(-1px);
   box-shadow:
-    0 22px 36px rgba(0, 0, 0, 0.2),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.5);
+    0 24px 44px rgba(0, 0, 0, 0.26),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .loadMoreButton:focus-visible {
@@ -551,7 +608,7 @@
 }
 
 .envCard code {
-  color: var(--text-primary);
+  color: var(--jobs-text-primary);
   font-size: 0.84rem;
   font-weight: 700;
 }
@@ -568,7 +625,7 @@
   gap: 1rem;
   padding: 0.9rem 0;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: var(--jobs-text-secondary);
   font-size: 0.94rem;
   list-style: none;
 }
@@ -578,7 +635,7 @@
 }
 
 .feedSummary span:first-child {
-  color: var(--text-primary);
+  color: var(--jobs-text-primary);
   font-weight: 600;
 }
 
@@ -599,7 +656,7 @@
 
 .feedItemMeta {
   justify-content: flex-end;
-  color: var(--text-tertiary);
+  color: var(--jobs-text-tertiary);
   font-size: 0.84rem;
 }
 
