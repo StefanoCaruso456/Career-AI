@@ -338,7 +338,6 @@
   padding: 0.25rem 0.35rem 0.55rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  scroll-behavior: smooth;
   scroll-padding-inline: 0.35rem;
   touch-action: pan-x;
   -webkit-overflow-scrolling: touch;
