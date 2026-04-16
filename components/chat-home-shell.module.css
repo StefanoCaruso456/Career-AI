@@ -329,6 +329,18 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.heroStarterRailCopy {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: inherit;
+  min-width: max-content;
+}
+
+.heroStarterRailGhostCopy {
+  pointer-events: none;
+}
+
 .heroStarterRail::-webkit-scrollbar {
   display: none;
 }

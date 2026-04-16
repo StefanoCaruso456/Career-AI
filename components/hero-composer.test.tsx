@@ -464,6 +464,12 @@ describe("HeroComposer", () => {
     render(<HeroComposer />);
 
     const starterRail = screen.getByRole("group", { name: "Starter prompts" });
+    const firstCopy = starterRail.querySelector('[data-starter-rail-copy="0"]');
+
+    Object.defineProperty(firstCopy as HTMLDivElement, "offsetWidth", {
+      configurable: true,
+      value: 900,
+    });
 
     Object.defineProperty(starterRail, "clientWidth", {
       configurable: true,
@@ -471,27 +477,33 @@ describe("HeroComposer", () => {
     });
     Object.defineProperty(starterRail, "scrollWidth", {
       configurable: true,
-      value: 900,
+      value: 2700,
     });
     Object.defineProperty(starterRail, "scrollLeft", {
       configurable: true,
-      value: 580,
+      value: 1770,
       writable: true,
     });
 
     fireEvent.keyDown(starterRail, { key: "ArrowRight" });
 
     await waitFor(() => {
-      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(150);
+      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(900);
     });
 
-    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(300);
+    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(1300);
   });
 
   it("loops the starter rail when navigation lands exactly on the right edge", async () => {
     render(<HeroComposer />);
 
     const starterRail = screen.getByRole("group", { name: "Starter prompts" });
+    const firstCopy = starterRail.querySelector('[data-starter-rail-copy="0"]');
+
+    Object.defineProperty(firstCopy as HTMLDivElement, "offsetWidth", {
+      configurable: true,
+      value: 900,
+    });
 
     Object.defineProperty(starterRail, "clientWidth", {
       configurable: true,
@@ -499,21 +511,65 @@ describe("HeroComposer", () => {
     });
     Object.defineProperty(starterRail, "scrollWidth", {
       configurable: true,
-      value: 900,
+      value: 2700,
     });
     Object.defineProperty(starterRail, "scrollLeft", {
       configurable: true,
-      value: 380,
+      value: 1580,
       writable: true,
     });
 
     fireEvent.keyDown(starterRail, { key: "ArrowRight" });
 
     await waitFor(() => {
-      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(1);
+      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(900);
     });
 
-    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(220);
+    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(950);
+  });
+
+  it("recenters the starter rail during direct scrolling so the loop never hard-stops", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    await screen.findByRole("textbox", { name: "Message composer" });
+
+    const starterRail = screen.getByRole("group", { name: "Starter prompts" });
+    const firstCopy = starterRail.querySelector('[data-starter-rail-copy="0"]');
+
+    Object.defineProperty(firstCopy as HTMLDivElement, "offsetWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(starterRail, "clientWidth", {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(starterRail, "scrollWidth", {
+      configurable: true,
+      value: 2700,
+    });
+    Object.defineProperty(starterRail, "scrollLeft", {
+      configurable: true,
+      value: 1830,
+      writable: true,
+    });
+
+    fireEvent.scroll(starterRail);
+
+    expect((starterRail as HTMLDivElement).scrollLeft).toBe(930);
   });
 
   it("keeps the composer editable while a reply is pending without allowing a second send", async () => {
