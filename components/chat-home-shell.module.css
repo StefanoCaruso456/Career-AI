@@ -306,6 +306,20 @@
   display: block;
 }
 
+.heroTitleLead {
+  font-weight: 700;
+}
+
+.heroTitleSubline {
+  margin-top: clamp(0.4rem, 1.2vw, 0.7rem);
+  max-width: 15ch;
+  color: var(--hero-muted);
+  font-size: clamp(1.05rem, 2.1vw, 1.8rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
 .heroStarterRailShell {
   width: min(100%, 54rem);
   margin: 0 auto clamp(0.4rem, 1vw, 0.9rem);

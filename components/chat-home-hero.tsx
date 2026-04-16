@@ -18,6 +18,11 @@ export function ChatHomeHero({
   persona?: Persona;
 }) {
   const [hasActiveConversation, setHasActiveConversation] = useState(false);
+  const [heroTitleLead, ...heroTitleSublineParts] = heroTitle
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const heroTitleSubline = heroTitleSublineParts.join(" ");
 
   return (
     <section
@@ -47,9 +52,14 @@ export function ChatHomeHero({
             .filter(Boolean)
             .join(" ")}
         >
-          <span className={styles.heroTitleLine}>
-            {heroTitle}
+          <span className={[styles.heroTitleLine, styles.heroTitleLead].join(" ")}>
+            {heroTitleLead}
           </span>
+          {heroTitleSubline ? (
+            <span className={[styles.heroTitleLine, styles.heroTitleSubline].join(" ")}>
+              {heroTitleSubline}
+            </span>
+          ) : null}
         </h1>
 
         <HeroComposer
