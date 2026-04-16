@@ -261,6 +261,14 @@ describe("homepage assistant service", () => {
     );
   });
 
+  it("starts the get hired faster fallback with curated jobs and easy apply guidance", () => {
+    const reply = getFallbackHomepageReply("How can I get hired faster?");
+
+    expect(reply.split("\n")[0]).toContain("apply to curated roles here");
+    expect(reply).toContain("Easy Apply across hundreds of jobs");
+    expect(reply).toContain("direct company hiring pipelines");
+  });
+
   it("falls back when the SDK returns an empty reply", async () => {
     createResponseMock.mockResolvedValue({ output_text: "   " });
 
