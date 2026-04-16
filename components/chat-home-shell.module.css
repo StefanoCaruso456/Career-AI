@@ -348,7 +348,6 @@
 .chatStage {
   --chat-stage-shell-height: clamp(34rem, 74vh, 50rem);
   --chat-sidebar-shell-width: 16.6rem;
-  --chat-workspace-rail-width: 20rem;
   position: relative;
   width: 100%;
   min-height: var(--chat-stage-shell-height);
@@ -504,182 +503,6 @@
   box-shadow: var(--hero-shadow-md);
   animation: chatSidebarEnter 260ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
-}
-
-.workspaceRail {
-  position: absolute;
-  top: 1.35rem;
-  right: 1.35rem;
-  bottom: 1.35rem;
-  z-index: 2;
-  width: 18.65rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.95rem;
-  padding: 0.95rem 0.9rem;
-  border: 1px solid var(--hero-border);
-  border-radius: 2rem;
-  background:
-    linear-gradient(180deg, rgba(33, 35, 43, 0.98), rgba(24, 26, 31, 0.99)),
-    var(--hero-panel);
-  box-shadow: var(--hero-shadow-md);
-  overflow: hidden;
-}
-
-.workspaceRailHeader {
-  display: grid;
-  gap: 0.48rem;
-  padding-bottom: 0.15rem;
-}
-
-.workspaceRailEyebrow {
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-
-.workspaceRailLead {
-  margin: 0;
-  color: rgba(236, 241, 252, 0.72);
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
-
-.workspaceRailList {
-  flex: 1 1 auto;
-  display: grid;
-  gap: 0.8rem;
-  overflow-y: auto;
-  padding-right: 0.12rem;
-}
-
-.workspaceRailList::-webkit-scrollbar {
-  width: 8px;
-}
-
-.workspaceRailList::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: rgba(140, 127, 255, 0.18);
-  background-clip: padding-box;
-}
-
-.workspaceRailCard {
-  display: grid;
-  gap: 0.72rem;
-  padding: 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 1.25rem;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.workspaceRailBadgeRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.38rem;
-}
-
-.workspaceRailBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.28rem 0.55rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(245, 247, 255, 0.76);
-  font-size: 0.67rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-}
-
-.workspaceRailCardTitle {
-  margin: 0;
-  color: var(--hero-text);
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.35;
-  letter-spacing: -0.025em;
-}
-
-.workspaceRailMeta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.42rem;
-}
-
-.workspaceRailMeta span {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.26rem 0.52rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(226, 231, 240, 0.58);
-  font-size: 0.68rem;
-  font-weight: 560;
-}
-
-.workspaceRailCardCopy {
-  margin: 0;
-  color: rgba(235, 240, 251, 0.7);
-  font-size: 0.85rem;
-  line-height: 1.6;
-}
-
-.workspaceRailActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.56rem;
-}
-
-.workspaceRailAction {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 2.4rem;
-  padding: 0.58rem 0.82rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  text-decoration: none;
-  font-size: 0.81rem;
-  font-weight: 650;
-  font-family: inherit;
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    background 180ms ease,
-    color 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.workspaceRailAction:hover {
-  transform: translateY(-1px);
-}
-
-.workspaceRailActionPrimary {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.08);
-  color: rgba(238, 243, 252, 0.84);
-}
-
-.workspaceRailActionPrimary:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: none;
-}
-
-.workspaceRailActionSecondary {
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(238, 243, 252, 0.84);
-}
-
-.workspaceRailActionSecondary:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .chatSidebarSection {
@@ -1483,10 +1306,6 @@
 
 .chatStageMainShifted {
   margin-left: var(--chat-sidebar-shell-width);
-}
-
-.chatStageMainWithRail {
-  margin-right: var(--chat-workspace-rail-width);
 }
 
 .chatStageMainExpanded {
@@ -3567,14 +3386,6 @@
 }
 
 @media (max-width: 1100px) {
-  .workspaceRail {
-    display: none;
-  }
-
-  .chatStageMainWithRail {
-    margin-right: 0;
-  }
-
   .chatStageMainWithJobs {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.95rem;

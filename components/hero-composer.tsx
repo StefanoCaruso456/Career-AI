@@ -747,12 +747,20 @@ export function HeroComposer({
     !isEmployerMode && !isProjectHomeVisible ? getLatestJobPromptEntry(transcript) : null;
   const latestCandidatePrompt = latestCandidatePromptEntry?.content.trim() ?? null;
   const latestJobPrompt = latestJobPromptEntry?.content.trim() ?? null;
+  const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
+  const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
+  const shouldShowDefaultLandingJobsRail = !isEmployerMode && isLandingState;
   const jobsAssistMode =
     !isEmployerMode && !isProjectHomeVisible
-      ? deriveJobsAssistMode(latestJobPrompt)
+      ? latestJobPrompt
+        ? deriveJobsAssistMode(latestJobPrompt)
+        : shouldShowDefaultLandingJobsRail
+          ? "latest"
+          : null
       : null;
-  const jobsAssistPrompt =
-    jobsAssistMode ? latestJobPrompt : null;
+  const jobsAssistPrompt = jobsAssistMode
+    ? latestJobPrompt ?? DEFAULT_LATEST_JOBS_PROMPT
+    : null;
   const candidateAssistFiltersKey = serializeEmployerFilters(candidateSearchFilters);
   const candidateAssistRequestKey = latestCandidatePrompt
     ? `${latestCandidatePrompt}::${candidateAssistFiltersKey}::${candidateAssistRefreshKey}`
@@ -764,13 +772,6 @@ export function HeroComposer({
   const isCandidateAssistVisible = Boolean(latestCandidatePrompt) && !isCandidateAssistDismissed;
   const isJobsAssistVisible = Boolean(jobsAssistMode && jobsAssistPrompt) && !isJobsAssistDismissed;
   const isAssistRailVisible = isEmployerMode ? isCandidateAssistVisible : isJobsAssistVisible;
-  const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
-  const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
-  const showWorkspaceRail =
-    workspaceVisible &&
-    !hasActiveConversation &&
-    !isAssistRailVisible &&
-    Boolean(composerContent.workspaceRail?.cards.length);
   const [conversationComposerStyle, setConversationComposerStyle] =
     useState<ConversationComposerStyle | null>(null);
   const activeComposerPlaceholder =
@@ -813,6 +814,12 @@ export function HeroComposer({
   useEffect(() => {
     setIsJobsAssistDismissed(false);
   }, [latestJobPromptEntry?.id]);
+
+  useEffect(() => {
+    if (!isEmployerMode && isLandingState && latestJobPromptEntry === null) {
+      setIsJobsAssistDismissed(false);
+    }
+  }, [isEmployerMode, isLandingState, latestJobPromptEntry]);
 
   useEffect(() => {
     if (!latestCandidatePrompt) {
@@ -2837,22 +2844,6 @@ export function HeroComposer({
     );
   }
 
-  function renderWorkspaceRailAction(action: HeroComposerAction, className: string, key: string) {
-    if (action.kind !== "link") {
-      return (
-        <button className={className} key={key} onClick={() => handleStarterAction(action)} type="button">
-          {action.label}
-        </button>
-      );
-    }
-
-    return (
-      <Link className={className} href={action.href} key={key}>
-        {action.label}
-      </Link>
-    );
-  }
-
   function renderComposer(placeholder: string, className?: string) {
     return (
       <FileUploadDropzone
@@ -3412,64 +3403,11 @@ export function HeroComposer({
           </aside>
         ) : null}
 
-        {showWorkspaceRail && composerContent.workspaceRail ? (
-          <aside aria-label={composerContent.workspaceRail.ariaLabel} className={styles.workspaceRail}>
-            <header className={styles.workspaceRailHeader}>
-              <span className={styles.workspaceRailEyebrow}>
-                {composerContent.workspaceRail.eyebrow}
-              </span>
-              <p className={styles.workspaceRailLead}>{composerContent.workspaceRail.lead}</p>
-            </header>
-
-            <div className={styles.workspaceRailList}>
-              {composerContent.workspaceRail.cards.map((card) => (
-                <article className={styles.workspaceRailCard} key={card.id}>
-                  <div className={styles.workspaceRailBadgeRow}>
-                    {card.badges.map((badge) => (
-                      <span className={styles.workspaceRailBadge} key={`${card.id}-${badge}`}>
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-
-                  <h2 className={styles.workspaceRailCardTitle}>{card.title}</h2>
-
-                  <div className={styles.workspaceRailMeta}>
-                    {card.meta.map((item) => (
-                      <span key={`${card.id}-${item}`}>{item}</span>
-                    ))}
-                  </div>
-
-                  <p className={styles.workspaceRailCardCopy}>{card.description}</p>
-
-                  <div className={styles.workspaceRailActions}>
-                    {renderWorkspaceRailAction(
-                      card.primaryAction,
-                      [styles.workspaceRailAction, styles.workspaceRailActionPrimary].join(" "),
-                      `${card.id}-primary`,
-                    )}
-                    {card.secondaryAction
-                      ? renderWorkspaceRailAction(
-                          card.secondaryAction,
-                          [styles.workspaceRailAction, styles.workspaceRailActionSecondary].join(
-                            " ",
-                          ),
-                          `${card.id}-secondary`,
-                        )
-                      : null}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </aside>
-        ) : null}
-
         <div
           className={[
             styles.chatStageMain,
             isAssistRailVisible ? styles.chatStageMainWithJobs : "",
             workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
-            showWorkspaceRail ? styles.chatStageMainWithRail : "",
             workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
           ]
             .filter(Boolean)
