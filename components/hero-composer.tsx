@@ -64,6 +64,7 @@ import {
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type WheelEvent as ReactWheelEvent,
   startTransition,
   useEffect,
   useId,
@@ -630,7 +631,7 @@ export function HeroComposer({
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
   const [composerNotice, setComposerNotice] = useState<ComposerNotice | null>(null);
@@ -684,6 +685,7 @@ export function HeroComposer({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const composerDockRef = useRef<HTMLFormElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const starterRailRef = useRef<HTMLDivElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
   const sidebarDeleteCancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -753,6 +755,11 @@ export function HeroComposer({
   const isAssistRailVisible = isEmployerMode ? isCandidateAssistVisible : isJobsAssistVisible;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
   const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
+  const showWorkspaceRail =
+    workspaceVisible &&
+    !hasActiveConversation &&
+    !isAssistRailVisible &&
+    Boolean(composerContent.workspaceRail?.cards.length);
   const [conversationComposerStyle, setConversationComposerStyle] =
     useState<ConversationComposerStyle | null>(null);
   const activeComposerPlaceholder =
@@ -764,6 +771,16 @@ export function HeroComposer({
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (window.matchMedia("(max-width: 760px)").matches) {
+      setSidebarOpen(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -2641,6 +2658,122 @@ export function HeroComposer({
     return threads.filter((thread) => thread.projectId === projectId);
   }
 
+  function scrollStarterRailBy(offset: number) {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return;
+    }
+
+    starterRail.scrollBy({
+      behavior: "smooth",
+      left: offset,
+    });
+  }
+
+  function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      scrollStarterRailBy(220);
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      scrollStarterRailBy(-220);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      starterRailRef.current?.scrollTo({
+        behavior: "smooth",
+        left: 0,
+      });
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      starterRailRef.current?.scrollTo({
+        behavior: "smooth",
+        left: starterRailRef.current.scrollWidth,
+      });
+    }
+  }
+
+  function handleStarterRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail || starterRail.scrollWidth <= starterRail.clientWidth) {
+      return;
+    }
+
+    const intendedHorizontalDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+
+    if (intendedHorizontalDelta === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    starterRail.scrollBy({
+      behavior: "auto",
+      left: intendedHorizontalDelta,
+    });
+  }
+
+  function renderStarterAction(action: HeroComposerAction) {
+    if (action.kind !== "link") {
+      return (
+        <button
+          className={[
+            styles.starterQuestionPill,
+            action.accent === "jobs" ? styles.starterQuestionPillJobs : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          key={action.label}
+          onClick={() => handleStarterAction(action)}
+          type="button"
+        >
+          {action.label}
+        </button>
+      );
+    }
+
+    return (
+      <Link
+        className={[
+          styles.starterQuestionPill,
+          action.accent === "primary" ? styles.starterQuestionPillPrimary : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        href={action.href}
+        key={action.label}
+      >
+        {action.label}
+      </Link>
+    );
+  }
+
+  function renderWorkspaceRailAction(action: HeroComposerAction, className: string, key: string) {
+    if (action.kind !== "link") {
+      return (
+        <button className={className} key={key} onClick={() => handleStarterAction(action)} type="button">
+          {action.label}
+        </button>
+      );
+    }
+
+    return (
+      <Link className={className} href={action.href} key={key}>
+        {action.label}
+      </Link>
+    );
+  }
+
   function renderComposer(placeholder: string, className?: string) {
     return (
       <FileUploadDropzone
@@ -3102,12 +3235,28 @@ export function HeroComposer({
 
   return (
     <>
+      {isLandingState ? (
+        <div className={styles.heroStarterRailShell}>
+          <div
+            aria-label="Starter prompts"
+            className={styles.heroStarterRail}
+            onKeyDown={handleStarterRailKeyDown}
+            onWheel={handleStarterRailWheel}
+            ref={starterRailRef}
+            role="group"
+            tabIndex={0}
+          >
+            {starterActions.map((action) => renderStarterAction(action))}
+          </div>
+        </div>
+      ) : null}
+
       <section
         className={[
           styles.chatStage,
           workspaceVisible ? styles.chatStageActive : "",
-          isLandingState ? styles.chatStageLanding : "",
           hasActiveConversation ? styles.chatStageConversation : "",
+          isLandingState ? styles.chatStageLanding : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -3184,11 +3333,64 @@ export function HeroComposer({
           </aside>
         ) : null}
 
+        {showWorkspaceRail && composerContent.workspaceRail ? (
+          <aside aria-label={composerContent.workspaceRail.ariaLabel} className={styles.workspaceRail}>
+            <header className={styles.workspaceRailHeader}>
+              <span className={styles.workspaceRailEyebrow}>
+                {composerContent.workspaceRail.eyebrow}
+              </span>
+              <p className={styles.workspaceRailLead}>{composerContent.workspaceRail.lead}</p>
+            </header>
+
+            <div className={styles.workspaceRailList}>
+              {composerContent.workspaceRail.cards.map((card) => (
+                <article className={styles.workspaceRailCard} key={card.id}>
+                  <div className={styles.workspaceRailBadgeRow}>
+                    {card.badges.map((badge) => (
+                      <span className={styles.workspaceRailBadge} key={`${card.id}-${badge}`}>
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+
+                  <h2 className={styles.workspaceRailCardTitle}>{card.title}</h2>
+
+                  <div className={styles.workspaceRailMeta}>
+                    {card.meta.map((item) => (
+                      <span key={`${card.id}-${item}`}>{item}</span>
+                    ))}
+                  </div>
+
+                  <p className={styles.workspaceRailCardCopy}>{card.description}</p>
+
+                  <div className={styles.workspaceRailActions}>
+                    {renderWorkspaceRailAction(
+                      card.primaryAction,
+                      [styles.workspaceRailAction, styles.workspaceRailActionPrimary].join(" "),
+                      `${card.id}-primary`,
+                    )}
+                    {card.secondaryAction
+                      ? renderWorkspaceRailAction(
+                          card.secondaryAction,
+                          [styles.workspaceRailAction, styles.workspaceRailActionSecondary].join(
+                            " ",
+                          ),
+                          `${card.id}-secondary`,
+                        )
+                      : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </aside>
+        ) : null}
+
         <div
           className={[
             styles.chatStageMain,
             isAssistRailVisible ? styles.chatStageMainWithJobs : "",
             workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+            showWorkspaceRail ? styles.chatStageMainWithRail : "",
             workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
           ]
             .filter(Boolean)
@@ -3208,6 +3410,7 @@ export function HeroComposer({
               className={[
                 styles.chatTranscript,
                 hasActiveConversation ? styles.chatTranscriptConversation : "",
+                isLandingState ? styles.chatTranscriptLanding : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -3266,46 +3469,7 @@ export function HeroComposer({
                   </div>
                 </section>
               ) : transcript.length === 0 ? (
-                <div
-                  className={[styles.chatEmptyState, styles.chatEmptyStateLanding]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  <div className={styles.chatStarterGroup}>
-                    <div className={styles.starterQuestionStack}>
-                      {starterActions.map((action) =>
-                        action.kind !== "link" ? (
-                          <button
-                            className={[
-                              styles.starterQuestionPill,
-                              action.accent === "jobs" ? styles.starterQuestionPillJobs : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            key={action.label}
-                            onClick={() => handleStarterAction(action)}
-                            type="button"
-                          >
-                            {action.label}
-                          </button>
-                        ) : (
-                          <Link
-                            className={[
-                              styles.starterQuestionPill,
-                              action.accent === "primary" ? styles.starterQuestionPillPrimary : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            href={action.href}
-                            key={action.label}
-                          >
-                            {action.label}
-                          </Link>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                </div>
+                null
               ) : (
                 transcript.map((entry, index) => (
                   <div
@@ -3361,7 +3525,7 @@ export function HeroComposer({
             {!isProjectHomeVisible
               ? renderComposer(
                   activeComposerPlaceholder,
-                  styles.composerDockLanding,
+                  isLandingState ? styles.composerDockLanding : undefined,
                 )
               : null}
           </div>
