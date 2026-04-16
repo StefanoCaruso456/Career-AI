@@ -411,6 +411,7 @@
 
 .jobCard {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 0.82rem;
   padding: 0.95rem;
   border: 1px solid var(--jobs-rail-line);
@@ -448,9 +449,11 @@
 }
 
 .jobCardButton {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.72rem;
   width: 100%;
+  min-height: 0;
   padding: 0;
   border: none;
   background: transparent;
@@ -461,9 +464,16 @@
 
 .jobCardTopline {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-end;
   gap: 0.7rem;
+}
+
+.jobPillCluster {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: auto;
+  padding-top: 0.2rem;
 }
 
 .jobBadgeRow {

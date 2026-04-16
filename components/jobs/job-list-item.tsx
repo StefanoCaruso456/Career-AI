@@ -63,22 +63,6 @@ export function JobListItem({
           type="button"
         >
           <div className={styles.jobCardTopline}>
-            <div className={styles.jobBadgeRow}>
-              {badges.map((badge) => (
-                <span
-                  className={`${styles.jobBadge} ${
-                    badge.tone === "accent"
-                      ? styles.jobBadgeAccent
-                      : badge.tone === "success"
-                        ? styles.jobBadgeSuccess
-                        : styles.jobBadgeNeutral
-                  }`}
-                  key={`${job.railKey}-${badge.label}`}
-                >
-                  {badge.label}
-                </span>
-              ))}
-            </div>
             <span className={styles.jobPosted}>{postedLabel}</span>
           </div>
 
@@ -87,16 +71,6 @@ export function JobListItem({
             <h3 className={styles.jobTitle}>{job.title}</h3>
           </div>
 
-          {supportingMeta.length > 0 ? (
-            <div className={styles.jobMetaRow}>
-              {supportingMeta.map((item) => (
-                <span className={styles.jobMetaPill} key={`${job.railKey}-${item}`}>
-                  {item}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
           {preview ? <p className={styles.jobPreview}>{preview}</p> : null}
 
           {visibleMatchReason ? (
@@ -104,6 +78,39 @@ export function JobListItem({
               <span>Why it surfaced</span>
               {visibleMatchReason}
             </p>
+          ) : null}
+
+          {badges.length > 0 || supportingMeta.length > 0 ? (
+            <div className={styles.jobPillCluster}>
+              {badges.length > 0 ? (
+                <div className={styles.jobBadgeRow}>
+                  {badges.map((badge) => (
+                    <span
+                      className={`${styles.jobBadge} ${
+                        badge.tone === "accent"
+                          ? styles.jobBadgeAccent
+                          : badge.tone === "success"
+                            ? styles.jobBadgeSuccess
+                            : styles.jobBadgeNeutral
+                      }`}
+                      key={`${job.railKey}-${badge.label}`}
+                    >
+                      {badge.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {supportingMeta.length > 0 ? (
+                <div className={styles.jobMetaRow}>
+                  {supportingMeta.map((item) => (
+                    <span className={styles.jobMetaPill} key={`${job.railKey}-${item}`}>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </button>
 
