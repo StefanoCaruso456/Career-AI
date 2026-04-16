@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
-import type { JobDetailsDto } from "@/packages/contracts/src";
+import type { JobDetailsDto, JobRailFilterOptionsDto } from "@/packages/contracts/src";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
@@ -28,6 +28,7 @@ import styles from "./jobs-side-panel.module.css";
 type JobsSidePanelProps = {
   emptyStateMessage?: string | null;
   errorMessage?: string | null;
+  filterOptions?: JobRailFilterOptionsDto | null;
   isLoading?: boolean;
   jobs: JobListing[];
   onApply?: (job: JobListing) => Promise<string> | string;
@@ -65,6 +66,7 @@ function restoreRailScroll(container: HTMLDivElement | null, top: number) {
 export function JobsSidePanel({
   emptyStateMessage = null,
   errorMessage = null,
+  filterOptions = null,
   isLoading = false,
   jobs,
   onApply,
@@ -84,7 +86,7 @@ export function JobsSidePanel({
   const requestSequence = useRef(0);
   const activeController = useRef<AbortController | null>(null);
   const railScrollTop = useRef(0);
-  const railOptions = getJobRailOptions(jobs);
+  const railOptions = getJobRailOptions(jobs, filterOptions);
   const activeFilterCount = getActiveFilterCount(filters);
   const filteredJobs = filterAndSortJobsForRail(jobs, {
     ...filters,

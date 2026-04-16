@@ -138,6 +138,7 @@ function buildJobsPanelResponse(args: {
         resultQuality === "empty" && isNewestBrowse
           ? assistantMessage
           : args.result.rail.emptyState,
+      filterOptions: args.result.rail.filterOptions,
     },
     totalMatches: args.result.totalCandidateCount,
   });
