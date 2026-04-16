@@ -283,7 +283,7 @@
     "Segoe UI",
     system-ui,
     sans-serif;
-  max-width: 18.5ch;
+  max-width: 30ch;
   font-size: clamp(2.05rem, 4.35vw, 4.25rem);
   font-weight: 600;
   line-height: 0.98;
@@ -312,12 +312,13 @@
 
 .heroTitleSubline {
   margin-top: clamp(0.4rem, 1.2vw, 0.7rem);
-  max-width: 15ch;
+  max-width: none;
   color: var(--hero-muted);
   font-size: clamp(1.05rem, 2.1vw, 1.8rem);
   font-weight: 500;
   letter-spacing: -0.03em;
   line-height: 1.08;
+  white-space: nowrap;
 }
 
 .heroStarterRailShell {
@@ -3539,6 +3540,11 @@
 
   .heroTitleEmbedded {
     margin: 0.5rem 0 1.25rem;
+  }
+
+  .heroTitleSubline {
+    max-width: 100%;
+    white-space: normal;
   }
 
   .heroInnerConversation {
