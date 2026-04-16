@@ -82,6 +82,13 @@ type LandingMetric = {
   value: string;
 };
 
+type LandingProofSurface =
+  | string
+  | {
+      label: string;
+      note?: string;
+    };
+
 type LandingFooterColumn = {
   links: string[];
   title: string;
@@ -128,7 +135,7 @@ export type LandingContent = {
   metrics: LandingMetric[];
   metricsEyebrow: string;
   metricsTitle: string;
-  proofSurfaces: string[];
+  proofSurfaces: LandingProofSurface[];
   sectionEyebrow: string;
   solutionHeading: string;
   solutionSubheading: string;
@@ -535,7 +542,10 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "Education",
       "Certifications",
       "Endorsements",
-      "Agent QR",
+      {
+        label: "Agent QR",
+        note: "coming soon..",
+      },
       "Audit trail",
     ],
     sectionEyebrow: "Trust infrastructure for hiring",
