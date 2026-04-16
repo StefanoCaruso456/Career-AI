@@ -2758,7 +2758,7 @@ export function HeroComposer({
     const currentTarget = starterRailScrollTargetRef.current ?? starterRail.scrollLeft;
     const nextTarget = currentTarget + offset;
 
-    if (nextTarget > maxScroll) {
+    if (nextTarget >= maxScroll) {
       const wrappedTarget = getLoopedStarterRailScrollTarget({
         clientWidth: starterRail.clientWidth,
         scrollWidth: starterRail.scrollWidth,
@@ -2780,7 +2780,7 @@ export function HeroComposer({
       return;
     }
 
-    if (nextTarget < 0) {
+    if (nextTarget <= 0) {
       const wrappedTarget = getLoopedStarterRailScrollTarget({
         clientWidth: starterRail.clientWidth,
         scrollWidth: starterRail.scrollWidth,

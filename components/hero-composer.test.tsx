@@ -488,6 +488,34 @@ describe("HeroComposer", () => {
     expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(300);
   });
 
+  it("loops the starter rail when navigation lands exactly on the right edge", async () => {
+    render(<HeroComposer />);
+
+    const starterRail = screen.getByRole("group", { name: "Starter prompts" });
+
+    Object.defineProperty(starterRail, "clientWidth", {
+      configurable: true,
+      value: 300,
+    });
+    Object.defineProperty(starterRail, "scrollWidth", {
+      configurable: true,
+      value: 900,
+    });
+    Object.defineProperty(starterRail, "scrollLeft", {
+      configurable: true,
+      value: 380,
+      writable: true,
+    });
+
+    fireEvent.keyDown(starterRail, { key: "ArrowRight" });
+
+    await waitFor(() => {
+      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(1);
+    });
+
+    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(220);
+  });
+
   it("keeps the composer editable while a reply is pending without allowing a second send", async () => {
     const project = createProject("project_verified_profile", "Verified profile");
     const firstConversation = createConversation("conversation_123", project.id, [
