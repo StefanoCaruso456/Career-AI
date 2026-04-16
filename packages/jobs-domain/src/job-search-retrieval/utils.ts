@@ -194,6 +194,37 @@ export function parseSalaryText(text: string | null | undefined): {
   };
 }
 
+export function getSalaryAnnualizationMultiplier(period: SalaryPeriod) {
+  if (period === "hourly") {
+    return 2080;
+  }
+
+  if (period === "monthly") {
+    return 12;
+  }
+
+  return 1;
+}
+
+export function annualizeSalaryValue(value: number | null, period: SalaryPeriod) {
+  if (value === null) {
+    return null;
+  }
+
+  return value * getSalaryAnnualizationMultiplier(period);
+}
+
+export function annualizeSalaryRange(args: {
+  max: number | null;
+  min: number | null;
+  period: SalaryPeriod;
+}) {
+  return {
+    max: annualizeSalaryValue(args.max, args.period),
+    min: annualizeSalaryValue(args.min, args.period),
+  };
+}
+
 export function buildWeightedVector(values: Array<{ term: string; weight: number }>) {
   const vector = new Map<string, number>();
 

@@ -16,6 +16,10 @@ import {
   type JobPostingDto,
   type JobSourceSnapshotDto,
 } from "@/packages/contracts/src";
+import {
+  annualizeSalaryRange,
+  parseSalaryText,
+} from "@/packages/jobs-domain/src/job-search-retrieval/utils";
 import styles from "./page.module.css";
 
 type JobsResultsProps = {
@@ -416,69 +420,17 @@ function getCompanyOptions(
   ).sort((left, right) => left.localeCompare(right));
 }
 
-function parseCompensationAmount(amount: string, suffix?: string) {
-  const numeric = Number(amount.replaceAll(",", ""));
-
-  if (Number.isNaN(numeric)) {
-    return null;
-  }
-
-  const normalizedSuffix = suffix?.trim().toLowerCase();
-
-  if (normalizedSuffix === "k") {
-    return numeric * 1_000;
-  }
-
-  if (normalizedSuffix === "m") {
-    return numeric * 1_000_000;
-  }
-
-  return numeric;
-}
-
-function getAnnualizationMultiplier(salaryText: string) {
-  const normalized = salaryText.toLowerCase();
-
-  if (
-    normalized.includes("/hour") ||
-    normalized.includes("per hour") ||
-    normalized.includes("hourly") ||
-    /\bhr\b/.test(normalized)
-  ) {
-    return 2080;
-  }
-
-  if (normalized.includes("/day") || normalized.includes("per day") || normalized.includes("daily")) {
-    return 260;
-  }
-
-  if (normalized.includes("/week") || normalized.includes("per week") || normalized.includes("weekly")) {
-    return 52;
-  }
-
-  if (
-    normalized.includes("/month") ||
-    normalized.includes("per month") ||
-    normalized.includes("monthly")
-  ) {
-    return 12;
-  }
-
-  return 1;
-}
-
 function inferAnnualSalary(job: JobPostingDto) {
-  if (!job.salaryText) {
+  const salaryText = job.salaryText ?? job.salaryRange?.rawText ?? null;
+
+  if (!salaryText) {
     return null;
   }
 
-  const matches = Array.from(
-    job.salaryText.matchAll(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)(?:\s*([kKmM]))?/g),
+  const salaryRange = annualizeSalaryRange(parseSalaryText(salaryText));
+  const parsedValues = [salaryRange.min, salaryRange.max].filter(
+    (value): value is number => value !== null,
   );
-  const parsedValues = matches
-    .map((match) => parseCompensationAmount(match[1], match[2]))
-    .filter((value): value is number => value !== null)
-    .slice(0, 2);
 
   if (parsedValues.length === 0) {
     return null;
@@ -487,7 +439,7 @@ function inferAnnualSalary(job: JobPostingDto) {
   const representativeValue =
     parsedValues.length === 1 ? parsedValues[0] : (parsedValues[0] + parsedValues[1]) / 2;
 
-  return representativeValue * getAnnualizationMultiplier(job.salaryText);
+  return representativeValue;
 }
 
 function matchesSalaryRange(job: JobPostingDto, salaryRangeFilter: SalaryRangeFilter) {
@@ -672,23 +624,28 @@ export function JobsResults({
         ? getTotalAvailableCount(companyScopedSnapshot.sources)
         : companyScopedExpectedCount ?? 0;
   const fullJobsWindowLimit = Math.max(totalAvailableCount, loadedJobs.length);
-  const filteredJobs = resolvedActiveJobs.filter((job) => {
+  const jobsMatchingNonSalaryFilters = resolvedActiveJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
     const matchesCompany = matchesCompanyFilter(job, companyFilter);
     const matchesWorkplace =
       workplaceFilter === "all" || inferWorkplaceMode(job.location) === workplaceFilter;
-    const matchesSalary = matchesSalaryRange(job, salaryRangeFilter);
 
     return (
       matchesRoleType &&
       matchesCompany &&
       matchesWorkplace &&
-      matchesSalary &&
       matchesRecencyFilter(job, dateFilter) &&
       matchesKeyword(job, deferredKeyword)
     );
   });
+  const filteredJobs = jobsMatchingNonSalaryFilters.filter((job) =>
+    matchesSalaryRange(job, salaryRangeFilter),
+  );
   const visibleJobs = filteredJobs.slice(0, visibleCount);
+  const salaryHydrationPool =
+    salaryRangeFilter !== "all" && filteredJobs.length === 0
+      ? jobsMatchingNonSalaryFilters.slice(0, Math.max(initialCount * 2, 48))
+      : visibleJobs;
   const remainingCount = Math.max(filteredJobs.length - visibleCount, 0);
   const canRevealLoadedJobs = remainingCount > 0;
   const hasActiveFilters =
@@ -881,7 +838,7 @@ export function JobsResults({
   ]);
 
   useEffect(() => {
-    const jobsMissingSalary = visibleJobs
+    const jobsMissingSalary = salaryHydrationPool
       .filter(
         (job) =>
           !job.salaryText &&
@@ -945,7 +902,7 @@ export function JobsResults({
         salaryHydrationInFlight.current.delete(job.id);
       });
     };
-  }, [salaryOverrides, visibleJobs]);
+  }, [salaryHydrationPool, salaryOverrides]);
 
   useEffect(() => {
     if (!needsFreshSnapshot || snapshotRefreshInFlight.current) {

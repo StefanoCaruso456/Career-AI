@@ -195,6 +195,70 @@ describe("JobsResults", () => {
     });
   });
 
+  it("hydrates salary details for salary-filtered jobs before ruling them out", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      expect(url).toBe("/api/v1/jobs/job-1/details");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            id: "job-1",
+            title: "Role 1",
+            company: "Figma",
+            location: "San Francisco, CA",
+            employmentType: "Full-time",
+            postedAt: "2026-04-10T12:00:00.000Z",
+            externalJobId: "external-1",
+            source: "greenhouse",
+            sourceLabel: "Figma",
+            sourceUrl: "https://jobs.example.com/1",
+            descriptionHtml: "<p>Read the full role without leaving Career AI.</p>",
+            descriptionText: "Read the full role without leaving Career AI.",
+            summary: "Read the full role without leaving Career AI.",
+            responsibilities: [],
+            qualifications: [],
+            preferredQualifications: [],
+            salaryText: "$220,000 - $240,000 a year",
+            metadata: null,
+            contentStatus: "full",
+            fallbackMessage: null,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        jobs={[
+          {
+            ...createJob(1),
+            salaryText: null,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "200k-250k" },
+    });
+
+    expect(await screen.findByText("Showing 1 of 1 matching role from 1 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Role 1")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+  });
+
   it("opens a reusable in-app details modal from the job cards", async () => {
     vi.stubGlobal(
       "fetch",
@@ -375,7 +439,7 @@ describe("JobsResults", () => {
       title: `Figma Role ${index + 1}`,
     }));
 
-    let resolveFigmaSnapshot: ((response: Response) => void) | null = null;
+    let resolveFigmaSnapshot: ((response: Response | PromiseLike<Response>) => void) | null = null;
     let adobeRequestCount = 0;
 
     vi.stubGlobal(
@@ -503,46 +567,50 @@ describe("JobsResults", () => {
     expect(adobeRequestCount).toBe(2);
     expect(screen.queryByText(/Loading all Figma jobs from the snapshot/i)).not.toBeInTheDocument();
 
-    resolveFigmaSnapshot?.(
-      new Response(
-        JSON.stringify({
-          generatedAt: "2026-04-11T12:45:00.000Z",
-          jobs: figmaJobs,
-          sources: [
-            {
-              key: "greenhouse:figma",
-              label: "Figma",
-              lane: "ats_direct",
-              quality: "high_signal",
-              status: "connected",
-              jobCount: figmaJobs.length,
-              endpointLabel: "boards-api.greenhouse.io/figma",
-              lastSyncedAt: "2026-04-11T12:45:00.000Z",
-              message: "Figma public jobs synced and ready to persist.",
+    const completeFigmaSnapshot = resolveFigmaSnapshot;
+
+    if (typeof completeFigmaSnapshot === "function") {
+      (completeFigmaSnapshot as (response: Response | PromiseLike<Response>) => void)(
+        new Response(
+          JSON.stringify({
+            generatedAt: "2026-04-11T12:45:00.000Z",
+            jobs: figmaJobs,
+            sources: [
+              {
+                key: "greenhouse:figma",
+                label: "Figma",
+                lane: "ats_direct",
+                quality: "high_signal",
+                status: "connected",
+                jobCount: figmaJobs.length,
+                endpointLabel: "boards-api.greenhouse.io/figma",
+                lastSyncedAt: "2026-04-11T12:45:00.000Z",
+                message: "Figma public jobs synced and ready to persist.",
+              },
+            ],
+            summary: {
+              totalJobs: figmaJobs.length,
+              directAtsJobs: figmaJobs.length,
+              aggregatorJobs: 0,
+              sourceCount: 1,
+              connectedSourceCount: 1,
+              highSignalSourceCount: 1,
+              coverageSourceCount: 0,
             },
-          ],
-          summary: {
-            totalJobs: figmaJobs.length,
-            directAtsJobs: figmaJobs.length,
-            aggregatorJobs: 0,
-            sourceCount: 1,
-            connectedSourceCount: 1,
-            highSignalSourceCount: 1,
-            coverageSourceCount: 0,
+            storage: {
+              mode: "database",
+              persistedJobs: figmaJobs.length,
+              persistedSources: 1,
+              lastSyncAt: "2026-04-11T12:45:00.000Z",
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
           },
-          storage: {
-            mode: "database",
-            persistedJobs: figmaJobs.length,
-            persistedSources: 1,
-            lastSyncAt: "2026-04-11T12:45:00.000Z",
-          },
-        }),
-        {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        },
-      ),
-    );
+        ),
+      );
+    }
 
     await waitFor(() => {
       expect(screen.getByText("Adobe Role 1")).toBeInTheDocument();

@@ -1,5 +1,14 @@
 import { buildLocationMatchLabel, type HardFilterMatch } from "./retrieval-engine";
-import { buildWeightedVector, clamp, cosineSimilarity, normalizeText, overlapScore, tokenize, uniqueStrings } from "./utils";
+import {
+  annualizeSalaryRange,
+  buildWeightedVector,
+  clamp,
+  cosineSimilarity,
+  normalizeText,
+  overlapScore,
+  tokenize,
+  uniqueStrings,
+} from "./utils";
 import type { CanonicalJobRecord, JobSearchRequestV2, LexicalCandidateScore, SearchResultCandidate } from "./types";
 
 const RANK_WEIGHTS = {
@@ -160,9 +169,6 @@ function computeRecencyScore(job: CanonicalJobRecord, request: JobSearchRequestV
 }
 
 function computeCompensationScore(job: CanonicalJobRecord, request: JobSearchRequestV2, compensationKnown: boolean) {
-  const requestedMin = request.filters.compensation?.min ?? null;
-  const requestedMax = request.filters.compensation?.max ?? null;
-
   if (!request.filters.compensation) {
     return compensationKnown ? 0.5 : 0;
   }
@@ -171,8 +177,20 @@ function computeCompensationScore(job: CanonicalJobRecord, request: JobSearchReq
     return 0.15;
   }
 
-  const candidateMin = job.compensation.salary_min ?? job.compensation.salary_max;
-  const candidateMax = job.compensation.salary_max ?? job.compensation.salary_min;
+  const annualizedRequestedRange = annualizeSalaryRange({
+    max: request.filters.compensation.max ?? null,
+    min: request.filters.compensation.min ?? null,
+    period: request.filters.compensation.period ?? "unknown",
+  });
+  const annualizedCandidateRange = annualizeSalaryRange({
+    max: job.compensation.salary_max,
+    min: job.compensation.salary_min,
+    period: job.compensation.salary_period,
+  });
+  const candidateMin = annualizedCandidateRange.min ?? annualizedCandidateRange.max;
+  const candidateMax = annualizedCandidateRange.max ?? annualizedCandidateRange.min;
+  const requestedMin = annualizedRequestedRange.min;
+  const requestedMax = annualizedRequestedRange.max;
 
   if (requestedMin && candidateMax !== null && candidateMax < requestedMin) {
     return 0;

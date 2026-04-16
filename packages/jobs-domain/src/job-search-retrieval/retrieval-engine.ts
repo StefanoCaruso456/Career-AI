@@ -1,6 +1,6 @@
 import type { CanonicalJobRecord, JobSearchRequestV2, LocationMatchLevel } from "./types";
 import { buildLocationLabel } from "./location-normalizer";
-import { normalizeText } from "./utils";
+import { annualizeSalaryRange, normalizeText } from "./utils";
 
 export type HardFilterMatch = {
   compensationKnown: boolean;
@@ -170,8 +170,20 @@ function matchesCompensation(
     compensation.min && options?.relaxedMinimumPercentage
       ? compensation.min * options.relaxedMinimumPercentage
       : compensation.min ?? null;
-  const candidateMin = job.compensation.salary_min ?? job.compensation.salary_max;
-  const candidateMax = job.compensation.salary_max ?? job.compensation.salary_min;
+  const annualizedRequestedRange = annualizeSalaryRange({
+    max: compensation.max ?? null,
+    min: relaxedMinimum,
+    period: compensation.period ?? "unknown",
+  });
+  const annualizedCandidateRange = annualizeSalaryRange({
+    max: job.compensation.salary_max,
+    min: job.compensation.salary_min,
+    period: job.compensation.salary_period,
+  });
+  const candidateMin = annualizedCandidateRange.min ?? annualizedCandidateRange.max;
+  const candidateMax = annualizedCandidateRange.max ?? annualizedCandidateRange.min;
+  const requestedMin = annualizedRequestedRange.min;
+  const requestedMax = annualizedRequestedRange.max;
 
   if ((compensation.salary_transparency_only ?? false) && !known) {
     return {
@@ -180,14 +192,14 @@ function matchesCompensation(
     };
   }
 
-  if (relaxedMinimum && candidateMax !== null && candidateMax < relaxedMinimum) {
+  if (requestedMin && candidateMax !== null && candidateMax < requestedMin) {
     return {
       known,
       matched: false,
     };
   }
 
-  if (compensation.max && candidateMin !== null && candidateMin > compensation.max) {
+  if (requestedMax && candidateMin !== null && candidateMin > requestedMax) {
     return {
       known,
       matched: false,

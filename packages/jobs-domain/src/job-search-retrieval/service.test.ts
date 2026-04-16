@@ -128,6 +128,15 @@ describe("job search retrieval v2", () => {
           title: "Product Manager",
         }),
         createJob({
+          companyName: "Cursor",
+          description: "Onsite AI engineer role with agent evaluation work.",
+          id: "job_hourly_ai",
+          location: "Boston, MA",
+          postedAt: "2026-04-14T09:00:00.000Z",
+          salaryText: "$90/hour",
+          title: "AI Engineer",
+        }),
+        createJob({
           companyName: "NVIDIA",
           id: "job_nvidia_unknown_salary",
           location: "Remote US",
@@ -205,6 +214,14 @@ describe("job search retrieval v2", () => {
     expect(result.searchOutcome?.knownCompensationCount).toBeGreaterThan(0);
     expect(result.searchOutcome?.unknownCompensationCount).toBeGreaterThan(0);
     expect(result.assistantMessage).toContain("salary not listed");
+  });
+
+  it("annualizes hourly compensation before applying salary minimum filters", async () => {
+    const result = await searchJobsCatalogV2({
+      prompt: "find onsite ai engineer roles over 180k",
+    });
+
+    expect(result.results.some((job) => job.id === "job_hourly_ai")).toBe(true);
   });
 
   it("ranks hybrid Austin data team roles with SQL and Python by metadata first", async () => {
