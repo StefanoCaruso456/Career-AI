@@ -59,14 +59,14 @@ const homepageFallbackReplies = [
       "why does this matter",
     ],
     explanation:
-      "Career AI can help you get hired faster by reducing recruiter doubt and making your credibility easier to review.",
+      "Career AI can help you get hired faster by letting you apply to curated roles here, use Easy Apply across hundreds of jobs, and bring a verified Career ID into direct company hiring pipelines.",
     bullets: [
       "Your Career ID brings identity, work history, education, and supporting proof into one place.",
       "That can reduce back-and-forth because employers do not have to piece together the same story across scattered documents.",
-      "When trust is established faster, qualified candidates have a better chance of moving forward sooner.",
+      "When direct ATS-connected company workflows are available, the same verified profile can support real applications and help you move through hiring faster.",
     ],
     nextSteps:
-      "Focus first on the claims most relevant to your target role and add proof that makes those claims easier for a recruiter to trust at a glance.",
+      "Build out the parts of your Career ID most relevant to your target role, then use that verified profile to apply to curated jobs and stronger-fit openings first.",
   },
   {
     matches: [
