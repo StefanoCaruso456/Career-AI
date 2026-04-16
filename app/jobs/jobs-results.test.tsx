@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JobsResults } from "@/app/jobs/jobs-results";
+import { clearJobDetailsCache } from "@/components/jobs/job-details-client";
 import type { JobPostingDto } from "@/packages/contracts/src";
 
 vi.mock("@/components/easy-apply-profile/profile-completion-guard", () => ({
@@ -44,6 +45,7 @@ describe("JobsResults", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    clearJobDetailsCache();
   });
 
   it("shows 24 roles first and reveals 29 more when requested", () => {
@@ -112,6 +114,85 @@ describe("JobsResults", () => {
 
     expect(screen.getByText("Buenos Aires")).toBeInTheDocument();
     expect(screen.queryByText("Details are still coming in from the source.")).not.toBeInTheDocument();
+  });
+
+  it("shows a salary pill on listing cards and hides noisy requisition-style locations", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        companyName: "Accenture",
+        sourceLabel: "Accenture",
+        title: "Application Support Engineer",
+        location: "ATCI-5373735-S1970646",
+        department: null,
+        commitment: null,
+        salaryText: "$120,000 - $150,000 a year",
+      },
+    ];
+
+    render(<JobsResults jobs={jobs} />);
+
+    expect(screen.getByText("$120,000 - $150,000 a year")).toBeInTheDocument();
+    expect(screen.queryByText("ATCI-5373735-S1970646")).not.toBeInTheDocument();
+  });
+
+  it("hydrates missing salary text into the visible listing cards", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      expect(url).toBe("/api/v1/jobs/job-1/details");
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            id: "job-1",
+            title: "Role 1",
+            company: "Figma",
+            location: "San Francisco, CA",
+            employmentType: "Full-time",
+            postedAt: "2026-04-10T12:00:00.000Z",
+            externalJobId: "external-1",
+            source: "greenhouse",
+            sourceLabel: "Figma",
+            sourceUrl: "https://jobs.example.com/1",
+            descriptionHtml: "<p>Read the full role without leaving Career AI.</p>",
+            descriptionText: "Read the full role without leaving Career AI.",
+            summary: "Read the full role without leaving Career AI.",
+            responsibilities: [],
+            qualifications: [],
+            preferredQualifications: [],
+            salaryText: "$180,000 - $220,000 a year",
+            metadata: null,
+            contentStatus: "full",
+            fallbackMessage: null,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        jobs={[
+          {
+            ...createJob(1),
+            salaryText: null,
+          },
+        ]}
+      />,
+    );
+
+    expect(await screen.findByText("$180,000 - $220,000 a year")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
   });
 
   it("opens a reusable in-app details modal from the job cards", async () => {

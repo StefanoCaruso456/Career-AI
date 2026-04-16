@@ -3,7 +3,12 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { ProfileCompletionGuard } from "@/components/easy-apply-profile/profile-completion-guard";
+import { fetchJobDetails } from "@/components/jobs/job-details-client";
 import { JobDetailsTrigger } from "@/components/jobs/job-details-trigger";
+import {
+  formatSalaryTextForRail,
+  sanitizeJobLocationText,
+} from "@/components/jobs/job-rail-utils";
 import { resolveSchemaFamilyForJob } from "@/lib/application-profiles/resolver";
 import {
   jobsFeedResponseSchema,
@@ -309,6 +314,30 @@ function formatCount(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+function hasOwnSalaryOverride(
+  record: Record<string, string | null>,
+  jobId: string,
+) {
+  return Object.prototype.hasOwnProperty.call(record, jobId);
+}
+
+function createJobDetailsPreview(job: JobPostingDto) {
+  return {
+    applyUrl: job.applyUrl,
+    company: job.companyName,
+    descriptionSnippet: job.descriptionSnippet,
+    employmentType: job.commitment,
+    externalJobId: job.externalSourceJobId ?? job.externalId,
+    id: job.id,
+    location: job.location,
+    postedAt: job.updatedAt ?? job.postedAt,
+    sourceLabel: job.sourceLabel,
+    sourceUrl: job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl,
+    title: job.title,
+    workplaceType: job.workplaceType ?? "unknown",
+  } as const;
+}
+
 function getTotalAvailableCount(sources: JobSourceSnapshotDto[]) {
   return sources
     .filter((source) => source.status === "connected")
@@ -598,6 +627,7 @@ export function JobsResults({
   const [loadedCompanyScopeKey, setLoadedCompanyScopeKey] = useState<string | null>(null);
   const [isLoadingCompanyScope, setIsLoadingCompanyScope] = useState(false);
   const [totalAvailableCount, setTotalAvailableCount] = useState(initialTotalAvailableCount);
+  const [salaryOverrides, setSalaryOverrides] = useState<Record<string, string | null>>({});
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
   const [roleTypeFilter, setRoleTypeFilter] = useState<"all" | RoleTypeFilter>("all");
@@ -623,9 +653,18 @@ export function JobsResults({
   const fullWindowHydrationInFlight = useRef(false);
   const snapshotRefreshInFlight = useRef(false);
   const companyScopeRequestSequence = useRef(0);
+  const salaryHydrationInFlight = useRef(new Set<string>());
   const companyScopedExpectedCount = getCompanyAvailableCount(sourceSnapshots, companyFilter);
   const companyScopeKey = companyFilter === "all" ? null : companyFilter;
   const activeJobs = companyFilter === "all" ? loadedJobs : (companyScopedSnapshot?.jobs ?? []);
+  const resolvedActiveJobs = activeJobs.map((job) =>
+    hasOwnSalaryOverride(salaryOverrides, job.id)
+      ? {
+          ...job,
+          salaryText: salaryOverrides[job.id],
+        }
+      : job,
+  );
   const activeTotalAvailableCount =
     companyFilter === "all"
       ? totalAvailableCount
@@ -633,7 +672,7 @@ export function JobsResults({
         ? getTotalAvailableCount(companyScopedSnapshot.sources)
         : companyScopedExpectedCount ?? 0;
   const fullJobsWindowLimit = Math.max(totalAvailableCount, loadedJobs.length);
-  const filteredJobs = activeJobs.filter((job) => {
+  const filteredJobs = resolvedActiveJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
     const matchesCompany = matchesCompanyFilter(job, companyFilter);
     const matchesWorkplace =
@@ -704,6 +743,7 @@ export function JobsResults({
     setCompanyScopeError(null);
     setLoadedCompanyScopeKey(null);
     setIsLoadingCompanyScope(false);
+    setSalaryOverrides({});
     setHasMoreAvailable(jobs.length >= initialRequestLimit);
     setHasHydratedFullWindow(
       initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
@@ -716,6 +756,7 @@ export function JobsResults({
     fullWindowHydrationInFlight.current = false;
     snapshotRefreshInFlight.current = false;
     companyScopeRequestSequence.current += 1;
+    salaryHydrationInFlight.current.clear();
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
@@ -838,6 +879,73 @@ export function JobsResults({
     loadedJobs.length,
     needsFreshSnapshot,
   ]);
+
+  useEffect(() => {
+    const jobsMissingSalary = visibleJobs
+      .filter(
+        (job) =>
+          !job.salaryText &&
+          !hasOwnSalaryOverride(salaryOverrides, job.id) &&
+          !salaryHydrationInFlight.current.has(job.id),
+      )
+      .slice(0, 12);
+
+    if (jobsMissingSalary.length === 0) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    jobsMissingSalary.forEach((job) => {
+      salaryHydrationInFlight.current.add(job.id);
+    });
+
+    void (async () => {
+      const hydratedSalaries = await Promise.all(
+        jobsMissingSalary.map(async (job) => {
+          try {
+            const details = await fetchJobDetails(createJobDetailsPreview(job), {
+              signal: controller.signal,
+            });
+
+            return [job.id, details.salaryText ?? null] as const;
+          } catch {
+            return [job.id, null] as const;
+          } finally {
+            salaryHydrationInFlight.current.delete(job.id);
+          }
+        }),
+      );
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setSalaryOverrides((current) => {
+        const next = { ...current };
+        let changed = false;
+
+        hydratedSalaries.forEach(([jobId, salaryText]) => {
+          if (hasOwnSalaryOverride(current, jobId)) {
+            return;
+          }
+
+          next[jobId] = salaryText;
+          changed = true;
+        });
+
+        return changed ? next : current;
+      });
+    })();
+
+    return () => {
+      controller.abort();
+
+      jobsMissingSalary.forEach((job) => {
+        salaryHydrationInFlight.current.delete(job.id);
+      });
+    };
+  }, [salaryOverrides, visibleJobs]);
 
   useEffect(() => {
     if (!needsFreshSnapshot || snapshotRefreshInFlight.current) {
@@ -1175,7 +1283,9 @@ export function JobsResults({
       {filteredJobs.length > 0 ? (
         <div className={styles.jobsGrid}>
           {visibleJobs.map((job) => {
-            const jobMeta = [job.location, job.department, job.commitment].filter(Boolean).join(" • ");
+            const displayLocation = sanitizeJobLocationText(job.location);
+            const salaryText = formatSalaryTextForRail(job.salaryText);
+            const jobMeta = [displayLocation, job.department, job.commitment].filter(Boolean).join(" • ");
             const schemaFamily = resolveSchemaFamilyForJob(job);
 
             return (
@@ -1186,6 +1296,11 @@ export function JobsResults({
                     <h3>{job.title}</h3>
                   </div>
                   {jobMeta ? <p className={styles.jobMeta}>{jobMeta}</p> : null}
+                  {salaryText ? (
+                    <div className={styles.jobMetaRow}>
+                      <span className={styles.jobMetaPill}>{salaryText}</span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className={styles.jobFooter}>
                   <span>Updated {formatTimestamp(job.updatedAt || job.postedAt)}</span>
@@ -1213,20 +1328,7 @@ export function JobsResults({
                     }
                     buttonClassName={styles.jobDetailsButton}
                     buttonLabel="View details"
-                    preview={{
-                      applyUrl: job.applyUrl,
-                      company: job.companyName,
-                      descriptionSnippet: job.descriptionSnippet,
-                      employmentType: job.commitment,
-                      externalJobId: job.externalSourceJobId ?? job.externalId,
-                      id: job.id,
-                      location: job.location,
-                      postedAt: job.updatedAt ?? job.postedAt,
-                      sourceLabel: job.sourceLabel,
-                      sourceUrl: job.canonicalJobUrl ?? job.canonicalApplyUrl ?? job.applyUrl,
-                      title: job.title,
-                      workplaceType: job.workplaceType ?? "unknown",
-                    }}
+                    preview={createJobDetailsPreview(job)}
                   />
                 </div>
               </article>

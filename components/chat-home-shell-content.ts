@@ -481,7 +481,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       ],
       typingLabel: "Thinking through your next move...",
     },
-    heroTitle: "A secure identity platform that helps you get hired faster.",
+    heroTitle: "Get hired faster\nA secure career identity platform",
     introPrimaryCta: "Explore the platform",
     introRailEyebrow: "How Career AI works",
     introRailItems: [

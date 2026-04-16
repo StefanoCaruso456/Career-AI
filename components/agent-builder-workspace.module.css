@@ -1,4 +1,11 @@
 .page {
+  --builder-canvas-top: #14171b;
+  --builder-canvas-mid: #101216;
+  --builder-canvas-bottom: #0d0f13;
+  --builder-canvas-dot: rgba(255, 255, 255, 0.28);
+  --builder-shell-top: rgba(31, 35, 43, 0.98);
+  --builder-shell-bottom: rgba(17, 20, 28, 0.99);
+  --builder-panel: rgba(20, 24, 32, 0.9);
   --builder-surface: rgba(17, 21, 30, 0.92);
   --builder-border: rgba(255, 255, 255, 0.08);
   --builder-text: rgba(244, 247, 252, 0.96);
@@ -409,15 +416,45 @@
   display: grid;
   place-items: center;
   padding: 1rem;
+  overflow: hidden;
+  isolation: isolate;
   background:
-    radial-gradient(circle at 18% 16%, rgba(120, 133, 255, 0.24), transparent 22%),
-    radial-gradient(circle at 86% 84%, rgba(112, 237, 255, 0.12), transparent 20%),
-    rgba(7, 10, 16, 0.78);
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
+    radial-gradient(circle at 50% -18%, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(
+      180deg,
+      rgba(20, 23, 27, 0.94) 0%,
+      rgba(16, 18, 22, 0.96) 48%,
+      rgba(13, 15, 19, 0.98) 100%
+    );
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(8px) saturate(120%);
+}
+
+.overlay::before,
+.overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.overlay::before {
+  background-image: radial-gradient(circle, var(--builder-canvas-dot) 0.9px, transparent 1px);
+  background-size: 14px 14px;
+  opacity: 0.28;
+}
+
+.overlay::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 24%),
+    radial-gradient(circle at 18% 16%, rgba(141, 127, 255, 0.12), transparent 24%),
+    radial-gradient(circle at 84% 82%, rgba(146, 182, 255, 0.08), transparent 22%),
+    radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.3), transparent 44%);
 }
 
 .modal {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: min(100%, 1080px);
@@ -425,10 +462,11 @@
   border-radius: 1.8rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background:
-    radial-gradient(circle at top right, rgba(139, 149, 255, 0.16), transparent 24%),
-    linear-gradient(180deg, rgba(24, 27, 39, 0.985), rgba(12, 15, 24, 0.995));
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.1), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(146, 182, 255, 0.06), transparent 28%),
+    linear-gradient(180deg, var(--builder-shell-top), var(--builder-shell-bottom));
   box-shadow:
-    0 40px 110px rgba(0, 0, 0, 0.42),
+    0 40px 110px rgba(0, 0, 0, 0.5),
     inset 1px 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
 }
@@ -441,6 +479,9 @@
   gap: 1rem;
   padding: 1rem 1.1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
+    rgba(17, 20, 28, 0.12);
 }
 
 .modalFooter {
@@ -448,8 +489,8 @@
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 0;
   background:
-    linear-gradient(180deg, rgba(14, 18, 27, 0.7), rgba(9, 12, 19, 0.94)),
-    rgba(9, 12, 19, 0.92);
+    linear-gradient(180deg, rgba(14, 18, 27, 0.78), rgba(9, 12, 19, 0.94)),
+    rgba(9, 12, 19, 0.94);
 }
 
 .modalHeaderCopy {
@@ -495,8 +536,8 @@
   border-radius: 1.55rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-    rgba(24, 27, 33, 0.72);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+    var(--builder-panel);
 }
 
 .sectionHeader {
@@ -523,8 +564,8 @@
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-    rgba(21, 24, 31, 0.68);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)),
+    rgba(13, 16, 24, 0.72);
 }
 
 .selfStepMarker {
@@ -655,7 +696,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-    rgba(24, 27, 33, 0.6);
+    rgba(14, 17, 25, 0.78);
 }
 
 .evidenceCardHeader {
@@ -718,10 +759,10 @@
   align-items: center;
   padding: 1rem 1.05rem;
   border-radius: 1.1rem;
-  border: 1px dashed rgba(133, 147, 255, 0.3);
+  border: 1px dashed rgba(133, 147, 255, 0.22);
   background:
-    linear-gradient(180deg, rgba(109, 118, 255, 0.08), rgba(109, 118, 255, 0.03)),
-    rgba(24, 27, 33, 0.52);
+    linear-gradient(180deg, rgba(109, 118, 255, 0.07), rgba(109, 118, 255, 0.02)),
+    rgba(16, 19, 27, 0.9);
   color: #f8fbff;
   cursor: pointer;
 }
@@ -763,7 +804,7 @@
   padding: 0.8rem 0.9rem;
   border-radius: 0.95rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(21, 24, 31, 0.76);
+  background: rgba(12, 15, 22, 0.82);
 }
 
 .fileChip strong {
@@ -799,8 +840,10 @@
 }
 
 .infoBanner {
-  border: 1px solid rgba(141, 127, 255, 0.16);
-  background: rgba(141, 127, 255, 0.08);
+  border: 1px solid rgba(141, 127, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(141, 127, 255, 0.1), rgba(141, 127, 255, 0.03)),
+    rgba(17, 20, 28, 0.8);
   color: rgba(244, 247, 252, 0.82);
 }
 

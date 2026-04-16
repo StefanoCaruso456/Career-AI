@@ -4,8 +4,10 @@ import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
   formatRelativePostedAt,
+  formatSalaryTextForRail,
   getJobRailBadges,
   normalizeEmploymentType,
+  sanitizeJobLocationText,
 } from "@/components/jobs/job-rail-utils";
 import styles from "./jobs-side-panel.module.css";
 
@@ -35,7 +37,9 @@ export function JobListItem({
   const employmentType = EMPLOYMENT_BADGE_LABELS[normalizeEmploymentType(job.employmentType)];
   const postedLabel = formatRelativePostedAt(job.postedAt);
   const badges = getJobRailBadges(job);
-  const supportingMeta = [job.location, employmentType, job.salaryText].filter(Boolean);
+  const salaryText = formatSalaryTextForRail(job.salaryText);
+  const location = sanitizeJobLocationText(job.location);
+  const supportingMeta = [location, employmentType, salaryText].filter(Boolean);
   const visibleMatchReason = job.matchReason?.trim()
     ? HIDDEN_MATCH_REASONS.has(job.matchReason.trim())
       ? null

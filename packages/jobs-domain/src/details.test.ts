@@ -117,6 +117,16 @@ describe("job details service", () => {
                     "title": "Sales Lead — SAP",
                     "employmentType": "FULL_TIME",
                     "datePosted": "2026-04-14",
+                    "baseSalary": {
+                      "@type": "MonetaryAmount",
+                      "currency": "USD",
+                      "value": {
+                        "@type": "QuantitativeValue",
+                        "minValue": 180000,
+                        "maxValue": 220000,
+                        "unitText": "YEAR"
+                      }
+                    },
                     "identifier": { "value": "R00311379" },
                     "jobLocationType": "TELECOMMUTE",
                     "description": "Overview for the role. Vos principales missions: Drive large SAP programs; Close enterprise deals. Le métier est fait pour vous si vous avez: 10+ years in SAP consulting; Commercial leadership."
@@ -148,6 +158,7 @@ describe("job details service", () => {
     expect(details.descriptionText).toContain("Overview for the role.");
     expect(details.responsibilities).toContain("Drive large SAP programs");
     expect(details.qualifications).toContain("10+ years in SAP consulting");
+    expect(details.salaryText).toBe("$180,000 - $220,000 a year");
     expect(details.fallbackMessage).toBeNull();
   });
 

@@ -434,6 +434,27 @@
   font-size: 0.95rem;
 }
 
+.jobMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.jobMetaPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(23, 34, 51, 0.08);
+  border: 1px solid rgba(23, 34, 51, 0.08);
+  color: #223041;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
 .jobFooter {
   color: rgba(184, 193, 208, 0.66);
   font-size: 0.82rem;
