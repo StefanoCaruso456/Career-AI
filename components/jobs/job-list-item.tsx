@@ -7,6 +7,7 @@ import {
   formatSalaryTextForRail,
   getJobRailBadges,
   normalizeEmploymentType,
+  sanitizeJobLocationText,
 } from "@/components/jobs/job-rail-utils";
 import styles from "./jobs-side-panel.module.css";
 
@@ -37,7 +38,8 @@ export function JobListItem({
   const postedLabel = formatRelativePostedAt(job.postedAt);
   const badges = getJobRailBadges(job);
   const salaryText = formatSalaryTextForRail(job.salaryText);
-  const supportingMeta = [job.location, employmentType, salaryText].filter(Boolean);
+  const location = sanitizeJobLocationText(job.location);
+  const supportingMeta = [location, employmentType, salaryText].filter(Boolean);
   const visibleMatchReason = job.matchReason?.trim()
     ? HIDDEN_MATCH_REASONS.has(job.matchReason.trim())
       ? null

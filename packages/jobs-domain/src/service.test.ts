@@ -481,6 +481,52 @@ describe("jobs feed service", () => {
     );
   });
 
+  it("does not treat Workday requisition ids as job locations", async () => {
+    process.env.WORKDAY_JOB_SOURCES =
+      "Accenture=https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs";
+
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const body = init?.body ? JSON.parse(String(init.body)) : null;
+
+      if (
+        url === "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs"
+      ) {
+        expect(body).toEqual({
+          limit: 20,
+          offset: 0,
+          searchText: "",
+          appliedFacets: {},
+        });
+
+        return createJsonResponse({
+          total: 1,
+          jobPostings: [
+            {
+              title: "Application Support Engineer",
+              externalPath:
+                "/job/ATCI-5373735-S1970646/Application-Support-Engineer_ATCI-5373735-S1970646",
+              locationsText: "ATCI-5373735-S1970646",
+              postedOn: "Posted Today",
+              timeType: null,
+              bulletFields: ["ATCI-5373735-S1970646"],
+            },
+          ],
+        });
+      }
+
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(snapshot.jobs[0]?.title).toBe("Application Support Engineer");
+    expect(snapshot.jobs[0]?.location).toBeNull();
+  });
+
   it("continues paging Workday feeds when later pages incorrectly report total zero", async () => {
     process.env.WORKDAY_JOB_SOURCES =
       "Autodesk=https://autodesk.wd1.myworkdayjobs.com/wday/cxs/autodesk/Ext/jobs";

@@ -330,14 +330,20 @@ function isNoisyLocationValue(value: string) {
   );
 }
 
-export function getJobRailLocationLabel(location: string | null | undefined) {
+export function sanitizeJobLocationText(location: string | null | undefined) {
   const value = location?.trim();
 
-  if (!value) {
+  if (!value || isNoisyLocationValue(value)) {
     return null;
   }
 
-  if (isNoisyLocationValue(value)) {
+  return value;
+}
+
+export function getJobRailLocationLabel(location: string | null | undefined) {
+  const value = sanitizeJobLocationText(location);
+
+  if (!value) {
     return null;
   }
 

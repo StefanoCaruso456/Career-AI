@@ -1345,6 +1345,29 @@ function parseWorkdayPostedOn(value: string | null | undefined) {
   return null;
 }
 
+function isWorkdayLocationNoise(value: string | null | undefined) {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return true;
+  }
+
+  const canonical = normalized.replace(/[\s_]+/g, "-");
+  const tokens = canonical.split("-").filter(Boolean);
+  const looksLikeCompactId = /^[a-z]{1,3}-?\d[\w-]*$/i.test(canonical);
+  const looksLikeRequisitionId =
+    tokens.length >= 2 &&
+    /^[a-z]{2,}$/i.test(tokens[0] ?? "") &&
+    tokens.every((token) => /^[a-z0-9]+$/i.test(token)) &&
+    tokens.filter((token) => /\d/.test(token)).length >= 2;
+
+  return (
+    looksLikeCompactId ||
+    looksLikeRequisitionId ||
+    /\b(location negotiable|multiple locations|various locations|worldwide|global)\b/i.test(normalized)
+  );
+}
+
 function extractWorkdayLocationFromBulletFields(bulletFields: string[] | undefined) {
   if (!Array.isArray(bulletFields)) {
     return null;
@@ -1353,7 +1376,7 @@ function extractWorkdayLocationFromBulletFields(bulletFields: string[] | undefin
   return (
     bulletFields
       .map((field) => (typeof field === "string" ? field.trim() : ""))
-      .find((field) => field.length > 0 && !/^[A-Z]{1,3}-?\d[\w-]*$/i.test(field)) || null
+      .find((field) => field.length > 0 && !isWorkdayLocationNoise(field)) || null
   );
 }
 
@@ -1369,7 +1392,11 @@ function extractWorkdayLocationFromExternalPath(externalPath: string) {
     .replace(/\s+/g, " ")
     .trim();
 
-  return location.length > 0 ? location : null;
+  if (location.length === 0 || isWorkdayLocationNoise(location)) {
+    return null;
+  }
+
+  return location;
 }
 
 function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPostingDto[] {
@@ -1393,8 +1420,12 @@ function mapWorkdayJobs(source: WorkdaySourceSpec, payload: unknown): JobPosting
 
       const externalId = job.bulletFields?.find(Boolean)?.trim() || externalPath;
       const applyUrl = `${sourceOrigin}${source.jobBoardPath}${externalPath}`;
+      const explicitLocation =
+        typeof job.locationsText === "string" && !isWorkdayLocationNoise(job.locationsText)
+          ? job.locationsText.trim()
+          : null;
       const location =
-        (typeof job.locationsText === "string" ? job.locationsText.trim() : null) ||
+        explicitLocation ||
         extractWorkdayLocationFromBulletFields(job.bulletFields) ||
         extractWorkdayLocationFromExternalPath(externalPath);
 
