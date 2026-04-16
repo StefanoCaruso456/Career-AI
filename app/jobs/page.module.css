@@ -11,6 +11,12 @@
   --jobs-text-secondary: rgba(222, 228, 239, 0.72);
   --jobs-text-tertiary: rgba(184, 193, 208, 0.74);
   --jobs-accent-text: #fff7f1;
+  --jobs-cta-top: #474a68;
+  --jobs-cta-mid: #5a5f86;
+  --jobs-cta-bottom: #7076a6;
+  --jobs-cta-border: rgba(163, 170, 255, 0.34);
+  --jobs-cta-text: #f5f7ff;
+  --jobs-cta-icon: #e2e6ff;
   min-height: 100vh;
   position: relative;
   isolation: isolate;
@@ -478,15 +484,20 @@
 }
 
 .jobLink.jobLink {
-  border-color: rgba(233, 195, 165, 0.34);
+  border-color: var(--jobs-cta-border);
   background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 52%),
-    linear-gradient(135deg, #654335, #825a47 56%, #9a6f59);
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 52%),
+    linear-gradient(
+      135deg,
+      var(--jobs-cta-top),
+      var(--jobs-cta-mid) 56%,
+      var(--jobs-cta-bottom)
+    );
   box-shadow:
     0 18px 32px rgba(0, 0, 0, 0.24),
-    0 10px 24px rgba(201, 136, 102, 0.22),
+    0 10px 24px rgba(116, 124, 206, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  color: var(--jobs-accent-text);
+  color: var(--jobs-cta-text);
 }
 
 .jobLink.jobLink span {
@@ -494,15 +505,18 @@
 }
 
 .jobLink.jobLink svg {
-  color: #ffe0ca;
+  color: var(--jobs-cta-icon);
 }
 
 .jobLink.jobLink:hover {
   transform: translateY(-2px);
-  border-color: rgba(246, 213, 189, 0.46);
+  border-color: rgba(187, 193, 255, 0.46);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.18), transparent 52%),
+    linear-gradient(135deg, #505474, #646a94 56%, #7a81b3);
   box-shadow:
     0 22px 40px rgba(0, 0, 0, 0.28),
-    0 14px 30px rgba(201, 136, 102, 0.26),
+    0 14px 30px rgba(122, 130, 214, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -511,7 +525,7 @@
 }
 
 .jobLink.jobLink:focus-visible {
-  outline: 2px solid rgba(255, 219, 195, 0.95);
+  outline: 2px solid rgba(205, 211, 255, 0.95);
   outline-offset: 4px;
 }
 
