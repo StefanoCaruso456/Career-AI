@@ -32,6 +32,9 @@ describe("HeaderCenterTab", () => {
 
     render(<HeaderCenterTab />);
 
+    expect(
+      screen.getAllByRole("link").map((link) => link.textContent),
+    ).toEqual(["Jobs", "Career ID", "Wallet"]);
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
     expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");

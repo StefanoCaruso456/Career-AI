@@ -33,18 +33,18 @@ export function HeaderCenterTab() {
   return (
     <div className={styles.centerNav}>
       <Link
-        aria-current={isAgentBuild ? "page" : undefined}
-        className={isAgentBuild ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
-        href="/agent-build"
-      >
-        Career ID
-      </Link>
-      <Link
         aria-current={isJobs ? "page" : undefined}
         className={isJobs ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
         href="/jobs"
       >
         Jobs
+      </Link>
+      <Link
+        aria-current={isAgentBuild ? "page" : undefined}
+        className={isAgentBuild ? `${styles.navTab} ${styles.navTabCurrent}` : styles.navTab}
+        href="/agent-build"
+      >
+        Career ID
       </Link>
       <Link
         aria-current={isWallet ? "page" : undefined}
