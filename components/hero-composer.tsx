@@ -2768,7 +2768,13 @@ export function HeroComposer({
 
     if (event.key === "End") {
       event.preventDefault();
-      scrollStarterRailTo(starterRailRef.current.scrollWidth);
+      const starterRail = starterRailRef.current;
+
+      if (!starterRail) {
+        return;
+      }
+
+      scrollStarterRailTo(starterRail.scrollWidth);
     }
   }
 
