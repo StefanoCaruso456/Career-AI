@@ -13,14 +13,14 @@
   --jobs-rail-accent-line: rgba(148, 139, 255, 0.34);
   --jobs-rail-accent-fill: rgba(137, 128, 255, 0.14);
   --jobs-rail-accent-surface: rgba(49, 45, 74, 0.96);
-  --jobs-rail-success-line: rgba(204, 172, 137, 0.34);
-  --jobs-rail-success-fill: rgba(194, 160, 123, 0.14);
-  --jobs-rail-success-surface: rgba(77, 61, 49, 0.95);
-  --jobs-rail-success-text: #f7e8d8;
-  --jobs-rail-cta-line: rgba(212, 176, 136, 0.44);
-  --jobs-rail-cta-fill: rgba(198, 160, 120, 0.18);
-  --jobs-rail-cta-surface: rgba(89, 67, 52, 0.96);
-  --jobs-rail-cta-text: #fff2e6;
+  --jobs-rail-success-line: rgba(171, 161, 255, 0.3);
+  --jobs-rail-success-fill: rgba(161, 151, 255, 0.14);
+  --jobs-rail-success-surface: rgba(77, 70, 122, 0.62);
+  --jobs-rail-success-text: #f1eeff;
+  --jobs-rail-cta-line: rgba(165, 207, 255, 0.42);
+  --jobs-rail-cta-fill: rgba(151, 200, 255, 0.18);
+  --jobs-rail-cta-surface: rgba(72, 102, 138, 0.74);
+  --jobs-rail-cta-text: #eef7ff;
   position: relative;
   z-index: 2;
   display: grid;
@@ -621,19 +621,19 @@
     color 180ms ease,
     box-shadow 180ms ease;
   box-shadow:
-    0 12px 24px rgba(58, 42, 31, 0.2),
+    0 12px 24px rgba(38, 71, 104, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .jobApplyButton:hover {
   transform: translateY(-1px);
-  border-color: rgba(229, 191, 149, 0.56);
+  border-color: rgba(184, 222, 255, 0.58);
   background:
-    linear-gradient(180deg, rgba(214, 174, 133, 0.24), rgba(255, 255, 255, 0.04)),
-    rgba(101, 76, 59, 0.98);
-  color: #fff7ef;
+    linear-gradient(180deg, rgba(173, 214, 255, 0.24), rgba(255, 255, 255, 0.04)),
+    rgba(83, 117, 157, 0.86);
+  color: #f4fbff;
   box-shadow:
-    0 16px 28px rgba(71, 51, 37, 0.24),
+    0 16px 28px rgba(44, 80, 118, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
