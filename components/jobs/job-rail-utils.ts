@@ -533,16 +533,10 @@ export function formatRelativePostedAt(postedAt: string | null, now = Date.now()
 
 export function getJobRailBadges(job: JobListing, now = Date.now()) {
   const badges: JobRailBadge[] = [];
-  const source = inferJobSourceType(job);
   const workplaceLabel =
     job.workplaceType && job.workplaceType !== "unknown"
       ? WORKPLACE_FILTER_LABELS[job.workplaceType]
       : null;
-
-  badges.push({
-    label: SOURCE_FILTER_LABELS[source],
-    tone: "neutral",
-  });
 
   if (workplaceLabel) {
     badges.push({
@@ -555,13 +549,6 @@ export function getJobRailBadges(job: JobListing, now = Date.now()) {
     badges.push({
       label: "Verified",
       tone: "success",
-    });
-  }
-
-  if (job.isOrchestrationReady) {
-    badges.push({
-      label: "Career AI ready",
-      tone: "accent",
     });
   }
 
