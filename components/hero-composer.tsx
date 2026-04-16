@@ -2206,8 +2206,7 @@ export function HeroComposer({
 
     setIsEmployerFiltersOpen(false);
     setComposerNotice(null);
-    setMessage(action.value ?? action.label);
-    focusComposer();
+    void submitMessage(action.value ?? action.label);
   }
 
   async function handleLatestJobsStarter() {
