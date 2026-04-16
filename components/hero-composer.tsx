@@ -699,6 +699,7 @@ export function HeroComposer({
   const starterRailRef = useRef<HTMLDivElement>(null);
   const starterRailCycleWidthRef = useRef<number | null>(null);
   const starterRailScrollFrameRef = useRef<number | null>(null);
+  const starterRailProgrammaticScrollRef = useRef(false);
   const starterRailScrollRecenteringRef = useRef(false);
   const starterRailScrollTargetRef = useRef<number | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -788,15 +789,14 @@ export function HeroComposer({
 
   useEffect(() => {
     return () => {
-      if (starterRailScrollFrameRef.current !== null) {
-        window.cancelAnimationFrame(starterRailScrollFrameRef.current);
-        starterRailScrollFrameRef.current = null;
-      }
+      cancelStarterRailScrollAnimation();
     };
   }, []);
 
   useLayoutEffect(() => {
     if (!isLandingState) {
+      cancelStarterRailScrollAnimation();
+      starterRailProgrammaticScrollRef.current = false;
       starterRailCycleWidthRef.current = null;
       starterRailScrollTargetRef.current = null;
       return;
@@ -2758,6 +2758,21 @@ export function HeroComposer({
     return measuredCycleWidth;
   }
 
+  function cancelStarterRailScrollAnimation() {
+    if (starterRailScrollFrameRef.current === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(starterRailScrollFrameRef.current);
+    starterRailScrollFrameRef.current = null;
+  }
+
+  function syncStarterRailTargetToCurrentPosition() {
+    const starterRail = starterRailRef.current;
+
+    starterRailScrollTargetRef.current = starterRail ? starterRail.scrollLeft : null;
+  }
+
   function recenterStarterRailScrollPosition() {
     const starterRail = starterRailRef.current;
     const cycleWidth = getStarterRailCycleWidth();
@@ -2818,6 +2833,7 @@ export function HeroComposer({
       nextLeft += offsetWithinCycle;
     }
 
+    starterRailProgrammaticScrollRef.current = true;
     starterRail.scrollLeft = nextLeft;
     starterRailScrollTargetRef.current = nextLeft;
   }
@@ -2842,6 +2858,7 @@ export function HeroComposer({
     });
 
     if (nextFrame.done) {
+      starterRailProgrammaticScrollRef.current = true;
       starterRail.scrollLeft = targetLeft;
       recenterStarterRailScrollPosition();
       starterRailScrollFrameRef.current = null;
@@ -2849,6 +2866,7 @@ export function HeroComposer({
       return;
     }
 
+    starterRailProgrammaticScrollRef.current = true;
     starterRail.scrollLeft = nextFrame.left;
     recenterStarterRailScrollPosition();
     starterRailScrollFrameRef.current = window.requestAnimationFrame(flushStarterRailScrollAnimation);
@@ -2881,6 +2899,19 @@ export function HeroComposer({
 
     const currentTarget = starterRailScrollTargetRef.current ?? starterRail.scrollLeft;
     scrollStarterRailTo(currentTarget + offset);
+  }
+
+  function applyStarterRailManualScroll(offset: number) {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail) {
+      return;
+    }
+
+    cancelStarterRailScrollAnimation();
+    starterRail.scrollLeft += offset;
+    recenterStarterRailScrollPosition();
+    syncStarterRailTargetToCurrentPosition();
   }
 
   function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -2924,7 +2955,15 @@ export function HeroComposer({
       return;
     }
 
+    if (starterRailProgrammaticScrollRef.current) {
+      starterRailProgrammaticScrollRef.current = false;
+      recenterStarterRailScrollPosition();
+      return;
+    }
+
+    cancelStarterRailScrollAnimation();
     recenterStarterRailScrollPosition();
+    syncStarterRailTargetToCurrentPosition();
   }
 
   function handleStarterRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -2946,7 +2985,7 @@ export function HeroComposer({
     }
 
     event.preventDefault();
-    scrollStarterRailBy(normalizedDelta);
+    applyStarterRailManualScroll(normalizedDelta);
   }
 
   function renderStarterAction(
