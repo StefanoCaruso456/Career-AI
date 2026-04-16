@@ -120,7 +120,7 @@
 
 .homeMarkShell {
   position: relative;
-  width: 2.34rem;
+  width: 3.3rem;
   height: 2.34rem;
   overflow: visible;
   flex-shrink: 0;
@@ -618,7 +618,7 @@
   }
 
   .homeMarkShell {
-    width: 1.95rem;
+    width: 2.7rem;
     height: 1.95rem;
   }
 
