@@ -1250,6 +1250,33 @@ describe("HeroComposer", () => {
     expect(locationInput).toHaveValue("Austin ");
   });
 
+  it("loads a starter prompt into the composer without submitting it", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_general", "Verified profile")]);
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HeroComposer />);
+
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    fireEvent.click(screen.getByRole("button", { name: "How is this different from a resume builder?" }));
+
+    expect(composer).toHaveValue("How is this different from a resume builder?");
+    expect(
+      fetchMock.mock.calls.some(([input]) => getRequestUrl(input) === "/api/chat"),
+    ).toBe(false);
+  });
+
   it("does not show the jobs side panel for non-job prompts", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_general", "Verified profile")]);
     const conversation = createConversation("conversation_general", "project_general", [
