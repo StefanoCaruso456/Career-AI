@@ -153,8 +153,6 @@ describe("career-id Persona service", () => {
   });
 
   it("creates a government ID verification session and persists in-progress evidence", async () => {
-    await unlockDocumentLayer();
-
     const session = await createGovernmentIdVerificationSession({
       viewer,
       input: {
@@ -185,6 +183,91 @@ describe("career-id Persona service", () => {
     expect(verifications[0]?.status).toBe("in_progress");
     expect(evidence).toHaveLength(1);
     expect(evidence[0]?.status).toBe("in_progress");
+  });
+
+  it("keeps government ID verification unlocked before earlier trust phases are complete", async () => {
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-pre-presentation-lookup",
+    });
+
+    expect(identity).toBeNull();
+
+    await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-first-step",
+    });
+
+    const resolvedIdentity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-post-presentation-lookup",
+    });
+
+    const presentation = await getCareerIdPresentation({
+      careerIdentityId: resolvedIdentity!.talentIdentity.id,
+      correlationId: "career-id-first-step-presentation",
+      phaseProgress: [
+        {
+          phase: "self",
+          label: "Self-reported",
+          completed: 0,
+          started: 0,
+          total: 5,
+          isComplete: false,
+          isCurrent: true,
+          summary: "Self current",
+        },
+        {
+          phase: "relationship",
+          label: "Relationship-backed",
+          completed: 0,
+          started: 0,
+          total: 3,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Relationship locked",
+        },
+        {
+          phase: "document",
+          label: "Document-backed",
+          completed: 0,
+          started: 0,
+          total: 7,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Document available",
+        },
+        {
+          phase: "signature",
+          label: "Signature-backed",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Signature locked",
+        },
+        {
+          phase: "institution",
+          label: "Institution-verified",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Institution locked",
+        },
+      ],
+    });
+
+    expect(presentation.documentVerification.unlocked).toBe(true);
+    expect(presentation.documentVerification.status).toBe("in_progress");
+    expect(presentation.careerIdProfile.phases.find((phase) => phase.key === "document_backed")?.unlocked).toBe(true);
   });
 
   it("processes Persona webhooks idempotently and exposes a verified document-backed artifact", async () => {
