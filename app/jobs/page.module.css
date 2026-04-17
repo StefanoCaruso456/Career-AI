@@ -123,15 +123,6 @@
 .filterPanel {
   display: grid;
   gap: 1rem;
-  padding: 1.28rem;
-  border-radius: 1.75rem;
-  border: 1px solid var(--jobs-line-strong);
-  background:
-    linear-gradient(180deg, var(--jobs-card-top), var(--jobs-card-bottom)),
-    var(--jobs-panel);
-  box-shadow:
-    0 28px 56px rgba(0, 0, 0, 0.28),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .noResultsState {
@@ -751,7 +742,6 @@
   .emptyState,
   .envCard,
   .feedItem,
-  .filterPanel,
   .noResultsState,
   .filterControl {
     border-radius: 1.25rem;
