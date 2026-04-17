@@ -68,6 +68,7 @@ describe("ApplicationProfileSettingsCard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Reusable settings")).toBeInTheDocument();
     expect(screen.getByText("Future applications")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument();
   });
 
   it("shows loading copy while the saved profiles hydrate", () => {

@@ -23,6 +23,7 @@ import { ProfileSection } from "./profile-section";
 import styles from "./easy-apply-profile.module.css";
 
 type ApplicationProfileWizardProps = {
+  contextMode?: "job" | "settings";
   extraFieldDefinitions?: FieldDefinition[];
   isSaving: boolean;
   isUploadingResume: boolean;
@@ -120,6 +121,7 @@ function getStepValidationErrors(args: {
 }
 
 export function ApplicationProfileWizard({
+  contextMode = "job",
   extraFieldDefinitions = [],
   isSaving,
   isUploadingResume,
@@ -136,6 +138,7 @@ export function ApplicationProfileWizard({
   schemaFamily,
 }: ApplicationProfileWizardProps) {
   const config = getSchemaFamilyConfig(schemaFamily);
+  const isSettingsContext = contextMode === "settings";
   const footerStatusMessage = persisted
     ? "Saved changes go straight into your reusable application profile."
     : "Saved changes stay in this browser until server persistence is available.";
@@ -145,6 +148,7 @@ export function ApplicationProfileWizard({
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [stepMessage, setStepMessage] = useState<string | null>(null);
   const wizardBodyRef = useRef<HTMLDivElement | null>(null);
+  const firstStepSecondaryLabel = isSettingsContext ? "Back" : "Not now";
 
   function focusFirstInvalidField(nextErrors: ValidationErrors) {
     const fieldKey = getPrimaryErrorFieldKey(nextErrors);
@@ -265,7 +269,10 @@ export function ApplicationProfileWizard({
           </div>
           <div className={styles.footerActions}>
             <button className={styles.secondaryButton} onClick={onCancel} type="button">
-              Not now
+              {isSettingsContext ? (
+                <ArrowLeft aria-hidden="true" size={16} strokeWidth={2} />
+              ) : null}
+              <span>{firstStepSecondaryLabel}</span>
             </button>
             <button
               className={styles.primaryButton}
@@ -494,7 +501,10 @@ export function ApplicationProfileWizard({
               onClick={onCancel}
               type="button"
             >
-              Not now
+              {isSettingsContext ? (
+                <ArrowLeft aria-hidden="true" size={16} strokeWidth={2} />
+              ) : null}
+              <span>{firstStepSecondaryLabel}</span>
             </button>
           )}
 
