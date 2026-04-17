@@ -1152,8 +1152,7 @@ export function AgentBuilderWorkspace({
 
             <aside className={styles.progressRail}>
               <div className={styles.progressRailHeader}>
-                <span className={styles.sectionEyebrow}>Agent ID pipeline</span>
-                <h2>Credible agent ID creation status</h2>
+                <h2>Credible Career ID creation status</h2>
                 <p className={styles.progressRailCopy}>
                   Each trust phase lights up as the profile moves from self-reported context
                   into stronger verification. Click any phase to edit its intake workflow.
