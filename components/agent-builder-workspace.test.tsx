@@ -276,19 +276,30 @@ describe("AgentBuilderWorkspace", () => {
     expect(within(stepList).getAllByText(/^[1-5]$/)).toHaveLength(5);
   });
 
-  it("shows the structured intake header even when a modal only has one section", async () => {
+  it("uses pill navigation so a phase modal shows one evidence card at a time", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /relationship-backed/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("Structured intake")).toBeInTheDocument();
+    expect(screen.getAllByText("Referrals and endorsements").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
+      screen.getByPlaceholderText(
+        "What hiring signal or opportunity context does this referral provide?",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("What capability or outcome does this endorsement reinforce?"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Endorsements" }));
+
+    expect(screen.getByRole("heading", { level: 3, name: "Endorsements" })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("What capability or outcome does this endorsement reinforce?"),
+    ).toBeInTheDocument();
   });
 
   it("shows education and certification uploads inside the document-backed modal", async () => {
@@ -300,11 +311,16 @@ describe("AgentBuilderWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 3, name: "Education & certifications" }),
-    ).toBeInTheDocument();
+    expect(screen.getAllByText("Education & certifications").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { level: 3, name: "Diplomas and degrees" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Professional certifications" })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("tab", { name: "Step 3: Professional certifications" }),
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Professional certifications" }),
+    ).toBeInTheDocument();
   });
 
   it("loads existing saved values into the phase modal", async () => {
@@ -420,6 +436,7 @@ describe("AgentBuilderWorkspace", () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /institution-verified/i }));
+    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Driver's license" }));
 
     const frontInput = document.getElementById(
       "upload-drivers-license-front",
