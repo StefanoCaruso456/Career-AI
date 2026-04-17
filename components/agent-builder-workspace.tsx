@@ -688,6 +688,7 @@ export function AgentBuilderWorkspace({
   const [isMounted, setIsMounted] = useState(false);
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [activePhase, setActivePhase] = useState<CareerPhase | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<CareerEvidenceTemplateId | null>(null);
   const [draft, setDraft] = useState<ModalDraftState>({
     profile: toProfileInput(initialSnapshot.profile),
     evidence: {},
@@ -808,25 +809,34 @@ export function AgentBuilderWorkspace({
     [activePhase],
   );
 
-  const activeTemplateGroups = useMemo(
+  const activeTemplate = useMemo(
     () =>
-      sectionOrder.map((section) => ({
-        section,
-        templates: activeTemplates.filter((template) => template.section === section),
-      })),
-    [activeTemplates],
+      activeTemplates.find((template) => template.id === activeTemplateId) ??
+      activeTemplates[0] ??
+      null,
+    [activeTemplateId, activeTemplates],
   );
 
-  const visibleTemplateGroups = useMemo(
-    () => activeTemplateGroups.filter(({ templates }) => templates.length > 0),
-    [activeTemplateGroups],
-  );
-
-  const showTemplateSectionHeaders = activePhase !== "self" && visibleTemplateGroups.length > 0;
+  const activeTemplateIndex = activeTemplate
+    ? activeTemplates.findIndex((template) => template.id === activeTemplate.id)
+    : -1;
 
   const isDirty =
     activePhase !== null &&
     serializePhaseDraft(activePhase, draft) !== initialDraftSignatureRef.current;
+
+  useEffect(() => {
+    if (!activePhase || activePhase === "self" || activeTemplates.length === 0) {
+      setActiveTemplateId(null);
+      return;
+    }
+
+    setActiveTemplateId((current) =>
+      current && activeTemplates.some((template) => template.id === current)
+        ? current
+        : activeTemplates[0]?.id ?? null,
+    );
+  }, [activePhase, activeTemplates]);
 
   const refreshSnapshot = useEffectEvent(async () => {
     const response = await fetch("/api/v1/career-builder", {
@@ -1180,6 +1190,26 @@ export function AgentBuilderWorkspace({
     }));
   }
 
+  function selectTemplate(templateId: CareerEvidenceTemplateId) {
+    setActiveTemplateId(templateId);
+  }
+
+  function moveTemplate(direction: "next" | "previous") {
+    if (!activeTemplate) {
+      return;
+    }
+
+    const nextIndex =
+      direction === "next"
+        ? Math.min(activeTemplateIndex + 1, activeTemplates.length - 1)
+        : Math.max(activeTemplateIndex - 1, 0);
+    const nextTemplate = activeTemplates[nextIndex];
+
+    if (nextTemplate) {
+      setActiveTemplateId(nextTemplate.id);
+    }
+  }
+
   async function handleSave() {
     if (!activePhase) {
       return;
@@ -1418,34 +1448,114 @@ export function AgentBuilderWorkspace({
                       </div>
                     ) : null}
 
-                    {visibleTemplateGroups.map(({ section, templates }) => (
-                      <section className={styles.sectionPanel} key={section}>
-                        {showTemplateSectionHeaders ? (
-                          <div className={styles.sectionHeader}>
-                            <div>
-                              <span className={styles.sectionEyebrow}>Structured intake</span>
-                              <h3 className={styles.sectionTitle}>{sectionMeta[section].title}</h3>
-                              <p className={styles.sectionCopy}>{sectionMeta[section].copy}</p>
+                    {activeTemplate ? (
+                      <>
+                        {activeTemplates.length > 1 ? (
+                          <section className={styles.templateNavigator}>
+                            <div className={styles.templateNavigatorHeader}>
+                              <div>
+                                <span className={styles.sectionEyebrow}>Phase steps</span>
+                                <p className={styles.templateNavigatorCopy}>
+                                  Click the pills to move back and forth through this trust phase
+                                  without stacking every intake form in one long scroll.
+                                </p>
+                              </div>
+
+                              <span className={styles.templateStepBadge}>
+                                Step {activeTemplateIndex + 1} of {activeTemplates.length}
+                              </span>
                             </div>
-                          </div>
+
+                            <div
+                              aria-label="Trust phase steps"
+                              className={styles.templatePillRow}
+                              role="tablist"
+                            >
+                              {activeTemplates.map((template, index) => {
+                                const isActiveTemplate = template.id === activeTemplate.id;
+
+                                return (
+                                  <button
+                                    aria-label={`Step ${index + 1}: ${template.title}`}
+                                    aria-selected={isActiveTemplate}
+                                    className={`${styles.templatePillButton} ${
+                                      isActiveTemplate ? styles.templatePillButtonActive : ""
+                                    }`}
+                                    key={template.id}
+                                    onClick={() => {
+                                      selectTemplate(template.id);
+                                    }}
+                                    role="tab"
+                                    type="button"
+                                  >
+                                    <span className={styles.templatePillIndex}>{index + 1}</span>
+                                    <span className={styles.templatePillLabelGroup}>
+                                      <strong>{template.title}</strong>
+                                      <span>{sectionMeta[template.section].title}</span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </section>
                         ) : null}
 
-                        <div className={styles.evidenceGrid}>
-                          {templates.map((template) => (
+                        <section className={styles.sectionPanel}>
+                          <div className={styles.templateContextBar}>
+                            <div className={styles.templateContextCopy}>
+                              <span className={styles.sectionEyebrow}>Structured intake</span>
+                              <div className={styles.templateBadgeRow}>
+                                <span className={styles.templateSectionBadge}>
+                                  {sectionMeta[activeTemplate.section].title}
+                                </span>
+                                <span className={styles.templateSectionBadgeMuted}>
+                                  {phaseMeta[activePhase].label}
+                                </span>
+                              </div>
+                            </div>
+
+                            {activeTemplates.length > 1 ? (
+                              <div className={styles.templateNavButtons}>
+                                <button
+                                  className={styles.templateNavButton}
+                                  disabled={activeTemplateIndex <= 0}
+                                  onClick={() => {
+                                    moveTemplate("previous");
+                                  }}
+                                  type="button"
+                                >
+                                  Previous
+                                </button>
+
+                                <button
+                                  className={styles.templateNavButton}
+                                  disabled={activeTemplateIndex >= activeTemplates.length - 1}
+                                  onClick={() => {
+                                    moveTemplate("next");
+                                  }}
+                                  type="button"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className={styles.evidenceGrid}>
                             <EvidenceCard
-                              draft={draft.evidence[template.id]}
-                              errors={fieldErrors[template.id]}
-                              key={template.id}
+                              draft={draft.evidence[activeTemplate.id]}
+                              errors={fieldErrors[activeTemplate.id]}
+                              key={activeTemplate.id}
                               onChange={updateEvidenceField}
                               onDefaultFiles={addFiles}
                               onDriverLicenseFile={addDriverLicenseFile}
                               onRemoveFile={removeDraftFile}
-                              template={template}
+                              template={activeTemplate}
                             />
-                          ))}
-                        </div>
-                      </section>
-                    ))}
+                          </div>
+                        </section>
+                      </>
+                    ) : null}
                   </>
                 )}
               </div>
