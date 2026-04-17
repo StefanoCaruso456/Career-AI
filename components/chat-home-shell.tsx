@@ -48,7 +48,7 @@ function IntroSectionTitle({
   );
 }
 
-function CareerAiAgentExchangeMark() {
+function CareerAiAgentMark() {
   return (
     <g
       fill="none"
@@ -57,30 +57,18 @@ function CareerAiAgentExchangeMark() {
       strokeLinejoin="round"
       transform="translate(2 2)"
     >
-      <g strokeWidth="2.4">
-        <rect x="1" y="8" width="18" height="13" rx="5.5" />
-        <path d="M10 8V4.8" />
-        <path d="M6.4 21V24.4" />
-        <path d="M13.6 21V24.4" />
+      <g strokeWidth="2.35">
+        <rect x="2" y="9" width="20" height="14" rx="6" />
+        <path d="M12 9V5.2" />
+        <path d="M7.8 23V27" />
+        <path d="M16.2 23V27" />
+        <path d="M5.2 23 2.2 28.2" />
+        <path d="M18.8 23 21.8 28.2" />
+        <path d="M7 30.2h10" />
       </g>
-      <circle cx="7" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="13" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="10" cy="3.2" r="1.4" fill="currentColor" stroke="none" />
-
-      <g strokeWidth="2.4" transform="translate(34 0)">
-        <rect x="1" y="8" width="18" height="13" rx="5.5" />
-        <path d="M10 8V4.8" />
-        <path d="M6.4 21V24.4" />
-        <path d="M13.6 21V24.4" />
-      </g>
-      <circle cx="41" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="47" cy="14.6" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="44" cy="3.2" r="1.4" fill="currentColor" stroke="none" />
-
-      <path d="M22.8 12.5h8.4" strokeWidth="2.15" />
-      <path d="M27.2 9.3 31.6 12.5 27.2 15.7" strokeWidth="2.15" />
-      <path d="M31.2 17.1h-8.4" strokeWidth="2.15" />
-      <path d="M26.8 13.9 22.4 17.1 26.8 20.3" strokeWidth="2.15" />
+      <circle cx="8.4" cy="16" r="1.55" fill="currentColor" stroke="none" />
+      <circle cx="15.6" cy="16" r="1.55" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="3.2" r="1.55" fill="currentColor" stroke="none" />
     </g>
   );
 }
@@ -104,26 +92,31 @@ function GlobalVerificationArt() {
           <stop offset="0.42" stopColor="#4d7aff" stopOpacity="0.18" />
           <stop offset="1" stopColor="#0d1320" stopOpacity="0" />
         </radialGradient>
-        <radialGradient id="nodeGlow" cx="0" cy="0" r="1" gradientTransform="translate(72 42) rotate(90) scale(58 78)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#97b8ff" stopOpacity="0.34" />
-          <stop offset="1" stopColor="#97b8ff" stopOpacity="0" />
+        <radialGradient id="pillGlow" cx="0" cy="0" r="1" gradientTransform="translate(86 52) rotate(90) scale(72 112)" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#9ec1ff" stopOpacity="0.24" />
+          <stop offset="1" stopColor="#9ec1ff" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="nodeFill" x1="22" x2="122" y1="8" y2="84" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#8f9ad5" stopOpacity="0.92" />
-          <stop offset="1" stopColor="#536ab3" stopOpacity="0.58" />
+        <linearGradient id="pillFill" x1="26" x2="146" y1="6" y2="106" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#fbfdff" stopOpacity="0.98" />
+          <stop offset="0.58" stopColor="#edf2f8" stopOpacity="0.96" />
+          <stop offset="1" stopColor="#dbe4f0" stopOpacity="0.95" />
         </linearGradient>
-        <linearGradient id="nodeStroke" x1="12" x2="132" y1="14" y2="74" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#8bb0ff" />
-          <stop offset="1" stopColor="#9bc4ff" stopOpacity="0.48" />
+        <linearGradient id="pillStroke" x1="12" x2="164" y1="14" y2="90" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.98" />
+          <stop offset="1" stopColor="#a8bdd9" stopOpacity="0.9" />
         </linearGradient>
         <linearGradient id="bridgeStroke" x1="114" x2="366" y1="126" y2="126" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#76bcff" stopOpacity="0.92" />
           <stop offset="0.5" stopColor="#c3e5ff" />
           <stop offset="1" stopColor="#76bcff" stopOpacity="0.92" />
         </linearGradient>
-        <linearGradient id="bubbleFill" x1="224" x2="258" y1="92" y2="134" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#f4fbff" />
-          <stop offset="1" stopColor="#cae3ff" />
+        <radialGradient id="bubbleGlow" cx="0" cy="0" r="1" gradientTransform="translate(24 20) rotate(90) scale(28 38)" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#9dc7ff" stopOpacity="0.3" />
+          <stop offset="1" stopColor="#9dc7ff" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="bubbleFill" x1="216" x2="264" y1="94" y2="140" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#fbfdff" />
+          <stop offset="1" stopColor="#e2eaf5" />
         </linearGradient>
       </defs>
 
@@ -167,33 +160,67 @@ function GlobalVerificationArt() {
         strokeLinecap="round"
       />
 
-      <g transform="translate(76 86)">
-        <ellipse cx="70" cy="50" rx="82" ry="58" fill="url(#nodeGlow)" />
-        <rect x="0" y="10" width="140" height="78" rx="39" fill="url(#nodeFill)" />
-        <rect x="0.75" y="10.75" width="138.5" height="76.5" rx="38.25" stroke="url(#nodeStroke)" strokeWidth="1.5" />
-        <rect x="6" y="16" width="128" height="66" rx="33" fill="#ffffff" fillOpacity="0.06" />
-        <g color="#232535" transform="translate(34 34)">
-          <CareerAiAgentExchangeMark />
+      <g transform="translate(40 74)">
+        <ellipse cx="86" cy="60" rx="98" ry="70" fill="url(#pillGlow)" />
+        <rect x="0" y="10" width="172" height="100" rx="50" fill="url(#pillFill)" />
+        <rect x="0.8" y="10.8" width="170.4" height="98.4" rx="49.2" stroke="url(#pillStroke)" strokeWidth="1.6" />
+        <rect x="8" y="18" width="156" height="84" rx="42" fill="#ffffff" fillOpacity="0.18" />
+        <g color="#233249" transform="translate(73 34)">
+          <CareerAiAgentMark />
         </g>
+        <text
+          x="86"
+          y="88"
+          fill="#233249"
+          fontSize="16"
+          fontWeight="700"
+          letterSpacing="0.04em"
+          textAnchor="middle"
+        >
+          Agent
+        </text>
       </g>
 
-      <g transform="translate(264 86)">
-        <ellipse cx="70" cy="50" rx="82" ry="58" fill="url(#nodeGlow)" />
-        <rect x="0" y="10" width="140" height="78" rx="39" fill="url(#nodeFill)" />
-        <rect x="0.75" y="10.75" width="138.5" height="76.5" rx="38.25" stroke="url(#nodeStroke)" strokeWidth="1.5" />
-        <rect x="6" y="16" width="128" height="66" rx="33" fill="#ffffff" fillOpacity="0.06" />
-        <g color="#232535" transform="translate(34 34)">
-          <CareerAiAgentExchangeMark />
+      <g transform="translate(268 74)">
+        <ellipse cx="86" cy="60" rx="98" ry="70" fill="url(#pillGlow)" />
+        <rect x="0" y="10" width="172" height="100" rx="50" fill="url(#pillFill)" />
+        <rect x="0.8" y="10.8" width="170.4" height="98.4" rx="49.2" stroke="url(#pillStroke)" strokeWidth="1.6" />
+        <rect x="8" y="18" width="156" height="84" rx="42" fill="#ffffff" fillOpacity="0.18" />
+        <g color="#233249" transform="translate(73 34)">
+          <CareerAiAgentMark />
         </g>
+        <text
+          x="86"
+          y="88"
+          fill="#233249"
+          fontSize="16"
+          fontWeight="700"
+          letterSpacing="0.04em"
+          textAnchor="middle"
+        >
+          Agent
+        </text>
       </g>
 
-      <g transform="translate(218 96)">
+      <g transform="translate(216 97)">
+        <ellipse cx="24" cy="20" rx="34" ry="24" fill="url(#bubbleGlow)" />
         <path
-          d="M18 0C27.941 0 36 8.059 36 18C36 27.941 27.941 36 18 36H9.6L1 44L4.8 34.2C1.77 30.869 0 26.443 0 21.6V18C0 8.059 8.059 0 18 0Z"
+          d="M20 0C31.046 0 40 8.954 40 20C40 31.046 31.046 40 20 40H12L2.4 48L6.4 37C2.379 33.132 0 27.691 0 22V20C0 8.954 8.954 0 20 0Z"
           fill="url(#bubbleFill)"
-          stroke="#5db3ff"
-          strokeWidth="2.5"
+          stroke="#91b3da"
+          strokeWidth="2.25"
         />
+        <text
+          x="20"
+          y="24"
+          fill="#233249"
+          fontSize="16"
+          fontWeight="700"
+          letterSpacing="0.06em"
+          textAnchor="middle"
+        >
+          to
+        </text>
       </g>
     </svg>
   );
