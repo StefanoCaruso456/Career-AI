@@ -958,7 +958,7 @@ export function JobsResults({
             onChange={(event) => {
               setKeyword(event.target.value);
             }}
-            placeholder="Keyword: software engineer, AI, remote, gaming, LLM..."
+            placeholder="software engineer, AI, remote, gaming, LLM..."
             type="search"
             value={keyword}
           />
