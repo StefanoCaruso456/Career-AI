@@ -1146,7 +1146,7 @@ export function AgentBuilderWorkspace({
           <section className={styles.hero}>
             <div className={styles.heroCopy}>
               <div className={styles.heroIntro}>
-                <h1 className={styles.heroTitle}>Badge your Career ID</h1>
+                <h1 className={styles.heroTitle}>Career ID Badges</h1>
               </div>
             </div>
 
