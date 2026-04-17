@@ -38,8 +38,13 @@ type EasyApplyProfileModalProps = {
   userKey: string;
 };
 
-function getModalCopy(mode: EasyApplyProfileModalProps["mode"]) {
-  if (mode === "missing-fields") {
+function getModalCopy(args: {
+  contextMode: EasyApplyProfileModalProps["contextMode"];
+  mode: EasyApplyProfileModalProps["mode"];
+}) {
+  const isSettingsContext = args.contextMode === "settings";
+
+  if (args.mode === "missing-fields") {
     return {
       subtitle:
         "This employer needs a few more answers before we can continue the application.",
@@ -49,13 +54,24 @@ function getModalCopy(mode: EasyApplyProfileModalProps["mode"]) {
     };
   }
 
-  if (mode === "edit-profile") {
+  if (args.mode === "edit-profile") {
+    return {
+      subtitle: isSettingsContext
+        ? "Review this saved schema here so future applications stay accurate, current, and ready to reuse."
+        : "Update your reusable application profile and keep future applications fast, accurate, and ready to send.",
+      support: isSettingsContext
+        ? null
+        : "You can edit this anytime. We only reuse your saved information when an application needs it.",
+      title: "Edit your saved profile",
+    };
+  }
+
+  if (isSettingsContext) {
     return {
       subtitle:
-        "Update your reusable application profile and keep future applications fast, accurate, and ready to send.",
-      support:
-        "You can edit this anytime. We only reuse your saved information when an application needs it.",
-      title: "Edit your saved profile",
+        "Complete the remaining reusable details here so this schema stays ready before your next application.",
+      support: null,
+      title: "Finish this reusable profile",
     };
   }
 
@@ -94,9 +110,12 @@ export function EasyApplyProfileModal({
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
-  const copy = getModalCopy(mode);
   const config = getSchemaFamilyConfig(schemaFamily);
   const isSettingsContext = contextMode === "settings";
+  const copy = getModalCopy({
+    contextMode,
+    mode,
+  });
 
   useEffect(() => {
     setIsMounted(true);
@@ -211,7 +230,9 @@ export function EasyApplyProfileModal({
             <p className={styles.modalSubtitle} id={descriptionId}>
               {copy.subtitle}
             </p>
-            <p className={styles.modalSupport}>{copy.support}</p>
+            {copy.support ? (
+              <p className={styles.modalSupport}>{copy.support}</p>
+            ) : null}
 
             <div className={styles.modalContextGrid}>
               <div className={styles.modalContextCard}>
@@ -252,6 +273,7 @@ export function EasyApplyProfileModal({
         </div>
 
         <ApplicationProfileWizard
+          contextMode={contextMode}
           extraFieldDefinitions={extraFieldDefinitions}
           isSaving={isSaving}
           isUploadingResume={isUploadingResume}

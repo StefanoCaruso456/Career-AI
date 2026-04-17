@@ -32,15 +32,15 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1.4rem;
-  padding: 1.55rem 1.6rem 1.3rem;
+  gap: 1rem;
+  padding: 1.22rem 1.35rem 1.05rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .modalHeaderCopy {
   display: grid;
-  gap: 0.72rem;
-  max-width: 56rem;
+  gap: 0.56rem;
+  max-width: 52rem;
   flex: 1 1 auto;
 }
 
@@ -70,7 +70,7 @@
 .modalTitle {
   margin: 0;
   font-family: var(--font-display), sans-serif;
-  font-size: clamp(2rem, 1.45rem + 1.8vw, 3rem);
+  font-size: clamp(1.86rem, 1.35rem + 1.55vw, 2.7rem);
   line-height: 0.94;
   letter-spacing: -0.05em;
 }
@@ -79,52 +79,59 @@
 .modalSupport {
   margin: 0;
   color: rgba(244, 247, 252, 0.74);
-  line-height: 1.72;
+  line-height: 1.58;
 }
 
 .modalSupport {
   color: rgba(244, 247, 252, 0.62);
-  font-size: 0.94rem;
+  font-size: 0.88rem;
 }
 
 .modalContextGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.8rem;
-  margin-top: 0.32rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.58rem;
+  margin-top: 0.18rem;
 }
 
 .modalContextCard {
-  display: grid;
-  gap: 0.34rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   min-width: 0;
-  padding: 0.88rem 0.94rem;
-  border-radius: 1.05rem;
+  padding: 0.58rem 0.82rem;
+  border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
     rgba(10, 14, 24, 0.72);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  flex: 0 1 auto;
 }
 
 .modalContextCardWide {
-  grid-column: span 2;
+  flex: 1 1 18rem;
 }
 
 .modalContextLabel {
   color: rgba(244, 247, 252, 0.48);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
+  padding-right: 0.55rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .modalContextValue {
   color: #fef7f1;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  line-height: 1.45;
+  line-height: 1.3;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .closeButton {
@@ -873,7 +880,8 @@
 .footerActions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 0.95rem;
 }
 
@@ -962,14 +970,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .modalContextGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .modalContextCardWide {
-    grid-column: 1 / -1;
-  }
-
   .sectionHeroSplit {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1019,12 +1019,15 @@
     gap: 0.55rem;
   }
 
-  .modalContextGrid,
   .stepper,
   .sectionGrid,
   .repeatableGrid,
   .choiceGrid {
     grid-template-columns: 1fr;
+  }
+
+  .modalContextGrid {
+    width: 100%;
   }
 
   .fileRow,
@@ -1039,7 +1042,13 @@
   }
 
   .modalContextCardWide {
-    grid-column: auto;
+    flex-basis: 100%;
+  }
+
+  .modalContextCard {
+    width: 100%;
+    border-radius: 1rem;
+    justify-content: space-between;
   }
 
   .modalHeaderActions {
