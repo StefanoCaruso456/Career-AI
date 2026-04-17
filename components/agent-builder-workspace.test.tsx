@@ -132,10 +132,10 @@ function createSnapshot(): CareerBuilderSnapshotDto {
           key: "document_backed",
           title: "Document-backed",
           description: "Verify a government ID or upload trusted documents to strengthen your Career ID.",
-          status: "locked",
+          status: "not_started",
           completedCount: 0,
           totalCount: 8,
-          unlocked: false,
+          unlocked: true,
           evidence: [],
         },
         {
@@ -164,13 +164,13 @@ function createSnapshot(): CareerBuilderSnapshotDto {
     documentVerification: {
       evidenceId: null,
       verificationId: null,
-      status: "locked",
-      unlocked: false,
+      status: "not_started",
+      unlocked: true,
       estimatedTimeLabel: "About 2 minutes",
       explanation:
         "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
-      helperText: "Complete the earlier trust layers to unlock this phase.",
-      ctaLabel: null,
+      helperText: "Start here with a government ID and live selfie to anchor your Career ID.",
+      ctaLabel: "Verify your identity",
       retryable: false,
       artifactLabel: null,
       recoveryHints: [
@@ -253,6 +253,8 @@ describe("AgentBuilderWorkspace", () => {
     expect(screen.queryByText("strongest trust tier")).not.toBeInTheDocument();
     expect(screen.queryByText("Phase-based intake")).not.toBeInTheDocument();
     expect(screen.queryByText("Saved to your Career ID")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Verify your identity first" })).toBeInTheDocument();
+    expect(screen.queryByText("Complete the earlier trust layers to unlock this phase.")).not.toBeInTheDocument();
   });
 
   it("keeps dense intake off the main page and opens the requested phase modal", async () => {
@@ -458,24 +460,23 @@ describe("AgentBuilderWorkspace", () => {
   });
 
   it("shows the government ID CTA once document-backed is unlocked", () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Verify your identity" }),
+      screen.getByRole("heading", { level: 2, name: "Verify your identity first" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /verify your identity/i })).toBeInTheDocument();
-    expect(screen.getAllByText("About 2 minutes").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Driver's license + live selfie").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(
+        "Start here with a government ID and live selfie to anchor your Career ID.",
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("About 2 minutes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Driver's license + live selfie")).not.toBeInTheDocument();
   });
 
   it("opens the guided verification modal from the document-backed CTA", async () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
 

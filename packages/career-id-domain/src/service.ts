@@ -325,7 +325,7 @@ function toGovernmentIdVerificationResult(
 
 function computeDocumentHelperText(status: CareerIdVerificationStatus, unlocked: boolean) {
   if (!unlocked || status === "locked") {
-    return "Complete the earlier trust layers to unlock this phase.";
+    return "Start here with a government ID and live selfie to anchor your Career ID.";
   }
 
   switch (status) {
@@ -341,7 +341,7 @@ function computeDocumentHelperText(status: CareerIdVerificationStatus, unlocked:
       return "Verification was not completed. You can try again if you'd like.";
     case "not_started":
     default:
-      return GOVERNMENT_ID_EXPLANATION;
+      return "Start here with a government ID and live selfie to anchor your Career ID.";
   }
 }
 
@@ -648,8 +648,7 @@ export async function getCareerIdPresentation(args: {
   ]);
   const governmentEvidence = getGovernmentIdEvidence(evidenceRecords);
   const latestVerification = getLatestGovernmentIdVerification(verifications);
-  const documentProgress = args.phaseProgress.find((phase) => phase.phase === "document");
-  const documentUnlocked = Boolean(documentProgress?.isCurrent || documentProgress?.isComplete);
+  const documentUnlocked = true;
   const documentStatus = computeDocumentVerificationStatus({
     evidence: governmentEvidence,
     latestVerification,
@@ -657,7 +656,10 @@ export async function getCareerIdPresentation(args: {
   });
   const phases = args.phaseProgress.map((progress) => {
     const phaseKey = phaseToTrustLayer(progress.phase);
-    const unlocked = progress.phase === "self" ? true : progress.isCurrent || progress.isComplete;
+    const unlocked =
+      progress.phase === "self" || progress.phase === "document"
+        ? true
+        : progress.isCurrent || progress.isComplete;
     const documentCompletedBonus =
       phaseKey === "document_backed" && governmentEvidence?.status === "verified" ? 1 : 0;
     const completedCount = progress.completed + documentCompletedBonus;

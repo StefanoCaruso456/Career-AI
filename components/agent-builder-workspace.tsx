@@ -371,7 +371,7 @@ function getDocumentStatusTagLabel(status: CareerIdVerificationStatus) {
       return "Government ID verified";
     case "not_started":
     default:
-      return "Available";
+      return "Start here";
   }
 }
 
@@ -391,7 +391,7 @@ function getDocumentHeroTitle(status: CareerIdVerificationStatus) {
       return "Government ID verified";
     case "not_started":
     default:
-      return "Verify your identity";
+      return "Verify your identity first";
   }
 }
 
@@ -409,7 +409,7 @@ function getDocumentHeroEyebrow(status: CareerIdVerificationStatus) {
       return "Locked trust step";
     case "not_started":
     default:
-      return "Featured trust step";
+      return "First trust step";
   }
 }
 
@@ -1898,13 +1898,6 @@ export function AgentBuilderWorkspace({
                   </div>
                 </div>
 
-                <div className={styles.documentHeroMeta}>
-                  <span className={styles.supportChip}>
-                    {documentVerification.estimatedTimeLabel}
-                  </span>
-                  <span className={styles.supportChip}>Driver&apos;s license + live selfie</span>
-                </div>
-
                 {documentVerification.ctaLabel ? (
                   <button
                     className={styles.documentHeroCta}
@@ -1914,19 +1907,6 @@ export function AgentBuilderWorkspace({
                     <span>{documentVerification.ctaLabel}</span>
                     <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
                   </button>
-                ) : null}
-
-                {!documentVerification.unlocked ? (
-                  <p className={styles.documentHeroNote}>
-                    Finish the earlier trust layers first, then this becomes your fastest way to add a verified trust artifact.
-                  </p>
-                ) : null}
-
-                {documentVerificationStatus === "in_progress" ||
-                documentVerificationStatus === "manual_review" ? (
-                  <p className={styles.documentHeroNote}>
-                    Your Document-backed count updates only after backend webhook confirmation.
-                  </p>
                 ) : null}
 
                 {documentVerification.artifactLabel ? (
@@ -2026,9 +2006,6 @@ export function AgentBuilderWorkspace({
                         {isDocumentPhase ? (
                           <div className={styles.pipelineActionRow}>
                             <div className={styles.pipelineActionMeta}>
-                              <span className={styles.supportChip}>
-                                {documentVerification.estimatedTimeLabel}
-                              </span>
                               <span className={styles.statusTag}>
                                 {getDocumentStatusTagLabel(documentVerificationStatus)}
                               </span>
