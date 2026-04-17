@@ -1452,20 +1452,6 @@ export function AgentBuilderWorkspace({
                       <>
                         {activeTemplates.length > 1 ? (
                           <section className={styles.templateNavigator}>
-                            <div className={styles.templateNavigatorHeader}>
-                              <div>
-                                <span className={styles.sectionEyebrow}>Phase steps</span>
-                                <p className={styles.templateNavigatorCopy}>
-                                  Click the pills to move back and forth through this trust phase
-                                  without stacking every intake form in one long scroll.
-                                </p>
-                              </div>
-
-                              <span className={styles.templateStepBadge}>
-                                Step {activeTemplateIndex + 1} of {activeTemplates.length}
-                              </span>
-                            </div>
-
                             <div
                               aria-label="Trust phase steps"
                               className={styles.templatePillRow}
