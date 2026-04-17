@@ -17,10 +17,28 @@ export function TrustExplainerSection({ content }: { content: TrustExplainerCont
             </div>
 
             <div className={styles.visualColumn}>
-              <div className={styles.visualContextRow} aria-label="Agent 2 Agent">
-                <span className={styles.visualContextWord}>Agent</span>
+              <div className={styles.visualContextRow} aria-label="Career AI to Career AI">
+                <span className={styles.visualContextBrandBlock} aria-hidden="true">
+                  <Image
+                    alt=""
+                    className={styles.visualContextBrandLogo}
+                    height={392}
+                    sizes="(max-width: 760px) 8rem, 10rem"
+                    src="/career-ai-header-logo.png"
+                    width={684}
+                  />
+                </span>
                 <span className={styles.visualContextConnector}>2</span>
-                <span className={styles.visualContextWord}>Agent</span>
+                <span className={styles.visualContextBrandBlock} aria-hidden="true">
+                  <Image
+                    alt=""
+                    className={styles.visualContextBrandLogo}
+                    height={392}
+                    sizes="(max-width: 760px) 8rem, 10rem"
+                    src="/career-ai-header-logo.png"
+                    width={684}
+                  />
+                </span>
               </div>
 
               <div className={styles.visualFrame}>

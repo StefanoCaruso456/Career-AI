@@ -28,7 +28,7 @@ describe("TrustExplainerSection", () => {
     render(<TrustExplainerSection content={landingContentByPersona.job_seeker.trustExplainer} />);
 
     expect(screen.getByRole("heading", { name: "How secure Career ID works" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Agent 2 Agent")).toBeInTheDocument();
+    expect(screen.getByLabelText("Career AI to Career AI")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Job seekers build verified credibility over time. Hiring agents can request trusted information securely through agent-to-agent communication.",
