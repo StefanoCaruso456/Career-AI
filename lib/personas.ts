@@ -20,7 +20,7 @@ export const personaConfigs: Record<Persona, PersonaConfig> = {
     label: "Employer / Business",
     signInEyebrow: "Employer access",
     shortLabel: "Employer",
-    workspaceLabel: "Employer workspace",
+    workspaceLabel: "Hiring workspace",
   },
   job_seeker: {
     authLabel: "Job Seeker",
@@ -29,7 +29,7 @@ export const personaConfigs: Record<Persona, PersonaConfig> = {
     label: "Job Seeker",
     signInEyebrow: "Verified access",
     shortLabel: "Job Seeker",
-    workspaceLabel: "Job seeker workspace",
+    workspaceLabel: "Career workspace",
   },
 };
 
@@ -114,7 +114,7 @@ export function getPostAuthRoute(persona: Persona) {
 }
 
 export function getSettingsRoute(persona: Persona) {
-  return persona === "employer" ? "/employer/settings" : "/settings";
+  return persona === "employer" ? "/employer/settings" : "/account/settings";
 }
 
 export function getSafeCallbackUrl(callbackUrl: string | null | undefined) {

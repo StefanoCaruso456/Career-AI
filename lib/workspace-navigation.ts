@@ -31,7 +31,7 @@ export const workspaceShellByPersona: Record<Persona, WorkspaceShellConfig> = {
     tabs: [
       { href: "/account", label: "Overview" },
       { href: "/account/access-requests", label: "Access requests" },
-      { href: "/account/settings", label: "Settings" },
+      { href: "/account/settings", label: "Profile & account" },
     ],
   },
 };

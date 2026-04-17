@@ -51,7 +51,10 @@ describe("HeaderAuthControls", () => {
       "/employer/settings",
     );
     expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/employer");
+    expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
+      "href",
+      "/employer",
+    );
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/google currently manages/i)).not.toBeInTheDocument();
@@ -93,7 +96,7 @@ describe("HeaderAuthControls", () => {
     expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
   });
 
-  it("shows access requests for a candidate account", () => {
+  it("removes duplicate workspace shortcuts while inside the candidate workspace", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
     mockUsePathname.mockReturnValue("/account");
     mockUseSession.mockReturnValue({
@@ -113,10 +116,39 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /casey candidate/i }));
 
-    expect(screen.getByRole("menuitem", { name: /^workspace$/i })).toHaveAttribute("href", "/account");
+    expect(screen.queryByRole("menuitem", { name: /career workspace/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  it("keeps candidate workspace shortcuts available outside the workspace shell", () => {
+    window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
+    mockUsePathname.mockReturnValue("/jobs");
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          currentStep: 4,
+          email: "casey@example.com",
+          name: "Casey Candidate",
+          onboardingStatus: "completed",
+          roleType: "candidate",
+        },
+      },
+      status: "authenticated",
+    });
+
+    render(<HeaderAuthControls />);
+
+    fireEvent.click(screen.getByRole("button", { name: /casey candidate/i }));
+
+    expect(screen.getByRole("menuitem", { name: /career workspace/i })).toHaveAttribute(
+      "href",
+      "/account",
+    );
     expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
       "href",
-      "/settings",
+      "/account/settings",
     );
     expect(screen.getByRole("menuitem", { name: /access requests/i })).toHaveAttribute(
       "href",
