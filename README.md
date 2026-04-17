@@ -55,10 +55,12 @@ npm run dev
 Minimum environment:
 
 - `DATABASE_URL`
+- `JOB_SEARCH_RETRIEVAL_V2_ENABLED=true`
 - auth config (`NEXTAUTH_URL` or `AUTH_URL`, `NEXTAUTH_SECRET` or `AUTH_SECRET`, Google OAuth vars)
 - `EXTERNAL_A2A_ENABLED`
 - `EXTERNAL_AGENT_AUTH_TOKENS`
 - `OPENAI_API_KEY` (optional for non-LLM-only local work)
+- one or more jobs inventory source envs when you want live refreshes (`GREENHOUSE_BOARD`, `LEVER_SITE_NAMES`, `ASHBY_JOB_BOARDS`, `JOBS_AGGREGATOR_FEEDS`, `JOBS_AGGREGATOR_FEED_URL`, `WORKABLE_XML_FEED_URL`, `WORKDAY_JOB_SOURCES`)
 
 Copy `.env.example` to `.env.local` and run `npm run db:migrate` when using the Postgres-backed local path.
 
