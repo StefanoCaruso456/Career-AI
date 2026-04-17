@@ -9,6 +9,7 @@ import {
 } from "@/packages/contracts/src";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
+import { loadJobListings } from "@/lib/jobs/load-job-listings";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
   fetchJobDetails,
@@ -71,6 +72,51 @@ function restoreRailScroll(container: HTMLDivElement | null, top: number) {
   container.scrollTop = top;
 }
 
+const POSTED_DATE_SEARCH_PROMPTS = {
+  "14d": "posted within the last 14 days",
+  "1d": "posted today",
+  "3d": "posted within the last 3 days",
+  "7d": "posted within the last 7 days",
+} as const;
+
+function buildKeywordSearchPrompt(
+  filters: typeof DEFAULT_JOB_RAIL_FILTERS,
+  keyword: string,
+) {
+  const trimmedKeyword = keyword.trim();
+
+  if (trimmedKeyword.length < 2) {
+    return null;
+  }
+
+  const qualifiers = [
+    filters.employmentType !== "all"
+      ? EMPLOYMENT_FILTER_LABELS[filters.employmentType].toLowerCase()
+      : null,
+    filters.workplaceType !== "all"
+      ? WORKPLACE_FILTER_LABELS[filters.workplaceType].toLowerCase()
+      : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const promptSegments = [
+    `Find ${qualifiers.length > 0 ? `${qualifiers.join(" ")} ` : ""}${trimmedKeyword} jobs`,
+  ];
+
+  if (filters.company !== "all") {
+    promptSegments.push(`at ${filters.company}`);
+  }
+
+  if (filters.location !== "all") {
+    promptSegments.push(`in ${filters.location}`);
+  }
+
+  if (filters.postedDate !== "any") {
+    promptSegments.push(POSTED_DATE_SEARCH_PROMPTS[filters.postedDate]);
+  }
+
+  return promptSegments.join(" ");
+}
+
 export function JobsSidePanel({
   emptyStateMessage = null,
   errorMessage = null,
@@ -90,6 +136,11 @@ export function JobsSidePanel({
   const [companyScopedJobs, setCompanyScopedJobs] = useState<JobListing[] | null>(null);
   const [companyScopeError, setCompanyScopeError] = useState<string | null>(null);
   const [isCompanyScopeLoading, setIsCompanyScopeLoading] = useState(false);
+  const [keywordSearchJobs, setKeywordSearchJobs] = useState<JobListing[] | null>(null);
+  const [keywordSearchFilterOptions, setKeywordSearchFilterOptions] =
+    useState<JobRailFilterOptionsDto | null>(null);
+  const [keywordSearchError, setKeywordSearchError] = useState<string | null>(null);
+  const [isKeywordSearchLoading, setIsKeywordSearchLoading] = useState(false);
   const [selectedJobKey, setSelectedJobKey] = useState<string | null>(null);
   const [salaryOverrides, setSalaryOverrides] = useState<Record<string, string | null>>({});
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -101,9 +152,10 @@ export function JobsSidePanel({
   const filtersScrollTop = useRef(0);
   const filtersChangedWhileOpen = useRef(false);
   const companyScopeRequestSequence = useRef(0);
+  const keywordSearchRequestSequence = useRef(0);
   const salaryHydrationInFlight = useRef(new Set<string>());
-  const scopedJobs = filters.company === "all" ? jobs : companyScopedJobs ?? jobs;
-  const resolvedScopedJobs = scopedJobs.map((job) =>
+  const panelJobs = filters.company === "all" ? jobs : companyScopedJobs ?? jobs;
+  const resolvedPanelJobs = panelJobs.map((job) =>
     hasOwnSalaryOverride(salaryOverrides, job.id)
       ? {
           ...job,
@@ -111,22 +163,46 @@ export function JobsSidePanel({
         }
       : job,
   );
-  const railOptions = getJobRailOptions(resolvedScopedJobs, filterOptions);
-  const activeFilterCount = getActiveFilterCount(filters);
-  const filteredJobs = filterAndSortJobsForRail(resolvedScopedJobs, {
+  const localFilteredJobs = filterAndSortJobsForRail(resolvedPanelJobs, {
     ...filters,
     keyword: deferredKeyword,
   });
+  const keywordSearchPrompt =
+    localFilteredJobs.length === 0 ? buildKeywordSearchPrompt(filters, deferredKeyword) : null;
+  const displayJobs = keywordSearchPrompt ? keywordSearchJobs ?? [] : panelJobs;
+  const resolvedDisplayJobs = keywordSearchPrompt
+    ? displayJobs.map((job) =>
+        hasOwnSalaryOverride(salaryOverrides, job.id)
+          ? {
+              ...job,
+              salaryText: salaryOverrides[job.id],
+            }
+          : job,
+      )
+    : resolvedPanelJobs;
+  const railOptions = getJobRailOptions(
+    resolvedDisplayJobs,
+    keywordSearchPrompt ? keywordSearchFilterOptions ?? filterOptions : filterOptions,
+  );
+  const activeFilterCount = getActiveFilterCount(filters);
+  const filteredJobs = keywordSearchPrompt
+    ? filterAndSortJobsForRail(resolvedDisplayJobs, {
+        ...filters,
+        keyword: "",
+      })
+    : localFilteredJobs;
   const hasActiveFilters = activeFilterCount > 0;
   const activeJob = selectedJobKey
-    ? resolvedScopedJobs.find((job) => job.railKey === selectedJobKey) ?? null
+    ? resolvedDisplayJobs.find((job) => job.railKey === selectedJobKey) ?? null
     : null;
-  const loadingMessage = isLoading
+  const loadingMessage = isKeywordSearchLoading
+    ? `Searching live roles for "${filters.keyword.trim()}".`
+    : isLoading
     ? "Pulling the latest roles from your live jobs feed."
     : isCompanyScopeLoading
       ? `Loading ${filters.company} roles from your jobs feed.`
       : null;
-  const railErrorMessage = companyScopeError ?? errorMessage;
+  const railErrorMessage = keywordSearchError ?? companyScopeError ?? errorMessage;
 
   useEffect(() => {
     return () => {
@@ -255,11 +331,68 @@ export function JobsSidePanel({
   }, [filters.company, jobs.length]);
 
   useEffect(() => {
+    if (!keywordSearchPrompt) {
+      keywordSearchRequestSequence.current += 1;
+      setKeywordSearchJobs(null);
+      setKeywordSearchFilterOptions(null);
+      setKeywordSearchError(null);
+      setIsKeywordSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const requestSequence = keywordSearchRequestSequence.current + 1;
+
+    keywordSearchRequestSequence.current = requestSequence;
+    setKeywordSearchError(null);
+    setKeywordSearchFilterOptions(null);
+    setIsKeywordSearchLoading(true);
+    setKeywordSearchJobs(null);
+
+    void loadJobListings({
+      limit: Math.max(jobs.length, 24),
+      prompt: keywordSearchPrompt,
+      refresh: false,
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (keywordSearchRequestSequence.current !== requestSequence) {
+          return;
+        }
+
+        setKeywordSearchJobs(result.listings);
+        setKeywordSearchFilterOptions(result.rail.filterOptions ?? null);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || keywordSearchRequestSequence.current !== requestSequence) {
+          return;
+        }
+
+        setKeywordSearchJobs([]);
+        setKeywordSearchFilterOptions(null);
+        setKeywordSearchError(
+          error instanceof Error ? error.message : "Live job search could not be loaded right now.",
+        );
+      })
+      .finally(() => {
+        if (keywordSearchRequestSequence.current !== requestSequence) {
+          return;
+        }
+
+        setIsKeywordSearchLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [jobs.length, keywordSearchPrompt]);
+
+  useEffect(() => {
     if (!selectedJobKey) {
       return;
     }
 
-    const nextActiveJob = resolvedScopedJobs.find((job) => job.railKey === selectedJobKey);
+    const nextActiveJob = resolvedDisplayJobs.find((job) => job.railKey === selectedJobKey);
 
     if (!nextActiveJob) {
       setActivePreview(null);
@@ -275,7 +408,7 @@ export function JobsSidePanel({
     setActiveDetails((current) =>
       current && current.id === nextPreview.id ? current : getCachedJobDetails(nextPreview),
     );
-  }, [resolvedScopedJobs, selectedJobKey]);
+  }, [resolvedDisplayJobs, selectedJobKey]);
 
   useEffect(() => {
     const jobsMissingSalary = filteredJobs
@@ -594,17 +727,23 @@ export function JobsSidePanel({
             <p className={styles.jobsRailLoading}>{loadingMessage}</p>
           ) : null}
 
-          {!loadingMessage && railErrorMessage && scopedJobs.length === 0 ? (
+          {!loadingMessage && railErrorMessage && displayJobs.length === 0 ? (
             <p className={styles.jobsRailError}>{railErrorMessage}</p>
           ) : null}
 
-          {!loadingMessage && !railErrorMessage && scopedJobs.length === 0 ? (
+          {!loadingMessage &&
+          !railErrorMessage &&
+          displayJobs.length === 0 &&
+          !keywordSearchPrompt ? (
             <p className={styles.jobsRailEmpty}>
               {emptyStateMessage ?? "No live jobs are available from the current jobs source yet."}
             </p>
           ) : null}
 
-          {!loadingMessage && scopedJobs.length > 0 && filteredJobs.length === 0 ? (
+          {!loadingMessage &&
+          !railErrorMessage &&
+          (keywordSearchPrompt ? displayJobs.length === 0 : displayJobs.length > 0) &&
+          filteredJobs.length === 0 ? (
             <div className={styles.jobsFilteredEmpty}>
               <p>No roles match the current filters.</p>
               <button
