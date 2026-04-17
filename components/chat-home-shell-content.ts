@@ -3,7 +3,6 @@ import {
   BriefcaseBusiness,
   Building2,
   FileCheck2,
-  Globe2,
   QrCode,
   ShieldCheck,
   UserRoundCheck,
@@ -591,16 +590,6 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         cta: "View the Agent ID model",
         icon: ShieldCheck,
         variant: "agentIdCard",
-        size: "small",
-      },
-      {
-        eyebrow: "Global verification",
-        title: "Coordinate cross-border verification with consent and provenance at the center",
-        copy:
-          "Support employer checks, institution checks, and future agent-to-agent workflows without overclaiming certainty.",
-        cta: "Map verification orchestration",
-        icon: Globe2,
-        variant: "globalVerification",
         size: "small",
       },
       {
