@@ -116,7 +116,7 @@ describe("AgentBuilderWorkspace", () => {
   it("renders the simplified hero without the summary cards", () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
-    expect(screen.getByRole("heading", { level: 1, name: "Badge your Career ID" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Career ID Badges" })).toBeInTheDocument();
     expect(
       screen.queryByText(
         "Create the living credibility profile behind your verified career identity. Keep the progress rail in view, open the phase you want to strengthen, and save each trust signal directly into your Career ID.",
