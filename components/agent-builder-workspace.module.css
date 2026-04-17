@@ -128,6 +128,7 @@
   display: grid;
   gap: 1rem;
   padding: 0;
+  margin-top: clamp(1.35rem, 3vw, 2.4rem);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -834,6 +835,7 @@
 
   .progressRail {
     order: -1;
+    margin-top: 0;
   }
 }
 
