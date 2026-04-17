@@ -352,7 +352,7 @@
 }
 
 .heroStarterRailGhostCopy {
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .heroStarterRail::-webkit-scrollbar {
