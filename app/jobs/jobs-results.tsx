@@ -308,10 +308,7 @@ function formatCount(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
-function hasOwnSalaryOverride(
-  record: Record<string, string | null>,
-  jobId: string,
-) {
+function hasOwnRecordEntry(record: Record<string, unknown>, jobId: string) {
   return Object.prototype.hasOwnProperty.call(record, jobId);
 }
 
@@ -495,6 +492,9 @@ export function JobsResults({
   const [isLoadingCompanyScope, setIsLoadingCompanyScope] = useState(false);
   const [totalAvailableCount, setTotalAvailableCount] = useState(initialTotalAvailableCount);
   const [salaryOverrides, setSalaryOverrides] = useState<Record<string, string | null>>({});
+  const [resolvedSalaryHydrations, setResolvedSalaryHydrations] = useState<Record<string, true>>(
+    {},
+  );
   const [keyword, setKeyword] = useState("");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
   const [roleTypeFilter, setRoleTypeFilter] = useState<"all" | RoleTypeFilter>("all");
@@ -519,7 +519,7 @@ export function JobsResults({
   const companyScopeKey = companyFilter === "all" ? null : companyFilter;
   const activeJobs = companyFilter === "all" ? loadedJobs : (companyScopedSnapshot?.jobs ?? []);
   const resolvedActiveJobs = activeJobs.map((job) =>
-    hasOwnSalaryOverride(salaryOverrides, job.id)
+    hasOwnRecordEntry(salaryOverrides, job.id)
       ? {
           ...job,
           salaryText: salaryOverrides[job.id],
@@ -555,7 +555,7 @@ export function JobsResults({
     .filter(({ evaluation }) => evaluation.matches)
     .map(({ job }) => job);
   const visibleJobs = filteredJobs.slice(0, visibleCount);
-  const salaryHydrationPool =
+  const salaryHydrationCandidates =
     salaryRangeFilter !== "all"
       ? salaryEvaluations
           .filter(
@@ -564,8 +564,10 @@ export function JobsResults({
               evaluation.reason === "unparseable-salary",
           )
           .map(({ job }) => job)
-          .slice(0, Math.max(initialCount * 2, 48))
-      : visibleJobs;
+      : [];
+  const unresolvedSalaryHydrationCandidates = salaryHydrationCandidates.filter(
+    (job) => !hasOwnRecordEntry(resolvedSalaryHydrations, job.id),
+  );
   const remainingCount = Math.max(filteredJobs.length - visibleCount, 0);
   const canRevealLoadedJobs = remainingCount > 0;
   const hasActiveFilters =
@@ -586,11 +588,30 @@ export function JobsResults({
     hasActiveFilters &&
     filteredJobs.length === 0 &&
     (canHydrateFullWindow || isHydratingFullWindow);
+  const desiredSalaryMatchCount = Math.max(initialCount, visibleCount);
+  const shouldHydrateSalaryCandidates =
+    salaryRangeFilter !== "all" &&
+    !isSearchingAllJobs &&
+    filteredJobs.length < desiredSalaryMatchCount;
+  const salaryHydrationPool =
+    salaryRangeFilter === "all"
+      ? visibleJobs
+      : shouldHydrateSalaryCandidates
+        ? unresolvedSalaryHydrationCandidates
+        : [];
+  const isSearchingSalaryMatches =
+    !isSearchingAllJobs &&
+    salaryRangeFilter !== "all" &&
+    filteredJobs.length === 0 &&
+    unresolvedSalaryHydrationCandidates.length > 0;
   const isLoadingCompanyResults = companyFilter !== "all" && isLoadingCompanyScope;
   const showLoadMore =
     companyFilter === "all" ? canRevealLoadedJobs || hasMoreAvailable : canRevealLoadedJobs;
   const resultsTotalLabel =
-    hasActiveFilters && !isLoadingCompanyResults && !isSearchingAllJobs
+    hasActiveFilters &&
+    !isLoadingCompanyResults &&
+    !isSearchingAllJobs &&
+    !isSearchingSalaryMatches
       ? `${formatCount(filteredJobs.length)} ${pluralize(filteredJobs.length, "matching role")}`
       : `${formatCount(activeTotalAvailableCount)} jobs available`;
 
@@ -625,6 +646,7 @@ export function JobsResults({
     setLoadedCompanyScopeKey(null);
     setIsLoadingCompanyScope(false);
     setSalaryOverrides({});
+    setResolvedSalaryHydrations({});
     setHasMoreAvailable(jobs.length >= initialRequestLimit);
     setHasHydratedFullWindow(
       initialRequestLimit === Number.MAX_SAFE_INTEGER || initialTotalAvailableCount <= jobs.length,
@@ -750,36 +772,43 @@ export function JobsResults({
   ]);
 
   useEffect(() => {
-    const jobsMissingSalary = salaryHydrationPool
+    const jobsNeedingSalaryHydration = salaryHydrationPool
       .filter(
         (job) =>
-          !job.salaryText &&
-          !hasOwnSalaryOverride(salaryOverrides, job.id) &&
+          !hasOwnRecordEntry(resolvedSalaryHydrations, job.id) &&
           !salaryHydrationInFlight.current.has(job.id),
       )
       .slice(0, 12);
 
-    if (jobsMissingSalary.length === 0) {
+    if (jobsNeedingSalaryHydration.length === 0) {
       return;
     }
 
     const controller = new AbortController();
 
-    jobsMissingSalary.forEach((job) => {
+    jobsNeedingSalaryHydration.forEach((job) => {
       salaryHydrationInFlight.current.add(job.id);
     });
 
     void (async () => {
       const hydratedSalaries = await Promise.all(
-        jobsMissingSalary.map(async (job) => {
+        jobsNeedingSalaryHydration.map(async (job) => {
           try {
             const details = await fetchJobDetails(createJobDetailsPreview(job), {
               signal: controller.signal,
             });
 
-            return [job.id, details.salaryText ?? null] as const;
+            return {
+              jobId: job.id,
+              originalSalaryText: job.salaryText ?? null,
+              salaryText: details.salaryText ?? null,
+            } as const;
           } catch {
-            return [job.id, null] as const;
+            return {
+              jobId: job.id,
+              originalSalaryText: job.salaryText ?? null,
+              salaryText: null,
+            } as const;
           } finally {
             salaryHydrationInFlight.current.delete(job.id);
           }
@@ -794,12 +823,32 @@ export function JobsResults({
         const next = { ...current };
         let changed = false;
 
-        hydratedSalaries.forEach(([jobId, salaryText]) => {
-          if (hasOwnSalaryOverride(current, jobId)) {
+        hydratedSalaries.forEach(({ jobId, originalSalaryText, salaryText }) => {
+          if (
+            hasOwnRecordEntry(current, jobId) ||
+            !salaryText ||
+            salaryText === originalSalaryText
+          ) {
             return;
           }
 
           next[jobId] = salaryText;
+          changed = true;
+        });
+
+        return changed ? next : current;
+      });
+
+      setResolvedSalaryHydrations((current) => {
+        const next = { ...current };
+        let changed = false;
+
+        hydratedSalaries.forEach(({ jobId }) => {
+          if (hasOwnRecordEntry(current, jobId)) {
+            return;
+          }
+
+          next[jobId] = true;
           changed = true;
         });
 
@@ -810,11 +859,11 @@ export function JobsResults({
     return () => {
       controller.abort();
 
-      jobsMissingSalary.forEach((job) => {
+      jobsNeedingSalaryHydration.forEach((job) => {
         salaryHydrationInFlight.current.delete(job.id);
       });
     };
-  }, [salaryHydrationPool, salaryOverrides]);
+  }, [resolvedSalaryHydrations, salaryHydrationPool]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development" || salaryRangeFilter === "all") {
@@ -846,10 +895,18 @@ export function JobsResults({
       candidateCount: salaryEvaluations.length,
       filter: salaryRangeFilter,
       matchedCount: filteredJobs.length,
+      remainingHydrationCandidates: unresolvedSalaryHydrationCandidates.length,
       reasonCounts,
+      resolvedHydrationCount: Object.keys(resolvedSalaryHydrations).length,
       sampleExcluded,
     });
-  }, [filteredJobs.length, salaryEvaluations, salaryRangeFilter]);
+  }, [
+    filteredJobs.length,
+    resolvedSalaryHydrations,
+    salaryEvaluations,
+    salaryRangeFilter,
+    unresolvedSalaryHydrationCandidates.length,
+  ]);
 
   async function hydrateFullJobsWindow(requestedLimit = fullJobsWindowLimit) {
     if (
@@ -1092,6 +1149,8 @@ export function JobsResults({
                   ? `Showing all ${formatCount(activeTotalAvailableCount)} ${companyFilter} jobs available in the snapshot.`
                 : isSearchingAllJobs
                     ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
+                    : isSearchingSalaryMatches
+                      ? `Checking salary details across ${formatCount(jobsMatchingNonSalaryFilters.length)} filtered ${pluralize(jobsMatchingNonSalaryFilters.length, "role")} so pay range matches can surface even when the saved snapshot is missing compensation metadata.`
                     : `Filters automatically expand to all ${formatCount(activeTotalAvailableCount)} available jobs in the saved snapshot.`}
             </p>
           </div>
@@ -1104,6 +1163,8 @@ export function JobsResults({
             ? `Loading ${companyFilter} roles...`
             : isSearchingAllJobs
             ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs for matches...`
+            : isSearchingSalaryMatches
+              ? `Checking salary details across ${formatCount(jobsMatchingNonSalaryFilters.length)} filtered ${pluralize(jobsMatchingNonSalaryFilters.length, "role")}...`
             : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded.`}
         </p>
         <p className={styles.resultsTotal}>
@@ -1229,6 +1290,24 @@ export function JobsResults({
             The first {formatCount(loadedJobs.length)} roles loaded instantly. Career AI is
             expanding the rest of the jobs snapshot in the background so your filters can search
             the full jobs pool.
+          </p>
+          <button
+            className={styles.clearFiltersButton}
+            onClick={() => {
+              clearAllFilters();
+            }}
+            type="button"
+          >
+            Clear filters
+          </button>
+        </article>
+      ) : isSearchingSalaryMatches ? (
+        <article className={styles.noResultsState}>
+          <p className={styles.filterEyebrow}>Checking salary details</p>
+          <h3>Checking salary details for matching roles.</h3>
+          <p>
+            Career AI is filling in missing compensation data across the filtered jobs so this pay
+            range can finish evaluating the loaded matches.
           </p>
           <button
             className={styles.clearFiltersButton}

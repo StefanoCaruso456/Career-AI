@@ -41,6 +41,40 @@ function createJob(index: number): JobPostingDto {
   };
 }
 
+function createJobDetailsResponse(index: number, salaryText: string | null) {
+  return new Response(
+    JSON.stringify({
+      success: true,
+      data: {
+        id: `job-${index}`,
+        title: `Role ${index}`,
+        company: "Figma",
+        location: "San Francisco, CA",
+        employmentType: "Full-time",
+        postedAt: "2026-04-10T12:00:00.000Z",
+        externalJobId: `external-${index}`,
+        source: "greenhouse",
+        sourceLabel: "Figma",
+        sourceUrl: `https://jobs.example.com/${index}`,
+        descriptionHtml: "<p>Read the full role without leaving Career AI.</p>",
+        descriptionText: "Read the full role without leaving Career AI.",
+        summary: "Read the full role without leaving Career AI.",
+        responsibilities: [],
+        qualifications: [],
+        preferredQualifications: [],
+        salaryText,
+        metadata: null,
+        contentStatus: "full",
+        fallbackMessage: null,
+      },
+    }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
+}
+
 describe("JobsResults", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -257,6 +291,115 @@ describe("JobsResults", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
     });
+  });
+
+  it("hydrates unparseable salary text before ruling jobs out", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      expect(url).toBe("/api/v1/jobs/job-1/details");
+
+      return createJobDetailsResponse(1, "$160,000 - $175,000 a year");
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        jobs={[
+          {
+            ...createJob(1),
+            salaryText: "Compensation depends on level and location.",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "150k-200k" },
+    });
+
+    expect(await screen.findByText("Showing 1 of 1 matching role from 1 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Role 1")).toBeInTheDocument();
+    expect(screen.getByText("$160,000 - $175,000 a year")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+  });
+
+  it("keeps hydrating salary details until a later matching job is found", async () => {
+    const jobs = Array.from({ length: 60 }, (_, index) => ({
+      ...createJob(index + 1),
+      salaryText: null,
+    }));
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      const jobId = Number.parseInt(url.match(/job-(\d+)/)?.[1] ?? "0", 10);
+
+      return createJobDetailsResponse(
+        jobId,
+        jobId === 56 ? "$170,000 - $190,000 a year" : null,
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<JobsResults initialCount={1} jobs={jobs} />);
+
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "150k-200k" },
+    });
+
+    expect(await screen.findByText("Role 56")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 matching role from 60 loaded.")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some(([input]) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+        return url === "/api/v1/jobs/job-56/details";
+      })).toBe(true);
+    });
+  });
+
+  it("shows a salary hydration search state before declaring no matches", async () => {
+    let resolveFetch: ((response: Response) => void) | null = null;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        jobs={[
+          {
+            ...createJob(1),
+            salaryText: null,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "150k-200k" },
+    });
+
+    expect(await screen.findByText("Checking salary details for matching roles.")).toBeInTheDocument();
+    expect(screen.queryByText("No roles match the current filters.")).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalled();
+    });
+
+    resolveFetch?.(createJobDetailsResponse(1, null));
+
+    expect(await screen.findByText("No roles match the current filters.")).toBeInTheDocument();
   });
 
   it("opens a reusable in-app details modal from the job cards", async () => {
@@ -712,8 +855,9 @@ describe("JobsResults", () => {
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-      expect(url).toBe("/api/v1/jobs?limit=53");
+      if (url !== "/api/v1/jobs?limit=53") {
+        throw new Error(`Unexpected URL ${url}`);
+      }
 
       return new Response(
         JSON.stringify({
@@ -777,7 +921,14 @@ describe("JobsResults", () => {
     );
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url =
+            typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+          return url === "/api/v1/jobs?limit=53";
+        }),
+      ).toBe(true);
     });
 
     await waitFor(() => {
