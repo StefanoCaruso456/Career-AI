@@ -380,20 +380,15 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.1rem;
-  border-bottom: 1px solid var(--builder-border);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0)),
-    rgba(26, 27, 31, 0.2);
+  padding: 1rem 1.1rem 0;
+  border-bottom: 0;
+  background: transparent;
 }
 
 .modalFooter {
   align-items: center;
-  border-top: 1px solid var(--builder-border);
-  border-bottom: 0;
-  background:
-    linear-gradient(180deg, rgba(29, 30, 34, 0.82), rgba(20, 21, 25, 0.94)),
-    rgba(20, 21, 25, 0.94);
+  padding-top: 0.25rem;
+  border-top: 0;
 }
 
 .modalHeaderCopy {
@@ -431,21 +426,15 @@
   overflow-y: auto;
   display: grid;
   gap: 1rem;
-  padding: 0.3rem 1.1rem 1.1rem;
+  padding: 0.5rem 1.1rem 1rem;
 }
 
 .sectionPanel {
   display: grid;
   gap: 1rem;
-  padding: 1rem;
-  border-radius: 1.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background:
-    linear-gradient(180deg, var(--builder-surface-top), var(--builder-surface-bottom)),
-    var(--builder-panel);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.035),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .sectionHeader {
@@ -599,18 +588,15 @@
 
 .evidenceGrid {
   display: grid;
-  gap: clamp(5rem, 10vw, 8rem);
+  gap: clamp(2rem, 4vw, 3rem);
 }
 
 .evidenceCard {
   display: grid;
   gap: 0.95rem;
-  padding: 1rem;
-  border-radius: 1.35rem;
-  border: 1px solid var(--builder-border);
-  background:
-    linear-gradient(180deg, var(--builder-surface-top), var(--builder-surface-bottom)),
-    rgba(31, 30, 34, 0.94);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .evidenceCardHeader {
@@ -898,11 +884,6 @@
 @media (max-width: 560px) {
   .shell {
     width: min(100%, calc(100% - 1rem));
-  }
-
-  .sectionPanel,
-  .evidenceCard {
-    padding: 0.9rem;
   }
 
   .modalScroll {
