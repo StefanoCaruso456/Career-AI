@@ -31,6 +31,7 @@ import {
   phaseSequence,
   type BuilderEvidenceTemplate,
 } from "./config";
+import { getCareerIdPresentation } from "@/packages/career-id-domain/src";
 
 type BuilderViewer = {
   email: string;
@@ -408,6 +409,11 @@ async function buildSnapshot(
       summary: getPhaseSummary(phase, tierStats[phase], isComplete, isCurrent),
     };
   });
+  const careerIdPresentation = await getCareerIdPresentation({
+    careerIdentityId: aggregate.talentIdentity.id,
+    correlationId,
+    phaseProgress,
+  });
 
   const nextUploads = nextUploadPriority
     .filter((templateId) => {
@@ -441,6 +447,8 @@ async function buildSnapshot(
       nextUploads,
     },
     phaseProgress,
+    careerIdProfile: careerIdPresentation.careerIdProfile,
+    documentVerification: careerIdPresentation.documentVerification,
   };
 }
 

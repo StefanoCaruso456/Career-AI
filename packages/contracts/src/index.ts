@@ -9,6 +9,7 @@ export * from "./artifact";
 export * from "./chat";
 export * from "./claim";
 export * from "./career-builder";
+export * from "./career-id";
 export * from "./enums";
 export * from "./errors";
 export * from "./identity";
