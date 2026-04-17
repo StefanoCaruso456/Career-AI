@@ -491,6 +491,35 @@ describe("AgentBuilderWorkspace", () => {
       within(dialog).getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
     ).toBeInTheDocument();
     expect(within(dialog).getByText("Driver's license + live selfie")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /You'll capture the front and back of your ID plus the live selfie in Persona after you continue\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Continue to secure capture" }),
+    ).toBeInTheDocument();
+  });
+
+  it("makes the Persona handoff explicit before starting secure verification", async () => {
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue to secure capture" }));
+
+    const dialog = await screen.findByRole("dialog");
+
+    expect(
+      within(dialog).getByRole("heading", { level: 2, name: "Before you begin" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        /After you agree, we'll send you to Persona for the secure capture flow\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Open secure verification" }),
+    ).toBeInTheDocument();
   });
 
   it("renders the verified artifact inside the document-backed rail state", () => {
