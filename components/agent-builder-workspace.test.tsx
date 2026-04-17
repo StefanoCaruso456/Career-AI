@@ -446,8 +446,12 @@ describe("AgentBuilderWorkspace", () => {
 
     render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
 
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Verify your identity" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /verify your identity/i })).toBeInTheDocument();
-    expect(screen.getByText("About 2 minutes")).toBeInTheDocument();
+    expect(screen.getAllByText("About 2 minutes").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Driver's license + live selfie").length).toBeGreaterThan(0);
   });
 
   it("opens the guided verification modal from the document-backed CTA", async () => {
@@ -458,11 +462,13 @@ describe("AgentBuilderWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
 
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+
+    expect(dialog).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
+      within(dialog).getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Driver's license + live selfie")).toBeInTheDocument();
+    expect(within(dialog).getByText("Driver's license + live selfie")).toBeInTheDocument();
   });
 
   it("renders the verified artifact inside the document-backed rail state", () => {
@@ -506,7 +512,10 @@ describe("AgentBuilderWorkspace", () => {
 
     render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
 
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Government ID verified" }),
+    ).toBeInTheDocument();
     expect(screen.getAllByText("Government ID verified").length).toBeGreaterThan(0);
-    expect(screen.getByText("Webhook-confirmed from Persona")).toBeInTheDocument();
+    expect(screen.getAllByText("Webhook-confirmed from Persona").length).toBeGreaterThan(0);
   });
 });

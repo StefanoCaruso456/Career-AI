@@ -375,6 +375,62 @@ function getDocumentStatusTagLabel(status: CareerIdVerificationStatus) {
   }
 }
 
+function getDocumentHeroTitle(status: CareerIdVerificationStatus) {
+  switch (status) {
+    case "locked":
+      return "Government ID verification";
+    case "in_progress":
+      return "Identity verification in review";
+    case "manual_review":
+      return "Verification under review";
+    case "retry_needed":
+      return "Let's retry your identity check";
+    case "failed":
+      return "Verification not completed";
+    case "verified":
+      return "Government ID verified";
+    case "not_started":
+    default:
+      return "Verify your identity";
+  }
+}
+
+function getDocumentHeroEyebrow(status: CareerIdVerificationStatus) {
+  switch (status) {
+    case "verified":
+      return "Verified trust artifact";
+    case "in_progress":
+    case "manual_review":
+      return "Active verification";
+    case "retry_needed":
+    case "failed":
+      return "Recovery needed";
+    case "locked":
+      return "Locked trust step";
+    case "not_started":
+    default:
+      return "Featured trust step";
+  }
+}
+
+function getDocumentHeroIcon(status: CareerIdVerificationStatus) {
+  switch (status) {
+    case "locked":
+      return <LockKeyhole aria-hidden="true" size={18} strokeWidth={2.1} />;
+    case "in_progress":
+    case "manual_review":
+      return <LoaderCircle aria-hidden="true" className={styles.spinningIcon} size={18} strokeWidth={2.1} />;
+    case "retry_needed":
+    case "failed":
+      return <AlertCircle aria-hidden="true" size={18} strokeWidth={2.1} />;
+    case "verified":
+      return <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2.1} />;
+    case "not_started":
+    default:
+      return <ShieldCheck aria-hidden="true" size={18} strokeWidth={2.1} />;
+  }
+}
+
 function EvidenceGroup({
   children,
   className,
@@ -729,6 +785,18 @@ export function AgentBuilderWorkspace({
   );
   const documentVerification = snapshot.documentVerification;
   const documentVerificationStatus = documentVerification.status;
+  const documentHeroToneClassName =
+    documentVerificationStatus === "verified"
+      ? styles.documentHeroCardVerified
+      : documentVerificationStatus === "in_progress" ||
+          documentVerificationStatus === "manual_review"
+        ? styles.documentHeroCardReview
+        : documentVerificationStatus === "retry_needed" ||
+            documentVerificationStatus === "failed"
+          ? styles.documentHeroCardAlert
+          : documentVerificationStatus === "locked"
+            ? styles.documentHeroCardLocked
+            : styles.documentHeroCardAvailable;
 
   const activeTemplates = useMemo(
     () =>
@@ -1711,6 +1779,71 @@ export function AgentBuilderWorkspace({
             </div>
 
             <aside className={styles.progressRail}>
+              <section className={`${styles.documentHeroCard} ${documentHeroToneClassName}`}>
+                <div className={styles.documentHeroBadgeRow}>
+                  <span className={styles.documentHeroEyebrow}>
+                    {getDocumentHeroEyebrow(documentVerificationStatus)}
+                  </span>
+                  <span className={styles.statusTag}>
+                    {getDocumentStatusTagLabel(documentVerificationStatus)}
+                  </span>
+                </div>
+
+                <div className={styles.documentHeroHeader}>
+                  <span className={styles.documentHeroIcon}>
+                    {getDocumentHeroIcon(documentVerificationStatus)}
+                  </span>
+
+                  <div className={styles.documentHeroBody}>
+                    <h2 className={styles.documentHeroTitle}>
+                      {getDocumentHeroTitle(documentVerificationStatus)}
+                    </h2>
+                    <p className={styles.documentHeroCopy}>{documentVerification.helperText}</p>
+                  </div>
+                </div>
+
+                <div className={styles.documentHeroMeta}>
+                  <span className={styles.supportChip}>
+                    {documentVerification.estimatedTimeLabel}
+                  </span>
+                  <span className={styles.supportChip}>Driver&apos;s license + live selfie</span>
+                </div>
+
+                {documentVerification.ctaLabel ? (
+                  <button
+                    className={styles.documentHeroCta}
+                    onClick={openGovernmentVerificationModal}
+                    type="button"
+                  >
+                    <span>{documentVerification.ctaLabel}</span>
+                    <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
+                  </button>
+                ) : null}
+
+                {!documentVerification.unlocked ? (
+                  <p className={styles.documentHeroNote}>
+                    Finish the earlier trust layers first, then this becomes your fastest way to add a verified trust artifact.
+                  </p>
+                ) : null}
+
+                {documentVerificationStatus === "in_progress" ||
+                documentVerificationStatus === "manual_review" ? (
+                  <p className={styles.documentHeroNote}>
+                    Your Document-backed count updates only after backend webhook confirmation.
+                  </p>
+                ) : null}
+
+                {documentVerification.artifactLabel ? (
+                  <div className={styles.documentArtifactCard}>
+                    <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
+                    <div>
+                      <strong>{documentVerification.artifactLabel}</strong>
+                      <span>Webhook-confirmed from Persona</span>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+
               <div className={styles.progressRailHeader}>
                 <h2>Credible Career ID creation status</h2>
                 <p className={styles.progressRailCopy}>
@@ -1804,17 +1937,6 @@ export function AgentBuilderWorkspace({
                                 {getDocumentStatusTagLabel(documentVerificationStatus)}
                               </span>
                             </div>
-
-                            {documentVerification.ctaLabel ? (
-                              <button
-                                className={styles.pipelinePrimaryCta}
-                                onClick={openGovernmentVerificationModal}
-                                type="button"
-                              >
-                                <span>{documentVerification.ctaLabel}</span>
-                                <ArrowUpRight aria-hidden="true" size={15} strokeWidth={2.1} />
-                              </button>
-                            ) : null}
 
                             {documentVerification.artifactLabel ? (
                               <div className={styles.documentArtifactCard}>
