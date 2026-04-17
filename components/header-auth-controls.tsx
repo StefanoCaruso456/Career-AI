@@ -150,11 +150,14 @@ export function HeaderAuthControls() {
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
   const accountLabel = displayName;
   const accountMeta = accountTypeLabel;
+  const isCareerWorkspaceRoute = pathname === "/account" || pathname.startsWith("/account/");
   const showAccessRequests =
     session.user.roleType === "candidate" ||
     (preferredPersona === "job_seeker" &&
       session.user.roleType !== "recruiter" &&
       session.user.roleType !== "hiring_manager");
+  const showWorkspaceShortcuts =
+    shouldResumeOnboarding || !(preferredPersona === "job_seeker" && isCareerWorkspaceRoute);
   const isAccessRequestsPage =
     pathname === accessRequestsHref || pathname.startsWith(`${accessRequestsHref}/`);
   const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
@@ -162,7 +165,9 @@ export function HeaderAuthControls() {
     primaryMenuHref === "/onboarding"
       ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
       : pathname === primaryMenuHref || pathname.startsWith(`${primaryMenuHref}/`);
-  const primaryMenuLabel = shouldResumeOnboarding ? "Finish onboarding" : "Workspace";
+  const primaryMenuLabel = shouldResumeOnboarding
+    ? "Finish onboarding"
+    : personaConfigs[preferredPersona].workspaceLabel;
 
   return (
     <div className={styles.actions}>
@@ -212,74 +217,93 @@ export function HeaderAuthControls() {
               <span className={styles.settingsPanelBadge}>{accountTypeLabel}</span>
             </div>
 
-            <div className={styles.settingsPanelDivider} />
+            {showWorkspaceShortcuts ? (
+              <>
+                <div className={styles.settingsPanelDivider} />
 
-            <Link
-              aria-current={isPrimaryMenuPage ? "page" : undefined}
-              className={
-                isPrimaryMenuPage
-                  ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
-                  : styles.settingsItem
-              }
-              href={primaryMenuHref}
-              onClick={() => {
-                setMenuOpen(false);
-              }}
-              role="menuitem"
-            >
-              <span className={styles.settingsItemLead}>
-                <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
-                <span className={styles.settingsItemCopy}>
-                  <strong>{primaryMenuLabel}</strong>
-                </span>
-              </span>
-              <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
-            </Link>
-
-            <Link
-              aria-current={isSettingsPage ? "page" : undefined}
-              className={
-                isSettingsPage
-                  ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
-                  : styles.settingsItem
-              }
-              href={settingsHref}
-              onClick={() => {
-                setMenuOpen(false);
-              }}
-              role="menuitem"
-            >
-              <span className={styles.settingsItemLead}>
-                <UserRound aria-hidden="true" size={16} strokeWidth={2} />
-                <span className={styles.settingsItemCopy}>
-                  <strong>Profile & account</strong>
-                </span>
-              </span>
-              <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
-            </Link>
-
-            {showAccessRequests ? (
-              <Link
-                aria-current={isAccessRequestsPage ? "page" : undefined}
-                className={
-                  isAccessRequestsPage
-                    ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
-                    : styles.settingsItem
-                }
-                href={accessRequestsHref}
-                onClick={() => {
-                  setMenuOpen(false);
-                }}
-                role="menuitem"
-              >
-                <span className={styles.settingsItemLead}>
-                  <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
-                  <span className={styles.settingsItemCopy}>
-                    <strong>Access Requests</strong>
+                <Link
+                  aria-current={isPrimaryMenuPage ? "page" : undefined}
+                  className={
+                    isPrimaryMenuPage
+                      ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                      : styles.settingsItem
+                  }
+                  href={primaryMenuHref}
+                  onClick={() => {
+                    setMenuOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  <span className={styles.settingsItemLead}>
+                    <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
+                    <span className={styles.settingsItemCopy}>
+                      <strong>{primaryMenuLabel}</strong>
+                    </span>
                   </span>
-                </span>
-                <ChevronRight aria-hidden="true" className={styles.settingsItemArrow} size={16} strokeWidth={2} />
-              </Link>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className={styles.settingsItemArrow}
+                    size={16}
+                    strokeWidth={2}
+                  />
+                </Link>
+
+                <Link
+                  aria-current={isSettingsPage ? "page" : undefined}
+                  className={
+                    isSettingsPage
+                      ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                      : styles.settingsItem
+                  }
+                  href={settingsHref}
+                  onClick={() => {
+                    setMenuOpen(false);
+                  }}
+                  role="menuitem"
+                >
+                  <span className={styles.settingsItemLead}>
+                    <UserRound aria-hidden="true" size={16} strokeWidth={2} />
+                    <span className={styles.settingsItemCopy}>
+                      <strong>Profile & account</strong>
+                    </span>
+                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className={styles.settingsItemArrow}
+                    size={16}
+                    strokeWidth={2}
+                  />
+                </Link>
+
+                {showAccessRequests ? (
+                  <Link
+                    aria-current={isAccessRequestsPage ? "page" : undefined}
+                    className={
+                      isAccessRequestsPage
+                        ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                        : styles.settingsItem
+                    }
+                    href={accessRequestsHref}
+                    onClick={() => {
+                      setMenuOpen(false);
+                    }}
+                    role="menuitem"
+                  >
+                    <span className={styles.settingsItemLead}>
+                      <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+                      <span className={styles.settingsItemCopy}>
+                        <strong>Access Requests</strong>
+                      </span>
+                    </span>
+                    <ChevronRight
+                      aria-hidden="true"
+                      className={styles.settingsItemArrow}
+                      size={16}
+                      strokeWidth={2}
+                    />
+                  </Link>
+                ) : null}
+              </>
             ) : null}
 
             <div className={styles.settingsPanelDivider} />

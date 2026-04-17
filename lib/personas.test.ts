@@ -20,7 +20,7 @@ describe("persona helpers", () => {
   it("returns the configured post-auth routes", () => {
     expect(getPostAuthRoute("job_seeker")).toBe("/account");
     expect(getPostAuthRoute("employer")).toBe("/employer");
-    expect(getSettingsRoute("job_seeker")).toBe("/settings");
+    expect(getSettingsRoute("job_seeker")).toBe("/account/settings");
     expect(getSettingsRoute("employer")).toBe("/employer/settings");
   });
 
