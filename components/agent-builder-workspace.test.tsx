@@ -150,18 +150,18 @@ describe("AgentBuilderWorkspace", () => {
     expect(within(stepList).getAllByText(/^[1-5]$/)).toHaveLength(5);
   });
 
-  it("removes the duplicate phase section header when a modal only has one section", async () => {
+  it("shows the structured intake header even when a modal only has one section", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /relationship-backed/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.queryByText("Structured intake")).not.toBeInTheDocument();
+    expect(screen.getByText("Structured intake")).toBeInTheDocument();
     expect(
-      screen.queryByText(
+      screen.getByText(
         "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
       ),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
   });
 

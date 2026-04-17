@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import {
   type ChangeEvent,
+  type ReactNode,
   startTransition,
   useEffect,
   useId,
@@ -333,6 +334,29 @@ function PhaseCount({
   );
 }
 
+function EvidenceGroup({
+  children,
+  className,
+  copy,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  copy?: string;
+  label: string;
+}) {
+  return (
+    <section className={className ? `${styles.evidenceGroup} ${className}` : styles.evidenceGroup}>
+      <div className={styles.evidenceGroupHeader}>
+        <span className={styles.evidenceGroupEyebrow}>{label}</span>
+        {copy ? <p className={styles.evidenceGroupCopy}>{copy}</p> : null}
+      </div>
+
+      {children}
+    </section>
+  );
+}
+
 function EvidenceCard({
   draft,
   errors,
@@ -366,170 +390,195 @@ function EvidenceCard({
 
   return (
     <article className={styles.evidenceCard}>
-      <div className={styles.evidenceCardHeader}>
-        <div>
+      <header className={styles.evidenceCardHeader}>
+        <div className={styles.evidenceHeaderCopy}>
           <h3 className={styles.evidenceTitle}>{template.title}</h3>
           <p className={styles.evidenceGuidance}>{template.guidance}</p>
         </div>
 
-        <span className={styles.phaseTag}>{phaseMeta[template.completionTier].label}</span>
-      </div>
-
-      <div className={styles.evidenceMetaRow}>
-        <span className={styles.statusBadge}>{stateLabel}</span>
-        <span className={styles.formatHint}>{template.acceptedFormats}</span>
-      </div>
+        <div className={styles.evidenceHeaderMeta}>
+          <div className={styles.evidencePillRow}>
+            <span className={styles.phaseTag}>{phaseMeta[template.completionTier].label}</span>
+            <span className={styles.statusBadge}>{stateLabel}</span>
+          </div>
+          <p className={styles.formatHint}>{template.acceptedFormats}</p>
+        </div>
+      </header>
 
       {isDriverLicenseTemplate(template) ? (
-        <div className={styles.uploadSlotGrid}>
-          {driversLicenseImageSlots.map(({ key, label }) => {
-            const existing = draft.files.find((file) => file.slot === key);
+        <EvidenceGroup
+          className={styles.evidenceUploadGroup}
+          copy="Add the required front and back images to finish this identity proof."
+          label="Required images"
+        >
+          <div className={styles.uploadSlotGrid}>
+            {driversLicenseImageSlots.map(({ key, label }) => {
+              const existing = draft.files.find((file) => file.slot === key);
 
-            return (
-              <div className={styles.uploadSlot} key={`${template.id}-${key}`}>
-                <span className={styles.fieldLabel}>{label}</span>
-                <label className={styles.uploadZone} htmlFor={`upload-${template.id}-${key}`}>
-                  <input
-                    accept="image/*"
-                    className={styles.fileInput}
-                    id={`upload-${template.id}-${key}`}
-                    onChange={(event) =>
-                      onDriverLicenseFile(template.id, key, event.target.files)
-                    }
-                    type="file"
-                  />
-                  <Upload aria-hidden="true" size={18} strokeWidth={2} />
-                  <div>
-                    <strong>{existing ? "Replace image" : `Upload ${label.toLowerCase()}`}</strong>
-                    <span>Image only</span>
-                  </div>
-                </label>
-
-                {existing ? (
-                  <div className={styles.fileChipRow}>
-                    <div className={styles.fileChip}>
-                      <div>
-                        <strong>{existing.name}</strong>
-                        <small>{existing.sizeLabel}</small>
-                      </div>
-
-                      <button
-                        className={styles.fileChipRemove}
-                        onClick={() => onRemoveFile(template.id, existing.key, key)}
-                        type="button"
-                      >
-                        Remove
-                      </button>
+              return (
+                <div className={styles.uploadSlot} key={`${template.id}-${key}`}>
+                  <span className={styles.fieldLabel}>{label}</span>
+                  <label className={styles.uploadZone} htmlFor={`upload-${template.id}-${key}`}>
+                    <input
+                      accept="image/*"
+                      className={styles.fileInput}
+                      id={`upload-${template.id}-${key}`}
+                      onChange={(event) =>
+                        onDriverLicenseFile(template.id, key, event.target.files)
+                      }
+                      type="file"
+                    />
+                    <Upload aria-hidden="true" size={18} strokeWidth={2} />
+                    <div>
+                      <strong>{existing ? "Replace image" : `Upload ${label.toLowerCase()}`}</strong>
+                      <span>Image only. Drag and drop or click to browse.</span>
                     </div>
-                  </div>
-                ) : (
-                  <p className={styles.uploadSlotHint}>Required image slot.</p>
-                )}
-              </div>
-            );
-          })}
+                  </label>
 
-          {errors?.files ? <p className={styles.fieldError}>{errors.files}</p> : null}
-        </div>
-      ) : (
-        <>
-          <div className={styles.fieldGrid}>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Source / issuer</span>
-              <input
-                aria-invalid={Boolean(errors?.sourceOrIssuer)}
-                className={styles.input}
-                onChange={(event) =>
-                  onChange(template.id, "sourceOrIssuer", event.target.value)
-                }
-                placeholder={template.sourceHint}
-                type="text"
-                value={draft.sourceOrIssuer}
-              />
-              {errors?.sourceOrIssuer ? (
-                <span className={styles.fieldError}>{errors.sourceOrIssuer}</span>
-              ) : null}
-            </label>
+                  {existing ? (
+                    <div className={styles.fileChipRow}>
+                      <div className={styles.fileChip}>
+                        <div>
+                          <strong>{existing.name}</strong>
+                          <small>{existing.sizeLabel}</small>
+                        </div>
 
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Verified or issued on</span>
-              <input
-                aria-invalid={Boolean(errors?.issuedOn)}
-                className={styles.input}
-                onChange={(event) => onChange(template.id, "issuedOn", event.target.value)}
-                type="date"
-                value={draft.issuedOn}
-              />
-              {errors?.issuedOn ? (
-                <span className={styles.fieldError}>{errors.issuedOn}</span>
-              ) : null}
-            </label>
-
-            <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span className={styles.fieldLabel}>Validation context</span>
-              <textarea
-                className={styles.textarea}
-                onChange={(event) =>
-                  onChange(template.id, "validationContext", event.target.value)
-                }
-                placeholder={template.contextHint}
-                rows={3}
-                value={draft.validationContext}
-              />
-            </label>
-
-            <label className={`${styles.field} ${styles.fieldFull}`}>
-              <span className={styles.fieldLabel}>Why this should matter in soul.md</span>
-              <textarea
-                className={styles.textarea}
-                onChange={(event) =>
-                  onChange(template.id, "whyItMatters", event.target.value)
-                }
-                placeholder="Add the signal, overlap, or milestone this evidence should reinforce."
-                rows={2}
-                value={draft.whyItMatters}
-              />
-            </label>
+                        <button
+                          className={styles.fileChipRemove}
+                          onClick={() => onRemoveFile(template.id, existing.key, key)}
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className={styles.uploadSlotHint}>Required image slot.</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <label className={styles.uploadZone} htmlFor={`upload-${template.id}`}>
-            <input
-              accept={defaultUploadAccept}
-              className={styles.fileInput}
-              id={`upload-${template.id}`}
-              multiple
-              onChange={(event) => onDefaultFiles(template.id, event.target.files)}
-              type="file"
-            />
-            <Upload aria-hidden="true" size={18} strokeWidth={2} />
-            <div>
-              <strong>Upload supporting evidence</strong>
-              <span>{template.acceptedFormats}</span>
-            </div>
-          </label>
-
           {errors?.files ? <p className={styles.fieldError}>{errors.files}</p> : null}
+        </EvidenceGroup>
+      ) : (
+        <>
+          <EvidenceGroup
+            copy="Capture who issued this proof and when it was verified."
+            label="Core metadata"
+          >
+            <div className={styles.fieldGrid}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Source / issuer</span>
+                <input
+                  aria-invalid={Boolean(errors?.sourceOrIssuer)}
+                  className={styles.input}
+                  onChange={(event) =>
+                    onChange(template.id, "sourceOrIssuer", event.target.value)
+                  }
+                  placeholder={template.sourceHint}
+                  type="text"
+                  value={draft.sourceOrIssuer}
+                />
+                {errors?.sourceOrIssuer ? (
+                  <span className={styles.fieldError}>{errors.sourceOrIssuer}</span>
+                ) : null}
+              </label>
 
-          {draft.files.length > 0 ? (
-            <div className={styles.fileChipRow}>
-              {draft.files.map((file) => (
-                <div className={styles.fileChip} key={file.key}>
-                  <div>
-                    <strong>{file.name}</strong>
-                    <small>{file.sizeLabel}</small>
-                  </div>
-
-                  <button
-                    className={styles.fileChipRemove}
-                    onClick={() => onRemoveFile(template.id, file.key, file.slot)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Verified or issued on</span>
+                <input
+                  aria-invalid={Boolean(errors?.issuedOn)}
+                  className={styles.input}
+                  onChange={(event) => onChange(template.id, "issuedOn", event.target.value)}
+                  type="date"
+                  value={draft.issuedOn}
+                />
+                {errors?.issuedOn ? (
+                  <span className={styles.fieldError}>{errors.issuedOn}</span>
+                ) : null}
+              </label>
             </div>
-          ) : null}
+          </EvidenceGroup>
+
+          <EvidenceGroup
+            copy="Explain what this proof validates and why it matters to the profile."
+            label="Validation meaning"
+          >
+            <div className={styles.fieldStack}>
+              <label className={`${styles.field} ${styles.fieldFull}`}>
+                <span className={styles.fieldLabel}>Validation context</span>
+                <textarea
+                  className={`${styles.textarea} ${styles.contextTextarea}`}
+                  onChange={(event) =>
+                    onChange(template.id, "validationContext", event.target.value)
+                  }
+                  placeholder={template.contextHint}
+                  rows={4}
+                  value={draft.validationContext}
+                />
+              </label>
+
+              <label className={`${styles.field} ${styles.fieldFull}`}>
+                <span className={styles.fieldLabel}>Why this should matter in soul.md</span>
+                <textarea
+                  className={`${styles.textarea} ${styles.impactTextarea}`}
+                  onChange={(event) =>
+                    onChange(template.id, "whyItMatters", event.target.value)
+                  }
+                  placeholder="Add the signal, overlap, or milestone this evidence should reinforce."
+                  rows={3}
+                  value={draft.whyItMatters}
+                />
+              </label>
+            </div>
+          </EvidenceGroup>
+
+          <EvidenceGroup
+            className={styles.evidenceUploadGroup}
+            copy="Upload the supporting file that backs this evidence record."
+            label="Final attachment"
+          >
+            <label className={styles.uploadZone} htmlFor={`upload-${template.id}`}>
+              <input
+                accept={defaultUploadAccept}
+                className={styles.fileInput}
+                id={`upload-${template.id}`}
+                multiple
+                onChange={(event) => onDefaultFiles(template.id, event.target.files)}
+                type="file"
+              />
+              <Upload aria-hidden="true" size={18} strokeWidth={2} />
+              <div>
+                <strong>Upload supporting evidence</strong>
+                <span>{`Drag and drop or click to browse. ${template.acceptedFormats}`}</span>
+              </div>
+            </label>
+
+            {errors?.files ? <p className={styles.fieldError}>{errors.files}</p> : null}
+
+            {draft.files.length > 0 ? (
+              <div className={styles.fileChipRow}>
+                {draft.files.map((file) => (
+                  <div className={styles.fileChip} key={file.key}>
+                    <div>
+                      <strong>{file.name}</strong>
+                      <small>{file.sizeLabel}</small>
+                    </div>
+
+                    <button
+                      className={styles.fileChipRemove}
+                      onClick={() => onRemoveFile(template.id, file.key, file.slot)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </EvidenceGroup>
         </>
       )}
     </article>
@@ -640,7 +689,7 @@ export function AgentBuilderWorkspace({
     [activeTemplateGroups],
   );
 
-  const showTemplateSectionHeaders = visibleTemplateGroups.length > 1;
+  const showTemplateSectionHeaders = activePhase !== "self" && visibleTemplateGroups.length > 0;
 
   const isDirty =
     activePhase !== null &&

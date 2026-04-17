@@ -20,6 +20,13 @@
   --builder-shell-surface: rgba(43, 43, 43, 0.94);
   --builder-shell-surface-top: rgba(55, 55, 55, 0.96);
   --builder-shell-surface-bottom: rgba(45, 45, 45, 0.98);
+  --modal-space-2: 0.5rem;
+  --modal-space-3: 0.75rem;
+  --modal-space-4: 1rem;
+  --modal-space-6: 1.5rem;
+  --modal-space-8: 2rem;
+  --modal-space-10: 2.5rem;
+  --modal-copy-width: 42rem;
 }
 
 .page {
@@ -379,32 +386,36 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.1rem 0;
+  gap: var(--modal-space-6);
+  padding: var(--modal-space-6) var(--modal-space-8) 0;
   border-bottom: 0;
   background: transparent;
 }
 
 .modalFooter {
   align-items: center;
-  padding-top: 0.25rem;
+  padding-top: var(--modal-space-6);
+  padding-bottom: var(--modal-space-8);
   border-top: 0;
+  margin-top: var(--modal-space-2);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .modalHeaderCopy {
   display: grid;
-  gap: 0.35rem;
+  gap: var(--modal-space-2);
+  max-width: var(--modal-copy-width);
 }
 
 .modalHeaderMeta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
 }
 
 .modalTitle {
   font-size: clamp(1.3rem, 2vw, 1.9rem);
-  line-height: 1;
+  line-height: 1.02;
 }
 
 .closeButton {
@@ -425,22 +436,33 @@
 .modalScroll {
   overflow-y: auto;
   display: grid;
-  gap: 1rem;
-  padding: 0.5rem 1.1rem 1rem;
+  gap: var(--modal-space-8);
+  padding: var(--modal-space-8);
 }
 
 .sectionPanel {
   display: grid;
-  gap: 1rem;
+  gap: var(--modal-space-8);
   padding: 0;
   border: 0;
   background: transparent;
 }
 
+.sectionPanel + .sectionPanel {
+  padding-top: var(--modal-space-8);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .sectionHeader {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--modal-space-6);
+}
+
+.sectionHeader > div {
+  display: grid;
+  gap: var(--modal-space-2);
+  max-width: var(--modal-copy-width);
 }
 
 .selfStepList {
@@ -518,12 +540,17 @@
 .fieldGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: var(--modal-space-4);
+}
+
+.fieldStack {
+  display: grid;
+  gap: var(--modal-space-6);
 }
 
 .field {
   display: grid;
-  gap: 0.35rem;
+  gap: var(--modal-space-3);
 }
 
 .fieldFull {
@@ -532,7 +559,7 @@
 
 .fieldLabel {
   color: rgba(244, 247, 252, 0.76);
-  font-size: 0.79rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -540,7 +567,7 @@
 .input,
 .textarea {
   width: 100%;
-  padding: 0.9rem 0.98rem;
+  padding: 1rem;
   border: 1px solid var(--builder-border);
   border-radius: 1rem;
   background:
@@ -556,7 +583,15 @@
 
 .textarea {
   resize: vertical;
-  min-height: 7rem;
+  min-height: 7.5rem;
+}
+
+.contextTextarea {
+  min-height: 9.5rem;
+}
+
+.impactTextarea {
+  min-height: 8.5rem;
 }
 
 .input::placeholder,
@@ -588,27 +623,56 @@
 
 .evidenceGrid {
   display: grid;
-  gap: clamp(2rem, 4vw, 3rem);
+  gap: clamp(2.75rem, 4vw, 3.5rem);
 }
 
 .evidenceCard {
   display: grid;
-  gap: 0.95rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  gap: var(--modal-space-6);
+  padding: var(--modal-space-8);
+  border-radius: 1.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(25, 26, 30, 0.9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(0, 0, 0, 0.18);
 }
 
 .evidenceCardHeader {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--modal-space-6);
+  align-items: flex-start;
+  padding-bottom: var(--modal-space-6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.evidenceHeaderCopy {
+  display: grid;
+  gap: var(--modal-space-2);
+  max-width: var(--modal-copy-width);
+}
+
+.evidenceHeaderMeta {
+  display: grid;
+  justify-items: end;
+  gap: var(--modal-space-3);
+  max-width: 18rem;
+}
+
+.evidencePillRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--modal-space-2);
 }
 
 .evidenceTitle {
   margin: 0;
   color: var(--builder-text);
-  font-size: 1.18rem;
+  font-size: 1.22rem;
   line-height: 1.2;
 }
 
@@ -621,52 +685,102 @@
   line-height: 1.55;
 }
 
-.evidenceMetaRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
+.formatHint {
+  text-align: right;
+  font-size: 0.82rem;
+}
+
+.evidenceGroup {
+  display: grid;
+  gap: var(--modal-space-4);
+}
+
+.evidenceGroup + .evidenceGroup {
+  padding-top: var(--modal-space-6);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.evidenceGroupHeader {
+  display: grid;
+  gap: var(--modal-space-2);
+  max-width: 32rem;
+}
+
+.evidenceGroupEyebrow {
+  color: rgba(219, 226, 243, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.evidenceGroupCopy {
+  margin: 0;
+  color: var(--builder-muted);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.evidenceUploadGroup {
+  padding: var(--modal-space-6);
+  border-radius: 1.35rem;
+  border: 1px solid rgba(141, 127, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(141, 127, 255, 0.08), rgba(141, 127, 255, 0.02)),
+    rgba(31, 31, 36, 0.88);
 }
 
 .statusBadge {
   display: inline-flex;
   align-items: center;
-  min-height: 1.75rem;
-  padding: 0.22rem 0.7rem;
+  min-height: 1.7rem;
+  padding: 0.18rem 0.68rem;
   border-radius: 999px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
     rgba(48, 47, 52, 0.94);
   border: 1px solid var(--builder-border);
-  color: rgba(244, 247, 252, 0.88);
-  font-size: 0.77rem;
+  color: rgba(244, 247, 252, 0.82);
+  font-size: 0.74rem;
   font-weight: 700;
 }
 
 .uploadSlotGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: var(--modal-space-4);
 }
 
 .uploadSlot {
   display: grid;
-  gap: 0.5rem;
+  gap: var(--modal-space-3);
 }
 
 .uploadZone {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.75rem;
+  gap: var(--modal-space-3);
   align-items: center;
+  min-height: 5rem;
   padding: 1rem 1.05rem;
-  border-radius: 1.1rem;
+  border-radius: 1.2rem;
   border: 1px dashed rgba(141, 127, 255, 0.28);
   background:
     linear-gradient(180deg, rgba(141, 127, 255, 0.07), rgba(141, 127, 255, 0.02)),
     rgba(29, 30, 35, 0.94);
   color: #f8fbff;
   cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.uploadZone:hover {
+  border-color: rgba(160, 149, 255, 0.46);
+  background:
+    linear-gradient(180deg, rgba(141, 127, 255, 0.1), rgba(141, 127, 255, 0.03)),
+    rgba(31, 32, 38, 0.96);
 }
 
 .uploadZone strong {
@@ -694,7 +808,7 @@
 .fileChipRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
+  gap: var(--modal-space-3);
 }
 
 .fileChip {
@@ -735,10 +849,10 @@
 .successBanner {
   display: flex;
   align-items: flex-start;
-  gap: 0.7rem;
+  gap: var(--modal-space-3);
   margin: 0;
-  padding: 0.8rem 0.9rem;
-  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 1.1rem;
   font-size: 0.88rem;
   line-height: 1.55;
 }
@@ -767,12 +881,13 @@
   display: grid;
   gap: 0.55rem;
   min-width: 0;
+  max-width: 28rem;
 }
 
 .modalActions {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: var(--modal-space-3);
   margin-left: auto;
 }
 
@@ -782,8 +897,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  min-height: 2.85rem;
-  padding: 0.78rem 1.05rem;
+  min-height: 3rem;
+  padding: 0.82rem 1.12rem;
   border-radius: 999px;
   font: inherit;
   font-weight: 700;
@@ -870,10 +985,23 @@
   }
 
   .evidenceCardHeader,
-  .evidenceMetaRow,
   .sectionHeader {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .evidenceHeaderMeta {
+    width: 100%;
+    max-width: none;
+    justify-items: start;
+  }
+
+  .evidencePillRow {
+    justify-content: flex-start;
+  }
+
+  .formatHint {
+    text-align: left;
   }
 
   .pipelineHeadingRow {
@@ -893,6 +1021,17 @@
   .modalHeader,
   .modalFooter {
     padding-inline: 0.9rem;
+  }
+
+  .modalScroll,
+  .modalHeader,
+  .modalFooter {
+    padding-left: 0.9rem;
+    padding-right: 0.9rem;
+  }
+
+  .evidenceCard {
+    padding: var(--modal-space-6);
   }
 
   .pipelineStepButton {
