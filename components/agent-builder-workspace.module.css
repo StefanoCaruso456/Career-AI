@@ -434,7 +434,6 @@
 }
 
 .pipelinePill,
-.phaseTag,
 .phaseCount {
   display: inline-flex;
   align-items: center;
@@ -449,12 +448,6 @@
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1;
-}
-
-.phaseTag {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
-    rgba(48, 47, 53, 0.94);
 }
 
 .phaseCount {
@@ -704,7 +697,6 @@
 
 .templateNavigator {
   display: grid;
-  gap: var(--modal-space-5);
   padding: var(--modal-space-6);
   border-radius: 1.2rem;
   border: 1px solid var(--builder-border);
@@ -713,44 +705,19 @@
     rgba(26, 26, 31, 0.94);
 }
 
-.templateNavigatorHeader {
+.templateNavigatorControls {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--modal-space-6);
-}
-
-.templateNavigatorCopy {
-  margin: var(--modal-space-2) 0 0;
-  color: var(--builder-muted);
-  font-size: 0.88rem;
-  line-height: 1.58;
-  max-width: 36rem;
-}
-
-.templateStepBadge,
-.templateSectionBadge,
-.templateSectionBadgeMuted {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.9rem;
-  padding: 0.22rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(244, 247, 252, 0.9);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.templateStepBadge {
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .templatePillRow {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .templatePillButton {
@@ -950,37 +917,12 @@
   max-width: var(--modal-copy-width);
 }
 
-.templateContextBar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--modal-space-6);
-}
-
-.templateContextCopy {
-  display: grid;
-  gap: var(--modal-space-2);
-}
-
-.templateBadgeRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-}
-
-.templateSectionBadge {
-  background: rgba(141, 127, 255, 0.1);
-}
-
-.templateSectionBadgeMuted {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(219, 226, 243, 0.74);
-}
-
 .templateNavButtons {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .templateNavButton {
@@ -1534,8 +1476,7 @@
 
   .evidenceCardHeader,
   .sectionHeader,
-  .templateNavigatorHeader,
-  .templateContextBar {
+  .templateNavigatorControls {
     flex-direction: column;
     align-items: flex-start;
   }

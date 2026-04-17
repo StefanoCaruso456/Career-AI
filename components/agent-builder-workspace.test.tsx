@@ -281,9 +281,13 @@ describe("AgentBuilderWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /relationship-backed/i }));
 
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText("Structured intake")).toBeInTheDocument();
-    expect(screen.getAllByText("Referrals and endorsements").length).toBeGreaterThan(0);
+    const dialog = await screen.findByRole("dialog");
+
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).queryByText("Structured intake")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Relationship-backed")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Previous" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Next" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText(
