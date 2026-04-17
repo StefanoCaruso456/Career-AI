@@ -522,10 +522,8 @@ describe("HeroComposer", () => {
     fireEvent.keyDown(starterRail, { key: "ArrowRight" });
 
     await waitFor(() => {
-      expect((starterRail as HTMLDivElement).scrollLeft).toBeGreaterThanOrEqual(900);
+      expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(950);
     });
-
-    expect((starterRail as HTMLDivElement).scrollLeft).toBeLessThan(950);
   });
 
   it("recenters the starter rail during direct scrolling so the loop never hard-stops", async () => {

@@ -698,6 +698,7 @@ export function HeroComposer({
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const starterRailRef = useRef<HTMLDivElement>(null);
   const starterRailCycleWidthRef = useRef<number | null>(null);
+  const starterRailInitialSyncFrameRef = useRef<number | null>(null);
   const starterRailScrollFrameRef = useRef<number | null>(null);
   const starterRailProgrammaticScrollRef = useRef(false);
   const starterRailScrollRecenteringRef = useRef(false);
@@ -774,6 +775,8 @@ export function HeroComposer({
   const isCandidateAssistVisible = Boolean(latestCandidatePrompt) && !isCandidateAssistDismissed;
   const isJobsAssistVisible = Boolean(jobsAssistMode && jobsAssistPrompt) && !isJobsAssistDismissed;
   const isAssistRailVisible = isEmployerMode ? isCandidateAssistVisible : isJobsAssistVisible;
+  const [isConversationOpening, setIsConversationOpening] = useState(false);
+  const wasLandingStateRef = useRef<boolean | null>(null);
   const [conversationComposerStyle, setConversationComposerStyle] =
     useState<ConversationComposerStyle | null>(null);
   const activeComposerPlaceholder =
@@ -810,13 +813,19 @@ export function HeroComposer({
 
     let cancelled = false;
     let resizeObserver: ResizeObserver | null = null;
-    let frameId = window.requestAnimationFrame(() => {
-      if (cancelled) {
-        return;
-      }
+    const didSyncImmediately = syncStarterRailLoopPosition({ preserveOffset: false });
 
-      syncStarterRailLoopPosition({ preserveOffset: false });
-    });
+    if (!didSyncImmediately) {
+      starterRailInitialSyncFrameRef.current = window.requestAnimationFrame(() => {
+        starterRailInitialSyncFrameRef.current = null;
+
+        if (cancelled) {
+          return;
+        }
+
+        syncStarterRailLoopPosition({ preserveOffset: false });
+      });
+    }
 
     if (typeof ResizeObserver !== "undefined") {
       resizeObserver = new ResizeObserver(() => {
@@ -827,7 +836,7 @@ export function HeroComposer({
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frameId);
+      cancelStarterRailInitialSyncFrame();
       resizeObserver?.disconnect();
     };
   }, [isLandingState, starterActions.length]);
@@ -845,6 +854,33 @@ export function HeroComposer({
   useEffect(() => {
     onConversationStateChange?.(hasActiveConversation);
   }, [hasActiveConversation, onConversationStateChange]);
+
+  useEffect(() => {
+    const wasLandingState = wasLandingStateRef.current;
+    wasLandingStateRef.current = isLandingState;
+
+    if (wasLandingState === null) {
+      return;
+    }
+
+    if (isLandingState) {
+      setIsConversationOpening(false);
+      return;
+    }
+
+    if (!wasLandingState) {
+      return;
+    }
+
+    setIsConversationOpening(true);
+    const timeoutId = window.setTimeout(() => {
+      setIsConversationOpening(false);
+    }, 280);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isLandingState]);
 
   useEffect(() => {
     setIsCandidateAssistDismissed(false);
@@ -2759,7 +2795,18 @@ export function HeroComposer({
     return measuredCycleWidth;
   }
 
+  function cancelStarterRailInitialSyncFrame() {
+    if (starterRailInitialSyncFrameRef.current === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(starterRailInitialSyncFrameRef.current);
+    starterRailInitialSyncFrameRef.current = null;
+  }
+
   function cancelStarterRailScrollAnimation() {
+    cancelStarterRailInitialSyncFrame();
+
     if (starterRailScrollFrameRef.current === null) {
       return;
     }
@@ -2813,7 +2860,7 @@ export function HeroComposer({
     const starterRail = starterRailRef.current;
 
     if (!starterRail) {
-      return;
+      return false;
     }
 
     const previousCycleWidth = starterRailCycleWidthRef.current;
@@ -2821,7 +2868,7 @@ export function HeroComposer({
     const nextCycleWidth = getStarterRailCycleWidth();
 
     if (!nextCycleWidth) {
-      return;
+      return false;
     }
 
     const shouldPreserveOffset = options?.preserveOffset ?? true;
@@ -2837,6 +2884,7 @@ export function HeroComposer({
     starterRailProgrammaticScrollRef.current = true;
     starterRail.scrollLeft = nextLeft;
     starterRailScrollTargetRef.current = nextLeft;
+    return true;
   }
 
   function flushStarterRailScrollAnimation() {
@@ -2880,6 +2928,7 @@ export function HeroComposer({
       return;
     }
 
+    cancelStarterRailInitialSyncFrame();
     starterRailScrollTargetRef.current = clampStarterRailScrollTarget({
       clientWidth: starterRail.clientWidth,
       scrollWidth: starterRail.scrollWidth,
@@ -3497,8 +3546,16 @@ export function HeroComposer({
 
   return (
     <>
-      {isLandingState ? (
-        <div className={styles.heroStarterRailShell}>
+      {isLandingState || isConversationOpening ? (
+        <div
+          aria-hidden={!isLandingState ? true : undefined}
+          className={[
+            styles.heroStarterRailShell,
+            !isLandingState ? styles.heroStarterRailShellExiting : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           <div
             aria-label="Starter prompts"
             className={styles.heroStarterRail}
@@ -3542,6 +3599,7 @@ export function HeroComposer({
           styles.chatStage,
           workspaceVisible ? styles.chatStageActive : "",
           hasActiveConversation ? styles.chatStageConversation : "",
+          isConversationOpening ? styles.chatStageOpening : "",
           isLandingState ? styles.chatStageLanding : "",
         ]
           .filter(Boolean)
@@ -3764,7 +3822,14 @@ export function HeroComposer({
           </div>
 
           {isEmployerMode && isCandidateAssistVisible ? (
-            <div className={styles.chatStageJobsRail}>
+            <div
+              className={[
+                styles.chatStageJobsRail,
+                isConversationOpening ? styles.chatStageJobsRailEntering : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
               <EmployerCandidateResultsRail
                 candidates={candidateAssistListings}
                 errorMessage={candidateAssistError}
@@ -3784,7 +3849,14 @@ export function HeroComposer({
           ) : null}
 
           {!isEmployerMode && isJobsAssistVisible ? (
-            <div className={styles.chatStageJobsRail}>
+            <div
+              className={[
+                styles.chatStageJobsRail,
+                isConversationOpening ? styles.chatStageJobsRailEntering : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
               <JobsSidePanel
                 emptyStateMessage={jobsAssistEmptyState}
                 errorMessage={jobsAssistError}
