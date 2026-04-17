@@ -210,12 +210,10 @@
 .progressRail {
   display: grid;
   gap: 1rem;
-  padding: 1.15rem;
-  border-radius: 1.55rem;
-  border: 1px solid var(--builder-border);
-  background:
-    linear-gradient(180deg, var(--builder-surface-top), var(--builder-surface-bottom)),
-    rgba(31, 30, 34, 0.94);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .progressRailHeader {
@@ -996,7 +994,6 @@
     width: min(100%, calc(100% - 1rem));
   }
 
-  .progressRail,
   .sectionPanel,
   .evidenceCard {
     padding: 0.9rem;
