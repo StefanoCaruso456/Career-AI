@@ -141,6 +141,8 @@
 .visualContextBrandBlock {
   min-width: clamp(8.5rem, 14vw, 11rem);
   padding: 0.38rem 0.72rem;
+  border: 0;
+  box-shadow: 0 16px 28px rgba(4, 9, 20, 0.14);
   overflow: hidden;
 }
 
