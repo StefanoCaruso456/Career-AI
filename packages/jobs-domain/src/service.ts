@@ -13,6 +13,7 @@ import {
   persistSourcedJobs,
 } from "@/packages/persistence/src";
 import { createEnrichedJobPosting, normalizeHumanLabel } from "./metadata";
+import { parseSalaryText } from "./job-search-retrieval/utils";
 
 const DEFAULT_RESPONSE_LIMIT = 18;
 const MAX_RESPONSE_LIMIT = 30_000;
@@ -1889,9 +1890,42 @@ function buildJobsFeedResponse(args: {
   sources: JobSourceSnapshotDto[];
   storage: JobsFeedStorageDto;
 }): JobsFeedResponseDto {
+  const jobs = args.jobs.map((job) => {
+    if (
+      job.salaryRange &&
+      (job.salaryRange.min !== null ||
+        job.salaryRange.max !== null ||
+        job.salaryRange.rawText !== null ||
+        job.salaryRange.currency !== null)
+    ) {
+      return job;
+    }
+
+    const parsedSalary = parseSalaryText(job.salaryText);
+
+    if (
+      parsedSalary.min === null &&
+      parsedSalary.max === null &&
+      parsedSalary.rawText === null &&
+      parsedSalary.currency === null
+    ) {
+      return job;
+    }
+
+    return {
+      ...job,
+      salaryRange: {
+        currency: parsedSalary.currency,
+        max: parsedSalary.max,
+        min: parsedSalary.min,
+        rawText: parsedSalary.rawText,
+      },
+    } satisfies JobPostingDto;
+  });
+
   return jobsFeedResponseSchema.parse({
     generatedAt: args.generatedAt,
-    jobs: args.jobs,
+    jobs,
     sources: args.sources,
     summary: buildSummary({
       sources: args.sources,
