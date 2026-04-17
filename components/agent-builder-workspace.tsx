@@ -495,7 +495,6 @@ function EvidenceCard({
 
         <div className={styles.evidenceHeaderMeta}>
           <div className={styles.evidencePillRow}>
-            <span className={styles.phaseTag}>{phaseMeta[template.completionTier].label}</span>
             <span className={styles.statusBadge}>{stateLabel}</span>
           </div>
           <p className={styles.formatHint}>{template.acceptedFormats}</p>
@@ -1452,55 +1451,39 @@ export function AgentBuilderWorkspace({
                       <>
                         {activeTemplates.length > 1 ? (
                           <section className={styles.templateNavigator}>
-                            <div
-                              aria-label="Trust phase steps"
-                              className={styles.templatePillRow}
-                              role="tablist"
-                            >
-                              {activeTemplates.map((template, index) => {
-                                const isActiveTemplate = template.id === activeTemplate.id;
+                            <div className={styles.templateNavigatorControls}>
+                              <div
+                                aria-label="Trust phase steps"
+                                className={styles.templatePillRow}
+                                role="tablist"
+                              >
+                                {activeTemplates.map((template, index) => {
+                                  const isActiveTemplate = template.id === activeTemplate.id;
 
-                                return (
-                                  <button
-                                    aria-label={`Step ${index + 1}: ${template.title}`}
-                                    aria-selected={isActiveTemplate}
-                                    className={`${styles.templatePillButton} ${
-                                      isActiveTemplate ? styles.templatePillButtonActive : ""
-                                    }`}
-                                    key={template.id}
-                                    onClick={() => {
-                                      selectTemplate(template.id);
-                                    }}
-                                    role="tab"
-                                    type="button"
-                                  >
-                                    <span className={styles.templatePillIndex}>{index + 1}</span>
-                                    <span className={styles.templatePillLabelGroup}>
-                                      <strong>{template.title}</strong>
-                                      <span>{sectionMeta[template.section].title}</span>
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </section>
-                        ) : null}
-
-                        <section className={styles.sectionPanel}>
-                          <div className={styles.templateContextBar}>
-                            <div className={styles.templateContextCopy}>
-                              <span className={styles.sectionEyebrow}>Structured intake</span>
-                              <div className={styles.templateBadgeRow}>
-                                <span className={styles.templateSectionBadge}>
-                                  {sectionMeta[activeTemplate.section].title}
-                                </span>
-                                <span className={styles.templateSectionBadgeMuted}>
-                                  {phaseMeta[activePhase].label}
-                                </span>
+                                  return (
+                                    <button
+                                      aria-label={`Step ${index + 1}: ${template.title}`}
+                                      aria-selected={isActiveTemplate}
+                                      className={`${styles.templatePillButton} ${
+                                        isActiveTemplate ? styles.templatePillButtonActive : ""
+                                      }`}
+                                      key={template.id}
+                                      onClick={() => {
+                                        selectTemplate(template.id);
+                                      }}
+                                      role="tab"
+                                      type="button"
+                                    >
+                                      <span className={styles.templatePillIndex}>{index + 1}</span>
+                                      <span className={styles.templatePillLabelGroup}>
+                                        <strong>{template.title}</strong>
+                                        <span>{sectionMeta[template.section].title}</span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
                               </div>
-                            </div>
 
-                            {activeTemplates.length > 1 ? (
                               <div className={styles.templateNavButtons}>
                                 <button
                                   className={styles.templateNavButton}
@@ -1524,9 +1507,11 @@ export function AgentBuilderWorkspace({
                                   Next
                                 </button>
                               </div>
-                            ) : null}
-                          </div>
+                            </div>
+                          </section>
+                        ) : null}
 
+                        <section className={styles.sectionPanel}>
                           <div className={styles.evidenceGrid}>
                             <EvidenceCard
                               draft={draft.evidence[activeTemplate.id]}
