@@ -16,6 +16,8 @@ import {
 } from "./client";
 
 const MAX_PERSISTED_RESPONSE_LIMIT = 30_000;
+const DEFAULT_PERSISTED_QUERY_MULTIPLIER = 6;
+const COMPANY_FILTER_QUERY_MULTIPLIER = 2;
 
 type JobSourceRow = {
   source_key: string;
@@ -346,9 +348,9 @@ async function upsertJob(args: {
       args.job.externalId,
       args.job.externalSourceJobId ?? args.job.externalId,
       args.job.title,
-      args.job.normalizedTitle ?? null,
+      args.job.normalizedTitle ?? args.job.title.trim().toLowerCase(),
       args.job.companyName,
-      args.job.normalizedCompanyName ?? null,
+      args.job.normalizedCompanyName ?? args.job.companyName.trim().toLowerCase(),
       args.job.location,
       args.job.workplaceType ?? "unknown",
       args.job.department,
@@ -456,6 +458,9 @@ export async function getPersistedJobsFeedSnapshot(args?: {
   const cutoffIso = windowDays
     ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
     : null;
+  const persistedQueryLimit = shouldFilterByCompanies
+    ? Math.min(Math.max(limit * COMPANY_FILTER_QUERY_MULTIPLIER, limit), MAX_PERSISTED_RESPONSE_LIMIT)
+    : Math.min(Math.max(limit * DEFAULT_PERSISTED_QUERY_MULTIPLIER, limit), MAX_PERSISTED_RESPONSE_LIMIT);
   const pool = getDatabasePool();
   const [sourcesResult, jobsResult, lastSyncRow] = await Promise.all([
     pool.query<JobSourceRow>(
@@ -518,7 +523,7 @@ export async function getPersistedJobsFeedSnapshot(args?: {
           AND ($2::timestamptz IS NULL OR COALESCE(updated_at, posted_at, persisted_at) >= $2)
           AND (
             $3::boolean = false
-            OR COALESCE(normalized_company_name, LOWER(company_name)) = ANY($4::text[])
+            OR normalized_company_name = ANY($4::text[])
           )
         ORDER BY
           COALESCE(trust_score, 0) DESC,
@@ -527,7 +532,7 @@ export async function getPersistedJobsFeedSnapshot(args?: {
           title ASC
         LIMIT $1
       `,
-      [Math.min(Math.max(limit * 6, limit), 30_000), cutoffIso, shouldFilterByCompanies, companies],
+      [persistedQueryLimit, cutoffIso, shouldFilterByCompanies, companies],
     ),
     queryOptional<{ last_synced_at: Date | string }>(
       pool,

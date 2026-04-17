@@ -14,15 +14,12 @@ export async function GET(request: NextRequest) {
       .filter(Boolean);
     const rawLimit = request.nextUrl.searchParams.get("limit");
     const rawWindowDays = request.nextUrl.searchParams.get("windowDays");
-    const rawRefresh = request.nextUrl.searchParams.get("refresh");
     const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : undefined;
     const parsedWindowDays = rawWindowDays ? Number.parseInt(rawWindowDays, 10) : undefined;
     const limit = Number.isFinite(parsedLimit) ? parsedLimit : undefined;
     const windowDays = Number.isFinite(parsedWindowDays) ? parsedWindowDays : undefined;
-    const forceRefresh = rawRefresh === "1" || rawRefresh === "true";
     const snapshot = await getJobsFeedSnapshot({
       companies: companies.length > 0 ? companies : undefined,
-      forceRefresh,
       limit,
       windowDays,
     });

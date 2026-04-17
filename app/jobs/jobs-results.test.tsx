@@ -701,72 +701,17 @@ describe("JobsResults", () => {
     expect(screen.getByLabelText("Company")).toHaveTextContent("Figma");
   }, 15_000);
 
-  it("refreshes stale snapshots before hydrating the larger jobs window", async () => {
+  it("hydrates the larger jobs window from the saved snapshot without forcing a refresh", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),
       companyName: "Cisco",
       sourceKey: "greenhouse:cisco",
       sourceLabel: "Cisco",
     }));
-    const refreshedJobs = initialJobs;
     const expandedJobs = Array.from({ length: 53 }, (_, index) => createJob(index + 1));
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-      if (fetchMock.mock.calls.length === 1) {
-        expect(url).toBe("/api/v1/jobs?limit=24&refresh=1");
-
-        return new Response(
-          JSON.stringify({
-            generatedAt: "2026-04-11T12:45:00.000Z",
-            jobs: refreshedJobs,
-            sources: [
-              {
-                key: "greenhouse:cisco",
-                label: "Cisco",
-                lane: "ats_direct",
-                quality: "high_signal",
-                status: "connected",
-                jobCount: 24,
-                endpointLabel: "boards-api.greenhouse.io/cisco",
-                lastSyncedAt: "2026-04-11T12:45:00.000Z",
-                message: "Cisco public jobs synced and ready to persist.",
-              },
-              {
-                key: "greenhouse:figma",
-                label: "Figma",
-                lane: "ats_direct",
-                quality: "high_signal",
-                status: "connected",
-                jobCount: 29,
-                endpointLabel: "boards-api.greenhouse.io/figma",
-                lastSyncedAt: "2026-04-11T12:45:00.000Z",
-                message: "Figma public jobs synced and ready to persist.",
-              },
-            ],
-            summary: {
-              totalJobs: 53,
-              directAtsJobs: 53,
-              aggregatorJobs: 0,
-              sourceCount: 2,
-              connectedSourceCount: 2,
-              highSignalSourceCount: 2,
-              coverageSourceCount: 0,
-            },
-            storage: {
-              mode: "database",
-              persistedJobs: refreshedJobs.length,
-              persistedSources: 2,
-              lastSyncAt: "2026-04-11T12:45:00.000Z",
-            },
-          }),
-          {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          },
-        );
-      }
 
       expect(url).toBe("/api/v1/jobs?limit=53");
 
@@ -825,16 +770,14 @@ describe("JobsResults", () => {
 
     render(
       <JobsResults
-        initialLastSyncAt="2026-04-10T12:45:00.000Z"
         initialRequestLimit={24}
-        initialStorageMode="database"
-        initialTotalAvailableCount={24}
+        initialTotalAvailableCount={53}
         jobs={initialJobs}
       />,
     );
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     await waitFor(() => {
@@ -843,7 +786,7 @@ describe("JobsResults", () => {
     expect(screen.getByText("53 jobs available")).toBeInTheDocument();
   });
 
-  it("keeps role filters working from the saved catalog while a stale snapshot refresh is still pending", async () => {
+  it("keeps role filters working while the saved snapshot expands to the full jobs window", async () => {
     const initialJobs = Array.from({ length: 24 }, (_, index) => ({
       ...createJob(index + 1),
       title: `Account Executive ${index + 1}`,
@@ -868,10 +811,6 @@ describe("JobsResults", () => {
       "fetch",
       vi.fn((input: string | URL | Request) => {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-        if (url === "/api/v1/jobs?limit=24&refresh=1") {
-          return new Promise<Response>(() => {});
-        }
 
         if (url === "/api/v1/jobs?limit=25") {
           return Promise.resolve(
@@ -933,9 +872,7 @@ describe("JobsResults", () => {
 
     render(
       <JobsResults
-        initialLastSyncAt="2026-04-10T12:45:00.000Z"
         initialRequestLimit={24}
-        initialStorageMode="database"
         initialTotalAvailableCount={25}
         jobs={initialJobs}
       />,
@@ -948,9 +885,7 @@ describe("JobsResults", () => {
     await waitFor(() => {
       expect(screen.getByText("Content Designer Advisor")).toBeInTheDocument();
     });
-    expect(
-      screen.getByText("Showing 1 of 1 matching role from 25 loaded while the snapshot refreshes..."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Showing 1 of 1 matching role from 25 loaded.")).toBeInTheDocument();
   });
 
   it("surfaces an expanded search error instead of staying stuck on the checking state forever", async () => {
