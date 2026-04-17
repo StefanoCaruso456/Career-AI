@@ -2,9 +2,12 @@
 
 import {
   AlertCircle,
+  ArrowUpRight,
   Check,
   CheckCircle2,
   LoaderCircle,
+  LockKeyhole,
+  ShieldCheck,
   Upload,
   X,
 } from "lucide-react";
@@ -13,6 +16,7 @@ import {
   type ReactNode,
   startTransition,
   useEffect,
+  useEffectEvent,
   useId,
   useMemo,
   useRef,
@@ -33,6 +37,7 @@ import type {
   CareerBuilderSnapshotDto,
   CareerEvidenceRecord,
   CareerEvidenceTemplateId,
+  CareerIdVerificationStatus,
   CareerPhase,
   CareerProfileInput,
   EvidenceFileSlot,
@@ -64,6 +69,7 @@ type ModalDraftState = {
 };
 
 type FieldErrors = Record<string, Record<string, string>>;
+type GovernmentVerificationModalStep = "intro" | "consent" | "processing" | "result";
 
 const profileFieldConfig = [
   {
@@ -137,6 +143,21 @@ function formatBytes(bytes: number) {
 
 function isDriverLicenseTemplate(template: BuilderEvidenceTemplate) {
   return template.uploadKind === "drivers-license-images";
+}
+
+function phaseToTrustLayer(phase: CareerPhase) {
+  switch (phase) {
+    case "self":
+      return "self_reported";
+    case "relationship":
+      return "relationship_backed";
+    case "document":
+      return "document_backed";
+    case "signature":
+      return "signature_backed";
+    case "institution":
+      return "institution_verified";
+  }
 }
 
 function toProfileInput(snapshot: CareerBuilderSnapshotDto["profile"]): CareerProfileInput {
@@ -332,6 +353,26 @@ function PhaseCount({
       {completed}/{total} ready
     </span>
   );
+}
+
+function getDocumentStatusTagLabel(status: CareerIdVerificationStatus) {
+  switch (status) {
+    case "locked":
+      return "Locked";
+    case "in_progress":
+      return "In review";
+    case "manual_review":
+      return "Manual review";
+    case "retry_needed":
+      return "Retry needed";
+    case "failed":
+      return "Not completed";
+    case "verified":
+      return "Government ID verified";
+    case "not_started":
+    default:
+      return "Available";
+  }
 }
 
 function EvidenceGroup({
@@ -599,10 +640,21 @@ export function AgentBuilderWorkspace({
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGovernmentModalOpen, setIsGovernmentModalOpen] = useState(false);
+  const [governmentModalStep, setGovernmentModalStep] =
+    useState<GovernmentVerificationModalStep>("intro");
+  const [governmentConsentChecked, setGovernmentConsentChecked] = useState(false);
+  const [governmentError, setGovernmentError] = useState<string | null>(null);
+  const [isGovernmentActionPending, setIsGovernmentActionPending] = useState(false);
+  const [governmentVerificationId, setGovernmentVerificationId] = useState<string | null>(
+    initialSnapshot.documentVerification.verificationId,
+  );
   const modalRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const handledReturnRef = useRef(false);
   const initialDraftSignatureRef = useRef("");
   const titleId = useId();
+  const governmentTitleId = useId();
 
   useEffect(() => {
     setIsMounted(true);
@@ -613,7 +665,11 @@ export function AgentBuilderWorkspace({
   }, [initialSnapshot]);
 
   useEffect(() => {
-    if (!activePhase) {
+    setGovernmentVerificationId(snapshot.documentVerification.verificationId);
+  }, [snapshot.documentVerification.verificationId]);
+
+  useEffect(() => {
+    if (!activePhase && !isGovernmentModalOpen) {
       return;
     }
 
@@ -658,12 +714,21 @@ export function AgentBuilderWorkspace({
       document.body.style.overflow = originalOverflow;
       document.removeEventListener("keydown", handleKeydown);
     };
-  }, [activePhase, isSaving]);
+  }, [activePhase, isGovernmentActionPending, isGovernmentModalOpen, isSaving]);
 
   const activePhaseData = useMemo(
     () => snapshot.phaseProgress.find((phase) => phase.phase === activePhase) ?? null,
     [activePhase, snapshot.phaseProgress],
   );
+  const careerIdPhaseMap = useMemo(
+    () =>
+      new Map(
+        snapshot.careerIdProfile.phases.map((phase) => [phase.key, phase] as const),
+      ),
+    [snapshot.careerIdProfile.phases],
+  );
+  const documentVerification = snapshot.documentVerification;
+  const documentVerificationStatus = documentVerification.status;
 
   const activeTemplates = useMemo(
     () =>
@@ -694,6 +759,53 @@ export function AgentBuilderWorkspace({
   const isDirty =
     activePhase !== null &&
     serializePhaseDraft(activePhase, draft) !== initialDraftSignatureRef.current;
+
+  const refreshSnapshot = useEffectEvent(async () => {
+    const response = await fetch("/api/v1/career-builder", {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.message ?? "Refreshing Career ID state failed.");
+    }
+
+    const nextSnapshot = (await response.json()) as CareerBuilderSnapshotDto;
+
+    startTransition(() => {
+      setSnapshot(nextSnapshot);
+    });
+
+    return nextSnapshot;
+  });
+
+  const refreshGovernmentVerification = useEffectEvent(async (verificationId: string) => {
+    const response = await fetch(`/api/v1/career-id/verifications/${verificationId}`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(payload?.message ?? "Refreshing verification status failed.");
+    }
+
+    setGovernmentVerificationId(payload.verificationId ?? verificationId);
+    const nextSnapshot = await refreshSnapshot();
+    const nextStatus = payload?.status as CareerIdVerificationStatus | undefined;
+
+    if (nextStatus && nextStatus !== "in_progress") {
+      setGovernmentModalStep("result");
+    } else {
+      setGovernmentModalStep("processing");
+    }
+
+    return {
+      nextSnapshot,
+      status: (nextStatus ?? nextSnapshot.documentVerification.status) as CareerIdVerificationStatus,
+    };
+  });
 
   function openPhase(phase: CareerPhase) {
     const nextDraft = buildPhaseDraft(snapshot, phase);
@@ -733,6 +845,136 @@ export function AgentBuilderWorkspace({
       });
     }
   }
+
+  function openGovernmentVerificationModal() {
+    if (!documentVerification.unlocked) {
+      return;
+    }
+
+    setGovernmentError(null);
+    setGovernmentConsentChecked(false);
+    setIsGovernmentModalOpen(true);
+
+    if (documentVerificationStatus === "in_progress") {
+      setGovernmentModalStep("processing");
+      return;
+    }
+
+    if (
+      documentVerificationStatus === "verified" ||
+      documentVerificationStatus === "retry_needed" ||
+      documentVerificationStatus === "manual_review" ||
+      documentVerificationStatus === "failed"
+    ) {
+      setGovernmentModalStep("result");
+      return;
+    }
+
+    setGovernmentModalStep("intro");
+  }
+
+  function closeGovernmentVerificationModal() {
+    if (isGovernmentActionPending) {
+      return;
+    }
+
+    setIsGovernmentModalOpen(false);
+    setGovernmentError(null);
+    setGovernmentConsentChecked(false);
+  }
+
+  async function launchGovernmentVerificationFlow() {
+    setGovernmentError(null);
+    setIsGovernmentActionPending(true);
+
+    try {
+      const endpoint =
+        documentVerification.retryable && documentVerification.evidenceId
+          ? `/api/v1/career-id/evidence/${documentVerification.evidenceId}/retry`
+          : "/api/v1/career-id/verifications/government-id/session";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          returnUrl: window.location.pathname,
+          source: "career_id_page",
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setGovernmentError(payload?.message ?? "Starting identity verification failed.");
+        return;
+      }
+
+      setGovernmentVerificationId(payload.verificationId ?? null);
+      window.location.assign(String(payload.launchUrl));
+    } catch (error) {
+      setGovernmentError(
+        error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while starting verification.",
+      );
+    } finally {
+      setIsGovernmentActionPending(false);
+    }
+  }
+
+  useEffect(() => {
+    if (handledReturnRef.current || typeof window === "undefined") {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const returnedVerificationId = params.get("careerIdVerificationId");
+
+    if (!returnedVerificationId) {
+      return;
+    }
+
+    handledReturnRef.current = true;
+    setIsGovernmentModalOpen(true);
+    setGovernmentModalStep("processing");
+    setGovernmentVerificationId(returnedVerificationId);
+    setGovernmentError(null);
+
+    void refreshGovernmentVerification(returnedVerificationId).catch((error) => {
+      setGovernmentError(
+        error instanceof Error ? error.message : "Refreshing verification status failed.",
+      );
+    });
+
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [refreshGovernmentVerification]);
+
+  useEffect(() => {
+    if (
+      !isGovernmentModalOpen ||
+      governmentModalStep !== "processing" ||
+      !governmentVerificationId
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void refreshGovernmentVerification(governmentVerificationId).catch((error) => {
+        setGovernmentError(
+          error instanceof Error ? error.message : "Refreshing verification status failed.",
+        );
+      });
+    }, 4000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [
+    governmentModalStep,
+    governmentVerificationId,
+    isGovernmentModalOpen,
+    refreshGovernmentVerification,
+  ]);
 
   function updateProfileField(field: keyof CareerProfileInput, value: string) {
     setDraft((currentDraft) => ({
@@ -1187,6 +1429,275 @@ export function AgentBuilderWorkspace({
           document.body,
         )
       : null;
+  const governmentModal =
+    isMounted && isGovernmentModalOpen
+      ? createPortal(
+          <div
+            className={styles.overlay}
+            onClick={closeGovernmentVerificationModal}
+            role="presentation"
+          >
+            <div
+              aria-labelledby={governmentTitleId}
+              aria-modal="true"
+              className={`${styles.modal} ${styles.governmentModal}`}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              ref={modalRef}
+              role="dialog"
+              tabIndex={-1}
+            >
+              <div className={styles.modalHeader}>
+                <div className={styles.modalHeaderCopy}>
+                  <span className={styles.sectionEyebrow}>Document-backed verification</span>
+                  <h2 className={styles.modalTitle} id={governmentTitleId}>
+                    {governmentModalStep === "intro"
+                      ? "Strengthen your Career ID"
+                      : governmentModalStep === "consent"
+                        ? "Before you begin"
+                        : governmentModalStep === "processing"
+                          ? "Verifying your identity"
+                          : documentVerificationStatus === "verified"
+                            ? "Identity verified"
+                            : documentVerificationStatus === "manual_review"
+                              ? "Verification under review"
+                              : documentVerificationStatus === "retry_needed"
+                                ? "We couldn't complete verification"
+                                : "Verification not completed"}
+                  </h2>
+                  <p className={styles.modalCopy}>
+                    {governmentModalStep === "intro"
+                      ? "Verify a government ID and complete a live selfie check to make your Career ID more credible."
+                      : governmentModalStep === "consent"
+                        ? "We'll collect your government ID and a live selfie for identity verification, and the backend will update your Career ID only after Persona webhook confirmation."
+                        : governmentModalStep === "processing"
+                          ? "We're reviewing your ID and comparing it with your live selfie."
+                          : documentVerificationStatus === "verified"
+                            ? "Your Career ID now includes a verified government ID artifact."
+                            : documentVerificationStatus === "manual_review"
+                              ? "Your submission is being reviewed. We'll update your Career ID when it's complete."
+                              : documentVerificationStatus === "retry_needed"
+                                ? "Try again with better lighting, a clearer photo of your ID, and your full face visible."
+                                : "Verification wasn't completed this time. You can try again when you're ready."}
+                  </p>
+                </div>
+
+                <div className={styles.modalHeaderMeta}>
+                  <button
+                    aria-label="Close identity verification modal"
+                    className={styles.closeButton}
+                    onClick={closeGovernmentVerificationModal}
+                    type="button"
+                  >
+                    <X size={18} strokeWidth={2.2} />
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.modalScroll}>
+                {governmentModalStep === "intro" ? (
+                  <section className={styles.sectionPanel}>
+                    <div className={styles.verificationHeroMeta}>
+                      <span className={styles.supportChip}>{documentVerification.estimatedTimeLabel}</span>
+                      <span className={styles.supportChip}>Driver's license + live selfie</span>
+                    </div>
+
+                    <p className={styles.verificationBodyCopy}>
+                      {documentVerification.explanation}
+                    </p>
+
+                    <div className={styles.verificationPreviewGrid}>
+                      <article className={styles.verificationPreviewCard}>
+                        <strong>Front of ID</strong>
+                        <span>Use good lighting and make sure all edges are visible.</span>
+                      </article>
+                      <article className={styles.verificationPreviewCard}>
+                        <strong>Back of ID</strong>
+                        <span>Capture the back clearly with no blur or glare.</span>
+                      </article>
+                      <article className={styles.verificationPreviewCard}>
+                        <strong>Live selfie</strong>
+                        <span>Keep your full face visible and look straight ahead.</span>
+                      </article>
+                    </div>
+                  </section>
+                ) : null}
+
+                {governmentModalStep === "consent" ? (
+                  <section className={styles.sectionPanel}>
+                    <div className={styles.verificationBodyStack}>
+                      <p className={styles.verificationBodyCopy}>
+                        We use Persona to guide the secure verification flow, but your Career ID only changes after our backend processes Persona webhook updates.
+                      </p>
+
+                      <label className={styles.consentRow}>
+                        <input
+                          checked={governmentConsentChecked}
+                          onChange={(event) => {
+                            setGovernmentConsentChecked(event.target.checked);
+                          }}
+                          type="checkbox"
+                        />
+                        <span>I consent to identity verification for Career ID.</span>
+                      </label>
+                    </div>
+                  </section>
+                ) : null}
+
+                {governmentModalStep === "processing" ? (
+                  <section className={styles.sectionPanel}>
+                    <div className={styles.processingCard}>
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className={styles.spinningIcon}
+                        size={24}
+                        strokeWidth={2}
+                      />
+                      <div>
+                        <strong>{getDocumentStatusTagLabel(documentVerificationStatus)}</strong>
+                        <p>{documentVerification.helperText}</p>
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+
+                {governmentModalStep === "result" ? (
+                  <section className={styles.sectionPanel}>
+                    {documentVerification.artifactLabel ? (
+                      <div className={styles.documentArtifactCard}>
+                        <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
+                        <div>
+                          <strong>{documentVerification.artifactLabel}</strong>
+                          <span>{getDocumentStatusTagLabel(documentVerificationStatus)}</span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {(documentVerificationStatus === "retry_needed" ||
+                      documentVerificationStatus === "failed") &&
+                    documentVerification.recoveryHints.length > 0 ? (
+                      <ul className={styles.recoveryHintList}>
+                        {documentVerification.recoveryHints.map((hint) => (
+                          <li key={hint}>{hint}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </section>
+                ) : null}
+              </div>
+
+              <div className={styles.modalFooter}>
+                <div className={styles.modalStatusArea}>
+                  {governmentError ? (
+                    <p className={styles.errorBanner}>
+                      <AlertCircle aria-hidden="true" size={16} strokeWidth={2} />
+                      <span>{governmentError}</span>
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className={styles.modalActions}>
+                  {governmentModalStep === "consent" ? (
+                    <button
+                      className={styles.secondaryAction}
+                      onClick={() => {
+                        setGovernmentModalStep("intro");
+                      }}
+                      type="button"
+                    >
+                      Back
+                    </button>
+                  ) : (
+                    <button
+                      className={styles.secondaryAction}
+                      onClick={closeGovernmentVerificationModal}
+                      type="button"
+                    >
+                      {governmentModalStep === "processing" ? "Close" : "Back to Career ID"}
+                    </button>
+                  )}
+
+                  {governmentModalStep === "intro" ? (
+                    <button
+                      className={styles.primaryAction}
+                      onClick={() => {
+                        setGovernmentModalStep("consent");
+                      }}
+                      type="button"
+                    >
+                      Continue
+                    </button>
+                  ) : null}
+
+                  {governmentModalStep === "consent" ? (
+                    <button
+                      className={styles.primaryAction}
+                      disabled={!governmentConsentChecked || isGovernmentActionPending}
+                      onClick={() => {
+                        void launchGovernmentVerificationFlow();
+                      }}
+                      type="button"
+                    >
+                      {isGovernmentActionPending ? (
+                        <>
+                          <LoaderCircle
+                            aria-hidden="true"
+                            className={styles.spinningIcon}
+                            size={16}
+                          />
+                          Starting
+                        </>
+                      ) : (
+                        "Agree and continue"
+                      )}
+                    </button>
+                  ) : null}
+
+                  {governmentModalStep === "processing" ? (
+                    <button
+                      className={styles.primaryAction}
+                      disabled={isGovernmentActionPending || !governmentVerificationId}
+                      onClick={() => {
+                        if (!governmentVerificationId) {
+                          return;
+                        }
+
+                        void refreshGovernmentVerification(governmentVerificationId).catch(
+                          (error) => {
+                            setGovernmentError(
+                              error instanceof Error
+                                ? error.message
+                                : "Refreshing verification status failed.",
+                            );
+                          },
+                        );
+                      }}
+                      type="button"
+                    >
+                      Refresh status
+                    </button>
+                  ) : null}
+
+                  {governmentModalStep === "result" && documentVerification.retryable ? (
+                    <button
+                      className={styles.primaryAction}
+                      disabled={isGovernmentActionPending}
+                      onClick={() => {
+                        setGovernmentModalStep("consent");
+                      }}
+                      type="button"
+                    >
+                      {documentVerification.ctaLabel ?? "Try again"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <>
@@ -1210,49 +1721,115 @@ export function AgentBuilderWorkspace({
 
               <div className={styles.pipelineSteps}>
                 {snapshot.phaseProgress.map((phase, index) => (
-                  <button
-                    aria-controls={activePhase === phase.phase ? titleId : undefined}
-                    aria-haspopup="dialog"
-                    className={`${styles.pipelineStepButton} ${
-                      phase.isComplete
-                        ? styles.pipelineStepComplete
-                        : phase.isCurrent
-                          ? styles.pipelineStepCurrent
-                          : styles.pipelineStepPending
-                    }`}
-                    key={phase.phase}
-                    onClick={() => openPhase(phase.phase)}
-                    ref={(node) => {
-                      triggerRefs.current[phase.phase] = node;
-                    }}
-                    type="button"
-                  >
-                    <div className={styles.pipelineTrack}>
-                      <span className={styles.pipelineMarker}>
-                        {phase.isComplete ? (
-                          <Check aria-hidden="true" size={16} strokeWidth={2.6} />
-                        ) : (
-                          <span aria-hidden="true" className={styles.pipelineMarkerCore} />
-                        )}
-                      </span>
-                      {index < snapshot.phaseProgress.length - 1 ? (
-                        <span
-                          aria-hidden="true"
-                          className={`${styles.pipelineConnector} ${
-                            phase.isComplete ? styles.pipelineConnectorComplete : ""
-                          }`}
-                        />
-                      ) : null}
-                    </div>
+                  (() => {
+                    const trustPhase = careerIdPhaseMap.get(phaseToTrustLayer(phase.phase));
+                    const isDocumentPhase = phase.phase === "document";
+                    const displayCompleted = trustPhase?.completedCount ?? phase.completed;
+                    const displayTotal = trustPhase?.totalCount ?? phase.total;
+                    const isComplete = isDocumentPhase
+                      ? documentVerificationStatus === "verified"
+                      : phase.isComplete;
+                    const isCurrent = isDocumentPhase
+                      ? documentVerificationStatus === "in_progress" ||
+                        documentVerificationStatus === "manual_review"
+                      : phase.isCurrent;
+                    const isLocked = isDocumentPhase ? !documentVerification.unlocked : false;
+                    const isAlert =
+                      isDocumentPhase &&
+                      (documentVerificationStatus === "retry_needed" ||
+                        documentVerificationStatus === "failed");
 
-                    <div className={styles.pipelineContent}>
-                      <div className={styles.pipelineHeadingRow}>
-                        <span className={styles.pipelinePill}>{phase.label}</span>
-                        <PhaseCount completed={phase.completed} total={phase.total} />
-                      </div>
-                      <p className={styles.pipelineSummary}>{phase.summary}</p>
-                    </div>
-                  </button>
+                    return (
+                      <article
+                        className={`${styles.pipelineStepCard} ${
+                          isComplete
+                            ? styles.pipelineStepComplete
+                            : isCurrent
+                              ? styles.pipelineStepCurrent
+                              : styles.pipelineStepPending
+                        } ${isLocked ? styles.pipelineStepLocked : ""} ${
+                          isAlert ? styles.pipelineStepAlert : ""
+                        }`}
+                        key={phase.phase}
+                      >
+                        <button
+                          aria-controls={activePhase === phase.phase ? titleId : undefined}
+                          aria-haspopup="dialog"
+                          className={styles.pipelineStepButton}
+                          disabled={isLocked}
+                          onClick={() => openPhase(phase.phase)}
+                          ref={(node) => {
+                            triggerRefs.current[phase.phase] = node;
+                          }}
+                          type="button"
+                        >
+                          <div className={styles.pipelineTrack}>
+                            <span className={styles.pipelineMarker}>
+                              {isComplete ? (
+                                <Check aria-hidden="true" size={16} strokeWidth={2.6} />
+                              ) : isLocked ? (
+                                <LockKeyhole aria-hidden="true" size={14} strokeWidth={2.2} />
+                              ) : (
+                                <span aria-hidden="true" className={styles.pipelineMarkerCore} />
+                              )}
+                            </span>
+                            {index < snapshot.phaseProgress.length - 1 ? (
+                              <span
+                                aria-hidden="true"
+                                className={`${styles.pipelineConnector} ${
+                                  isComplete ? styles.pipelineConnectorComplete : ""
+                                }`}
+                              />
+                            ) : null}
+                          </div>
+
+                          <div className={styles.pipelineContent}>
+                            <div className={styles.pipelineHeadingRow}>
+                              <span className={styles.pipelinePill}>{phase.label}</span>
+                              <PhaseCount completed={displayCompleted} total={displayTotal} />
+                            </div>
+                            <p className={styles.pipelineSummary}>
+                              {isDocumentPhase ? documentVerification.helperText : phase.summary}
+                            </p>
+                          </div>
+                        </button>
+
+                        {isDocumentPhase ? (
+                          <div className={styles.pipelineActionRow}>
+                            <div className={styles.pipelineActionMeta}>
+                              <span className={styles.supportChip}>
+                                {documentVerification.estimatedTimeLabel}
+                              </span>
+                              <span className={styles.statusTag}>
+                                {getDocumentStatusTagLabel(documentVerificationStatus)}
+                              </span>
+                            </div>
+
+                            {documentVerification.ctaLabel ? (
+                              <button
+                                className={styles.pipelinePrimaryCta}
+                                onClick={openGovernmentVerificationModal}
+                                type="button"
+                              >
+                                <span>{documentVerification.ctaLabel}</span>
+                                <ArrowUpRight aria-hidden="true" size={15} strokeWidth={2.1} />
+                              </button>
+                            ) : null}
+
+                            {documentVerification.artifactLabel ? (
+                              <div className={styles.documentArtifactCard}>
+                                <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
+                                <div>
+                                  <strong>{documentVerification.artifactLabel}</strong>
+                                  <span>Webhook-confirmed from Persona</span>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })()
                 ))}
               </div>
 
@@ -1270,6 +1847,7 @@ export function AgentBuilderWorkspace({
       </main>
 
       {modal}
+      {governmentModal}
     </>
   );
 }

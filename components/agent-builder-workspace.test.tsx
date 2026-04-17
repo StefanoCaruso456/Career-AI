@@ -105,6 +105,132 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         summary: "Waiting on the earlier trust layers to complete first.",
       },
     ],
+    careerIdProfile: {
+      userId: "tal_123",
+      phases: [
+        {
+          key: "self_reported",
+          title: "Self-reported",
+          description: "Add your foundation profile details so the rest of your trust ladder has context.",
+          status: "not_started",
+          completedCount: 0,
+          totalCount: 5,
+          unlocked: true,
+          evidence: [],
+        },
+        {
+          key: "relationship_backed",
+          title: "Relationship-backed",
+          description: "Bring in referrals, endorsements, and trusted letters that add social proof.",
+          status: "locked",
+          completedCount: 0,
+          totalCount: 3,
+          unlocked: false,
+          evidence: [],
+        },
+        {
+          key: "document_backed",
+          title: "Document-backed",
+          description: "Verify a government ID or upload trusted documents to strengthen your Career ID.",
+          status: "locked",
+          completedCount: 0,
+          totalCount: 8,
+          unlocked: false,
+          evidence: [],
+        },
+        {
+          key: "signature_backed",
+          title: "Signature-backed",
+          description: "Add signed proof that carries stronger reviewer confidence.",
+          status: "locked",
+          completedCount: 0,
+          totalCount: 4,
+          unlocked: false,
+          evidence: [],
+        },
+        {
+          key: "institution_verified",
+          title: "Institution-verified",
+          description: "Anchor the profile to institution-issued verification and trusted identity providers.",
+          status: "locked",
+          completedCount: 0,
+          totalCount: 4,
+          unlocked: false,
+          evidence: [],
+        },
+      ],
+      badges: [],
+    },
+    documentVerification: {
+      evidenceId: null,
+      verificationId: null,
+      status: "locked",
+      unlocked: false,
+      estimatedTimeLabel: "About 2 minutes",
+      explanation:
+        "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
+      helperText: "Complete the earlier trust layers to unlock this phase.",
+      ctaLabel: null,
+      retryable: false,
+      artifactLabel: null,
+      recoveryHints: [
+        "Use good lighting.",
+        "Make sure your document is sharp and readable.",
+        "Keep your full face visible during the live selfie.",
+      ],
+      result: null,
+    },
+  };
+}
+
+function unlockDocumentVerification(snapshot: CareerBuilderSnapshotDto) {
+  snapshot.phaseProgress[0] = {
+    ...snapshot.phaseProgress[0],
+    completed: 5,
+    started: 5,
+    total: 5,
+    isComplete: true,
+    isCurrent: false,
+    summary: "Self-reported foundation complete. Your Career ID can now level up with stronger proof.",
+  };
+  snapshot.phaseProgress[1] = {
+    ...snapshot.phaseProgress[1],
+    completed: 3,
+    started: 3,
+    total: 3,
+    isComplete: true,
+    isCurrent: false,
+    summary: "Relationship-backed trust is now live inside your Career ID.",
+  };
+  snapshot.phaseProgress[2] = {
+    ...snapshot.phaseProgress[2],
+    isCurrent: true,
+    summary:
+      "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
+  };
+  snapshot.careerIdProfile.phases[0] = {
+    ...snapshot.careerIdProfile.phases[0],
+    status: "verified",
+    completedCount: 5,
+  };
+  snapshot.careerIdProfile.phases[1] = {
+    ...snapshot.careerIdProfile.phases[1],
+    status: "verified",
+    completedCount: 3,
+    unlocked: true,
+  };
+  snapshot.careerIdProfile.phases[2] = {
+    ...snapshot.careerIdProfile.phases[2],
+    status: "not_started",
+    unlocked: true,
+  };
+  snapshot.documentVerification = {
+    ...snapshot.documentVerification,
+    status: "not_started",
+    unlocked: true,
+    helperText:
+      "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
+    ctaLabel: "Verify your identity",
   };
 }
 
@@ -166,7 +292,10 @@ describe("AgentBuilderWorkspace", () => {
   });
 
   it("shows education and certification uploads inside the document-backed modal", async () => {
-    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
 
     fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
 
@@ -309,5 +438,75 @@ describe("AgentBuilderWorkspace", () => {
     expect(
       await screen.findByText("Driver's license uploads must be image files."),
     ).toBeInTheDocument();
+  });
+
+  it("shows the government ID CTA once document-backed is unlocked", () => {
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+
+    expect(screen.getByRole("button", { name: /verify your identity/i })).toBeInTheDocument();
+    expect(screen.getByText("About 2 minutes")).toBeInTheDocument();
+  });
+
+  it("opens the guided verification modal from the document-backed CTA", async () => {
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Driver's license + live selfie")).toBeInTheDocument();
+  });
+
+  it("renders the verified artifact inside the document-backed rail state", () => {
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+    snapshot.careerIdProfile.phases[2] = {
+      ...snapshot.careerIdProfile.phases[2],
+      status: "verified",
+      completedCount: 1,
+    };
+    snapshot.careerIdProfile.badges = [
+      {
+        id: "badge_gov_id",
+        label: "Government ID verified",
+        phase: "document_backed",
+        status: "verified",
+      },
+    ];
+    snapshot.documentVerification = {
+      ...snapshot.documentVerification,
+      status: "verified",
+      ctaLabel: null,
+      artifactLabel: "Government ID verified",
+      helperText: "Government ID verified and added to your Career ID.",
+      result: {
+        verificationId: "career_id_ver_123",
+        evidenceId: "career_id_evidence_123",
+        status: "verified",
+        checks: {
+          documentAuthenticity: "pass",
+          liveness: "pass",
+          faceMatch: "pass",
+        },
+        confidenceBand: "high",
+        provider: "persona",
+        providerReferenceId: "inq_123",
+        completedAt: "2026-04-10T12:00:00.000Z",
+        retryable: false,
+      },
+    };
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+
+    expect(screen.getAllByText("Government ID verified").length).toBeGreaterThan(0);
+    expect(screen.getByText("Webhook-confirmed from Persona")).toBeInTheDocument();
   });
 });

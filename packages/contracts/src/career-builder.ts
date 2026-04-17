@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  careerIdDocumentVerificationStateSchema,
+  careerIdProfileSchema,
+} from "./career-id";
 
 export const careerPhaseValues = [
   "self",
@@ -143,6 +147,8 @@ export const careerBuilderSnapshotSchema = z.object({
     ),
   }),
   phaseProgress: z.array(careerPhaseProgressSchema),
+  careerIdProfile: careerIdProfileSchema,
+  documentVerification: careerIdDocumentVerificationStateSchema,
 });
 
 export type CareerPhase = z.infer<typeof careerPhaseSchema>;
