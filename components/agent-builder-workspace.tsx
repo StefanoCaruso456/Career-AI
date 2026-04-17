@@ -1670,6 +1670,16 @@ export function AgentBuilderWorkspace({
                         <span>Keep your full face visible and look straight ahead.</span>
                       </article>
                     </div>
+
+                    <div className={styles.infoBanner}>
+                      <CheckCircle2 aria-hidden="true" size={18} strokeWidth={2} />
+                      <p>
+                        You&apos;ll capture the front and back of your ID plus the live selfie in
+                        Persona after you continue. Career AI stores the verification result,
+                        timestamps, and encrypted Persona reference after webhook confirmation
+                        instead of raw ID photos or selfie files in this modal.
+                      </p>
+                    </div>
                   </section>
                 ) : null}
 
@@ -1677,7 +1687,9 @@ export function AgentBuilderWorkspace({
                   <section className={styles.sectionPanel}>
                     <div className={styles.verificationBodyStack}>
                       <p className={styles.verificationBodyCopy}>
-                        We use Persona to guide the secure verification flow, but your Career ID only changes after our backend processes Persona webhook updates.
+                        After you agree, we&apos;ll send you to Persona for the secure capture
+                        flow. Your Career ID only changes after our backend processes Persona
+                        webhook updates.
                       </p>
 
                       <label className={styles.consentRow}>
@@ -1775,7 +1787,7 @@ export function AgentBuilderWorkspace({
                       }}
                       type="button"
                     >
-                      Continue
+                      Continue to secure capture
                     </button>
                   ) : null}
 
@@ -1798,7 +1810,7 @@ export function AgentBuilderWorkspace({
                           Starting
                         </>
                       ) : (
-                        "Agree and continue"
+                        "Open secure verification"
                       )}
                     </button>
                   ) : null}
