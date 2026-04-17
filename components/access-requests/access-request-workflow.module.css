@@ -286,6 +286,41 @@
   max-width: 1120px;
 }
 
+.sectionTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.sectionTab {
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(24, 27, 33, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  color: #eef5ff;
+  display: inline-flex;
+  font-weight: 600;
+  gap: 0.4rem;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.7rem 1.1rem;
+  text-decoration: none;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.sectionTab:hover,
+.sectionTab:focus-visible {
+  border-color: rgba(167, 197, 255, 0.32);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  outline: none;
+  transform: translateY(-1px);
+}
+
 .pageShellHeaderOffset {
   padding-top: max(5.75rem, calc(var(--site-header-clearance) - 0.5rem));
 }
@@ -316,6 +351,84 @@
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.sectionAnchor {
+  display: grid;
+  scroll-margin-top: max(6rem, calc(var(--site-header-clearance) + 0.75rem));
+}
+
+.applicationGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.applicationCard {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(21, 24, 31, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+}
+
+.applicationCardHeader {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.applicationCardHeader h3 {
+  margin: 0;
+}
+
+.applicationStatusPill {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.32rem 0.68rem;
+  text-transform: uppercase;
+}
+
+.applicationStatusPillReady {
+  background: rgba(16, 185, 129, 0.14);
+  color: #a7f3d0;
+}
+
+.applicationStatusPillNeedsAttention {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+}
+
+.applicationLoadingState {
+  align-items: center;
+  color: rgba(224, 232, 246, 0.76);
+  display: inline-flex;
+  gap: 0.7rem;
+}
+
+.inlineSpinner {
+  animation: accessRequestSpin 900ms linear infinite;
+}
+
+@keyframes accessRequestSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 720px) {
+  .sectionTabs {
+    gap: 0.55rem;
+  }
+
+  .sectionTab {
+    width: 100%;
+  }
 }
 
 .smallNote {

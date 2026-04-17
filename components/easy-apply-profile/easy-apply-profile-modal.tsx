@@ -21,6 +21,7 @@ import styles from "./easy-apply-profile.module.css";
 
 type EasyApplyProfileModalProps = {
   companyName: string;
+  contextMode?: "job" | "settings";
   extraFieldDefinitions?: FieldDefinition[];
   initialProfile: AnyApplicationProfile;
   isOpen: boolean;
@@ -69,6 +70,7 @@ function getModalCopy(mode: EasyApplyProfileModalProps["mode"]) {
 
 export function EasyApplyProfileModal({
   companyName,
+  contextMode = "job",
   extraFieldDefinitions = [],
   initialProfile,
   isOpen,
@@ -94,6 +96,7 @@ export function EasyApplyProfileModal({
   const descriptionId = useId();
   const copy = getModalCopy(mode);
   const config = getSchemaFamilyConfig(schemaFamily);
+  const isSettingsContext = contextMode === "settings";
 
   useEffect(() => {
     setIsMounted(true);
@@ -216,14 +219,22 @@ export function EasyApplyProfileModal({
                 <strong className={styles.modalContextValue}>{config.label}</strong>
               </div>
               <div className={styles.modalContextCard}>
-                <span className={styles.modalContextLabel}>Company</span>
-                <strong className={styles.modalContextValue}>{companyName}</strong>
+                <span className={styles.modalContextLabel}>
+                  {isSettingsContext ? "Profile scope" : "Company"}
+                </span>
+                <strong className={styles.modalContextValue}>
+                  {isSettingsContext ? "Reusable settings" : companyName}
+                </strong>
               </div>
               <div
                 className={`${styles.modalContextCard} ${styles.modalContextCardWide}`}
               >
-                <span className={styles.modalContextLabel}>Profile prepared for</span>
-                <strong className={styles.modalContextValue}>{jobTitle}</strong>
+                <span className={styles.modalContextLabel}>
+                  {isSettingsContext ? "Reuse target" : "Profile prepared for"}
+                </span>
+                <strong className={styles.modalContextValue}>
+                  {isSettingsContext ? "Future applications" : jobTitle}
+                </strong>
               </div>
             </div>
           </div>
