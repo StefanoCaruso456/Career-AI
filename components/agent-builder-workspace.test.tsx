@@ -113,6 +113,22 @@ describe("AgentBuilderWorkspace", () => {
     vi.restoreAllMocks();
   });
 
+  it("renders the simplified hero without the summary cards", () => {
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Badge your Career ID" })).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Create the living credibility profile behind your verified career identity. Keep the progress rail in view, open the phase you want to strengthen, and save each trust signal directly into your Career ID.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("overall builder progress")).not.toBeInTheDocument();
+    expect(screen.queryByText("uploaded evidence signals")).not.toBeInTheDocument();
+    expect(screen.queryByText("strongest trust tier")).not.toBeInTheDocument();
+    expect(screen.queryByText("Phase-based intake")).not.toBeInTheDocument();
+    expect(screen.queryByText("Saved to your Career ID")).not.toBeInTheDocument();
+  });
+
   it("keeps dense intake off the main page and opens the requested phase modal", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
@@ -232,7 +248,7 @@ describe("AgentBuilderWorkspace", () => {
 
     expect(await screen.findByText("Saved to your Career ID.")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByText("29%")).toBeInTheDocument();
+      expect(screen.getAllByText("5/5 ready").length).toBeGreaterThan(0);
       expect(
         screen.getByText(
           "Self-reported foundation complete. Your Career ID can now level up with stronger proof.",
