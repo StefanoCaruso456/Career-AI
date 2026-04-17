@@ -413,7 +413,7 @@ describe("JobsResults", () => {
     await waitFor(() => {
       expect(screen.getByText("Showing 3 of 3 matching roles from 3 loaded.")).toBeInTheDocument();
     });
-    expect(screen.getByText("3 jobs available")).toBeInTheDocument();
+    expect(screen.getByText("3 matching roles")).toBeInTheDocument();
     expect(screen.queryByText(/Checking all 27 available jobs for matches/i)).not.toBeInTheDocument();
   });
 
@@ -1031,6 +1031,15 @@ describe("JobsResults", () => {
         commitment: "Full-time",
         sourceLane: "ats_direct",
       },
+      {
+        ...createJob(4),
+        title: "Security Engineer",
+        companyName: "OpenAI",
+        location: "Remote",
+        salaryText: "$120,000 - $180,000",
+        commitment: "Full-time",
+        sourceLane: "ats_direct",
+      },
     ];
 
     render(<JobsResults jobs={jobs} />);
@@ -1039,8 +1048,10 @@ describe("JobsResults", () => {
       target: { value: "100k-150k" },
     });
 
-    expect(screen.getByText("Showing 1 of 1 matching role from 3 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 of 2 matching roles from 4 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("2 matching roles")).toBeInTheDocument();
     expect(screen.getByText("Product Manager, AI Platform")).toBeInTheDocument();
+    expect(screen.getByText("Security Engineer")).toBeInTheDocument();
     expect(screen.queryByText("Machine Learning Engineer")).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Workplace"), {
@@ -1051,10 +1062,11 @@ describe("JobsResults", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
 
-    expect(screen.getByText("Showing 3 of 3 matching roles from 3 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("Showing 4 of 4 matching roles from 4 loaded.")).toBeInTheDocument();
     expect(screen.getByText("Machine Learning Engineer")).toBeInTheDocument();
     expect(screen.getByText("Frontend Engineer")).toBeInTheDocument();
     expect(screen.getByText("Product Manager, AI Platform")).toBeInTheDocument();
+    expect(screen.getByText("Security Engineer")).toBeInTheDocument();
   });
 
   it("maps broader design titles into the product design role filter", () => {
@@ -1117,7 +1129,42 @@ describe("JobsResults", () => {
     });
 
     expect(screen.getByText("Applied AI Engineer")).toBeInTheDocument();
-    expect(screen.queryByText("Security Engineer")).not.toBeInTheDocument();
+    expect(screen.getByText("Security Engineer")).toBeInTheDocument();
     expect(screen.queryByText("Staff Platform Engineer")).not.toBeInTheDocument();
+  });
+
+  it("keeps the right-side counter aligned with salary-filtered matches instead of the full snapshot total", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        title: "Platform Engineer",
+        salaryText: "$120,000 - $180,000",
+      },
+      {
+        ...createJob(2),
+        title: "Support Engineer",
+        salaryText: "$92,000 - $98,000",
+      },
+      {
+        ...createJob(3),
+        title: "Product Manager",
+        salaryText: "$145,000 - $155,000",
+      },
+    ];
+
+    render(<JobsResults initialTotalAvailableCount={12959} jobs={jobs} />);
+
+    expect(screen.getByText("12,959 jobs available")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Salary range"), {
+      target: { value: "100k-150k" },
+    });
+
+    expect(screen.getByText("Showing 2 of 2 matching roles from 3 loaded.")).toBeInTheDocument();
+    expect(screen.getByText("2 matching roles")).toBeInTheDocument();
+    expect(screen.queryByText("12,959 jobs available")).not.toBeInTheDocument();
+    expect(screen.getByText("Platform Engineer")).toBeInTheDocument();
+    expect(screen.getByText("Product Manager")).toBeInTheDocument();
+    expect(screen.queryByText("Support Engineer")).not.toBeInTheDocument();
   });
 });

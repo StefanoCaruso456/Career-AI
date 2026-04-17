@@ -17,9 +17,10 @@ import {
   type JobSourceSnapshotDto,
 } from "@/packages/contracts/src";
 import {
-  annualizeSalaryRange,
-  parseSalaryText,
-} from "@/packages/jobs-domain/src/job-search-retrieval/utils";
+  evaluateSalaryFilter,
+  SALARY_RANGE_OPTIONS,
+  type SalaryRangeFilter,
+} from "./salary-filter-utils";
 import styles from "./page.module.css";
 
 type JobsResultsProps = {
@@ -34,14 +35,6 @@ type JobsResultsProps = {
 
 type WorkplaceFilter = "all" | "remote" | "hybrid" | "onsite";
 type DateFilter = "all" | "1d" | "7d" | "30d";
-const SALARY_RANGE_OPTIONS = [
-  "under-100k",
-  "100k-150k",
-  "150k-200k",
-  "200k-250k",
-  "250k-plus",
-] as const;
-type SalaryRangeFilter = "all" | (typeof SALARY_RANGE_OPTIONS)[number];
 const EMPTY_COMPANY_OPTIONS: string[] = [];
 const EMPTY_SOURCE_SNAPSHOTS: JobSourceSnapshotDto[] = [];
 const ROLE_TYPE_OPTIONS = [
@@ -396,58 +389,6 @@ function getCompanyOptions(
   ).sort((left, right) => left.localeCompare(right));
 }
 
-function inferAnnualSalary(job: JobPostingDto) {
-  const salaryText = job.salaryText ?? job.salaryRange?.rawText ?? null;
-
-  if (!salaryText) {
-    return null;
-  }
-
-  const salaryRange = annualizeSalaryRange(parseSalaryText(salaryText));
-  const parsedValues = [salaryRange.min, salaryRange.max].filter(
-    (value): value is number => value !== null,
-  );
-
-  if (parsedValues.length === 0) {
-    return null;
-  }
-
-  const representativeValue =
-    parsedValues.length === 1 ? parsedValues[0] : (parsedValues[0] + parsedValues[1]) / 2;
-
-  return representativeValue;
-}
-
-function matchesSalaryRange(job: JobPostingDto, salaryRangeFilter: SalaryRangeFilter) {
-  if (salaryRangeFilter === "all") {
-    return true;
-  }
-
-  const annualSalary = inferAnnualSalary(job);
-
-  if (annualSalary === null) {
-    return false;
-  }
-
-  if (salaryRangeFilter === "under-100k") {
-    return annualSalary < 100_000;
-  }
-
-  if (salaryRangeFilter === "100k-150k") {
-    return annualSalary >= 100_000 && annualSalary < 150_000;
-  }
-
-  if (salaryRangeFilter === "150k-200k") {
-    return annualSalary >= 150_000 && annualSalary < 200_000;
-  }
-
-  if (salaryRangeFilter === "200k-250k") {
-    return annualSalary >= 200_000 && annualSalary < 250_000;
-  }
-
-  return annualSalary >= 250_000;
-}
-
 function inferWorkplaceMode(location: string | null): WorkplaceFilter {
   if (!location) {
     return "onsite";
@@ -606,13 +547,24 @@ export function JobsResults({
       matchesKeyword(job, deferredKeyword)
     );
   });
-  const filteredJobs = jobsMatchingNonSalaryFilters.filter((job) =>
-    matchesSalaryRange(job, salaryRangeFilter),
-  );
+  const salaryEvaluations = jobsMatchingNonSalaryFilters.map((job) => ({
+    evaluation: evaluateSalaryFilter(job, salaryRangeFilter),
+    job,
+  }));
+  const filteredJobs = salaryEvaluations
+    .filter(({ evaluation }) => evaluation.matches)
+    .map(({ job }) => job);
   const visibleJobs = filteredJobs.slice(0, visibleCount);
   const salaryHydrationPool =
-    salaryRangeFilter !== "all" && filteredJobs.length === 0
-      ? jobsMatchingNonSalaryFilters.slice(0, Math.max(initialCount * 2, 48))
+    salaryRangeFilter !== "all"
+      ? salaryEvaluations
+          .filter(
+            ({ evaluation }) =>
+              evaluation.reason === "missing-salary" ||
+              evaluation.reason === "unparseable-salary",
+          )
+          .map(({ job }) => job)
+          .slice(0, Math.max(initialCount * 2, 48))
       : visibleJobs;
   const remainingCount = Math.max(filteredJobs.length - visibleCount, 0);
   const canRevealLoadedJobs = remainingCount > 0;
@@ -637,6 +589,10 @@ export function JobsResults({
   const isLoadingCompanyResults = companyFilter !== "all" && isLoadingCompanyScope;
   const showLoadMore =
     companyFilter === "all" ? canRevealLoadedJobs || hasMoreAvailable : canRevealLoadedJobs;
+  const resultsTotalLabel =
+    hasActiveFilters && !isLoadingCompanyResults && !isSearchingAllJobs
+      ? `${formatCount(filteredJobs.length)} ${pluralize(filteredJobs.length, "matching role")}`
+      : `${formatCount(activeTotalAvailableCount)} jobs available`;
 
   function clearAllFilters() {
     setKeyword("");
@@ -859,6 +815,41 @@ export function JobsResults({
       });
     };
   }, [salaryHydrationPool, salaryOverrides]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development" || salaryRangeFilter === "all") {
+      return;
+    }
+
+    const reasonCounts = salaryEvaluations.reduce<Record<string, number>>((counts, entry) => {
+      counts[entry.evaluation.reason] = (counts[entry.evaluation.reason] ?? 0) + 1;
+      return counts;
+    }, {});
+    const sampleExcluded = salaryEvaluations
+      .filter(({ evaluation }) => !evaluation.matches)
+      .slice(0, 5)
+      .map(({ evaluation, job }) => ({
+        annualMax: evaluation.normalizedSalary?.annualMax ?? null,
+        annualMin: evaluation.normalizedSalary?.annualMin ?? null,
+        company: job.companyName,
+        currency: evaluation.normalizedSalary?.currency ?? null,
+        jobId: job.id,
+        period: evaluation.normalizedSalary?.period ?? null,
+        rawText:
+          evaluation.normalizedSalary?.rawText ?? job.salaryText ?? job.salaryRange?.rawText ?? null,
+        reason: evaluation.reason,
+        title: job.title,
+      }));
+
+    console.debug("[JobsResults] salary filter diagnostics", {
+      band: salaryEvaluations[0]?.evaluation.band ?? null,
+      candidateCount: salaryEvaluations.length,
+      filter: salaryRangeFilter,
+      matchedCount: filteredJobs.length,
+      reasonCounts,
+      sampleExcluded,
+    });
+  }, [filteredJobs.length, salaryEvaluations, salaryRangeFilter]);
 
   async function hydrateFullJobsWindow(requestedLimit = fullJobsWindowLimit) {
     if (
@@ -1116,7 +1107,7 @@ export function JobsResults({
             : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded.`}
         </p>
         <p className={styles.resultsTotal}>
-          {formatCount(activeTotalAvailableCount)} jobs available
+          {resultsTotalLabel}
         </p>
       </div>
 

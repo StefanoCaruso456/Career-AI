@@ -1045,6 +1045,55 @@ describe("jobs feed service", () => {
     expect(snapshot.storage.lastSyncAt).toBe(syncedAt);
   });
 
+  it("enriches persisted jobs with parsed salary range metadata in the feed response", async () => {
+    await installTestDatabase();
+    process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
+
+    await persistSourcedJobs({
+      syncedAt: "2026-04-01T08:00:00.000Z",
+      sources: [
+        {
+          key: "greenhouse:acme",
+          label: "Acme",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 1,
+          endpointLabel: "boards-api.greenhouse.io/acme",
+          lastSyncedAt: "2026-04-01T08:00:00.000Z",
+          message: "Acme public jobs synced and ready to persist.",
+        },
+      ],
+      jobs: [
+        {
+          applyUrl: "https://jobs.acme.com/platform",
+          companyName: "Acme",
+          descriptionSnippet: "Own distributed platform systems.",
+          externalId: "platform-1",
+          id: "greenhouse:acme:platform-1",
+          location: "Remote",
+          salaryText: "$120,000 - $180,000 a year",
+          sourceKey: "greenhouse:acme",
+          sourceLabel: "Acme",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          title: "Platform Engineer",
+          updatedAt: "2026-04-01T07:55:00.000Z",
+        },
+      ],
+    });
+
+    const snapshot = await getJobsFeedSnapshot({ limit: 10 });
+
+    expect(snapshot.jobs[0]?.salaryText).toBe("$120,000 - $180,000 a year");
+    expect(snapshot.jobs[0]?.salaryRange).toEqual({
+      currency: "USD",
+      max: 180000,
+      min: 120000,
+      rawText: "$120,000 - $180,000 a year",
+    });
+  });
+
   it("continues showing persisted jobs when a later Greenhouse sync degrades", async () => {
     await installTestDatabase();
     process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
