@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { JobPostingDto, JobsPanelResponseDto } from "@/packages/contracts/src";
 import { JobsSidePanel } from "./jobs-side-panel";
 
 const mockUseApplicationProfiles = vi.fn();
@@ -67,6 +68,131 @@ function createJob(
     validationStatus: "active_verified" as const,
     workplaceType: "remote" as const,
     ...overrides,
+  };
+}
+
+function createJobPosting(
+  id: string,
+  overrides?: Partial<JobPostingDto>,
+): JobPostingDto {
+  return {
+    applyUrl: `https://jobs.example.com/${id}`,
+    canonicalApplyUrl: `https://jobs.example.com/${id}`,
+    canonicalJobUrl: `https://jobs.example.com/${id}`,
+    commitment: "Full-time",
+    companyName: "Example",
+    department: null,
+    descriptionSnippet: "Lead product strategy for the hiring experience.",
+    externalId: id,
+    externalSourceJobId: `${id}-req`,
+    id,
+    location: "Remote - United States",
+    orchestrationReadiness: true,
+    postedAt: "2026-04-12T12:00:00.000Z",
+    relevanceScore: 0.91,
+    salaryText: "$180k - $220k",
+    sourceKey: "greenhouse:example",
+    sourceLabel: "Example",
+    sourceLane: "ats_direct",
+    sourceQuality: "high_signal",
+    title: "Growth PM",
+    updatedAt: "2026-04-12T12:00:00.000Z",
+    validationStatus: "active_verified",
+    workplaceType: "remote",
+    ...overrides,
+  };
+}
+
+function createJobsPanelResponse(
+  prompt: string,
+  jobs: JobPostingDto[],
+): JobsPanelResponseDto {
+  return {
+    assistantMessage: "Here are the strongest live role matches.",
+    agent: {
+      clarificationQuestion: null,
+      intent: "job_search",
+      intentConfidence: 1,
+      loopCount: 0,
+      maxLoops: 0,
+      resultQuality: jobs.length > 0 ? "acceptable" : "empty",
+      selectedTool: "searchJobs",
+      terminationReason: jobs.length > 0 ? "jobs_search_completed" : "jobs_search_completed_empty",
+    },
+    debugTrace: [],
+    diagnostics: {
+      duplicateCount: 0,
+      filteredOutCount: 0,
+      invalidCount: 0,
+      searchLatencyMs: 42,
+      sourceCount: 1,
+      staleCount: 0,
+    },
+    generatedAt: "2026-04-16T12:00:00.000Z",
+    jobs,
+    panelCount: jobs.length,
+    profileContext: null,
+    query: {
+      careerIdSignals: [],
+      conversationContext: null,
+      effectivePrompt: prompt,
+      filters: {
+        companies: [],
+        employmentType: null,
+        exclusions: [],
+        industries: [],
+        keywords: [],
+        location: null,
+        locations: [],
+        postedWithinDays: null,
+        rankingBoosts: [],
+        remotePreference: null,
+        role: "product manager",
+        roleFamilies: ["product manager"],
+        salaryMax: null,
+        salaryMin: null,
+        seniority: null,
+        skills: [],
+        targetJobId: null,
+        workplaceType: null,
+      },
+      normalizedPrompt: prompt.toLowerCase(),
+      prompt,
+      usedCareerIdDefaults: false,
+    },
+    rail: {
+      cards: jobs.map((job) => ({
+        applyUrl: job.canonicalApplyUrl ?? job.applyUrl,
+        company: job.companyName,
+        jobId: job.id,
+        location: job.location,
+        matchReason: job.matchSummary ?? "Grounded match from the live jobs inventory.",
+        relevanceScore: job.relevanceScore ?? null,
+        salaryText: job.salaryText ?? null,
+        summary: job.descriptionSnippet ?? null,
+        title: job.title,
+        workplaceType: job.workplaceType ?? null,
+      })),
+      emptyState: jobs.length === 0 ? "No grounded role matches were found." : null,
+      filterOptions: {
+        companies: Array.from(new Set(jobs.map((job) => job.companyName))),
+        locations: Array.from(
+          new Set(jobs.map((job) => job.location).filter((value): value is string => Boolean(value))),
+        ),
+      },
+    },
+    searchOutcome: {
+      exactMatchCount: jobs.length,
+      fallbackMatchCount: 0,
+      knownCompensationCount: jobs.filter((job) => Boolean(job.salaryText)).length,
+      totalCandidatesBeforeRerank: jobs.length,
+      totalResultsReturned: jobs.length,
+      unknownCompensationCount: jobs.filter((job) => !job.salaryText).length,
+      wideningApplied: false,
+      wideningSteps: [],
+      zeroResultReasons: [],
+    },
+    totalMatches: jobs.length,
   };
 }
 
@@ -486,5 +612,60 @@ describe("JobsSidePanel", () => {
 
     expect(await screen.findByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.queryByText("Product Designer")).not.toBeInTheDocument();
+  });
+
+  it("runs a live role search from the keyword filter when the role is not in the local cards", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+      expect(url).toBe("/api/v1/jobs/search");
+      expect(init?.method).toBe("POST");
+
+      const body = JSON.parse(String(init?.body)) as { prompt: string };
+
+      expect(body.prompt).toContain("product manager");
+
+      return new Response(
+        JSON.stringify(
+          createJobsPanelResponse(body.prompt, [
+            createJobPosting("job_pm_1", {
+              companyName: "Notion",
+              descriptionSnippet: "Own growth experiments and product strategy.",
+              sourceKey: "greenhouse:notion",
+              sourceLabel: "Notion",
+              title: "Growth PM",
+            }),
+          ]),
+        ),
+        {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        },
+      );
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsSidePanel
+        jobs={[
+          createJob("job_1", { title: "Backend Engineer" }),
+          createJob("job_2", { title: "ML Engineer" }),
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.change(screen.getByLabelText("Filter jobs by keyword"), {
+      target: { value: "product manager" },
+    });
+
+    expect(screen.getByText('Searching live roles for "product manager".')).toBeInTheDocument();
+    expect(await screen.findByText("Growth PM")).toBeInTheDocument();
+    expect(screen.queryByText("Backend Engineer")).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });
