@@ -31,27 +31,29 @@ export function WorkspaceShell({
     <div className={styles.pageCanvas}>
       <section className={styles.section}>
         <div className={styles.shell}>
-          <div className={styles.copyBlock}>
-            <span className={styles.eyebrow}>{eyebrow}</span>
-            <p className={styles.summary}>{summary}</p>
+          <div className={styles.workspacePanel}>
+            <div className={styles.copyBlock}>
+              <span className={styles.eyebrow}>{eyebrow}</span>
+              <p className={styles.summary}>{summary}</p>
+            </div>
+
+            <nav aria-label={`${eyebrow} navigation`} className={styles.tabBar}>
+              {tabs.map((tab) => {
+                const isCurrent = isCurrentPath(pathname, tab);
+
+                return (
+                  <Link
+                    aria-current={isCurrent ? "page" : undefined}
+                    className={isCurrent ? `${styles.tab} ${styles.tabCurrent}` : styles.tab}
+                    href={tab.href}
+                    key={tab.href}
+                  >
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
-
-          <nav aria-label={`${eyebrow} navigation`} className={styles.tabBar}>
-            {tabs.map((tab) => {
-              const isCurrent = isCurrentPath(pathname, tab);
-
-              return (
-                <Link
-                  aria-current={isCurrent ? "page" : undefined}
-                  className={isCurrent ? `${styles.tab} ${styles.tabCurrent}` : styles.tab}
-                  href={tab.href}
-                  key={tab.href}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
       </section>
 
