@@ -86,7 +86,7 @@ export default async function AccountAccessRequestsPage() {
           </p>
         </section>
 
-        <section className={styles.card}>
+        <section className={[styles.card, styles.accountSection].join(" ")}>
           <div className={styles.stack}>
             <h2>Active grants</h2>
             {activeGrants.length === 0 ? (
@@ -123,7 +123,7 @@ export default async function AccountAccessRequestsPage() {
           </div>
         </section>
 
-        <section className={styles.card}>
+        <section className={[styles.card, styles.accountSection].join(" ")}>
           <div className={styles.stack}>
             <h2>Pending requests</h2>
             {pending.length === 0 ? (
@@ -163,7 +163,7 @@ export default async function AccountAccessRequestsPage() {
           </div>
         </section>
 
-        <section className={styles.card}>
+        <section className={[styles.card, styles.accountSection].join(" ")}>
           <div className={styles.stack}>
             <h2>Recent decisions</h2>
             {history.length === 0 ? (
