@@ -101,7 +101,7 @@
   margin-bottom: 0.8rem;
 }
 
-.visualContextWord,
+.visualContextBrandBlock,
 .visualContextConnector {
   position: relative;
   display: inline-flex;
@@ -127,7 +127,7 @@
   backdrop-filter: blur(14px) saturate(145%);
 }
 
-.visualContextWord::before,
+.visualContextBrandBlock::before,
 .visualContextConnector::before {
   content: "";
   position: absolute;
@@ -136,6 +136,25 @@
   background:
     radial-gradient(circle at 50% 0%, rgba(120, 192, 255, 0.12), transparent 65%);
   pointer-events: none;
+}
+
+.visualContextBrandBlock {
+  min-width: clamp(8.5rem, 14vw, 11rem);
+  padding: 0.38rem 0.72rem;
+  overflow: hidden;
+}
+
+.visualContextBrandLogo {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: auto;
+  filter:
+    brightness(1.45)
+    contrast(1.08)
+    saturate(0.92);
+  opacity: 0.96;
 }
 
 .visualContextConnector {
@@ -330,12 +349,17 @@
     margin-bottom: 0.7rem;
   }
 
-  .visualContextWord,
+  .visualContextBrandBlock,
   .visualContextConnector {
     min-height: 2rem;
     padding: 0.42rem 0.72rem;
     font-size: 0.68rem;
     letter-spacing: 0.16em;
+  }
+
+  .visualContextBrandBlock {
+    min-width: 7.5rem;
+    padding-inline: 0.62rem;
   }
 
   .cardsGrid {
