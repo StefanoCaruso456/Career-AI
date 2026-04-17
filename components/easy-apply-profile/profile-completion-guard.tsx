@@ -5,7 +5,7 @@ import { useState } from "react";
 import { getPersonaSignInRoute } from "@/lib/personas";
 import { getApplicationProfileKey } from "@/lib/application-profiles/defaults";
 import { getMissingRequiredFieldKeys } from "@/lib/application-profiles/validation";
-import type { SchemaFamily } from "@/lib/application-profiles/types";
+import type { AnyApplicationProfile, SchemaFamily } from "@/lib/application-profiles/types";
 import { EasyApplyProfileModal } from "./easy-apply-profile-modal";
 import { MissingFieldsModal } from "./missing-fields-modal";
 import { useApplicationProfiles } from "./use-application-profiles";
@@ -86,6 +86,35 @@ export function ProfileCompletionGuard({
     }
   }
 
+  async function continueAfterProfileSave(savedProfile: AnyApplicationProfile) {
+    const nextFamilyMissingFieldKeys = getMissingRequiredFieldKeys({
+      profile: savedProfile,
+      schemaFamily,
+    });
+
+    if (nextFamilyMissingFieldKeys.length > 0) {
+      setShowMissingFieldsModal(false);
+      setShowProfileModal(true);
+      return;
+    }
+
+    const nextEmployerMissingKeys = getMissingRequiredFieldKeys({
+      fieldKeys: employerMissingFieldKeys,
+      profile: savedProfile,
+      schemaFamily,
+    });
+
+    if (nextEmployerMissingKeys.length > 0) {
+      setShowProfileModal(false);
+      setShowMissingFieldsModal(true);
+      return;
+    }
+
+    setShowProfileModal(false);
+    setShowMissingFieldsModal(false);
+    await continueToApply();
+  }
+
   function handleApplyClick() {
     if (!isAuthenticated) {
       redirectToSignIn();
@@ -140,12 +169,11 @@ export function ProfileCompletionGuard({
           });
         }}
         onSaveProfile={async (nextProfile) => {
-          await saveProfile({
+          const savedProfile = await saveProfile({
             profile: nextProfile,
             schemaFamily,
           });
-          setShowProfileModal(false);
-          await continueToApply();
+          await continueAfterProfileSave(savedProfile);
         }}
         onUploadResume={uploadResume}
         persisted={persisted}
@@ -164,12 +192,11 @@ export function ProfileCompletionGuard({
           setShowMissingFieldsModal(false);
         }}
         onSaveProfile={async (nextProfile) => {
-          await saveProfile({
+          const savedProfile = await saveProfile({
             profile: nextProfile,
             schemaFamily,
           });
-          setShowMissingFieldsModal(false);
-          await continueToApply();
+          await continueAfterProfileSave(savedProfile);
         }}
         onUploadResume={uploadResume}
         persisted={persisted}
