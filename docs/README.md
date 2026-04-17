@@ -10,6 +10,7 @@
 
 ## Architecture
 
+- [Autonomous Apply System](./architecture/autonomous-apply-system.md)
 - [Current-State Agent Platform](./architecture/current-state-agent-platform.md)
 - [Development Spec for Isolated Dev Agents](./architecture/talent-agent-id-development-spec.md)
 - [Memory Architecture](./memory-architecture.md)
