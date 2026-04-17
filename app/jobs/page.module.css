@@ -60,12 +60,6 @@
   gap: 1.4rem;
 }
 
-.intro {
-  padding: 0.35rem 0 0.15rem;
-  border-bottom: 1px solid var(--jobs-line);
-}
-
-.introCopy,
 .jobsPanel,
 .jobsGrid,
 .jobCopy,
@@ -75,19 +69,6 @@
 .feedList,
 .feedItem {
   display: grid;
-}
-
-.introCopy {
-  gap: 0.6rem;
-}
-
-.title {
-  margin: 0;
-  font-family: var(--font-display), sans-serif;
-  font-size: clamp(2rem, 3.9vw, 3rem);
-  line-height: 0.96;
-  letter-spacing: -0.05em;
-  color: var(--jobs-text-primary);
 }
 
 .subtitle,
@@ -302,6 +283,8 @@
   justify-content: space-between;
   gap: 1rem;
   flex-wrap: wrap;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--jobs-line);
 }
 
 .resultsSummary,

@@ -54,18 +54,6 @@ export default async function JobsPage() {
   return (
     <main className={styles.page}>
       <div className={styles.shell}>
-        <section className={styles.intro}>
-          <div className={styles.introCopy}>
-            <h1 className={styles.title}>Search results</h1>
-            {snapshot.summary.totalJobs === 0 ? (
-              <p className={styles.subtitle}>
-                Connect at least one live source and Career AI will sync the feed here
-                automatically.
-              </p>
-            ) : null}
-          </div>
-        </section>
-
         <section className={styles.jobsPanel}>
           {snapshot.jobs.length > 0 ? (
             <JobsResults
