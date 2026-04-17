@@ -17,7 +17,6 @@ import { createEnrichedJobPosting, normalizeHumanLabel } from "./metadata";
 const DEFAULT_RESPONSE_LIMIT = 18;
 const MAX_RESPONSE_LIMIT = 30_000;
 const FETCH_TIMEOUT_MS = 4_500;
-const JOBS_SNAPSHOT_STALE_MS = 10 * 60 * 1000;
 const DEFAULT_WINDOW_DAYS = 7;
 const LEVER_PAGE_SIZE = 100;
 const MAX_LEVER_PAGE_COUNT = 100;
@@ -388,20 +387,6 @@ function normalizeWindowDays(value: number | undefined) {
   }
 
   return Math.max(1, Math.min(Math.floor(value as number), 30));
-}
-
-function isSnapshotFresh(lastSyncAt: string | null) {
-  if (!lastSyncAt) {
-    return false;
-  }
-
-  const timestamp = Date.parse(lastSyncAt);
-
-  if (Number.isNaN(timestamp)) {
-    return false;
-  }
-
-  return Date.now() - timestamp <= JOBS_SNAPSHOT_STALE_MS;
 }
 
 function formatWindowLabel(windowDays: number | null) {
@@ -2124,12 +2109,6 @@ export async function getJobsFeedSnapshot(args?: {
       persisted.storage.lastSyncAt !== null;
 
     if (!args?.forceRefresh && hasPersistedSnapshot) {
-      if (!isSnapshotFresh(persisted.storage.lastSyncAt)) {
-        void refreshJobsFeed(windowDays).catch((error) => {
-          console.error("Jobs background refresh failed; serving cached snapshot instead.", error);
-        });
-      }
-
       const filteredPersisted = filterJobsFeedByCompanies({
         jobs: persisted.jobs,
         sources: [...persisted.sources, ...createNotConfiguredSources()],

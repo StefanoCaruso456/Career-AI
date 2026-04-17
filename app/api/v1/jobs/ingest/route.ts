@@ -13,8 +13,9 @@ export async function POST(request: NextRequest) {
       windowDays?: number;
     };
     const snapshot = await getJobsFeedSnapshot({
+      forceRefresh: true,
       limit: payload.limit,
-      windowDays: payload.windowDays ?? 30,
+      windowDays: payload.windowDays,
     });
 
     return successResponse(

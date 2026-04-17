@@ -992,42 +992,57 @@ describe("jobs feed service", () => {
     expect(Number(counts.rows[0]?.source_count ?? 0)).toBe(1);
   });
 
-  it("serves the persisted snapshot without re-syncing while the jobs cache is still fresh", async () => {
+  it("serves the persisted snapshot without re-syncing after the saved snapshot has aged", async () => {
     await installTestDatabase();
     process.env.DATABASE_URL = "postgres://career-ai:test@localhost:5432/career_ai_test";
-    process.env.GREENHOUSE_BOARD_TOKENS = "Acme=acme";
-
-    const fetchMock = vi.fn(async (input: string | URL | Request) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-
-      if (url === "https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true") {
-        return createJsonResponse({
-          jobs: [
-            {
-              id: 101,
-              title: "Senior Product Designer",
-              absolute_url: "https://jobs.acme.com/designer",
-              content: "<p>Lead product design across the entire workflow.</p>",
-              location: { name: "San Francisco, CA" },
-              departments: [{ name: "Design" }],
-              updated_at: "2026-04-09T18:00:00.000Z",
-            },
-          ],
-        });
-      }
-
-      throw new Error(`Unexpected URL ${url}`);
-    });
+    const syncedAt = "2026-04-01T08:00:00.000Z";
+    const fetchMock = vi.fn();
 
     vi.stubGlobal("fetch", fetchMock);
 
-    await getJobsFeedSnapshot({ limit: 10, forceRefresh: true });
+    await persistSourcedJobs({
+      syncedAt,
+      sources: [
+        {
+          key: "greenhouse:acme",
+          label: "Acme",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 1,
+          endpointLabel: "boards-api.greenhouse.io/acme",
+          lastSyncedAt: syncedAt,
+          message: "Acme public jobs synced and ready to persist.",
+        },
+      ],
+      jobs: [
+        {
+          id: "greenhouse:acme:101",
+          externalId: "101",
+          title: "Senior Product Designer",
+          companyName: "Acme",
+          location: "San Francisco, CA",
+          department: "Design",
+          commitment: null,
+          sourceKey: "greenhouse:acme",
+          sourceLabel: "Acme",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://jobs.acme.com/designer",
+          postedAt: null,
+          updatedAt: "2026-04-01T07:55:00.000Z",
+          descriptionSnippet: "Lead product design across the entire workflow.",
+        },
+      ],
+    });
+
     const snapshot = await getJobsFeedSnapshot({ limit: 10 });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(snapshot.storage.mode).toBe("database");
     expect(snapshot.jobs).toHaveLength(1);
     expect(snapshot.sources[0]?.status).toBe("connected");
+    expect(snapshot.storage.lastSyncAt).toBe(syncedAt);
   });
 
   it("continues showing persisted jobs when a later Greenhouse sync degrades", async () => {
