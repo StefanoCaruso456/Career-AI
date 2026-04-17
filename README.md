@@ -80,5 +80,6 @@ Copy `.env.example` to `.env.local` and run `npm run db:migrate` when using the 
 
 ## Docs
 
+- [Autonomous apply system diagrams](./docs/architecture/autonomous-apply-system.md)
 - [Current-state architecture](./docs/architecture/current-state-agent-platform.md)
 - [Docs index](./docs/README.md)
