@@ -603,4 +603,35 @@ describe("AgentBuilderWorkspace", () => {
     expect(screen.getAllByText("Government ID verified").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Webhook-confirmed from Persona").length).toBeGreaterThan(0);
   });
+
+  it("allows reverify from an already verified government ID state", async () => {
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+    snapshot.careerIdProfile.phases[2] = {
+      ...snapshot.careerIdProfile.phases[2],
+      status: "verified",
+      completedCount: 1,
+    };
+    snapshot.documentVerification = {
+      ...snapshot.documentVerification,
+      status: "verified",
+      verificationId: "career_id_ver_123",
+      ctaLabel: "Reverify identity",
+      artifactLabel: "Government ID verified",
+      helperText: "Government ID verified and added to your Career ID.",
+    };
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /reverify identity/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Continue to secure capture" }),
+    ).toBeInTheDocument();
+  });
 });

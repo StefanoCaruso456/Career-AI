@@ -357,6 +357,8 @@ function computeDocumentCtaLabel(status: CareerIdVerificationStatus, unlocked: b
   }
 
   switch (status) {
+    case "verified":
+      return "Reverify identity";
     case "in_progress":
     case "manual_review":
       return "Check verification status";
@@ -994,15 +996,6 @@ export async function createGovernmentIdVerificationSession(args: {
   ]);
   const existingEvidence = getGovernmentIdEvidence(existingEvidenceRecords);
   const latestVerification = getLatestGovernmentIdVerification(existingVerifications);
-
-  if (latestVerification?.status === "verified") {
-    throw new ApiError({
-      errorCode: "CONFLICT",
-      status: 409,
-      message: "Government ID verification is already complete.",
-      correlationId: args.correlationId,
-    });
-  }
 
   if (latestVerification?.status === "manual_review") {
     throw new ApiError({

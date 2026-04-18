@@ -950,7 +950,6 @@ export function AgentBuilderWorkspace({
     }
 
     if (
-      documentVerificationStatus === "verified" ||
       documentVerificationStatus === "retry_needed" ||
       documentVerificationStatus === "failed"
     ) {

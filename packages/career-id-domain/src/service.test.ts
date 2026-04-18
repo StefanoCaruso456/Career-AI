@@ -649,4 +649,92 @@ describe("career-id Persona service", () => {
       },
     ]);
   });
+
+  it("allows starting a new Persona verification after a completed verification", async () => {
+    personaMocks.createPersonaInquiry
+      .mockResolvedValueOnce({
+        inquiryId: "inq_123",
+        expiresAt: "2026-04-17T12:00:00.000Z",
+        status: "pending",
+      })
+      .mockResolvedValueOnce({
+        inquiryId: "inq_456",
+        expiresAt: "2026-04-18T12:00:00.000Z",
+        status: "pending",
+      });
+
+    const firstSession = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-reverify-start-1",
+    });
+
+    personaMocks.retrievePersonaInquiry.mockResolvedValue({
+      id: "inq_123",
+      attributes: {
+        status: "approved",
+        "completed-at": "2026-04-10T12:00:00.000Z",
+      },
+      included: [],
+    });
+
+    const rawBody = JSON.stringify({
+      data: {
+        id: "evt_reverify_approved_1",
+        attributes: {
+          "created-at": "2026-04-10T12:00:01.000Z",
+          name: "inquiry.approved",
+          payload: {
+            data: {
+              id: "inq_123",
+              attributes: {
+                status: "approved",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    await handlePersonaWebhook({
+      rawBody,
+      signatureHeader: signWebhookBody(rawBody),
+      correlationId: "career-id-reverify-webhook",
+    });
+
+    const secondSession = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-reverify-start-2",
+    });
+
+    expect(secondSession.status).toBe("in_progress");
+    expect(secondSession.verificationId).not.toBe(firstSession.verificationId);
+    expect(secondSession.providerReferenceId).toBe("inq_456");
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-reverify-lookup",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+
+    expect(verifications).toHaveLength(2);
+    expect(verifications[0]?.status).toBe("in_progress");
+    expect(verifications[0]?.attemptNumber).toBe(2);
+    expect(verifications[1]?.status).toBe("verified");
+    expect(evidence[0]?.status).toBe("in_progress");
+  });
 });
