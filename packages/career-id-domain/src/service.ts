@@ -357,6 +357,9 @@ function computeDocumentCtaLabel(status: CareerIdVerificationStatus, unlocked: b
   }
 
   switch (status) {
+    case "in_progress":
+    case "manual_review":
+      return "Check verification status";
     case "retry_needed":
     case "failed":
       return "Try again";
@@ -858,7 +861,7 @@ export async function getCareerIdPresentation(args: {
   correlationId: string;
   phaseProgress: CareerPhaseProgress[];
 }) {
-  const [evidenceRecords, verifications] = await Promise.all([
+  let [evidenceRecords, verifications] = await Promise.all([
     listCareerIdEvidence({
       careerIdentityId: args.careerIdentityId,
     }),
@@ -866,8 +869,23 @@ export async function getCareerIdPresentation(args: {
       careerIdentityId: args.careerIdentityId,
     }),
   ]);
+  let latestVerification = getLatestGovernmentIdVerification(verifications);
+
+  if (latestVerification && shouldSyncGovernmentIdVerificationStatus(latestVerification.status)) {
+    try {
+      latestVerification = await syncGovernmentIdVerificationFromPersona({
+        verification: latestVerification,
+        correlationId: args.correlationId,
+      });
+      evidenceRecords = await listCareerIdEvidence({
+        careerIdentityId: args.careerIdentityId,
+      });
+    } catch {
+      // Fall back to persisted state when Persona is temporarily unavailable.
+    }
+  }
+
   const governmentEvidence = getGovernmentIdEvidence(evidenceRecords);
-  const latestVerification = getLatestGovernmentIdVerification(verifications);
   const documentUnlocked = true;
   const documentStatus = computeDocumentVerificationStatus({
     evidence: governmentEvidence,

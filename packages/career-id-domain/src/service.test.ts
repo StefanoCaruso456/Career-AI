@@ -557,4 +557,96 @@ describe("career-id Persona service", () => {
       },
     ]);
   });
+
+  it("reconciles active verification status during Career ID presentation reads", async () => {
+    await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-presentation-sync-start",
+    });
+
+    personaMocks.retrievePersonaInquiry.mockResolvedValue({
+      id: "inq_123",
+      attributes: {
+        status: "approved",
+        "completed-at": "2026-04-10T12:00:00.000Z",
+      },
+      included: [],
+    });
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-presentation-sync-lookup",
+    });
+    const presentation = await getCareerIdPresentation({
+      careerIdentityId: identity!.talentIdentity.id,
+      correlationId: "career-id-presentation-sync",
+      phaseProgress: [
+        {
+          phase: "self",
+          label: "Self-reported",
+          completed: 0,
+          started: 0,
+          total: 5,
+          isComplete: false,
+          isCurrent: true,
+          summary: "Self current",
+        },
+        {
+          phase: "relationship",
+          label: "Relationship-backed",
+          completed: 0,
+          started: 0,
+          total: 3,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Relationship locked",
+        },
+        {
+          phase: "document",
+          label: "Document-backed",
+          completed: 0,
+          started: 0,
+          total: 7,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Document active",
+        },
+        {
+          phase: "signature",
+          label: "Signature-backed",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Signature locked",
+        },
+        {
+          phase: "institution",
+          label: "Institution-verified",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Institution locked",
+        },
+      ],
+    });
+
+    expect(presentation.documentVerification.status).toBe("verified");
+    expect(presentation.careerIdProfile.badges).toEqual([
+      {
+        id: expect.stringMatching(/^badge_/),
+        label: "Government ID verified",
+        phase: "document_backed",
+        status: "verified",
+      },
+    ]);
+  });
 });

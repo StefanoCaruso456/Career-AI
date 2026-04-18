@@ -881,7 +881,7 @@ export function AgentBuilderWorkspace({
     const nextSnapshot = await refreshSnapshot();
     const nextStatus = payload?.status as CareerIdVerificationStatus | undefined;
 
-    if (nextStatus && nextStatus !== "in_progress") {
+    if (nextStatus && nextStatus !== "in_progress" && nextStatus !== "manual_review") {
       setGovernmentModalStep("result");
     } else {
       setGovernmentModalStep("processing");
@@ -941,7 +941,10 @@ export function AgentBuilderWorkspace({
     setGovernmentConsentChecked(false);
     setIsGovernmentModalOpen(true);
 
-    if (documentVerificationStatus === "in_progress") {
+    if (
+      documentVerificationStatus === "in_progress" ||
+      documentVerificationStatus === "manual_review"
+    ) {
       setGovernmentModalStep("processing");
       return;
     }
@@ -949,7 +952,6 @@ export function AgentBuilderWorkspace({
     if (
       documentVerificationStatus === "verified" ||
       documentVerificationStatus === "retry_needed" ||
-      documentVerificationStatus === "manual_review" ||
       documentVerificationStatus === "failed"
     ) {
       setGovernmentModalStep("result");

@@ -501,6 +501,27 @@ describe("AgentBuilderWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps manual-review verification states pollable from the modal", async () => {
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+    snapshot.documentVerification = {
+      ...snapshot.documentVerification,
+      status: "manual_review",
+      verificationId: "career_id_ver_123",
+      ctaLabel: "Check verification status",
+      helperText: "We're reviewing your verification. This can take a little longer.",
+    };
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /check verification status/i }));
+
+    const dialog = await screen.findByRole("dialog");
+
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Refresh status" })).toBeInTheDocument();
+  });
+
   it("makes the Persona handoff explicit before starting secure verification", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
