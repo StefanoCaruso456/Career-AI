@@ -547,9 +547,7 @@
   padding: 0.95rem 0.9rem 0.85rem;
   border: 1px solid var(--hero-border);
   border-radius: 2rem;
-  background:
-    linear-gradient(180deg, var(--hero-shell-surface-top), var(--hero-shell-surface-bottom)),
-    var(--hero-shell-surface);
+  background: transparent;
   box-shadow: var(--hero-shadow-md);
   animation: chatSidebarEnter 260ms cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
