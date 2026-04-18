@@ -55,6 +55,7 @@ type ApplyRunRow = {
 type ApplyRunEventRow = {
   id: string;
   run_id: string;
+  trace_id: string | null;
   timestamp: Date | string;
   state: ApplyRunStatus;
   step_name: string | null;
@@ -127,6 +128,7 @@ function mapApplyRunEventRow(row: ApplyRunEventRow): ApplyRunEventDto {
     message: row.message,
     metadataJson: row.metadata_json ?? {},
     runId: row.run_id,
+    traceId: row.trace_id,
     state: row.state,
     stepName: row.step_name,
     timestamp: toIsoString(row.timestamp) ?? new Date().toISOString(),
@@ -246,9 +248,10 @@ export async function createApplyRunRecord(args: {
 
 export async function createApplyRunEventRecord(args: {
   queryable?: DatabaseQueryable;
-  event: Omit<ApplyRunEventDto, "id" | "timestamp"> & {
+  event: Omit<ApplyRunEventDto, "id" | "timestamp" | "traceId"> & {
     id?: string;
     timestamp?: string;
+    traceId?: string | null;
   };
 }) {
   const queryable = args.queryable ?? getDatabasePool();
@@ -261,6 +264,7 @@ export async function createApplyRunEventRecord(args: {
       INSERT INTO apply_run_events (
         id,
         run_id,
+        trace_id,
         timestamp,
         state,
         step_name,
@@ -268,11 +272,12 @@ export async function createApplyRunEventRecord(args: {
         message,
         metadata_json
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
     `,
     [
       id,
       args.event.runId,
+      args.event.traceId ?? null,
       timestamp,
       args.event.state,
       args.event.stepName,
@@ -286,6 +291,7 @@ export async function createApplyRunEventRecord(args: {
     ...args.event,
     id,
     metadataJson: args.event.metadataJson ?? {},
+    traceId: args.event.traceId ?? null,
     timestamp,
   } satisfies ApplyRunEventDto;
 }
@@ -454,6 +460,94 @@ export async function findExistingActiveApplyRun(args: {
   );
 
   return row ? mapApplyRunRow(row) : null;
+}
+
+export async function listApplyRunsByUser(args: {
+  queryable?: DatabaseQueryable;
+  userId: string;
+  limit?: number;
+}) {
+  const queryable = args.queryable ?? getDatabasePool();
+  const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
+  const result = await execute<ApplyRunRow>(
+    queryable,
+    `
+      SELECT
+        id,
+        user_id,
+        job_id,
+        job_posting_url,
+        company_name,
+        job_title,
+        ats_family,
+        adapter_id,
+        profile_snapshot_id,
+        status,
+        terminal_state,
+        failure_code,
+        failure_message,
+        attempt_count,
+        trace_id,
+        feature_flag_name,
+        metadata_json,
+        created_at,
+        started_at,
+        completed_at,
+        updated_at
+      FROM apply_runs
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `,
+    [args.userId, limit],
+  );
+
+  return result.rows.map(mapApplyRunRow);
+}
+
+export type ApplyRunEventSummary = {
+  latestEventType: string | null;
+  latestTimestamp: string | null;
+  runId: string;
+  totalEvents: number;
+};
+
+export async function listApplyRunEventSummariesByRunIds(args: {
+  queryable?: DatabaseQueryable;
+  runIds: string[];
+}) {
+  if (args.runIds.length === 0) {
+    return [] as ApplyRunEventSummary[];
+  }
+
+  const queryable = args.queryable ?? getDatabasePool();
+  const placeholders = args.runIds.map((_, index) => `$${index + 1}`).join(", ");
+  const result = await execute<{
+    latest_event_type: string | null;
+    latest_timestamp: Date | string | null;
+    run_id: string;
+    total_events: string;
+  }>(
+    queryable,
+    `
+      SELECT
+        run_id,
+        COUNT(*)::text AS total_events,
+        MAX(timestamp) AS latest_timestamp,
+        (ARRAY_AGG(event_type ORDER BY timestamp DESC))[1] AS latest_event_type
+      FROM apply_run_events
+      WHERE run_id IN (${placeholders})
+      GROUP BY run_id
+    `,
+    args.runIds,
+  );
+
+  return result.rows.map((row) => ({
+    latestEventType: row.latest_event_type,
+    latestTimestamp: toIsoString(row.latest_timestamp),
+    runId: row.run_id,
+    totalEvents: Number.parseInt(row.total_events, 10) || 0,
+  }));
 }
 
 export async function updateApplyRunRecord(args: {
@@ -632,6 +726,7 @@ export async function listApplyRunEvents(args: {
       SELECT
         id,
         run_id,
+        trace_id,
         timestamp,
         state,
         step_name,
@@ -671,6 +766,7 @@ export async function createQueuedApplyRun(args: {
           feature_flag_name: args.run.featureFlagName,
         },
         runId: run.id,
+        traceId: run.traceId,
         state: run.status,
         stepName: "start_apply_run",
       },

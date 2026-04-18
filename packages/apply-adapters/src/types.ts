@@ -38,6 +38,12 @@ export type ApplyAdapterContext = {
   snapshot: ApplicationProfileSnapshotDto;
 };
 
+export type ApplyAdapterPreflightContext = {
+  run: ApplyRunDto;
+  runnableConfig?: RunnableConfig;
+  snapshot: ApplicationProfileSnapshotDto;
+};
+
 export type ApplyConfirmationResult = {
   confirmed: boolean;
   failureCode?: ApplyFailureCode | null;
@@ -65,7 +71,7 @@ export type ApplyAdapter = {
   fillFields: (context: ApplyAdapterContext, plan: FieldMappingPlan) => Promise<void>;
   id: string;
   openTarget: (context: ApplyAdapterContext) => Promise<void>;
-  preflight: (context: ApplyAdapterContext) => Promise<void>;
+  preflight: (context: ApplyAdapterPreflightContext) => Promise<void>;
   submit: (context: ApplyAdapterContext) => Promise<void>;
   uploadDocuments: (context: ApplyAdapterContext) => Promise<void>;
 };

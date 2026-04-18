@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ApplyRunDto, ApplicationProfileSnapshotDto } from "@/packages/contracts/src";
 import {
   claimNextQueuedApplyRun,
+  createApplyRunEventRecord,
   createQueuedApplyRun,
   findApplyRunById,
   findExistingActiveApplyRun,
   findProfileSnapshotById,
+  listApplyRunEventSummariesByRunIds,
   listApplyRunEvents,
+  listApplyRunsByUser,
 } from "./apply-run-repository";
 import { getDatabasePool } from "./client";
 import { persistSourcedJobs } from "./job-posting-repository";
@@ -160,7 +163,7 @@ function createRun(snapshotId: string): Omit<ApplyRunDto, "updatedAt"> {
     startedAt: null,
     status: "queued",
     terminalState: null,
-    traceId: null,
+    traceId: "apply_trace_test_1",
     userId: "user_123",
   };
 }
@@ -201,6 +204,7 @@ describe("apply run repository", () => {
       eventType: "apply_run.created",
       state: "queued",
       stepName: "start_apply_run",
+      traceId: "apply_trace_test_1",
     });
   });
 
@@ -220,5 +224,43 @@ describe("apply run repository", () => {
 
     expect(claimedRun?.status).toBe("preflight_validating");
     expect(dedupeRun?.id).toBe("apply_run_test_1");
+  });
+
+  it("lists runs and summaries with trace correlation data", async () => {
+    const snapshot = createSnapshot();
+    const createdRun = await createQueuedApplyRun({
+      run: createRun(snapshot.id),
+      snapshot,
+    });
+
+    await createApplyRunEventRecord({
+      event: {
+        eventType: "apply_run.detecting_target",
+        message: "Target detection completed.",
+        metadataJson: {},
+        runId: createdRun.id,
+        traceId: createdRun.traceId,
+        state: "detecting_target",
+        stepName: "resolve_target_node",
+        timestamp: "2026-04-17T12:10:00.000Z",
+      },
+    });
+
+    const runs = await listApplyRunsByUser({
+      userId: "user_123",
+    });
+    const summaries = await listApplyRunEventSummariesByRunIds({
+      runIds: [createdRun.id],
+    });
+
+    expect(runs[0]).toMatchObject({
+      id: createdRun.id,
+      traceId: "apply_trace_test_1",
+    });
+    expect(summaries[0]).toMatchObject({
+      runId: createdRun.id,
+      totalEvents: 2,
+    });
+    expect(summaries[0]?.latestEventType).toBeTruthy();
   });
 });

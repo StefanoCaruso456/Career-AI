@@ -13,6 +13,7 @@ export type ApplyTraceMetadata = {
   jobTitle: string;
   profileSnapshotId: string;
   runId: string;
+  traceId: string;
   terminalState: string | null;
   userId: string;
 };
@@ -31,6 +32,7 @@ function buildBaseTags(metadata: ApplyTraceMetadata) {
     `job:${metadata.jobId}`,
     `company:${metadata.companyName}`,
     `title:${metadata.jobTitle}`,
+    `trace:${metadata.traceId}`,
     `graph:${metadata.graphVersion}`,
     `ats:${metadata.atsFamily ?? "unknown"}`,
     `adapter:${metadata.adapterId ?? "unassigned"}`,
@@ -51,6 +53,7 @@ function normalizeMetadata(metadata: ApplyTraceMetadata) {
     jobTitle: metadata.jobTitle,
     profileSnapshotId: metadata.profileSnapshotId,
     runId: metadata.runId,
+    traceId: metadata.traceId,
     terminalState: metadata.terminalState,
     userId: metadata.userId,
   };
