@@ -35,20 +35,13 @@
   padding: 1rem;
   border: 1px solid var(--jobs-rail-shell-line);
   border-radius: 1.9rem;
-  background:
-    radial-gradient(circle at top right, rgba(136, 127, 255, 0.06), transparent 34%),
-    linear-gradient(
-      180deg,
-      var(--jobs-rail-panel-top),
-      var(--jobs-rail-panel-bottom)
-    ),
-    var(--jobs-rail-surface);
+  background: transparent;
   box-shadow:
     0 28px 52px rgba(0, 0, 0, 0.3),
     0 0 0 1px rgba(118, 134, 255, 0.08),
     inset 1px 1px 0 rgba(255, 255, 255, 0.06);
-  -webkit-backdrop-filter: blur(18px) saturate(155%);
-  backdrop-filter: blur(18px) saturate(155%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   overflow: hidden;
 }
 
