@@ -150,9 +150,6 @@ describe("HeaderAuthControls", () => {
       "href",
       "/account/settings",
     );
-    expect(screen.getByRole("menuitem", { name: /access requests/i })).toHaveAttribute(
-      "href",
-      "/account/access-requests",
-    );
+    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
   });
 });
