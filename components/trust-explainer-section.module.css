@@ -136,11 +136,24 @@
 
 .logoCaption {
   margin: 0;
-  color: rgba(17, 47, 94, 0.94);
+  color: #1151bc;
   font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55),
+    0 8px 14px rgba(17, 92, 207, 0.18);
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .logoCaption {
+    background: linear-gradient(92deg, #1849b2 0%, #2762ff 38%, #1ea9ff 74%, #ff8b3d 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+  }
 }
 
 .cardsGrid {

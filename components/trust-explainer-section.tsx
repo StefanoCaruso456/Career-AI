@@ -27,7 +27,7 @@ export function TrustExplainerSection({ content }: { content: TrustExplainerCont
                   src="/career-ai-header-logo.png"
                   width={684}
                 />
-                <p className={styles.logoCaption}>Recruiter Agent TO Job Seeker Agent</p>
+                <p className={styles.logoCaption}>Recruiter Agent &lt;-&gt; Job Seeker Agent</p>
               </div>
             </div>
           </div>
