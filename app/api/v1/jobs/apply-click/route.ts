@@ -1,9 +1,13 @@
 import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
-import { createAutonomousApplyRun, isAutonomousApplyEnabled } from "@/packages/apply-domain/src";
+import {
+  createAutonomousApplyRun,
+  isAutonomousApplyEnabled,
+  resolveWorkdayOnlyAutonomousApplyDecision,
+} from "@/packages/apply-domain/src";
 import { kickAutonomousApplyWorker } from "@/packages/apply-runtime/src";
 import { errorResponse, getCorrelationId, successResponse } from "@/packages/audit-security/src";
-import { createApplyRunInputSchema, ApiError } from "@/packages/contracts/src";
+import { applyContinuationResponseSchema, createApplyRunInputSchema, ApiError } from "@/packages/contracts/src";
 import { getJobPostingDetails } from "@/packages/jobs-domain/src";
 import { isDatabaseConfigured, recordJobApplyClickEvent } from "@/packages/persistence/src";
 import { resolveChatRouteContext } from "@/app/api/chat/route-helpers";
@@ -20,6 +24,12 @@ export async function POST(request: NextRequest) {
     const job = await getJobPostingDetails({
       jobId: payload.jobId,
     });
+    const targetApplyUrl =
+      payload.canonicalApplyUrl ?? job?.canonicalApplyUrl ?? job?.applyUrl ?? null;
+    const routingDecision = resolveWorkdayOnlyAutonomousApplyDecision({
+      autonomousApplyEnabled: isAutonomousApplyEnabled(),
+      targetApplyUrl,
+    });
 
     if (isDatabaseConfigured()) {
       await recordJobApplyClickEvent({
@@ -27,18 +37,24 @@ export async function POST(request: NextRequest) {
           payload.canonicalApplyUrl ?? job?.canonicalApplyUrl ?? job?.applyUrl ?? "",
         conversationId: payload.conversationId ?? null,
         jobId: payload.jobId,
-        metadata: payload.metadata,
+        metadata: {
+          autonomous_apply_diagnostic_reason: routingDecision.diagnosticReason,
+          autonomous_apply_target_ats_family: routingDecision.detection?.atsFamily ?? null,
+          ...(payload.metadata ?? {}),
+        },
         ownerId,
       });
     }
 
-    if (isAutonomousApplyEnabled()) {
+    if (routingDecision.action === "queue_autonomous_apply") {
       const session = await auth();
 
       if (!session?.user) {
         throw new ApiError({
           correlationId,
-          details: null,
+          details: {
+            diagnostic_reason: "auth_missing",
+          },
           errorCode: "UNAUTHORIZED",
           message: "A signed-in session is required to start autonomous apply.",
           status: 401,
@@ -62,23 +78,33 @@ export async function POST(request: NextRequest) {
       void kickAutonomousApplyWorker();
 
       return successResponse(
-        {
+        applyContinuationResponseSchema.parse({
           action: "queued",
           applyRunId: result.run.id,
+          diagnostic: {
+            atsFamily: routingDecision.detection.atsFamily,
+            diagnosticReason: routingDecision.diagnosticReason,
+            matchedRule: routingDecision.detection.matchedRule,
+          },
           message: "Your application was queued. We will email you when it finishes.",
           ok: true,
-        },
+        }),
         correlationId,
         201,
       );
     }
 
     return successResponse(
-      {
+      applyContinuationResponseSchema.parse({
         action: "open_external",
-        applyUrl: job?.canonicalApplyUrl ?? job?.applyUrl ?? payload.canonicalApplyUrl ?? null,
+        applyUrl: targetApplyUrl,
+        diagnostic: {
+          atsFamily: routingDecision.detection?.atsFamily ?? null,
+          diagnosticReason: routingDecision.diagnosticReason,
+          matchedRule: routingDecision.detection?.matchedRule ?? null,
+        },
         ok: true,
-      },
+      }),
       correlationId,
     );
   } catch (error) {
