@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { artifactMetadataSchema, type ArtifactMetadata } from "@/packages/contracts/src";
@@ -42,6 +50,10 @@ export type ArtifactPersistenceAdapter = {
     baseDir?: string;
     buffer: Buffer;
   }): void;
+  readContent(args: {
+    artifactId: string;
+    baseDir?: string;
+  }): Buffer | null;
   readClaimArtifactIds(args: {
     baseDir?: string;
     claimId: string;
@@ -212,6 +224,13 @@ const filesystemArtifactPersistenceAdapter: ArtifactPersistenceAdapter = {
       args.baseDir,
     );
   },
+  readContent(args) {
+    try {
+      return readFileSync(getArtifactFilePath(args.artifactId, args.baseDir));
+    } catch {
+      return null;
+    }
+  },
   readClaimArtifactIds(args) {
     return [...(readArtifactDatabase(args.baseDir).claimArtifactIds[args.claimId] ?? [])];
   },
@@ -274,6 +293,13 @@ export function getPersistedArtifactByteLength(args: {
   baseDir?: string;
 }) {
   return getArtifactPersistenceAdapter().getByteLength(args);
+}
+
+export function readPersistedArtifactContent(args: {
+  artifactId: string;
+  baseDir?: string;
+}) {
+  return getArtifactPersistenceAdapter().readContent(args);
 }
 
 export function clearPersistedArtifactStorage(baseDir = process.cwd()) {

@@ -8,6 +8,7 @@ import {
   type JobRailFilterOptionsDto,
 } from "@/packages/contracts/src";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
+import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
 import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
 import { loadJobListings } from "@/lib/jobs/load-job-listings";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
@@ -35,7 +36,9 @@ type JobsSidePanelProps = {
   filterOptions?: JobRailFilterOptionsDto | null;
   isLoading?: boolean;
   jobs: JobListing[];
-  onApply?: (job: JobListing) => Promise<string> | string;
+  onApply?:
+    | ((job: JobListing) => Promise<string | ApplyContinuationResult> | string | ApplyContinuationResult)
+    | undefined;
   onClose?: () => void;
 };
 

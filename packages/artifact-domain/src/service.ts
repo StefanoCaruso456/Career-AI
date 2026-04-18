@@ -16,6 +16,7 @@ import {
   listPersistedClaimIdsForArtifact,
   persistArtifactRecord,
   persistClaimArtifactIds,
+  readPersistedArtifactContent,
   readPersistedClaimArtifactIds,
 } from "./storage";
 
@@ -246,6 +247,55 @@ export function getArtifactContentByteLength(args: {
   }
 
   return getPersistedArtifactByteLength(args);
+}
+
+export function readArtifactContent(args: {
+  artifactId: string;
+  correlationId: string;
+}) {
+  const cachedContent = getArtifactStore().contentsById.get(args.artifactId);
+
+  if (cachedContent) {
+    return cachedContent;
+  }
+
+  const artifact = getArtifactMetadata({
+    artifactId: args.artifactId,
+    correlationId: args.correlationId,
+  });
+
+  if (!isDurableArtifactStorageEnabled()) {
+    throw new ApiError({
+      correlationId: args.correlationId,
+      details: {
+        artifactId: args.artifactId,
+        ownerTalentId: artifact.owner_talent_id,
+      },
+      errorCode: "DEPENDENCY_FAILURE",
+      message: "Artifact content is not available in memory and durable storage is disabled.",
+      status: 503,
+    });
+  }
+
+  const persistedContent = readPersistedArtifactContent({
+    artifactId: args.artifactId,
+  });
+
+  if (!persistedContent) {
+    throw new ApiError({
+      correlationId: args.correlationId,
+      details: {
+        artifactId: args.artifactId,
+      },
+      errorCode: "NOT_FOUND",
+      message: "Artifact content was not found.",
+      status: 404,
+    });
+  }
+
+  getArtifactStore().contentsById.set(args.artifactId, persistedContent);
+
+  return persistedContent;
 }
 
 export function deleteArtifact(args: {

@@ -171,4 +171,31 @@ describe("ProfileCompletionGuard", () => {
       );
     });
   });
+
+  it("shows an inline success notice when autonomous apply is queued", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    mockGetMissingRequiredFieldKeys.mockReturnValue([]);
+
+    render(
+      <ProfileCompletionGuard
+        applyUrl="https://boards.greenhouse.io/example/jobs/123"
+        companyName="Example"
+        jobTitle="Product Designer"
+        resolveApplyUrl={async () => ({
+          action: "queued",
+          applyRunId: "apply_run_123",
+          message: "Your application was queued in the background.",
+        })}
+        schemaFamily="greenhouse"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Your application was queued in the background.")).toBeInTheDocument();
+    });
+    expect(openSpy).not.toHaveBeenCalled();
+  });
 });
