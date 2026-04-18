@@ -41,6 +41,7 @@ import { loadJobListings } from "@/lib/jobs/load-job-listings";
 import { loadLatestJobListings } from "@/lib/jobs/load-latest-job-listings";
 import { mapJobsPanelToListings } from "@/lib/jobs/map-jobs-to-listings";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
+import { startJobApplyRun } from "@/lib/jobs/start-apply-run-client";
 import type { Persona } from "@/lib/personas";
 import {
   clampStarterRailScrollTarget,
@@ -2329,32 +2330,16 @@ export function HeroComposer({
 
   async function handleApplyJob(job: JobListing) {
     try {
-      const response = await fetch("/api/v1/jobs/apply-click", {
-        body: JSON.stringify({
-          canonicalApplyUrl: job.canonicalApplyUrl,
-          conversationId: currentThreadId,
-          jobId: job.id,
-          metadata: {
-            isOrchestrationReady: job.isOrchestrationReady,
-            sourceLabel: job.sourceLabel,
-            validationStatus: job.validationStatus ?? null,
-          },
-        }),
-        headers: {
-          "Content-Type": "application/json",
+      return await startJobApplyRun({
+        canonicalApplyUrl: job.canonicalApplyUrl,
+        conversationId: currentThreadId,
+        jobId: job.id,
+        metadata: {
+          isOrchestrationReady: job.isOrchestrationReady,
+          sourceLabel: job.sourceLabel,
+          validationStatus: job.validationStatus ?? null,
         },
-        method: "POST",
       });
-      const payload = (await response.json()) as {
-        applyUrl?: string | null;
-        error?: string;
-      };
-
-      if (!response.ok || !payload.applyUrl) {
-        throw new Error(payload.error || "The application link could not be opened.");
-      }
-
-      return payload.applyUrl;
     } catch (error) {
       throw new Error(
         error instanceof Error ? error.message : "The application link could not be opened.",

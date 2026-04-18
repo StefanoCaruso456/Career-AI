@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { ProfileCompletionGuard } from "@/components/easy-apply-profile/profile-completion-guard";
+import { startJobApplyRun } from "@/lib/jobs/start-apply-run-client";
 import { fetchJobDetails } from "@/components/jobs/job-details-client";
 import { JobDetailsTrigger } from "@/components/jobs/job-details-trigger";
 import {
@@ -615,6 +616,18 @@ export function JobsResults({
       ? `${formatCount(filteredJobs.length)} ${pluralize(filteredJobs.length, "matching role")}`
       : `${formatCount(activeTotalAvailableCount)} jobs available`;
 
+  function handleApplyJob(job: JobPostingDto) {
+    return startJobApplyRun({
+      canonicalApplyUrl: job.canonicalApplyUrl ?? job.applyUrl,
+      jobId: job.id,
+      metadata: {
+        isOrchestrationReady: job.orchestrationReadiness ?? false,
+        sourceLabel: job.sourceLabel,
+        validationStatus: job.validationStatus ?? null,
+      },
+    });
+  }
+
   function clearAllFilters() {
     setKeyword("");
     setRoleTypeFilter("all");
@@ -1205,6 +1218,7 @@ export function JobsResults({
                     className={styles.jobLink}
                     companyName={job.companyName}
                     jobTitle={job.title}
+                    resolveApplyUrl={() => handleApplyJob(job)}
                     schemaFamily={schemaFamily}
                   />
                   <JobDetailsTrigger
@@ -1215,6 +1229,7 @@ export function JobsResults({
                         buttonVariant="jobs-card"
                         companyName={job.companyName}
                         jobTitle={job.title}
+                        resolveApplyUrl={() => handleApplyJob(job)}
                         schemaFamily={schemaFamily}
                       />
                     }

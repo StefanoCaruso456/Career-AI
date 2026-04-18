@@ -22,14 +22,15 @@ function getEmailFromAddress() {
   );
 }
 
-export async function sendAccessRequestEmail(args: {
+export async function sendEmail(args: {
   html: string;
+  from?: string;
   subject: string;
   text: string;
   to: string;
 }) {
   const apiKey = getResendApiKey();
-  const from = getEmailFromAddress();
+  const from = args.from?.trim() || getEmailFromAddress();
 
   if (!apiKey || !from) {
     return {
@@ -65,4 +66,13 @@ export async function sendAccessRequestEmail(args: {
     provider: "resend",
     status: "sent",
   } satisfies EmailDeliveryResult;
+}
+
+export async function sendAccessRequestEmail(args: {
+  html: string;
+  subject: string;
+  text: string;
+  to: string;
+}) {
+  return sendEmail(args);
 }

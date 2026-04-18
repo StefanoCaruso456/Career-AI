@@ -1,6 +1,7 @@
 "use client";
 
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
+import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
   formatRelativePostedAt,
@@ -14,7 +15,9 @@ import styles from "./jobs-side-panel.module.css";
 type JobListItemProps = {
   isSelected?: boolean;
   job: JobListing;
-  onApply?: (job: JobListing) => Promise<string> | string;
+  onApply?:
+    | ((job: JobListing) => Promise<string | ApplyContinuationResult> | string | ApplyContinuationResult)
+    | undefined;
   onOpenDetails?: (job: JobListing) => void;
 };
 

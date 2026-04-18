@@ -2,6 +2,7 @@
 
 import { ArrowUpRight, LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
+import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
 import { getPersonaSignInRoute } from "@/lib/personas";
 import { getApplicationProfileKey } from "@/lib/application-profiles/defaults";
 import { getMissingRequiredFieldKeys } from "@/lib/application-profiles/validation";
@@ -18,7 +19,9 @@ type ProfileCompletionGuardProps = {
   companyName: string;
   employerMissingFieldKeys?: string[];
   jobTitle: string;
-  resolveApplyUrl?: (() => Promise<string> | string) | undefined;
+  resolveApplyUrl?:
+    | (() => Promise<string | ApplyContinuationResult> | string | ApplyContinuationResult)
+    | undefined;
   schemaFamily: SchemaFamily;
   applyUrl: string;
 };
@@ -50,6 +53,7 @@ export function ProfileCompletionGuard({
     userKey,
   } = useApplicationProfiles();
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [applyNotice, setApplyNotice] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMissingFieldsModal, setShowMissingFieldsModal] = useState(false);
   const profile = profiles[getApplicationProfileKey(schemaFamily)];
@@ -77,8 +81,27 @@ export function ProfileCompletionGuard({
   async function continueToApply() {
     try {
       setApplyError(null);
+      setApplyNotice(null);
       const nextApplyUrl = await resolveApplyUrl?.();
-      openExternalApply(nextApplyUrl ?? applyUrl);
+
+      if (typeof nextApplyUrl === "string") {
+        openExternalApply(nextApplyUrl);
+        return;
+      }
+
+      if (nextApplyUrl?.action === "queued") {
+        setApplyNotice(
+          nextApplyUrl.message || "Your application was queued. We will email you when it finishes.",
+        );
+        return;
+      }
+
+      if (nextApplyUrl?.action === "open_external") {
+        openExternalApply(nextApplyUrl.applyUrl);
+        return;
+      }
+
+      openExternalApply(applyUrl);
     } catch (error) {
       setApplyError(
         error instanceof Error ? error.message : "The application link could not be opened.",
@@ -204,6 +227,7 @@ export function ProfileCompletionGuard({
         userKey={userKey}
       />
 
+      {applyNotice ? <p className={styles.inlineSuccess}>{applyNotice}</p> : null}
       {applyError || error ? <p className={styles.inlineError}>{applyError ?? error}</p> : null}
     </>
   );
