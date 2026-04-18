@@ -1,0 +1,26 @@
+{
+  "name": "@career-protocol/badge-schemas",
+  "version": "0.0.0",
+  "description": "W3C Verifiable Credential schemas for career badges (Identity, Employment, Education, Certification, Skill, Endorsement).",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas/*": "./schemas/*"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "echo \"TODO: tsc\"",
+    "test": "echo \"TODO: tests\""
+  }
+}

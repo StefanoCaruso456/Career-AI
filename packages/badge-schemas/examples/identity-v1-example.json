@@ -1,0 +1,45 @@
+{
+  "$comment": "Example IdentityCredential claim payload (pre-SD-JWT encoding). Used for reference and testing. All values are synthetic. This file is NOT a signed credential — it is the plaintext claim object that would be encoded and signed by issuer-service.",
+  "iss": "did:web:career-ledger.example",
+  "sub": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+  "iat": 1744552920,
+  "nbf": 1744552920,
+  "jti": "urn:uuid:9f3c0d2e-1a44-4c1e-9c1f-5c5d4b2e9a1b",
+  "vct": "https://schemas.career-ledger.example/identity/v1",
+  "schema": {
+    "id": "https://schemas.career-ledger.example/identity/v1",
+    "hash": "sha256:b4c3a9e8f1d21a3b4c5d6e7f8091a2b3c4d5e6f7081923a4b5c6d7e8f9012345"
+  },
+  "confidenceTier": "SOURCE_CONFIRMED",
+  "cnf": {
+    "jwk": {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    }
+  },
+  "status": {
+    "statusListCredential": "https://status.career-ledger.example/identity/1",
+    "statusListIndex": 4421,
+    "type": "StatusList2021Entry",
+    "statusPurpose": "revocation"
+  },
+  "identity": {
+    "proofingProvider": "idme",
+    "proofingLevel": "LOA2",
+    "proofedAt": "2026-04-13T14:20:15Z",
+    "proofingRegion": "US",
+    "proofingReference": "sha256:3a8f92b1c1d4e5f67890abcdef1234567890abcdef1234567890abcdef123456",
+    "uniquenessToken": "sha256:b4c3a9e8f1d21a3b4c5d6e7f8091a2b3c4d5e6f7081923a4b5c6d7e8f9012345"
+  },
+  "evidence": [
+    {
+      "id": "urn:evidence:proofing-7f3a",
+      "type": ["IdentityProofingEvidence"],
+      "verificationMethod": "PUBLIC_REGISTRY",
+      "verifiedAt": "2026-04-13T14:20:15Z",
+      "verifierActorId": "idme-oidc",
+      "artifactHash": "sha256:provider-opaque-session-digest-0000000000000000000000000000000000"
+    }
+  ]
+}

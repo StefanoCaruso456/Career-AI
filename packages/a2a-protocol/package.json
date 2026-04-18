@@ -1,0 +1,23 @@
+{
+  "name": "@career-protocol/a2a-protocol",
+  "version": "0.0.0",
+  "description": "Agent-to-Agent protocol: JSON message schemas, routing rules, and DID-based authentication for candidate/employer agent communication.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "schemas", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "echo \"TODO: tsc\"",
+    "test": "echo \"TODO: tests\""
+  },
+  "dependencies": {
+    "@career-protocol/did-resolver": "*"
+  }
+}

@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.career-ledger.example/identity/v1",
+  "title": "IdentityCredential",
+  "description": "Proves a DID is linked to a proofed, unique human. Contains no PII — only cryptographically opaque references to the underlying identity proofing session. See protocol/spec/identity.md for the normative specification.",
+  "type": "object",
+  "required": [
+    "iss",
+    "sub",
+    "iat",
+    "jti",
+    "vct",
+    "schema",
+    "confidenceTier",
+    "cnf",
+    "identity",
+    "evidence"
+  ],
+  "properties": {
+    "iss": {
+      "type": "string",
+      "format": "uri",
+      "description": "Issuer DID"
+    },
+    "sub": {
+      "type": "string",
+      "format": "uri",
+      "description": "Holder DID"
+    },
+    "iat": {
+      "type": "integer",
+      "description": "Issuance timestamp (Unix seconds)",
+      "minimum": 0
+    },
+    "nbf": {
+      "type": "integer",
+      "description": "Not-valid-before timestamp (Unix seconds)",
+      "minimum": 0
+    },
+    "exp": {
+      "type": "integer",
+      "description": "Expiration timestamp (Unix seconds). SHOULD be omitted for IdentityCredential unless re-proofing policy enforces a window.",
+      "minimum": 0
+    },
+    "jti": {
+      "type": "string",
+      "pattern": "^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "Credential ID (UUID URN)"
+    },
+    "vct": {
+      "type": "string",
+      "const": "https://schemas.career-ledger.example/identity/v1",
+      "description": "Credential type identifier. MUST equal the schema $id."
+    },
+    "schema": {
+      "type": "object",
+      "required": ["id", "hash"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uri"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "confidenceTier": {
+      "type": "string",
+      "enum": [
+        "SELF_REPORTED",
+        "EVIDENCE_SUBMITTED",
+        "REVIEWED",
+        "SOURCE_CONFIRMED",
+        "MULTI_SOURCE_CONFIRMED"
+      ],
+      "description": "IdentityCredentials MUST be SOURCE_CONFIRMED or higher. SELF_REPORTED and EVIDENCE_SUBMITTED are not valid for this badge type."
+    },
+    "cnf": {
+      "type": "object",
+      "required": ["jwk"],
+      "properties": {
+        "jwk": {
+          "type": "object",
+          "description": "Holder's public key in JWK format"
+        }
+      },
+      "description": "Holder binding confirmation. Required for all Career Credentials."
+    },
+    "status": {
+      "type": "object",
+      "required": ["statusListCredential", "statusListIndex", "type", "statusPurpose"],
+      "properties": {
+        "statusListCredential": { "type": "string", "format": "uri" },
+        "statusListIndex": { "type": "integer", "minimum": 0 },
+        "type": { "type": "string", "const": "StatusList2021Entry" },
+        "statusPurpose": { "type": "string", "const": "revocation" }
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "proofingProvider",
+        "proofingLevel",
+        "proofedAt",
+        "proofingRegion",
+        "proofingReference",
+        "uniquenessToken"
+      ],
+      "properties": {
+        "proofingProvider": {
+          "type": "string",
+          "enum": ["idme", "persona", "stripe-identity", "clear", "incode"],
+          "description": "Registered identity proofing service identifier"
+        },
+        "proofingLevel": {
+          "type": "string",
+          "enum": ["LOA1", "LOA2", "LOA3"],
+          "description": "NIST 800-63 Identity Assurance Level. Career Ledger requires LOA2 minimum for issuance."
+        },
+        "proofedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 UTC timestamp of proofing completion"
+        },
+        "proofingRegion": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "ISO 3166-1 alpha-2 country code"
+        },
+        "proofingReference": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Opaque SHA-256 reference linking the credential to the proofing session. MUST NOT be reversible to identity data."
+        },
+        "uniquenessToken": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "One-way hash derived from the user's identity that is stable across proofing sessions. Used for one-DID-per-human enforcement. MUST NOT be reversible."
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "verificationMethod", "verifiedAt", "verifierActorId", "artifactHash"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^urn:evidence:[A-Za-z0-9-]+$"
+          },
+          "type": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1
+          },
+          "verificationMethod": {
+            "type": "string",
+            "enum": [
+              "USER_UPLOAD",
+              "INTERNAL_REVIEW",
+              "EMPLOYER_AGENT",
+              "INSTITUTION_AGENT",
+              "AUTHORIZED_HUMAN",
+              "PUBLIC_REGISTRY",
+              "ENDORSEMENT_SUBMISSION",
+              "PAYROLL_SYNC",
+              "SYSTEM_RULE_MATCH"
+            ]
+          },
+          "verifiedAt": { "type": "string", "format": "date-time" },
+          "verifierActorId": {
+            "type": "string",
+            "description": "Opaque identifier for the verifying actor. MUST NOT be the verifier's personal identifier."
+          },
+          "artifactHash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "SHA-256 of the original source artifact. Persists after verify-and-forget deletes the source."
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Optional short human-readable note. MUST NOT contain PII."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "x-forbidden-fields": {
+    "description": "Fields that MUST NOT appear anywhere in an IdentityCredential. Validators should reject on presence.",
+    "fields": [
+      "name",
+      "firstName",
+      "lastName",
+      "displayName",
+      "dateOfBirth",
+      "dob",
+      "age",
+      "address",
+      "email",
+      "phone",
+      "ssn",
+      "governmentId",
+      "passportNumber",
+      "driversLicense",
+      "biometric",
+      "faceHash",
+      "voiceHash"
+    ]
+  }
+}
