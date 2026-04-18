@@ -114,18 +114,14 @@ export async function createPersonaInquiry(args: {
     });
   }
 
-  const fields: Record<string, { value: string }> = {};
+  const fields: Record<string, string> = {};
 
   if (args.firstName?.trim()) {
-    fields["name-first"] = {
-      value: args.firstName.trim(),
-    };
+    fields["name-first"] = args.firstName.trim();
   }
 
   if (args.lastName?.trim()) {
-    fields["name-last"] = {
-      value: args.lastName.trim(),
-    };
+    fields["name-last"] = args.lastName.trim();
   }
 
   const response = await personaRequest<PersonaCreateInquiryResponse>({
