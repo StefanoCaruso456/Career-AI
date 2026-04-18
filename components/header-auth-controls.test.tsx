@@ -46,10 +46,7 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
-      "href",
-      "/employer/settings",
-    );
+    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
       "href",
@@ -61,7 +58,7 @@ describe("HeaderAuthControls", () => {
     expect(screen.queryByText(/review name, email, password guidance/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the trigger identity-focused while keeping employer settings sticky", () => {
+  it("keeps the trigger identity-focused while showing onboarding shortcut", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
     mockUsePathname.mockReturnValue("/settings");
     mockUseSession.mockReturnValue({
@@ -89,10 +86,7 @@ describe("HeaderAuthControls", () => {
       "href",
       "/onboarding",
     );
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
-      "href",
-      "/employer/settings",
-    );
+    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
   });
 
@@ -122,7 +116,7 @@ describe("HeaderAuthControls", () => {
     expect(screen.getByRole("menuitem", { name: /sign out/i })).toBeInTheDocument();
   });
 
-  it("keeps candidate workspace shortcuts available outside the workspace shell", () => {
+  it("keeps only candidate workspace shortcut available outside the workspace shell", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
     mockUsePathname.mockReturnValue("/jobs");
     mockUseSession.mockReturnValue({
@@ -146,10 +140,7 @@ describe("HeaderAuthControls", () => {
       "href",
       "/account",
     );
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
-      "href",
-      "/account/settings",
-    );
+    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
   });
 });

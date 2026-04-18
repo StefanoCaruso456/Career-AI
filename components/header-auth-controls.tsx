@@ -9,7 +9,6 @@ import {
   LoaderCircle,
   LogOut,
   Settings2,
-  UserRound,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
@@ -18,7 +17,6 @@ import { readPreferredPersona } from "@/lib/persona-preference";
 import {
   defaultPersona,
   getPostAuthRoute,
-  getSettingsRoute,
   personaConfigs,
   resolveActivePersona,
   type Persona,
@@ -142,8 +140,6 @@ export function HeaderAuthControls() {
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
-  const settingsHref = getSettingsRoute(preferredPersona);
-  const isSettingsPage = pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
   const workspaceHref = getPostAuthRoute(preferredPersona);
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
   const accountLabel = displayName;
@@ -229,33 +225,6 @@ export function HeaderAuthControls() {
                     <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
                     <span className={styles.settingsItemCopy}>
                       <strong>{primaryMenuLabel}</strong>
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className={styles.settingsItemArrow}
-                    size={16}
-                    strokeWidth={2}
-                  />
-                </Link>
-
-                <Link
-                  aria-current={isSettingsPage ? "page" : undefined}
-                  className={
-                    isSettingsPage
-                      ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
-                      : styles.settingsItem
-                  }
-                  href={settingsHref}
-                  onClick={() => {
-                    setMenuOpen(false);
-                  }}
-                  role="menuitem"
-                >
-                  <span className={styles.settingsItemLead}>
-                    <UserRound aria-hidden="true" size={16} strokeWidth={2} />
-                    <span className={styles.settingsItemCopy}>
-                      <strong>Profile & account</strong>
                     </span>
                   </span>
                   <ChevronRight
