@@ -20,6 +20,7 @@ import type {
 } from "@/packages/contracts/src";
 import { closeApplyBrowserSession, launchApplyBrowserSession, type ApplyBrowserSession } from "./browser-session";
 import {
+  cleanupExpiredApplyRunArtifacts,
   persistApplyRunScreenshot,
   persistApplyRunTextArtifact,
 } from "./artifacts";
@@ -30,7 +31,13 @@ import {
   type ApplyTraceMetadata,
 } from "./langsmith";
 import { sendApplyRunTerminalEmail } from "./notifications";
-import { isAutonomousApplyInlineWorkerEnabled, getAutonomousApplyWorkerBatchSize } from "@/packages/apply-domain/src";
+import {
+  getAutonomousApplyInlineWorkerConcurrency,
+  getAutonomousApplyRunTimeoutMs,
+  isAutonomousApplyArtifactCleanupEnabled,
+  isAutonomousApplyInlineWorkerEnabled,
+  getAutonomousApplyWorkerBatchSize,
+} from "@/packages/apply-domain/src";
 
 const APPLY_GRAPH_VERSION = "2026-04-17";
 const applyBrowserSessions = new Map<string, ApplyBrowserSession>();
@@ -72,6 +79,7 @@ const applyGraphStateSchema = new StateSchema({
   profileSnapshot: z.any().nullable(),
   profileSnapshotId: z.string(),
   runId: z.string(),
+  submitAttempted: z.boolean().default(false),
   startedAt: z.string().datetime().nullable(),
   status: z.enum([
     "created",
@@ -93,6 +101,7 @@ const applyGraphStateSchema = new StateSchema({
     "needs_attention",
     "completed",
   ]),
+  traceId: z.string(),
   terminalState: z.enum(["submitted", "failed", "needs_attention", "submission_unconfirmed"]).nullable(),
   traceMetadata: z.record(z.string(), z.string()).default({}),
   userId: z.string(),
@@ -116,8 +125,10 @@ export type ApplyGraphState = {
   profileSnapshot: ApplicationProfileSnapshotDto | null;
   profileSnapshotId: string;
   runId: string;
+  submitAttempted: boolean;
   startedAt: string | null;
   status: ApplyRunStatus;
+  traceId: string;
   terminalState: ApplyRunTerminalStatus | null;
   traceMetadata: Record<string, string>;
   userId: string;
@@ -178,6 +189,7 @@ function toTraceMetadata(state: ApplyGraphState): ApplyTraceMetadata {
     jobTitle: state.jobTitle,
     profileSnapshotId: state.profileSnapshotId,
     runId: state.runId,
+    traceId: state.traceId,
     terminalState: state.terminalState,
     userId: state.userId,
   };
@@ -218,6 +230,7 @@ async function persistStateTransition(args: {
     startedAt: args.state.startedAt ?? now,
     status: args.nextStatus,
     terminalState,
+    traceId: args.state.traceId,
   });
   await createApplyRunEventRecord({
     event: {
@@ -225,6 +238,7 @@ async function persistStateTransition(args: {
       message: args.message,
       metadataJson: args.metadataJson ?? {},
       runId: args.state.runId,
+      traceId: args.state.traceId,
       state: args.nextStatus,
       stepName: args.stepName,
     },
@@ -235,6 +249,7 @@ async function finalizeRun(args: {
   runId: string;
   status: ApplyRunStatus;
   terminalState: ApplyRunTerminalStatus;
+  traceId: string;
   failureCode?: ApplyFailureCode | null;
   failureMessage?: string | null;
 }) {
@@ -245,6 +260,7 @@ async function finalizeRun(args: {
     runId: args.runId,
     status: args.status,
     terminalState: args.terminalState,
+    traceId: args.traceId,
   });
 }
 
@@ -350,6 +366,87 @@ function buildGraph(dependencies: RuntimeDependencies) {
         adapterId: adapter.id,
         status: "selecting_adapter" as const,
       };
+    })
+    .addNode("preflight_adapter_node", async (state: ApplyGraphState, config) => {
+      const adapter = getAdapterById({
+        adapterId: state.adapterId,
+        dependencies,
+      });
+
+      if (!adapter || !state.profileSnapshot) {
+        throw new Error("Apply runtime could not resolve the adapter preflight context.");
+      }
+
+      const run = await loadRun(state.runId);
+
+      try {
+        await adapter.preflight({
+          run,
+          runnableConfig: config,
+          snapshot: state.profileSnapshot,
+        });
+      } catch (error) {
+        const classification = await adapter.classifyFailure(
+          {
+            page: ({} as never),
+            run,
+            runnableConfig: config,
+            session: ({} as never),
+            snapshot: state.profileSnapshot,
+          },
+          error,
+        ).catch(() => ({
+          failureCode: "UNKNOWN_RUNTIME_ERROR" as const,
+          message: error instanceof Error ? error.message : "Adapter preflight failed.",
+        }));
+        const nextStatus = shouldNeedsAttention(classification.failureCode)
+          ? "needs_attention"
+          : "preflight_failed";
+
+        await persistStateTransition({
+          message: "Adapter preflight failed.",
+          metadataJson: {
+            adapterId: adapter.id,
+            failureCode: classification.failureCode,
+          },
+          nextStatus,
+          state: {
+            ...state,
+            failureCode: classification.failureCode,
+            failureMessage: classification.message,
+            status: nextStatus,
+            terminalState: shouldNeedsAttention(classification.failureCode)
+              ? "needs_attention"
+              : state.terminalState,
+          },
+          stepName: "preflight_adapter_node",
+        });
+
+        return {
+          failureCode: classification.failureCode,
+          failureMessage: classification.message,
+          status: nextStatus,
+          terminalState: shouldNeedsAttention(classification.failureCode)
+            ? ("needs_attention" as const)
+            : state.terminalState,
+        };
+      }
+
+      await createApplyRunEventRecord({
+        event: {
+          eventType: "apply_run.preflight_adapter_node",
+          message: "Adapter preflight passed.",
+          metadataJson: {
+            adapterId: adapter.id,
+          },
+          runId: state.runId,
+          traceId: state.traceId,
+          state: state.status,
+          stepName: "preflight_adapter_node",
+        },
+      });
+
+      return state;
     })
     .addNode("launch_browser_node", async (state: ApplyGraphState) => {
       const session = await launchApplyBrowserSession({
@@ -579,6 +676,7 @@ function buildGraph(dependencies: RuntimeDependencies) {
       });
 
       return {
+        submitAttempted: true,
         status: "submitting" as const,
       };
     })
@@ -602,6 +700,15 @@ function buildGraph(dependencies: RuntimeDependencies) {
       });
 
       if (!result.confirmed) {
+        if (!state.submitAttempted) {
+          return {
+            failureCode: result.failureCode ?? "SUBMISSION_NOT_CONFIRMED",
+            failureMessage: result.message,
+            status: "failed" as const,
+            terminalState: "failed" as const,
+          };
+        }
+
         return {
           failureCode: result.failureCode ?? "SUBMISSION_NOT_CONFIRMED",
           failureMessage: result.message,
@@ -661,6 +768,7 @@ function buildGraph(dependencies: RuntimeDependencies) {
         runId: state.runId,
         status: "submitted",
         terminalState: "submitted",
+        traceId: state.traceId,
       });
 
       return {
@@ -678,6 +786,7 @@ function buildGraph(dependencies: RuntimeDependencies) {
         runId: state.runId,
         status: failureStatus,
         terminalState: failureStatus,
+        traceId: state.traceId,
       });
 
       return {
@@ -693,6 +802,7 @@ function buildGraph(dependencies: RuntimeDependencies) {
         runId: state.runId,
         status: "submission_unconfirmed",
         terminalState: "submission_unconfirmed",
+        traceId: state.traceId,
       });
 
       return {
@@ -715,6 +825,9 @@ function buildGraph(dependencies: RuntimeDependencies) {
       state.failureCode ? "finalize_failure_node" : "select_adapter_node",
     )
     .addConditionalEdges("select_adapter_node", (state: ApplyGraphState) =>
+      state.failureCode ? "finalize_failure_node" : "preflight_adapter_node",
+    )
+    .addConditionalEdges("preflight_adapter_node", (state: ApplyGraphState) =>
       state.failureCode ? "finalize_failure_node" : "launch_browser_node",
     )
     .addEdge("launch_browser_node", "open_target_node")
@@ -746,6 +859,48 @@ function buildGraph(dependencies: RuntimeDependencies) {
   return graph.compile();
 }
 
+async function invokeWithRunTimeout<T>(args: {
+  invoke: () => Promise<T>;
+  timeoutMs: number;
+}) {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  try {
+    return await Promise.race([
+      args.invoke(),
+      new Promise<never>((_resolve, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`Autonomous apply run exceeded timeout (${args.timeoutMs}ms).`));
+        }, args.timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
+function evaluateSafeRetryDecision(args: {
+  classificationFailureCode: ApplyFailureCode;
+  run: ApplyRunDto;
+  submitAttempted: boolean;
+}) {
+  if (args.submitAttempted || args.run.status === "submitting" || args.run.terminalState === "submitted") {
+    return {
+      reason: "submit_attempted_or_terminal",
+      shouldRetry: false,
+    } as const;
+  }
+
+  // Inline worker mode intentionally avoids automatic retries for now to prevent
+  // duplicate submissions in ambiguous browser states.
+  return {
+    reason: `automatic_retries_disabled_in_inline_mode:${args.classificationFailureCode}`,
+    shouldRetry: false,
+  } as const;
+}
+
 async function runSingleApplyRun(args: {
   dependencies?: RuntimeDependencies;
   run: ApplyRunDto;
@@ -772,8 +927,10 @@ async function runSingleApplyRun(args: {
     profileSnapshot: snapshot,
     profileSnapshotId: snapshot.id,
     runId: args.run.id,
+    submitAttempted: false,
     startedAt: args.run.startedAt ?? new Date().toISOString(),
     status: args.run.status,
+    traceId: args.run.traceId ?? `apply_trace_missing_${args.run.id}`,
     terminalState: args.run.terminalState,
     traceMetadata: {
       companyName: args.run.companyName,
@@ -781,6 +938,7 @@ async function runSingleApplyRun(args: {
       jobTitle: args.run.jobTitle,
       profileSnapshotId: snapshot.id,
       runId: args.run.id,
+      traceId: args.run.traceId ?? `apply_trace_missing_${args.run.id}`,
       userId: args.run.userId,
     },
     userId: args.run.userId,
@@ -789,7 +947,10 @@ async function runSingleApplyRun(args: {
   const runnableConfig = buildApplyRunnableConfig(toTraceMetadata(initialState));
 
   try {
-    await graph.invoke(initialState, runnableConfig);
+    await invokeWithRunTimeout({
+      invoke: async () => graph.invoke(initialState, runnableConfig),
+      timeoutMs: getAutonomousApplyRunTimeoutMs(),
+    });
   } catch (error) {
     const session = getBrowserSession(args.run.id);
 
@@ -834,6 +995,36 @@ async function runSingleApplyRun(args: {
       failureCode: "UNKNOWN_RUNTIME_ERROR" as const,
       message: error instanceof Error ? error.message : "Unknown apply runtime error.",
     }));
+    const retryDecision = evaluateSafeRetryDecision({
+      classificationFailureCode: classification.failureCode,
+      run: latestRun,
+      submitAttempted:
+        latestRun.status === "submitting" ||
+        latestRun.status === "submitted" ||
+        latestRun.status === "submission_unconfirmed",
+    });
+    const effectiveTraceId = latestRun.traceId ?? initialState.traceId;
+
+    if (latestRun.terminalState) {
+      await createApplyRunEventRecord({
+        event: {
+          eventType: "apply_run.runtime_error_after_terminal",
+          message: classification.message,
+          metadataJson: {
+            failureCode: classification.failureCode,
+            retryDecision,
+          },
+          runId: args.run.id,
+          traceId: effectiveTraceId,
+          state: latestRun.status,
+          stepName: "runtime_error_after_terminal",
+        },
+      }).catch(() => undefined);
+
+      await closeApplyBrowserSession(session).catch(() => undefined);
+      applyBrowserSessions.delete(args.run.id);
+      return;
+    }
 
     await updateApplyRunRecord({
       completedAt: new Date().toISOString(),
@@ -842,6 +1033,10 @@ async function runSingleApplyRun(args: {
       runId: args.run.id,
       status: shouldNeedsAttention(classification.failureCode) ? "needs_attention" : "failed",
       terminalState: shouldNeedsAttention(classification.failureCode) ? "needs_attention" : "failed",
+      traceId: effectiveTraceId,
+      metadataPatch: {
+        retry_decision: retryDecision,
+      },
     });
     await createApplyRunEventRecord({
       event: {
@@ -849,8 +1044,10 @@ async function runSingleApplyRun(args: {
         message: classification.message,
         metadataJson: {
           failureCode: classification.failureCode,
+          retryDecision,
         },
         runId: args.run.id,
+        traceId: effectiveTraceId,
         state: shouldNeedsAttention(classification.failureCode) ? "needs_attention" : "failed",
         stepName: "runtime_error",
       },
@@ -883,6 +1080,34 @@ export async function runAutonomousApplyWorkerCycle(args?: {
   return claimedRun.id;
 }
 
+async function processAutonomousApplyWorkerBatch(args?: {
+  dependencies?: RuntimeDependencies;
+}) {
+  const batchSize = getAutonomousApplyWorkerBatchSize();
+  const concurrency = getAutonomousApplyInlineWorkerConcurrency();
+  let processedCount = 0;
+
+  while (processedCount < batchSize) {
+    const availableSlots = Math.min(concurrency, batchSize - processedCount);
+    const claims = await Promise.all(
+      Array.from({
+        length: availableSlots,
+      }).map(() =>
+        runAutonomousApplyWorkerCycle({
+          dependencies: args?.dependencies,
+        }),
+      ),
+    );
+    const claimedCount = claims.filter((value): value is string => Boolean(value)).length;
+
+    processedCount += claimedCount;
+
+    if (claimedCount === 0) {
+      break;
+    }
+  }
+}
+
 export async function kickAutonomousApplyWorker(args?: {
   dependencies?: RuntimeDependencies;
 }) {
@@ -894,15 +1119,11 @@ export async function kickAutonomousApplyWorker(args?: {
 
   queueMicrotask(async () => {
     try {
-      for (let index = 0; index < getAutonomousApplyWorkerBatchSize(); index += 1) {
-        const processed = await runAutonomousApplyWorkerCycle({
-          dependencies: args?.dependencies,
-        });
-
-        if (!processed) {
-          break;
-        }
+      if (isAutonomousApplyArtifactCleanupEnabled()) {
+        await cleanupExpiredApplyRunArtifacts().catch(() => undefined);
       }
+
+      await processAutonomousApplyWorkerBatch(args);
     } finally {
       workerLoopActive = false;
     }

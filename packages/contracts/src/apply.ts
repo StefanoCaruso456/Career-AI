@@ -80,11 +80,26 @@ export const applyArtifactTypes = [
   "json_debug",
 ] as const;
 
+export const autonomousApplyDiagnosticReasons = [
+  "feature_flag_off",
+  "unsupported_target_for_autonomous_mode",
+  "queued_workday",
+  "auth_missing",
+  "profile_incomplete",
+] as const;
+
+export const applyRunAlertableStates = [
+  "stuck_queued",
+  "stuck_in_progress",
+] as const;
+
 export const applyRunStatusSchema = z.enum(applyRunStatuses);
 export const applyRunTerminalStatusSchema = z.enum(applyRunTerminalStatuses);
 export const applyFailureCodeSchema = z.enum(applyFailureCodes);
 export const applyAtsFamilySchema = z.enum(applyAtsFamilies);
 export const applyArtifactTypeSchema = z.enum(applyArtifactTypes);
+export const autonomousApplyDiagnosticReasonSchema = z.enum(autonomousApplyDiagnosticReasons);
+export const applyRunAlertableStateSchema = z.enum(applyRunAlertableStates);
 
 const snapshotStringMapSchema = z.record(z.string(), z.unknown()).default({});
 const snapshotArraySchema = z.array(z.record(z.string(), z.unknown())).default([]);
@@ -157,6 +172,7 @@ export const applyRunSchema = z.object({
 export const applyRunEventSchema = z.object({
   id: z.string(),
   runId: z.string(),
+  traceId: z.string().nullable().default(null),
   timestamp: z.string().datetime(),
   state: applyRunStatusSchema,
   stepName: z.string().nullable().default(null),
@@ -197,11 +213,70 @@ export const createApplyRunResponseSchema = z.object({
   status: z.literal("queued"),
 });
 
+export const applyContinuationDiagnosticSchema = z.object({
+  atsFamily: applyAtsFamilySchema.nullable().default(null),
+  diagnosticReason: autonomousApplyDiagnosticReasonSchema,
+  matchedRule: z.string().nullable().default(null),
+});
+
+export const applyContinuationResponseSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("queued"),
+    applyRunId: z.string(),
+    diagnostic: applyContinuationDiagnosticSchema,
+    message: z.string(),
+    ok: z.boolean().default(true),
+  }),
+  z.object({
+    action: z.literal("open_external"),
+    applyUrl: z.string().nullable(),
+    diagnostic: applyContinuationDiagnosticSchema,
+    ok: z.boolean().default(true),
+  }),
+]);
+
+export const applyRunTimelineSummarySchema = z.object({
+  latestEventType: z.string().nullable().default(null),
+  latestTimestamp: z.string().datetime().nullable().default(null),
+  totalEvents: z.number().int().nonnegative(),
+});
+
+export const applyRunStatusItemSchema = z.object({
+  id: z.string(),
+  status: applyRunStatusSchema,
+  terminalState: applyRunTerminalStatusSchema.nullable().default(null),
+  companyName: z.string(),
+  jobTitle: z.string(),
+  createdAt: z.string().datetime(),
+  startedAt: z.string().datetime().nullable().default(null),
+  completedAt: z.string().datetime().nullable().default(null),
+  failureCode: applyFailureCodeSchema.nullable().default(null),
+  failureMessage: z.string().nullable().default(null),
+  traceId: z.string().nullable().default(null),
+  alertableState: applyRunAlertableStateSchema.nullable().default(null),
+  timelineSummary: applyRunTimelineSummarySchema,
+});
+
+export const applyRunListResponseSchema = z.object({
+  generatedAt: z.string().datetime(),
+  items: z.array(applyRunStatusItemSchema),
+});
+
+export const applyRunDetailResponseSchema = z.object({
+  generatedAt: z.string().datetime(),
+  run: applyRunStatusItemSchema,
+  events: z.array(applyRunEventSchema),
+});
+
 export type ApplyRunStatus = z.infer<typeof applyRunStatusSchema>;
 export type ApplyRunTerminalStatus = z.infer<typeof applyRunTerminalStatusSchema>;
 export type ApplyFailureCode = z.infer<typeof applyFailureCodeSchema>;
 export type ApplyAtsFamily = z.infer<typeof applyAtsFamilySchema>;
 export type ApplyArtifactType = z.infer<typeof applyArtifactTypeSchema>;
+export type AutonomousApplyDiagnosticReason = z.infer<
+  typeof autonomousApplyDiagnosticReasonSchema
+>;
+export type ApplyRunAlertableState = z.infer<typeof applyRunAlertableStateSchema>;
 export type ApplicationProfileSnapshotDto = z.infer<typeof applicationProfileSnapshotSchema>;
 export type ApplyRunDto = z.infer<typeof applyRunSchema>;
 export type ApplyRunEventDto = z.infer<typeof applyRunEventSchema>;
@@ -209,3 +284,8 @@ export type ApplyRunArtifactDto = z.infer<typeof applyRunArtifactSchema>;
 export type AtsDetectionResultDto = z.infer<typeof atsDetectionResultSchema>;
 export type CreateApplyRunInput = z.infer<typeof createApplyRunInputSchema>;
 export type CreateApplyRunResponse = z.infer<typeof createApplyRunResponseSchema>;
+export type ApplyContinuationResponse = z.infer<typeof applyContinuationResponseSchema>;
+export type ApplyRunTimelineSummary = z.infer<typeof applyRunTimelineSummarySchema>;
+export type ApplyRunStatusItem = z.infer<typeof applyRunStatusItemSchema>;
+export type ApplyRunListResponse = z.infer<typeof applyRunListResponseSchema>;
+export type ApplyRunDetailResponse = z.infer<typeof applyRunDetailResponseSchema>;

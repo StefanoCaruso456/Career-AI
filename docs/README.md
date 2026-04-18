@@ -19,6 +19,10 @@
 - [Memory Retrieval Policy](./memory-retrieval-policy.md)
 - [Memory Test Plan](./memory-test-plan.md)
 
+## Ops
+
+- [Autonomous Apply Workday Ops Runbook](./ops/autonomous-apply-workday-runbook.md)
+
 ## Recommended next docs
 
 - Domain model and event taxonomy

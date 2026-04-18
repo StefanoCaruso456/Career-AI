@@ -233,6 +233,7 @@ export async function createAutonomousApplyRun(args: {
     throw new ApiError({
       correlationId: args.correlationId,
       details: {
+        diagnostic_reason: "feature_flag_off",
         feature_flag: AUTONOMOUS_APPLY_FEATURE_FLAG,
       },
       errorCode: "CONFLICT",
@@ -284,6 +285,7 @@ export async function createAutonomousApplyRun(args: {
     throw new ApiError({
       correlationId: args.correlationId,
       details: {
+        diagnostic_reason: "profile_incomplete",
         missingFieldKeys,
         schemaFamily,
       },
@@ -336,6 +338,7 @@ export async function createAutonomousApplyRun(args: {
       jobPostingUrl: targetApplyUrl,
       jobTitle: job.title,
       metadataJson: {
+        correlationId: args.correlationId,
         conversationId: args.input.conversationId ?? null,
         jobSourceLabel: job.sourceLabel,
         schemaFamily,
@@ -345,7 +348,7 @@ export async function createAutonomousApplyRun(args: {
       startedAt: null,
       status: "queued",
       terminalState: null,
-      traceId: null,
+      traceId: `apply_trace_${randomUUID()}`,
       userId: context.user.id,
     } satisfies Omit<ApplyRunDto, "updatedAt">,
     snapshot,

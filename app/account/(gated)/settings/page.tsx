@@ -60,6 +60,9 @@ export default async function AccountSettingsPage() {
           <a className={styles.sectionTab} href="#application-profile-settings">
             Application profiles
           </a>
+          <a className={styles.sectionTab} href="/account/apply-runs">
+            Apply runs
+          </a>
         </nav>
 
         <div className={styles.split}>

@@ -1,11 +1,18 @@
 import { getSchemaFamilyConfig } from "@/lib/application-profiles/config";
 import {
+  getAutonomousApplyConfirmationTimeoutMs,
+  getAutonomousApplyNavigationTimeoutMs,
+  getAutonomousApplyStepTimeoutMs,
+  getAutonomousApplySubmitTimeoutMs,
+} from "@/packages/apply-domain/src";
+import {
   persistApplyRunScreenshot,
   persistApplyRunTextArtifact,
   type PersistedApplyArtifact,
 } from "@/packages/apply-runtime/src/artifacts";
 import { stageApplyRunUploadFile } from "@/packages/apply-runtime/src/documents";
 import { traceApplyTool } from "@/packages/apply-runtime/src/langsmith";
+import type { ApplyFailureCode } from "@/packages/contracts/src";
 import type {
   ApplyAdapter,
   ApplyAdapterContext,
@@ -19,6 +26,102 @@ function normalizeText(value: string | null | undefined) {
 
 function escapeAttributeValue(value: string) {
   return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
+}
+
+class WorkdayApplyError extends Error {
+  readonly failureCode: ApplyFailureCode;
+  readonly metadata: Record<string, unknown>;
+
+  constructor(args: {
+    failureCode: ApplyFailureCode;
+    message: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    super(args.message);
+    this.name = "WorkdayApplyError";
+    this.failureCode = args.failureCode;
+    this.metadata = args.metadata ?? {};
+  }
+}
+
+function createWorkdayError(args: {
+  failureCode: ApplyFailureCode;
+  message: string;
+  metadata?: Record<string, unknown>;
+}) {
+  return new WorkdayApplyError(args);
+}
+
+async function waitForWithTimeout<T>(args: {
+  timeoutMs: number;
+  operationName: string;
+  invoke: () => Promise<T>;
+}) {
+  try {
+    return await args.invoke();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.toLowerCase().includes("timeout")) {
+      throw createWorkdayError({
+        failureCode: "TIMEOUT",
+        message: `Workday operation timed out while ${args.operationName}.`,
+        metadata: {
+          operationName: args.operationName,
+        },
+      });
+    }
+
+    throw error;
+  }
+}
+
+async function detectBlockingSignals(context: ApplyAdapterContext, args: {
+  stage: string;
+}) {
+  const bodyText = normalizeText(await context.page.textContent("body").catch(() => ""));
+  const currentUrl = normalizeText(context.page.url());
+  const hasCaptchaWidget =
+    (await context.page
+      .locator(
+        "iframe[src*='recaptcha'], iframe[src*='hcaptcha'], .g-recaptcha, [data-sitekey], #challenge-running",
+      )
+      .count()
+      .catch(() => 0)) > 0;
+  const hasCaptchaText =
+    bodyText.includes("captcha") ||
+    bodyText.includes("i am not a robot") ||
+    currentUrl.includes("captcha");
+
+  if (hasCaptchaWidget || hasCaptchaText) {
+    throw createWorkdayError({
+      failureCode: "CAPTCHA_ENCOUNTERED",
+      message: `CAPTCHA encountered during ${args.stage}.`,
+      metadata: {
+        stage: args.stage,
+      },
+    });
+  }
+
+  const passwordFieldCount = await context.page
+    .locator("input[type='password'], [name*='password'], [id*='password']")
+    .count()
+    .catch(() => 0);
+  const hasLoginText =
+    bodyText.includes("sign in") ||
+    bodyText.includes("log in") ||
+    bodyText.includes("login to continue") ||
+    currentUrl.includes("login");
+
+  if (passwordFieldCount > 0 || hasLoginText) {
+    throw createWorkdayError({
+      failureCode: "LOGIN_REQUIRED",
+      message: `Login is required before continuing autonomous apply (${args.stage}).`,
+      metadata: {
+        stage: args.stage,
+      },
+    });
+  }
 }
 
 function buildFieldKeyLookup() {
@@ -209,13 +312,20 @@ async function fillMappedField(context: ApplyAdapterContext, entry: FieldMapping
   });
 }
 
-async function clickButtonByPatterns(context: ApplyAdapterContext, patterns: RegExp[], toolName: string) {
+async function clickButtonByPatterns(
+  context: ApplyAdapterContext,
+  patterns: RegExp[],
+  toolName: string,
+) {
   const buttons = context.page.locator("button, [role='button'], input[type='submit']");
   const count = await buttons.count();
 
   for (let index = 0; index < count; index += 1) {
     const locator = buttons.nth(index);
-    const label = normalizeText(await locator.innerText().catch(() => ""));
+    const label = normalizeText(
+      (await locator.innerText().catch(() => "")) ||
+        (await locator.textContent().catch(() => "")),
+    );
 
     if (!patterns.some((pattern) => pattern.test(label))) {
       continue;
@@ -227,8 +337,13 @@ async function clickButtonByPatterns(context: ApplyAdapterContext, patterns: Reg
         label,
       },
       invoke: async () => {
-        await locator.click({
-          force: true,
+        await waitForWithTimeout({
+          invoke: async () =>
+            locator.click({
+              force: true,
+            }),
+          operationName: `${toolName} click`,
+          timeoutMs: getAutonomousApplyStepTimeoutMs(),
         });
       },
       name: toolName,
@@ -243,17 +358,11 @@ async function clickButtonByPatterns(context: ApplyAdapterContext, patterns: Reg
 
 export const workdayApplyAdapter: ApplyAdapter = {
   advanceSteps: async (context) => {
+    await detectBlockingSignals(context, {
+      stage: "step navigation",
+    });
+
     for (let step = 0; step < 8; step += 1) {
-      const canSubmit = await clickButtonByPatterns(
-        context,
-        [/submit/i, /send application/i, /apply now/i],
-        "click_submit",
-      );
-
-      if (canSubmit) {
-        return;
-      }
-
       const advanced = await clickButtonByPatterns(
         context,
         [/next/i, /continue/i, /review/i],
@@ -264,7 +373,18 @@ export const workdayApplyAdapter: ApplyAdapter = {
         return;
       }
 
-      await context.page.waitForLoadState("networkidle").catch(() => undefined);
+      await waitForWithTimeout({
+        invoke: async () =>
+          context.page.waitForLoadState("networkidle", {
+            timeout: getAutonomousApplyStepTimeoutMs(),
+          }),
+        operationName: "waiting for step navigation",
+        timeoutMs: getAutonomousApplyStepTimeoutMs(),
+      });
+      await detectBlockingSignals(context, {
+        stage: `step navigation ${step + 1}`,
+      });
+
       const fields = await extractVisibleFields(context);
       const plan = await workdayApplyAdapter.createMappingPlan(context, fields);
       await workdayApplyAdapter.fillFields(context, plan);
@@ -272,6 +392,10 @@ export const workdayApplyAdapter: ApplyAdapter = {
     }
   },
   analyzeForm: async (context) => {
+    await detectBlockingSignals(context, {
+      stage: "form analysis",
+    });
+
     return traceApplyTool({
       config: context.runnableConfig,
       input: {
@@ -284,8 +408,33 @@ export const workdayApplyAdapter: ApplyAdapter = {
   },
   canHandle: (target) => target.atsFamily === "workday",
   classifyFailure: async (_context, error) => {
+    if (error instanceof WorkdayApplyError) {
+      return {
+        failureCode: error.failureCode,
+        message: error.message,
+      };
+    }
+
     const message = error instanceof Error ? error.message : "Unknown autonomous apply error.";
     const normalized = normalizeText(message);
+
+    if (normalized.includes("workday-compatible profile")) {
+      return {
+        failureCode: "PROFILE_INCOMPLETE",
+        message,
+      };
+    }
+
+    if (
+      normalized.includes("network") ||
+      normalized.includes("net::") ||
+      normalized.includes("connection")
+    ) {
+      return {
+        failureCode: "NETWORK_FAILURE",
+        message,
+      };
+    }
 
     if (normalized.includes("captcha")) {
       return {
@@ -294,7 +443,7 @@ export const workdayApplyAdapter: ApplyAdapter = {
       };
     }
 
-    if (normalized.includes("login")) {
+    if (normalized.includes("login") || normalized.includes("sign in") || normalized.includes("password")) {
       return {
         failureCode: "LOGIN_REQUIRED",
         message,
@@ -304,6 +453,13 @@ export const workdayApplyAdapter: ApplyAdapter = {
     if (normalized.includes("timeout")) {
       return {
         failureCode: "TIMEOUT",
+        message,
+      };
+    }
+
+    if (normalized.includes("resume") || normalized.includes("document")) {
+      return {
+        failureCode: "REQUIRED_DOCUMENT_MISSING",
         message,
       };
     }
@@ -318,6 +474,20 @@ export const workdayApplyAdapter: ApplyAdapter = {
     if (normalized.includes("unmapped")) {
       return {
         failureCode: "REQUIRED_FIELD_UNMAPPED",
+        message,
+      };
+    }
+
+    if (normalized.includes("submit action was not available") || normalized.includes("submit blocked")) {
+      return {
+        failureCode: "SUBMIT_BLOCKED",
+        message,
+      };
+    }
+
+    if (normalized.includes("submission could not be confirmed")) {
+      return {
+        failureCode: "SUBMISSION_NOT_CONFIRMED",
         message,
       };
     }
@@ -343,24 +513,36 @@ export const workdayApplyAdapter: ApplyAdapter = {
     return [artifact];
   },
   confirmSubmission: async (context) => {
-    const pageText = normalizeText(await context.page.textContent("body").catch(() => ""));
-    const currentUrl = normalizeText(context.page.url());
+    const deadlineMs = Date.now() + getAutonomousApplyConfirmationTimeoutMs();
 
-    if (
-      pageText.includes("thank you for applying") ||
-      pageText.includes("application submitted") ||
-      currentUrl.includes("submission")
-    ) {
-      return {
-        confirmed: true,
-        message: "Workday confirmation markers detected.",
-      };
+    while (Date.now() < deadlineMs) {
+      await detectBlockingSignals(context, {
+        stage: "submission confirmation",
+      });
+
+      const pageText = normalizeText(await context.page.textContent("body").catch(() => ""));
+      const currentUrl = normalizeText(context.page.url());
+
+      if (
+        pageText.includes("thank you for applying") ||
+        pageText.includes("application submitted") ||
+        pageText.includes("application received") ||
+        currentUrl.includes("submission") ||
+        currentUrl.includes("thank-you")
+      ) {
+        return {
+          confirmed: true,
+          message: "Workday confirmation markers detected.",
+        };
+      }
+
+      await context.page.waitForTimeout(700).catch(() => undefined);
     }
 
     return {
       confirmed: false,
       failureCode: "SUBMISSION_NOT_CONFIRMED",
-      message: "Workday submission could not be confirmed.",
+      message: "Workday submission could not be confirmed before timeout.",
     };
   },
   createMappingPlan: async (context, fields) => {
@@ -408,7 +590,16 @@ export const workdayApplyAdapter: ApplyAdapter = {
   family: "workday",
   fillFields: async (context, plan) => {
     if (plan.unmappedRequiredFields.length > 0) {
-      throw new Error("Required fields were visible but could not be mapped safely.");
+      const unmappedLabels = plan.unmappedRequiredFields
+        .map((field) => field.label || field.name || field.selector)
+        .slice(0, 5);
+      throw createWorkdayError({
+        failureCode: "REQUIRED_FIELD_UNMAPPED",
+        message: `Required fields were visible but could not be mapped safely: ${unmappedLabels.join(", ")}.`,
+        metadata: {
+          unmappedLabels,
+        },
+      });
     }
 
     for (const entry of plan.entries) {
@@ -423,12 +614,21 @@ export const workdayApplyAdapter: ApplyAdapter = {
         url: context.run.jobPostingUrl,
       },
       invoke: async () => {
-        await context.page.goto(context.run.jobPostingUrl, {
-          waitUntil: "domcontentloaded",
+        await waitForWithTimeout({
+          invoke: async () =>
+            context.page.goto(context.run.jobPostingUrl, {
+              timeout: getAutonomousApplyNavigationTimeoutMs(),
+              waitUntil: "domcontentloaded",
+            }),
+          operationName: "opening Workday target URL",
+          timeoutMs: getAutonomousApplyNavigationTimeoutMs(),
         });
       },
       name: "open_application_url",
       tags: ["ats:workday"],
+    });
+    await detectBlockingSignals(context, {
+      stage: "open target",
     });
 
     await persistApplyRunScreenshot({
@@ -440,10 +640,24 @@ export const workdayApplyAdapter: ApplyAdapter = {
   },
   preflight: async (context) => {
     if (context.snapshot.schemaFamily !== "workday") {
-      throw new Error("The selected profile snapshot is not a Workday-compatible profile.");
+      throw createWorkdayError({
+        failureCode: "PROFILE_INCOMPLETE",
+        message: "The selected profile snapshot is not a Workday-compatible profile.",
+      });
+    }
+
+    if (!context.snapshot.documents.resume) {
+      throw createWorkdayError({
+        failureCode: "REQUIRED_DOCUMENT_MISSING",
+        message: "A resume is required before starting autonomous Workday apply.",
+      });
     }
   },
   submit: async (context) => {
+    await detectBlockingSignals(context, {
+      stage: "submit",
+    });
+
     await persistApplyRunScreenshot({
       artifactType: "screenshot_before_submit",
       label: "before-submit",
@@ -457,14 +671,29 @@ export const workdayApplyAdapter: ApplyAdapter = {
     );
 
     if (!clicked) {
-      throw new Error("Workday submit action was not available.");
+      throw createWorkdayError({
+        failureCode: "SUBMIT_BLOCKED",
+        message: "Workday submit action was not available.",
+      });
     }
+
+    await waitForWithTimeout({
+      invoke: async () =>
+        context.page.waitForLoadState("networkidle", {
+          timeout: getAutonomousApplySubmitTimeoutMs(),
+        }),
+      operationName: "waiting for submit completion",
+      timeoutMs: getAutonomousApplySubmitTimeoutMs(),
+    });
   },
   uploadDocuments: async (context) => {
     const resume = context.snapshot.documents.resume;
 
     if (!resume) {
-      throw new Error("A resume is required for autonomous apply.");
+      throw createWorkdayError({
+        failureCode: "REQUIRED_DOCUMENT_MISSING",
+        message: "A resume is required for autonomous apply.",
+      });
     }
 
     const fileInputs = context.page.locator("input[type='file']");
@@ -478,6 +707,11 @@ export const workdayApplyAdapter: ApplyAdapter = {
       artifactId: resume.artifactId,
       fileName: resume.fileName,
       runId: context.run.id,
+    }).catch(() => {
+      throw createWorkdayError({
+        failureCode: "FILE_UPLOAD_FAILED",
+        message: "Workday resume staging failed before upload.",
+      });
     });
 
     await traceApplyTool({
@@ -486,10 +720,19 @@ export const workdayApplyAdapter: ApplyAdapter = {
         fileName: resume.fileName,
       },
       invoke: async () => {
-        await fileInputs.first().setInputFiles(absolutePath);
+        await waitForWithTimeout({
+          invoke: async () => fileInputs.first().setInputFiles(absolutePath),
+          operationName: "uploading resume",
+          timeoutMs: getAutonomousApplyStepTimeoutMs(),
+        });
       },
       name: "upload_document",
       tags: ["ats:workday"],
+    }).catch((error) => {
+      throw createWorkdayError({
+        failureCode: "FILE_UPLOAD_FAILED",
+        message: error instanceof Error ? error.message : "Workday document upload failed.",
+      });
     });
   },
 };

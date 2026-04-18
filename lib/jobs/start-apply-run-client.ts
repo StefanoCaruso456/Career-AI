@@ -4,11 +4,21 @@ export type ApplyContinuationResult =
   | {
       action: "open_external";
       applyUrl: string;
+      diagnostic?: {
+        atsFamily?: string | null;
+        diagnosticReason?: string;
+        matchedRule?: string | null;
+      };
     }
   | {
       action: "queued";
       applyRunId: string;
       message: string;
+      diagnostic?: {
+        atsFamily?: string | null;
+        diagnosticReason?: string;
+        matchedRule?: string | null;
+      };
     };
 
 export async function startJobApplyRun(args: {
@@ -33,11 +43,21 @@ export async function startJobApplyRun(args: {
     | {
         action?: "open_external";
         applyUrl?: string | null;
+        diagnostic?: {
+          atsFamily?: string | null;
+          diagnosticReason?: string;
+          matchedRule?: string | null;
+        };
         error?: string;
       }
     | {
         action?: "queued";
         applyRunId?: string;
+        diagnostic?: {
+          atsFamily?: string | null;
+          diagnosticReason?: string;
+          matchedRule?: string | null;
+        };
         error?: string;
         message?: string;
       };
@@ -47,19 +67,31 @@ export async function startJobApplyRun(args: {
   }
 
   if (payload.action === "queued" && payload.applyRunId) {
-    return {
+    const queuedResult: ApplyContinuationResult = {
       action: "queued",
       applyRunId: payload.applyRunId,
       message:
         payload.message || "Your application was queued. We will email you when it finishes.",
     };
+
+    if (payload.diagnostic) {
+      queuedResult.diagnostic = payload.diagnostic;
+    }
+
+    return queuedResult;
   }
 
   if ("applyUrl" in payload && payload.applyUrl) {
-    return {
+    const openExternalResult: ApplyContinuationResult = {
       action: "open_external",
       applyUrl: payload.applyUrl,
     };
+
+    if (payload.diagnostic) {
+      openExternalResult.diagnostic = payload.diagnostic;
+    }
+
+    return openExternalResult;
   }
 
   throw new Error("The application request did not return a usable result.");
