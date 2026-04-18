@@ -579,7 +579,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 260;
+  z-index: 420;
   display: grid;
   place-items: center;
   padding: 1rem;
@@ -630,6 +630,7 @@
   background: transparent;
   box-shadow: none;
   overflow: visible;
+  pointer-events: auto;
 }
 
 .governmentModal {
@@ -645,6 +646,8 @@
   padding: var(--modal-space-6) var(--modal-space-8) 0;
   border-bottom: 0;
   background: transparent;
+  position: relative;
+  z-index: 2;
 }
 
 .modalFooter {
@@ -654,6 +657,7 @@
   border-top: 0;
   margin-top: var(--modal-space-2);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 3;
 }
 
 .modalHeaderCopy {
@@ -693,6 +697,8 @@
   display: grid;
   gap: var(--modal-space-8);
   padding: var(--modal-space-8);
+  position: relative;
+  z-index: 1;
 }
 
 .templateNavigator {
@@ -1378,6 +1384,9 @@
   align-items: center;
   gap: var(--modal-space-3);
   margin-left: auto;
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
 }
 
 .secondaryAction,
