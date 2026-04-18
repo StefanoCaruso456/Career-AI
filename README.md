@@ -105,9 +105,12 @@ See the operator runbook for rollout verification and rollback:
 ## Repo structure
 
 - `app/` -> routes and UI
-- `packages/` -> domain logic and agent runtime
+- `packages/` -> domain logic, agent runtime, and (as of the monorepo consolidation) the protocol packages (`a2a-protocol`, `badge-schemas`, `vc-toolkit`, `did-resolver`, `sync-adapter-sdk`, `chain-client`) plus `pdf-signature-verifier`
 - `lib/` -> auth, tracing, A2A, and shared adapters
 - `db/` -> migrations
+- `services/` -> standalone HTTP services (api-gateway :8080, document-verifier :8787, pdf-extractor) and placeholders for a2a-gateway, identity-service, issuer-service, wallet-service, etc. Each service deploys independently on Railway.
+- `infra/` -> `docker-compose.yml` (shared local Postgres on :5433) and placeholders for db/kms/events configs
+- `docs/ledger/` -> architecture, threat model, feature tracker, and planning specs for the career-ledger side of the system (merged in from `fsyeddev/career-ledger`)
 
 ## Status
 
@@ -122,3 +125,6 @@ See the operator runbook for rollout verification and rollback:
 - [Autonomous Apply Workday Ops Runbook](./docs/ops/autonomous-apply-workday-runbook.md)
 - [Current-state architecture](./docs/architecture/current-state-agent-platform.md)
 - [Docs index](./docs/README.md)
+- [Ledger architecture](./docs/ledger/architecture.md)
+- [Ledger threat model](./docs/ledger/threat-model.md)
+- [Ledger planning specs](./docs/ledger/planning/specs/)
