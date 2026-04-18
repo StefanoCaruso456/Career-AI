@@ -30,6 +30,7 @@ import {
   getCareerIdVerificationById,
   listCareerIdEvidence,
   listCareerIdVerifications,
+  resetCareerIdGovernmentVerificationState,
   upsertCareerIdEvidence,
   upsertCareerIdVerification,
   type CareerIdEvidenceRecord,
@@ -1170,6 +1171,40 @@ export async function getGovernmentIdVerificationStatus(args: {
   );
 
   return toGovernmentIdVerificationResult(verification, evidence?.id ?? null);
+}
+
+export async function resetGovernmentIdVerificationState(args: {
+  correlationId: string;
+  viewer: Viewer;
+}) {
+  const identity = await resolveViewerIdentity({
+    viewer: args.viewer,
+    correlationId: args.correlationId,
+  });
+  const result = await resetCareerIdGovernmentVerificationState({
+    careerIdentityId: identity.careerIdentityId,
+  });
+
+  getGovernmentIdSessionRateLimitStore().delete(identity.careerIdentityId);
+  logAuditEvent({
+    eventType: "verification_state_reset",
+    actorType: "talent_user",
+    actorId: identity.careerIdentityId,
+    targetType: "career_identity",
+    targetId: identity.careerIdentityId,
+    correlationId: args.correlationId,
+    metadataJson: {
+      ...result,
+      phase: "document_backed",
+      verificationType: "government_id",
+    },
+  });
+
+  return {
+    careerIdentityId: identity.careerIdentityId,
+    reset: true,
+    ...result,
+  };
 }
 
 export async function retryGovernmentIdEvidence(args: {

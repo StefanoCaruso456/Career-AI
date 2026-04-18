@@ -701,6 +701,8 @@ export function AgentBuilderWorkspace({
     useState<GovernmentVerificationModalStep>("intro");
   const [governmentConsentChecked, setGovernmentConsentChecked] = useState(false);
   const [governmentError, setGovernmentError] = useState<string | null>(null);
+  const [governmentInlineError, setGovernmentInlineError] = useState<string | null>(null);
+  const [isResettingGovernmentVerification, setIsResettingGovernmentVerification] = useState(false);
   const [isGovernmentActionPending, setIsGovernmentActionPending] = useState(false);
   const [governmentVerificationId, setGovernmentVerificationId] = useState<string | null>(
     initialSnapshot.documentVerification.verificationId,
@@ -794,6 +796,10 @@ export function AgentBuilderWorkspace({
   );
   const documentVerification = snapshot.documentVerification;
   const documentVerificationStatus = documentVerification.status;
+  const isGovernmentBadgeVerified =
+    documentVerificationStatus === "verified" && Boolean(documentVerification.artifactLabel);
+  const canResetGovernmentVerification =
+    documentVerificationStatus !== "locked" && documentVerificationStatus !== "not_started";
   const documentHeroToneClassName =
     documentVerificationStatus === "verified"
       ? styles.documentHeroCardVerified
@@ -937,6 +943,7 @@ export function AgentBuilderWorkspace({
       return;
     }
 
+    setGovernmentInlineError(null);
     setGovernmentError(null);
     setGovernmentConsentChecked(false);
     setIsGovernmentModalOpen(true);
@@ -971,6 +978,7 @@ export function AgentBuilderWorkspace({
   }
 
   async function launchGovernmentVerificationFlow() {
+    setGovernmentInlineError(null);
     setGovernmentError(null);
     setIsGovernmentActionPending(true);
 
@@ -1006,6 +1014,52 @@ export function AgentBuilderWorkspace({
       );
     } finally {
       setIsGovernmentActionPending(false);
+    }
+  }
+
+  async function resetGovernmentVerificationState() {
+    if (isResettingGovernmentVerification) {
+      return;
+    }
+
+    const shouldReset =
+      typeof window === "undefined"
+        ? false
+        : window.confirm(
+            "Reset government ID verification for this account and start over from scratch?",
+          );
+
+    if (!shouldReset) {
+      return;
+    }
+
+    setGovernmentInlineError(null);
+    setGovernmentError(null);
+    setIsResettingGovernmentVerification(true);
+
+    try {
+      const response = await fetch("/api/v1/career-id/verifications/government-id/session", {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Resetting identity verification failed.");
+      }
+
+      setGovernmentVerificationId(null);
+      setGovernmentModalStep("intro");
+      setGovernmentConsentChecked(false);
+      setIsGovernmentModalOpen(false);
+      await refreshSnapshot();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Resetting identity verification failed.";
+      setGovernmentInlineError(message);
+      setGovernmentError(message);
+    } finally {
+      setIsResettingGovernmentVerification(false);
     }
   }
 
@@ -1878,6 +1932,77 @@ export function AgentBuilderWorkspace({
               <div className={styles.heroIntro}>
                 <h1 className={styles.heroTitle}>Career ID Badges</h1>
               </div>
+
+              <section className={styles.identityBadgeCanvas}>
+                <div
+                  className={`${styles.identityBadgeCard} ${
+                    isGovernmentBadgeVerified ? styles.identityBadgeCardVerified : ""
+                  }`}
+                >
+                  <div className={styles.identityBadgeHeader}>
+                    <span className={styles.identityBadgeProgram}>Career ID Credential</span>
+                    <span className={styles.identityBadgeStatus}>
+                      {isGovernmentBadgeVerified ? "Issued" : "Pending verification"}
+                    </span>
+                  </div>
+
+                  <div className={styles.identityBadgeBody}>
+                    <span className={styles.identityBadgeIcon}>
+                      {isGovernmentBadgeVerified ? (
+                        <ShieldCheck aria-hidden="true" size={22} strokeWidth={2.1} />
+                      ) : (
+                        <LockKeyhole aria-hidden="true" size={22} strokeWidth={2.1} />
+                      )}
+                    </span>
+
+                    <div className={styles.identityBadgeCopy}>
+                      <strong>
+                        {documentVerification.artifactLabel ?? "Government ID credential badge"}
+                      </strong>
+                      <p>
+                        {isGovernmentBadgeVerified
+                          ? "Verified by Persona and ready as trusted Career ID proof."
+                          : "This badge auto-generates after a successful government ID and live selfie verification."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <dl className={styles.identityBadgeMeta}>
+                    <div>
+                      <dt>Issuer</dt>
+                      <dd>Career AI Trust</dd>
+                    </div>
+                    <div>
+                      <dt>Evidence</dt>
+                      <dd>
+                        {isGovernmentBadgeVerified
+                          ? "Persona government ID + selfie"
+                          : "Government ID + live selfie required"}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+
+                {canResetGovernmentVerification ? (
+                  <button
+                    className={styles.identityBadgeResetButton}
+                    disabled={isResettingGovernmentVerification}
+                    onClick={() => {
+                      void resetGovernmentVerificationState();
+                    }}
+                    type="button"
+                  >
+                    {isResettingGovernmentVerification ? "Resetting..." : "Reset verification state"}
+                  </button>
+                ) : null}
+
+                {governmentInlineError ? (
+                  <p className={styles.identityBadgeInlineError}>
+                    <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
+                    <span>{governmentInlineError}</span>
+                  </p>
+                ) : null}
+              </section>
             </div>
 
             <aside className={styles.progressRail}>
@@ -1915,16 +2040,6 @@ export function AgentBuilderWorkspace({
                         <span>{documentVerification.ctaLabel}</span>
                         <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
                       </button>
-                    ) : null}
-
-                    {documentVerification.artifactLabel ? (
-                      <div className={`${styles.documentArtifactCard} ${styles.documentHeroArtifactCard}`}>
-                        <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                        <div>
-                          <strong>{documentVerification.artifactLabel}</strong>
-                          <span>Verified by Persona</span>
-                        </div>
-                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -2022,13 +2137,7 @@ export function AgentBuilderWorkspace({
                             </div>
 
                             {documentVerification.artifactLabel ? (
-                              <div className={styles.documentArtifactCard}>
-                                <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                                <div>
-                                  <strong>{documentVerification.artifactLabel}</strong>
-                                  <span>Verified by Persona</span>
-                                </div>
-                              </div>
+                              <span className={styles.pipelineVerifiedCopy}>Verified by Persona</span>
                             ) : null}
                           </div>
                         ) : null}

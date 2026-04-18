@@ -600,8 +600,10 @@ describe("AgentBuilderWorkspace", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Government ID verified" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("Career ID Credential")).toBeInTheDocument();
     expect(screen.getAllByText("Government ID verified").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Verified by Persona").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Reset verification state" })).toBeInTheDocument();
   });
 
   it("allows reverify from an already verified government ID state", async () => {

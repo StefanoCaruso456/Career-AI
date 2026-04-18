@@ -6,7 +6,10 @@ import {
   successResponse,
 } from "@/packages/audit-security/src";
 import { ApiError, createGovernmentIdVerificationSessionInputSchema } from "@/packages/contracts/src";
-import { createGovernmentIdVerificationSession } from "@/packages/career-id-domain/src";
+import {
+  createGovernmentIdVerificationSession,
+  resetGovernmentIdVerificationState,
+} from "@/packages/career-id-domain/src";
 
 export async function POST(request: NextRequest) {
   const correlationId = getCorrelationId(request.headers);
@@ -36,6 +39,36 @@ export async function POST(request: NextRequest) {
     });
 
     return successResponse(result, correlationId, 201);
+  } catch (error) {
+    return errorResponse(error, correlationId);
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const correlationId = getCorrelationId(request.headers);
+
+  try {
+    const session = await auth();
+
+    if (!session?.user?.email) {
+      throw new ApiError({
+        errorCode: "UNAUTHORIZED",
+        status: 401,
+        message: "Sign in to manage identity verification.",
+        correlationId,
+      });
+    }
+
+    const result = await resetGovernmentIdVerificationState({
+      viewer: {
+        email: session.user.email,
+        name: session.user.name,
+        talentIdentityId: session.user.talentIdentityId,
+      },
+      correlationId,
+    });
+
+    return successResponse(result, correlationId);
   } catch (error) {
     return errorResponse(error, correlationId);
   }
