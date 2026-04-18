@@ -971,10 +971,33 @@ export function createJobSeekerAgent(deps: {
 
     return {
       debugTrace: appendTrace(state, "fallback_or_clarify", "Prepared a targeted clarification instead of broadening."),
-      responsePayload: {
-        assistantMessage: broadened.clarificationQuestion ?? "I didn’t find strong grounded matches yet.",
-        jobsPanel: null,
-      },
+      responsePayload: (() => {
+        const clarificationState = {
+          ...state,
+          terminationReason: "clarification_required",
+        } satisfies JobSeekerAgentState;
+        const clarificationQuestion = broadened.clarificationQuestion;
+        const fallbackMessage = buildSearchFallbackResponse({
+          clarificationQuestion,
+          jobs: state.lastSearchResult.results,
+          resultQuality: state.resultQuality ?? "empty",
+        });
+        const assistantMessage =
+          clarificationQuestion && state.lastSearchResult.results.length > 0
+            ? `${fallbackMessage} ${clarificationQuestion}`
+            : fallbackMessage;
+        const jobsPanel = buildJobsPanel(
+          clarificationState,
+          assistantMessage,
+          state.lastSearchResult,
+          clarificationQuestion,
+        );
+
+        return {
+          assistantMessage,
+          jobsPanel,
+        } satisfies JobSeekerAgentResult;
+      })(),
       shouldTerminate: true,
       terminationReason: "clarification_required",
     };

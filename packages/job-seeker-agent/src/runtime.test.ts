@@ -492,6 +492,138 @@ describe("createJobSeekerAgent", () => {
     expect(result.jobsPanel?.agent.loopCount).toBe(1);
   });
 
+  it("returns weak grounded jobs with a clarification question instead of dropping the jobs panel", async () => {
+    const dataEngineerFilters: JobSearchQueryDto["filters"] = {
+      companies: [],
+      employmentType: null,
+      exclusions: [],
+      industries: [],
+      keywords: ["data", "engineer"],
+      location: null,
+      locations: [],
+      postedWithinDays: null,
+      role: "data engineer",
+      roleFamilies: ["data engineer"],
+      rankingBoosts: ["title_alignment", "trusted_source"],
+      remotePreference: null,
+      salaryMax: null,
+      salaryMin: null,
+      seniority: null,
+      skills: ["sql"],
+      targetJobId: null,
+      workplaceType: null,
+    };
+    const model = createModel({
+      planAction: vi.fn(async (): Promise<JobSeekerPlannerOutput> => ({
+        clarificationQuestion: null,
+        effectivePrompt: "find data engineer roles",
+        filters: dataEngineerFilters,
+        selectedTool: "searchJobs",
+        shouldUseProfileContext: false,
+      })),
+    });
+    const weakResult = createSearchCatalogResult({
+      jobs: [
+        createJob({
+          companyName: "Accenture",
+          id: "job_accenture_data_1",
+          location: "Hyderabad",
+          matchSummary: "partial skill overlap",
+          relevanceScore: 0.41,
+          title: "Data Platform Engineer",
+          workplaceType: "onsite",
+        }),
+        createJob({
+          companyName: "Accenture",
+          id: "job_accenture_data_2",
+          location: "Bengaluru",
+          matchSummary: "adjacent title family",
+          relevanceScore: 0.39,
+          title: "Data Platform Engineer",
+          workplaceType: "onsite",
+        }),
+      ],
+      prompt: "find data engineer roles",
+      query: {
+        filters: dataEngineerFilters,
+      },
+    });
+    weakResult.resultQuality = "weak";
+    const searchJobs = vi.fn<JobSeekerToolSet["searchJobs"]>().mockResolvedValue(weakResult);
+    const tools = createTools({ searchJobs });
+    const agent = createJobSeekerAgent({ model, tools });
+
+    const result = await agent.invoke({
+      messages: [{ content: "find data engineer roles", role: "user" }],
+      userQuery: "find data engineer roles",
+    });
+
+    expect(searchJobs).toHaveBeenCalledTimes(1);
+    expect(result.jobsPanel).not.toBeNull();
+    expect(result.jobsPanel?.jobs).toHaveLength(2);
+    expect(result.jobsPanel?.agent.terminationReason).toBe("clarification_required");
+    expect(result.assistantMessage).toContain(
+      "I found a few grounded roles, but the alignment is weaker than I’d like.",
+    );
+  });
+
+  it("keeps an empty jobs panel with clarification when no grounded matches are found", async () => {
+    const dataEngineerFilters: JobSearchQueryDto["filters"] = {
+      companies: [],
+      employmentType: null,
+      exclusions: [],
+      industries: [],
+      keywords: ["data", "engineer"],
+      location: null,
+      locations: [],
+      postedWithinDays: null,
+      role: "data engineer",
+      roleFamilies: ["data engineer"],
+      rankingBoosts: ["title_alignment", "trusted_source"],
+      remotePreference: null,
+      salaryMax: null,
+      salaryMin: null,
+      seniority: null,
+      skills: ["sql"],
+      targetJobId: null,
+      workplaceType: null,
+    };
+    const model = createModel({
+      planAction: vi.fn(async (): Promise<JobSeekerPlannerOutput> => ({
+        clarificationQuestion: null,
+        effectivePrompt: "find data engineer roles",
+        filters: dataEngineerFilters,
+        selectedTool: "searchJobs",
+        shouldUseProfileContext: false,
+      })),
+    });
+    const emptyResult = createSearchCatalogResult({
+      jobs: [],
+      prompt: "find data engineer roles",
+      query: {
+        filters: dataEngineerFilters,
+      },
+      totalMatches: 0,
+    });
+    const searchJobs = vi.fn<JobSeekerToolSet["searchJobs"]>().mockResolvedValue(emptyResult);
+    const tools = createTools({ searchJobs });
+    const agent = createJobSeekerAgent({ model, tools });
+
+    const result = await agent.invoke({
+      messages: [{ content: "find data engineer roles", role: "user" }],
+      userQuery: "find data engineer roles",
+    });
+
+    expect(searchJobs).toHaveBeenCalledTimes(1);
+    expect(result.jobsPanel).not.toBeNull();
+    expect(result.jobsPanel?.jobs).toHaveLength(0);
+    expect(result.jobsPanel?.rail.cards).toHaveLength(0);
+    expect(result.jobsPanel?.agent.terminationReason).toBe("clarification_required");
+    expect(result.assistantMessage).toContain(
+      "I didn’t find grounded job matches for that search in the live inventory yet.",
+    );
+  });
+
   it("falls back to a deterministic grounded jobs reply when search-response composition throws", async () => {
     const model = createModel({
       composeSearchResponse: vi.fn(async () => {
