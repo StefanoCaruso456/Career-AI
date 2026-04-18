@@ -29,17 +29,6 @@ export function TrustExplainerSection({ content }: { content: TrustExplainerCont
                 />
                 <p className={styles.logoCaption}>HR agent to job seeker agent</p>
               </div>
-
-              <div className={styles.visualFrame}>
-                <Image
-                  alt="Illustration of secure agent-to-agent communication around verified Career ID trust."
-                  className={styles.visualImage}
-                  height={1024}
-                  sizes="(max-width: 920px) 100vw, 46vw"
-                  src="/career-id-a2a-trust.png"
-                  width={1536}
-                />
-              </div>
             </div>
           </div>
 

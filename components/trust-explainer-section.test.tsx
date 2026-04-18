@@ -57,9 +57,9 @@ describe("TrustExplainerSection", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByAltText(
+      screen.queryByAltText(
         "Illustration of secure agent-to-agent communication around verified Career ID trust.",
       ),
-    ).toHaveAttribute("src", "/career-id-a2a-trust.png");
+    ).not.toBeInTheDocument();
   });
 });
