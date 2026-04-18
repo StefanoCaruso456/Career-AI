@@ -522,6 +522,19 @@ describe("AgentBuilderWorkspace", () => {
     ).toBeInTheDocument();
   });
 
+  it("closes the government verification modal on Escape", async () => {
+    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
   it("renders the verified artifact inside the document-backed rail state", () => {
     const snapshot = createSnapshot();
     unlockDocumentVerification(snapshot);

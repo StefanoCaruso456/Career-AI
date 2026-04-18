@@ -730,9 +730,18 @@ export function AgentBuilderWorkspace({
     }
 
     function handleKeydown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isSaving) {
+      if (event.key === "Escape") {
         event.preventDefault();
-        void requestClose();
+
+        if (isGovernmentModalOpen) {
+          closeGovernmentVerificationModal();
+          return;
+        }
+
+        if (!isSaving) {
+          void requestClose();
+        }
+        return;
       }
 
       if (event.key !== "Tab" || !modalRef.current) {
