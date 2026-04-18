@@ -251,6 +251,8 @@ describe("AgentBuilderWorkspace", () => {
     expect(screen.queryByText("overall builder progress")).not.toBeInTheDocument();
     expect(screen.queryByText("uploaded evidence signals")).not.toBeInTheDocument();
     expect(screen.queryByText("strongest trust tier")).not.toBeInTheDocument();
+    expect(screen.queryByText("Career ID Credential")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset verification state" })).not.toBeInTheDocument();
     expect(screen.queryByText("Phase-based intake")).not.toBeInTheDocument();
     expect(screen.queryByText("Saved to your Career ID")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Verify your identity first" })).toBeInTheDocument();

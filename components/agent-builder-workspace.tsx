@@ -798,8 +798,6 @@ export function AgentBuilderWorkspace({
   const documentVerificationStatus = documentVerification.status;
   const isGovernmentBadgeVerified =
     documentVerificationStatus === "verified" && Boolean(documentVerification.artifactLabel);
-  const canResetGovernmentVerification =
-    documentVerificationStatus !== "locked" && documentVerificationStatus !== "not_started";
   const documentHeroToneClassName =
     documentVerificationStatus === "verified"
       ? styles.documentHeroCardVerified
@@ -1933,57 +1931,37 @@ export function AgentBuilderWorkspace({
                 <h1 className={styles.heroTitle}>Career ID Badges</h1>
               </div>
 
-              <section className={styles.identityBadgeCanvas}>
-                <div
-                  className={`${styles.identityBadgeCard} ${
-                    isGovernmentBadgeVerified ? styles.identityBadgeCardVerified : ""
-                  }`}
-                >
-                  <div className={styles.identityBadgeHeader}>
-                    <span className={styles.identityBadgeProgram}>Career ID Credential</span>
-                    <span className={styles.identityBadgeStatus}>
-                      {isGovernmentBadgeVerified ? "Issued" : "Pending verification"}
-                    </span>
-                  </div>
+              {isGovernmentBadgeVerified ? (
+                <section className={styles.identityBadgeCanvas}>
+                  <div className={`${styles.identityBadgeCard} ${styles.identityBadgeCardVerified}`}>
+                    <div className={styles.identityBadgeHeader}>
+                      <span className={styles.identityBadgeProgram}>Career ID Credential</span>
+                      <span className={styles.identityBadgeStatus}>Issued</span>
+                    </div>
 
-                  <div className={styles.identityBadgeBody}>
-                    <span className={styles.identityBadgeIcon}>
-                      {isGovernmentBadgeVerified ? (
+                    <div className={styles.identityBadgeBody}>
+                      <span className={styles.identityBadgeIcon}>
                         <ShieldCheck aria-hidden="true" size={22} strokeWidth={2.1} />
-                      ) : (
-                        <LockKeyhole aria-hidden="true" size={22} strokeWidth={2.1} />
-                      )}
-                    </span>
+                      </span>
 
-                    <div className={styles.identityBadgeCopy}>
-                      <strong>
-                        {documentVerification.artifactLabel ?? "Government ID credential badge"}
-                      </strong>
-                      <p>
-                        {isGovernmentBadgeVerified
-                          ? "Verified by Persona and ready as trusted Career ID proof."
-                          : "This badge auto-generates after a successful government ID and live selfie verification."}
-                      </p>
+                      <div className={styles.identityBadgeCopy}>
+                        <strong>{documentVerification.artifactLabel}</strong>
+                        <p>Verified by Persona and ready as trusted Career ID proof.</p>
+                      </div>
                     </div>
+
+                    <dl className={styles.identityBadgeMeta}>
+                      <div>
+                        <dt>Issuer</dt>
+                        <dd>Career AI Trust</dd>
+                      </div>
+                      <div>
+                        <dt>Evidence</dt>
+                        <dd>Persona government ID + selfie</dd>
+                      </div>
+                    </dl>
                   </div>
 
-                  <dl className={styles.identityBadgeMeta}>
-                    <div>
-                      <dt>Issuer</dt>
-                      <dd>Career AI Trust</dd>
-                    </div>
-                    <div>
-                      <dt>Evidence</dt>
-                      <dd>
-                        {isGovernmentBadgeVerified
-                          ? "Persona government ID + selfie"
-                          : "Government ID + live selfie required"}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
-                {canResetGovernmentVerification ? (
                   <button
                     className={styles.identityBadgeResetButton}
                     disabled={isResettingGovernmentVerification}
@@ -1994,15 +1972,15 @@ export function AgentBuilderWorkspace({
                   >
                     {isResettingGovernmentVerification ? "Resetting..." : "Reset verification state"}
                   </button>
-                ) : null}
 
-                {governmentInlineError ? (
-                  <p className={styles.identityBadgeInlineError}>
-                    <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
-                    <span>{governmentInlineError}</span>
-                  </p>
-                ) : null}
-              </section>
+                  {governmentInlineError ? (
+                    <p className={styles.identityBadgeInlineError}>
+                      <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
+                      <span>{governmentInlineError}</span>
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
             </div>
 
             <aside className={styles.progressRail}>
