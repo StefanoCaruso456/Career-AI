@@ -1629,8 +1629,8 @@ export function AgentBuilderWorkspace({
                     {governmentModalStep === "intro"
                       ? "Verify a government ID and complete a live selfie check to make your Career ID more credible."
                       : governmentModalStep === "consent"
-                        ? "We'll collect your government ID and a live selfie for identity verification, and the backend will update your Career ID only after Persona webhook confirmation."
-                        : governmentModalStep === "processing"
+                        ? "We'll collect your government ID and a live selfie for identity verification. Your Career ID updates only after Persona confirms the result."
+                      : governmentModalStep === "processing"
                           ? "We're reviewing your ID and comparing it with your live selfie."
                           : documentVerificationStatus === "verified"
                             ? "Your Career ID now includes a verified government ID artifact."
@@ -1686,7 +1686,7 @@ export function AgentBuilderWorkspace({
                       <p>
                         You&apos;ll capture the front and back of your ID plus the live selfie in
                         Persona after you continue. Career AI stores the verification result,
-                        timestamps, and encrypted Persona reference after webhook confirmation
+                        timestamps, and encrypted Persona reference after verification confirmation
                         instead of raw ID photos or selfie files in this modal.
                       </p>
                     </div>
@@ -1698,8 +1698,7 @@ export function AgentBuilderWorkspace({
                     <div className={styles.verificationBodyStack}>
                       <p className={styles.verificationBodyCopy}>
                         After you agree, we&apos;ll send you to Persona for the secure capture
-                        flow. Your Career ID only changes after our backend processes Persona
-                        webhook updates.
+                        flow. Your Career ID only changes after Persona confirms your verification.
                       </p>
 
                       <label className={styles.consentRow}>
@@ -1921,7 +1920,7 @@ export function AgentBuilderWorkspace({
                     <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
                     <div>
                       <strong>{documentVerification.artifactLabel}</strong>
-                      <span>Webhook-confirmed from Persona</span>
+                      <span>Verified by Persona</span>
                     </div>
                   </div>
                 ) : null}
@@ -2023,7 +2022,7 @@ export function AgentBuilderWorkspace({
                                 <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
                                 <div>
                                   <strong>{documentVerification.artifactLabel}</strong>
-                                  <span>Webhook-confirmed from Persona</span>
+                                  <span>Verified by Persona</span>
                                 </div>
                               </div>
                             ) : null}

@@ -866,6 +866,11 @@
   line-height: 1.55;
 }
 
+.documentArtifactCard div {
+  display: grid;
+  gap: 0.15rem;
+}
+
 .documentArtifactCard {
   width: fit-content;
 }

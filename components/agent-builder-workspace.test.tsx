@@ -601,7 +601,7 @@ describe("AgentBuilderWorkspace", () => {
       screen.getByRole("heading", { level: 2, name: "Government ID verified" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Government ID verified").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Webhook-confirmed from Persona").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Verified by Persona").length).toBeGreaterThan(0);
   });
 
   it("allows reverify from an already verified government ID state", async () => {
