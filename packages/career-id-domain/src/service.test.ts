@@ -12,6 +12,7 @@ import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/s
 import {
   createGovernmentIdVerificationSession,
   getCareerIdPresentation,
+  getGovernmentIdVerificationStatus,
   handlePersonaWebhook,
   normalizePersonaInquiry,
   resetGovernmentIdSessionRateLimitStore,
@@ -150,6 +151,20 @@ describe("career-id Persona service", () => {
       faceMatch: "pass",
     });
     expect(result.confidenceBand).toBe("high");
+  });
+
+  it("normalizes Persona needs review outcomes with provider spacing and event naming", () => {
+    const result = normalizePersonaInquiry({
+      eventName: "inquiry.marked-for-review",
+      inquiry: {
+        id: "inq_456",
+        attributes: {
+          status: "needs review",
+        },
+      },
+    });
+
+    expect(result.status).toBe("manual_review");
   });
 
   it("creates a government ID verification session and persists in-progress evidence", async () => {
@@ -411,5 +426,135 @@ describe("career-id Persona service", () => {
 
     expect(auditEvents).toHaveLength(1);
     expect(evidence[0]?.status).toBe("verified");
+  });
+
+  it("reconciles an in-progress verification against Persona on read and creates the badge", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-read-sync-start",
+    });
+
+    personaMocks.retrievePersonaInquiry.mockResolvedValue({
+      id: "inq_123",
+      attributes: {
+        status: "completed",
+        "completed-at": "2026-04-10T12:00:00.000Z",
+      },
+      included: [
+        {
+          id: "ver_gov_123",
+          type: "verification/government-id",
+          attributes: {
+            status: "passed",
+          },
+        },
+        {
+          id: "ver_selfie_123",
+          type: "verification/selfie",
+          attributes: {
+            status: "passed",
+            checks: [
+              {
+                name: "selfie_liveness_detection",
+                status: "passed",
+              },
+              {
+                name: "selfie_id_comparison",
+                status: "passed",
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    const synced = await getGovernmentIdVerificationStatus({
+      verificationId: session.verificationId,
+      viewer,
+      correlationId: "career-id-read-sync-status",
+    });
+
+    expect(synced.status).toBe("verified");
+    expect(synced.checks).toEqual({
+      documentAuthenticity: "pass",
+      liveness: "pass",
+      faceMatch: "pass",
+    });
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-read-sync-lookup",
+    });
+    const presentation = await getCareerIdPresentation({
+      careerIdentityId: identity!.talentIdentity.id,
+      correlationId: "career-id-read-sync-presentation",
+      phaseProgress: [
+        {
+          phase: "self",
+          label: "Self-reported",
+          completed: 0,
+          started: 0,
+          total: 5,
+          isComplete: false,
+          isCurrent: true,
+          summary: "Self current",
+        },
+        {
+          phase: "relationship",
+          label: "Relationship-backed",
+          completed: 0,
+          started: 0,
+          total: 3,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Relationship locked",
+        },
+        {
+          phase: "document",
+          label: "Document-backed",
+          completed: 0,
+          started: 0,
+          total: 7,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Document active",
+        },
+        {
+          phase: "signature",
+          label: "Signature-backed",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Signature locked",
+        },
+        {
+          phase: "institution",
+          label: "Institution-verified",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Institution locked",
+        },
+      ],
+    });
+
+    expect(presentation.documentVerification.status).toBe("verified");
+    expect(presentation.careerIdProfile.badges).toEqual([
+      {
+        id: expect.stringMatching(/^badge_/),
+        label: "Government ID verified",
+        phase: "document_backed",
+        status: "verified",
+      },
+    ]);
   });
 });
