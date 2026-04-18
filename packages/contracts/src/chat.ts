@@ -179,6 +179,7 @@ export const sendChatMessageInputSchema = z
     message: z.string().trim().max(chatAttachmentLimits.maxMessageLength).default(""),
     persona: z.enum(["job_seeker", "employer"]).optional(),
     projectId: z.string().trim().min(1),
+    starterActionId: z.string().trim().min(1).max(120).optional(),
   })
   .superRefine((payload, context) => {
     if (!payload.message.trim() && payload.attachmentIds.length === 0) {

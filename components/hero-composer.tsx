@@ -1457,6 +1457,7 @@ export function HeroComposer({
     message: string;
     persona: Persona;
     projectId: string;
+    starterActionId?: string | null;
     traceId: string;
   }) {
     const response = await fetch("/api/chat", {
@@ -1474,6 +1475,7 @@ export function HeroComposer({
         message: args.message,
         persona: args.persona,
         projectId: args.projectId,
+        starterActionId: args.starterActionId ?? undefined,
       }),
     });
 
@@ -1999,7 +2001,12 @@ export function HeroComposer({
     );
   }
 
-  async function submitMessage(nextMessage?: string) {
+  async function submitMessage(args?: {
+    starterActionId?: string | null;
+    text?: string;
+  }) {
+    const nextMessage = args?.text;
+    const starterActionId = args?.starterActionId ?? null;
     const explicitPrompt = (nextMessage ?? message).trim();
     const derivedEmployerPrompt =
       !explicitPrompt && isEmployerMode && hasEmployerSearchFilters(candidateSearchFilters)
@@ -2077,6 +2084,7 @@ export function HeroComposer({
         message: prompt,
         persona,
         projectId: submitTarget.projectId,
+        starterActionId,
         traceId,
       });
       let payload = reply.payload;
@@ -2102,6 +2110,7 @@ export function HeroComposer({
             message: prompt,
             persona,
             projectId: recoveredSubmitTarget.projectId,
+            starterActionId,
             traceId,
           });
           payload = reply.payload;
@@ -2243,7 +2252,10 @@ export function HeroComposer({
 
     setIsEmployerFiltersOpen(false);
     setComposerNotice(null);
-    void submitMessage(action.value ?? action.label);
+    void submitMessage({
+      starterActionId: action.starterActionId ?? null,
+      text: action.value ?? action.label,
+    });
   }
 
   async function handleLatestJobsStarter() {

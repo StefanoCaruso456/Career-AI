@@ -229,6 +229,41 @@ describe("POST /api/chat", () => {
     );
   });
 
+  it("honors starter action overrides by routing through homepage assistant even when job intent heuristics might match", async () => {
+    mocks.generateHomepageAssistantReply.mockResolvedValue(
+      "Overview: Security is permission-based.\n\n- Grounded bullet\n\nSummary: Security context is explicit.",
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/chat", {
+        body: JSON.stringify({
+          attachmentIds: [],
+          conversationId: null,
+          message: "Why is this a secure career identity platform?",
+          persona: "job_seeker",
+          projectId: "project_123",
+          starterActionId: "job_seeker_secure_identity",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.generateHomepageAssistantReply).toHaveBeenCalledWith(
+      "Why is this a secure career identity platform?",
+      [],
+      expect.objectContaining({
+        starterActionId: "job_seeker_secure_identity",
+      }),
+    );
+    expect(mocks.runJobSeekerAgent).not.toHaveBeenCalled();
+    expect(payload.assistantMessage.content).toContain("Overview:");
+  });
+
   it("routes short typoed company-role prompts through the job seeker agent instead of generic chat", async () => {
     mocks.runJobSeekerAgent.mockResolvedValue({
       assistantMessage: "I found NVIDIA software roles.",
