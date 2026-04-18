@@ -1,0 +1,35 @@
+{
+  "name": "@career-ledger/pdf-signature-verifier",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Private library. Verifies embedded PKCS#7 / PAdES signatures on a PDF: locate the signature dictionary, read ByteRange, hash the covered bytes, parse the CMS SignedData, confirm the digest matches and the signature is cryptographically valid. Does NOT (yet) build a trust chain to AATL roots — that's a follow-up.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pkijs": "^3.2.0",
+    "asn1js": "^3.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
