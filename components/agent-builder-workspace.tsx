@@ -1904,24 +1904,28 @@ export function AgentBuilderWorkspace({
                   </div>
                 </div>
 
-                {documentVerification.ctaLabel ? (
-                  <button
-                    className={styles.documentHeroCta}
-                    onClick={openGovernmentVerificationModal}
-                    type="button"
-                  >
-                    <span>{documentVerification.ctaLabel}</span>
-                    <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
-                  </button>
-                ) : null}
+                {documentVerification.ctaLabel || documentVerification.artifactLabel ? (
+                  <div className={styles.documentHeroActions}>
+                    {documentVerification.ctaLabel ? (
+                      <button
+                        className={styles.documentHeroCta}
+                        onClick={openGovernmentVerificationModal}
+                        type="button"
+                      >
+                        <span>{documentVerification.ctaLabel}</span>
+                        <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
+                      </button>
+                    ) : null}
 
-                {documentVerification.artifactLabel ? (
-                  <div className={styles.documentArtifactCard}>
-                    <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                    <div>
-                      <strong>{documentVerification.artifactLabel}</strong>
-                      <span>Verified by Persona</span>
-                    </div>
+                    {documentVerification.artifactLabel ? (
+                      <div className={`${styles.documentArtifactCard} ${styles.documentHeroArtifactCard}`}>
+                        <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
+                        <div>
+                          <strong>{documentVerification.artifactLabel}</strong>
+                          <span>Verified by Persona</span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </section>
