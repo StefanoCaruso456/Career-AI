@@ -15,6 +15,7 @@ import {
   getGovernmentIdVerificationStatus,
   handlePersonaWebhook,
   normalizePersonaInquiry,
+  resetGovernmentIdVerificationState,
   resetGovernmentIdSessionRateLimitStore,
 } from "./service";
 
@@ -648,6 +649,137 @@ describe("career-id Persona service", () => {
         status: "verified",
       },
     ]);
+  });
+
+  it("resets government ID verification state back to not started for the signed-in identity", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-reset-start",
+    });
+
+    personaMocks.retrievePersonaInquiry.mockResolvedValue({
+      id: "inq_123",
+      attributes: {
+        status: "approved",
+        "completed-at": "2026-04-10T12:00:00.000Z",
+      },
+      included: [],
+    });
+
+    const rawBody = JSON.stringify({
+      data: {
+        id: "evt_reset_approved_1",
+        attributes: {
+          "created-at": "2026-04-10T12:00:01.000Z",
+          name: "inquiry.approved",
+          payload: {
+            data: {
+              id: session.providerReferenceId,
+              attributes: {
+                status: "approved",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    await handlePersonaWebhook({
+      rawBody,
+      signatureHeader: signWebhookBody(rawBody),
+      correlationId: "career-id-reset-webhook",
+    });
+
+    const resetResult = await resetGovernmentIdVerificationState({
+      viewer,
+      correlationId: "career-id-reset",
+    });
+
+    expect(resetResult.reset).toBe(true);
+    expect(resetResult.deletedEvidence).toBeGreaterThan(0);
+    expect(resetResult.deletedVerifications).toBeGreaterThan(0);
+    expect(resetResult.deletedAuditEvents).toBeGreaterThanOrEqual(0);
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-reset-lookup",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const auditEvents = await listCareerIdAuditEvents({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const presentation = await getCareerIdPresentation({
+      careerIdentityId: identity!.talentIdentity.id,
+      correlationId: "career-id-reset-presentation",
+      phaseProgress: [
+        {
+          phase: "self",
+          label: "Self-reported",
+          completed: 0,
+          started: 0,
+          total: 5,
+          isComplete: false,
+          isCurrent: true,
+          summary: "Self current",
+        },
+        {
+          phase: "relationship",
+          label: "Relationship-backed",
+          completed: 0,
+          started: 0,
+          total: 3,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Relationship locked",
+        },
+        {
+          phase: "document",
+          label: "Document-backed",
+          completed: 0,
+          started: 0,
+          total: 7,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Document available",
+        },
+        {
+          phase: "signature",
+          label: "Signature-backed",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Signature locked",
+        },
+        {
+          phase: "institution",
+          label: "Institution-verified",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Institution locked",
+        },
+      ],
+    });
+
+    expect(verifications).toHaveLength(0);
+    expect(evidence).toHaveLength(0);
+    expect(auditEvents).toHaveLength(0);
+    expect(presentation.documentVerification.status).toBe("not_started");
+    expect(presentation.careerIdProfile.badges).toEqual([]);
   });
 
   it("allows starting a new Persona verification after a completed verification", async () => {
