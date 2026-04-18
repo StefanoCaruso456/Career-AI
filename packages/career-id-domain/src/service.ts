@@ -78,6 +78,12 @@ type PersonaWebhookEnvelope = {
   };
 };
 
+type PersonaIncludedResource = {
+  attributes?: Record<string, unknown>;
+  id?: string;
+  type?: string;
+};
+
 type NormalizedPersonaInquiryResult = {
   checks: GovernmentIdChecks;
   completedAt: string | null;
@@ -404,7 +410,7 @@ function normalizePersonaStatus(value: unknown) {
   return String(value ?? "")
     .trim()
     .toLowerCase()
-    .replace(/_/g, "-");
+    .replace(/[\s_]+/g, "-");
 }
 
 function getInquiryAttribute(
@@ -412,6 +418,128 @@ function getInquiryAttribute(
   key: string,
 ) {
   return inquiry?.attributes?.[key];
+}
+
+function getPersonaIncludedResources(
+  inquiry: PersonaInquiryResource | null | undefined,
+): PersonaIncludedResource[] {
+  if (!Array.isArray(inquiry?.included)) {
+    return [];
+  }
+
+  return inquiry.included.filter(
+    (resource): resource is PersonaIncludedResource =>
+      Boolean(resource) && typeof resource === "object",
+  );
+}
+
+function getPersonaVerificationResources(
+  inquiry: PersonaInquiryResource | null | undefined,
+  typePrefix: string,
+) {
+  return getPersonaIncludedResources(inquiry).filter((resource) => {
+    const resourceType = resource.type?.trim().toLowerCase();
+    return resourceType?.startsWith(typePrefix);
+  });
+}
+
+function getPersonaVerificationCheckStatus(
+  resource: PersonaIncludedResource,
+  checkNames: string[],
+) {
+  const checks = resource.attributes?.checks;
+
+  if (!Array.isArray(checks)) {
+    return "unknown" as const;
+  }
+
+  const normalizedTargetNames = new Set(checkNames.map((name) => normalizePersonaStatus(name)));
+
+  for (const check of checks) {
+    if (!check || typeof check !== "object") {
+      continue;
+    }
+
+    const normalizedName = normalizePersonaStatus((check as { name?: unknown }).name);
+
+    if (!normalizedTargetNames.has(normalizedName)) {
+      continue;
+    }
+
+    const normalizedStatus = normalizePersonaStatus((check as { status?: unknown }).status);
+
+    if (normalizedStatus === "passed") {
+      return "pass" as const;
+    }
+
+    if (normalizedStatus === "failed") {
+      return "fail" as const;
+    }
+  }
+
+  return "unknown" as const;
+}
+
+function deriveVerificationChecksFromPersonaInquiry(
+  inquiry: PersonaInquiryResource | null | undefined,
+): GovernmentIdChecks {
+  const governmentIdResources = getPersonaVerificationResources(
+    inquiry,
+    "verification/government-id",
+  );
+  const selfieResources = getPersonaVerificationResources(inquiry, "verification/selfie");
+  const governmentIdPassed = governmentIdResources.some(
+    (resource) => normalizePersonaStatus(resource.attributes?.status) === "passed",
+  );
+  const governmentIdFailed = governmentIdResources.some(
+    (resource) => normalizePersonaStatus(resource.attributes?.status) === "failed",
+  );
+  const selfiePassed = selfieResources.some(
+    (resource) => normalizePersonaStatus(resource.attributes?.status) === "passed",
+  );
+  const liveness = selfieResources.reduce<GovernmentIdChecks["liveness"]>((result, resource) => {
+    if (result === "pass") {
+      return result;
+    }
+
+    const checkStatus = getPersonaVerificationCheckStatus(resource, ["selfie_liveness_detection"]);
+    return checkStatus === "unknown" ? result : checkStatus;
+  }, "unknown");
+  const faceMatch = selfieResources.reduce<GovernmentIdChecks["faceMatch"]>((result, resource) => {
+    if (result === "pass") {
+      return result;
+    }
+
+    const checkStatus = getPersonaVerificationCheckStatus(resource, ["selfie_id_comparison"]);
+    return checkStatus === "unknown" ? result : checkStatus;
+  }, "unknown");
+
+  return {
+    documentAuthenticity: governmentIdPassed
+      ? "pass"
+      : governmentIdFailed
+        ? "fail"
+        : "unknown",
+    liveness: liveness !== "unknown" ? liveness : selfiePassed ? "pass" : "unknown",
+    faceMatch:
+      faceMatch !== "unknown"
+        ? faceMatch
+        : selfiePassed && governmentIdPassed
+          ? "pass"
+          : "unknown",
+  };
+}
+
+function areGovernmentIdChecksEqual(left: GovernmentIdChecks, right: GovernmentIdChecks) {
+  return (
+    left.documentAuthenticity === right.documentAuthenticity &&
+    left.liveness === right.liveness &&
+    left.faceMatch === right.faceMatch
+  );
+}
+
+function shouldSyncGovernmentIdVerificationStatus(status: CareerIdVerificationStatus) {
+  return status === "in_progress" || status === "manual_review";
 }
 
 export function normalizePersonaInquiry(args: {
@@ -435,6 +563,8 @@ export function normalizePersonaInquiry(args: {
     status = "verified";
   } else if (
     rawStatus === "needs-review" ||
+    rawStatus === "marked-for-review" ||
+    eventName === "inquiry.marked-for-review" ||
     eventName === "inquiry.needs-review" ||
     eventName === "inquiry.needs_review"
   ) {
@@ -447,16 +577,20 @@ export function normalizePersonaInquiry(args: {
       : "failed";
   }
 
+  const checksFromInquiry = deriveVerificationChecksFromPersonaInquiry(args.inquiry);
   const checks: GovernmentIdChecks =
     status === "verified"
       ? {
-          documentAuthenticity: "pass",
-          liveness: "pass",
-          faceMatch: "pass",
+          documentAuthenticity:
+            checksFromInquiry.documentAuthenticity === "unknown"
+              ? "pass"
+              : checksFromInquiry.documentAuthenticity,
+          liveness: checksFromInquiry.liveness === "unknown" ? "pass" : checksFromInquiry.liveness,
+          faceMatch: checksFromInquiry.faceMatch === "unknown" ? "pass" : checksFromInquiry.faceMatch,
         }
       : status === "retry_needed" || status === "failed"
         ? determineFailureChecks(text)
-        : defaultChecks();
+        : checksFromInquiry;
 
   const confidenceBand: GovernmentIdVerificationResult["confidenceBand"] =
     status === "verified"
@@ -481,6 +615,92 @@ export function normalizePersonaInquiry(args: {
       completedAt,
     },
   };
+}
+
+async function syncGovernmentIdVerificationFromPersona(args: {
+  correlationId: string;
+  verification: CareerIdVerificationRecord;
+}) {
+  if (args.verification.provider !== "persona") {
+    return args.verification;
+  }
+
+  const inquiryId = decryptProviderReference(args.verification.providerReferenceEncrypted);
+  const inquiry = await retrievePersonaInquiry({
+    correlationId: args.correlationId,
+    inquiryId,
+  });
+  const normalized = normalizePersonaInquiry({
+    inquiry,
+  });
+  const manualReviewRequired = normalized.status === "manual_review";
+  const isUnchanged =
+    args.verification.status === normalized.status &&
+    args.verification.confidenceBand === (normalized.confidenceBand ?? null) &&
+    args.verification.completedAt === normalized.completedAt &&
+    args.verification.manualReviewRequired === manualReviewRequired &&
+    areGovernmentIdChecksEqual(args.verification.checks, normalized.checks);
+
+  if (isUnchanged) {
+    return args.verification;
+  }
+
+  const updatedVerification = await upsertCareerIdVerification({
+    record: {
+      ...args.verification,
+      status: normalized.status,
+      confidenceBand: normalized.confidenceBand ?? null,
+      checks: normalized.checks,
+      manualReviewRequired,
+      completedAt: normalized.completedAt,
+      updatedAt: new Date().toISOString(),
+    },
+  });
+  const existingEvidence = getGovernmentIdEvidence(
+    await listCareerIdEvidence({
+      careerIdentityId: args.verification.careerIdentityId,
+    }),
+  );
+
+  await upsertGovernmentIdEvidence({
+    careerIdentityId: args.verification.careerIdentityId,
+    existingEvidenceId: existingEvidence?.id,
+    providerReferenceEncrypted: args.verification.providerReferenceEncrypted,
+    providerReferenceHash: args.verification.providerReferenceHash,
+    recoveryHints: normalized.recoveryHints,
+    verificationId: args.verification.id,
+    result: normalized,
+  });
+
+  logAuditEvent({
+    eventType: "persona_status_synced",
+    actorType: "system_service",
+    actorId: "persona_status_sync",
+    targetType: "career_id_verification",
+    targetId: args.verification.id,
+    correlationId: args.correlationId,
+    metadataJson: {
+      normalizedStatus: normalized.status,
+      provider: "persona",
+      source: "verification_status_read",
+    },
+  });
+
+  if (args.verification.status !== "verified" && updatedVerification.status === "verified") {
+    logAuditEvent({
+      eventType: "badge_created",
+      actorType: "system_service",
+      actorId: "persona_status_sync",
+      targetType: "career_id_verification",
+      targetId: args.verification.id,
+      correlationId: args.correlationId,
+      metadataJson: {
+        badgeLabel: "Government ID verified",
+      },
+    });
+  }
+
+  return updatedVerification;
 }
 
 async function resolveViewerIdentity(args: {
@@ -913,13 +1133,25 @@ export async function getGovernmentIdVerificationStatus(args: {
     viewer: args.viewer,
     correlationId: args.correlationId,
   });
-  const verification = ensureVerificationOwnership(
+  let verification = ensureVerificationOwnership(
     await getCareerIdVerificationById({
       verificationId: args.verificationId,
     }),
     identity.careerIdentityId,
     args.correlationId,
   );
+
+  if (shouldSyncGovernmentIdVerificationStatus(verification.status)) {
+    try {
+      verification = await syncGovernmentIdVerificationFromPersona({
+        verification,
+        correlationId: args.correlationId,
+      });
+    } catch {
+      // Fall back to the persisted state when Persona is temporarily unavailable.
+    }
+  }
+
   const evidence = getGovernmentIdEvidence(
     await listCareerIdEvidence({
       careerIdentityId: identity.careerIdentityId,
