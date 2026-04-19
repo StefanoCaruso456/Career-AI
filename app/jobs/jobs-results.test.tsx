@@ -80,6 +80,7 @@ describe("JobsResults", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     clearJobDetailsCache();
+    window.localStorage.clear();
   });
 
   it("shows 24 roles first and reveals 29 more when requested", () => {
@@ -122,7 +123,66 @@ describe("JobsResults", () => {
     expect(companySelect).toHaveTextContent("Stripe");
   });
 
+  it("defaults new visitors to USA-only jobs and lets them opt back into global roles", () => {
+    const jobs: JobPostingDto[] = [
+      {
+        ...createJob(1),
+        title: "Staff Platform Engineer",
+        companyName: "OpenAI",
+        sourceLabel: "OpenAI",
+        location: "San Francisco, CA",
+      },
+      {
+        ...createJob(2),
+        title: "Applied AI Engineer",
+        companyName: "Accenture",
+        sourceLabel: "Accenture",
+        location: "Buenos Aires",
+      },
+    ];
+
+    render(<JobsResults jobs={jobs} />);
+
+    const usaOnlyToggle = screen.getByRole("checkbox", { name: /usa only/i });
+
+    expect(usaOnlyToggle).toBeChecked();
+    expect(screen.getByText("Staff Platform Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Applied AI Engineer")).not.toBeInTheDocument();
+
+    fireEvent.click(usaOnlyToggle);
+
+    expect(usaOnlyToggle).not.toBeChecked();
+    expect(screen.getByText("Applied AI Engineer")).toBeInTheDocument();
+    expect(window.localStorage.getItem("career-ai.jobs.filters.usa-only")).toBe("false");
+  });
+
+  it("restores a saved global-browsing preference for returning visitors", async () => {
+    window.localStorage.setItem("career-ai.jobs.filters.usa-only", "false");
+
+    render(
+      <JobsResults
+        jobs={[
+          {
+            ...createJob(1),
+            title: "Applied AI Engineer",
+            companyName: "Accenture",
+            sourceLabel: "Accenture",
+            location: "Buenos Aires",
+          },
+        ]}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: /usa only/i })).not.toBeChecked();
+    });
+
+    expect(screen.getByText("Applied AI Engineer")).toBeInTheDocument();
+  });
+
   it("shows job locations on cards and never renders the source placeholder copy", () => {
+    window.localStorage.setItem("career-ai.jobs.filters.usa-only", "false");
+
     const jobs: JobPostingDto[] = [
       {
         ...createJob(1),
@@ -151,6 +211,8 @@ describe("JobsResults", () => {
   });
 
   it("shows a salary pill on listing cards and hides noisy requisition-style locations", () => {
+    window.localStorage.setItem("career-ai.jobs.filters.usa-only", "false");
+
     const jobs: JobPostingDto[] = [
       {
         ...createJob(1),

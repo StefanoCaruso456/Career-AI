@@ -131,6 +131,49 @@
   flex-wrap: wrap;
 }
 
+.countryToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 3.25rem;
+  padding: 0.82rem 1rem;
+  border-radius: 1.12rem;
+  border: 1px solid rgba(166, 176, 196, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    rgba(15, 18, 24, 0.82);
+  box-shadow:
+    0 12px 20px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.countryToggleInput {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  accent-color: #8d7fff;
+  cursor: pointer;
+}
+
+.countryToggleCopy {
+  display: grid;
+  gap: 0.18rem;
+}
+
+.countryToggleCopy strong {
+  color: var(--jobs-text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.countryToggleCopy span {
+  color: var(--jobs-text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .filterEyebrow {
   margin: 0 0 0.35rem;
   color: rgba(160, 186, 255, 0.88);
@@ -261,7 +304,8 @@
 
 .clearFiltersButton:focus-visible,
 .filterControl:focus-within,
-.searchField:focus-within {
+.searchField:focus-within,
+.countryToggle:focus-within {
   outline: 2px solid rgba(141, 127, 255, 0.9);
   outline-offset: 4px;
 }
@@ -1112,6 +1156,10 @@
 
   .searchField {
     grid-column: 1 / -1;
+  }
+
+  .countryToggle {
+    width: 100%;
   }
 }
 
