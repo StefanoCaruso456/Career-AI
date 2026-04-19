@@ -24,6 +24,19 @@ describe("HeaderAuthControls", () => {
     vi.clearAllMocks();
   });
 
+  it("keeps a beta entrypoint visible for signed-out visitors", () => {
+    mockUsePathname.mockReturnValue("/");
+    mockUseSession.mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+    });
+
+    render(<HeaderAuthControls />);
+
+    expect(screen.getByRole("button", { name: "Beta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Getting Started" })).toBeInTheDocument();
+  });
+
   it("shows the account holder in the trigger and opens the workspace menu", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
     mockUsePathname.mockReturnValue("/employer");
@@ -41,6 +54,7 @@ describe("HeaderAuthControls", () => {
 
     render(<HeaderAuthControls />);
 
+    expect(screen.getByRole("link", { name: "Beta" })).toHaveAttribute("href", "/employer");
     expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
     expect(screen.getByText("Employer")).toBeInTheDocument();
 

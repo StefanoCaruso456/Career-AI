@@ -40,6 +40,7 @@
 
 .homeAction,
 .navTab,
+.betaAction,
 .ghostAction,
 .primaryAction,
 .ghostButton,
@@ -218,6 +219,52 @@
     0 14px 26px rgba(0, 0, 0, 0.16);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   backdrop-filter: blur(18px) saturate(160%);
+}
+
+.betaAction {
+  position: relative;
+  min-height: 2.85rem;
+  padding: 0.74rem 1rem 0.74rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 188, 107, 0.34);
+  background:
+    radial-gradient(circle at top left, rgba(255, 211, 140, 0.28), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+    rgba(69, 43, 12, 0.78);
+  color: #fff3dd;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  box-shadow:
+    0 16px 28px rgba(58, 33, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(16px) saturate(155%);
+  backdrop-filter: blur(16px) saturate(155%);
+}
+
+.betaAction::before {
+  content: "";
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: radial-gradient(circle, #ffd58d 0%, #ff9f4d 72%);
+  box-shadow:
+    0 0 0 0 rgba(255, 180, 89, 0.42),
+    0 0 18px rgba(255, 163, 72, 0.42);
+  animation: betaPulse 2.4s ease-out infinite;
+}
+
+.betaAction:hover {
+  border-color: rgba(255, 205, 133, 0.54);
+  background:
+    radial-gradient(circle at top left, rgba(255, 219, 158, 0.34), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05)),
+    rgba(82, 51, 14, 0.82);
+  box-shadow:
+    0 20px 34px rgba(70, 38, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .ghostButton {
@@ -539,6 +586,7 @@
 
 .homeAction:focus-visible,
 .navTab:focus-visible,
+.betaAction:focus-visible,
 .ghostAction:focus-visible,
 .primaryAction:focus-visible,
 .ghostButton:focus-visible,
@@ -564,6 +612,26 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes betaPulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(255, 180, 89, 0.36),
+      0 0 18px rgba(255, 163, 72, 0.42);
+  }
+
+  70% {
+    box-shadow:
+      0 0 0 0.5rem rgba(255, 180, 89, 0),
+      0 0 22px rgba(255, 163, 72, 0.3);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(255, 180, 89, 0),
+      0 0 18px rgba(255, 163, 72, 0.2);
   }
 }
 
@@ -634,6 +702,11 @@
     flex-wrap: wrap;
   }
 
+  .betaAction {
+    min-height: 2.7rem;
+    padding-inline: 0.9rem;
+  }
+
   .ghostAction,
   .primaryAction,
   .ghostButton {
@@ -667,6 +740,7 @@
 
   .homeAction:hover,
   .navTab:hover,
+  .betaAction:hover,
   .ghostAction:hover,
   .primaryAction:hover,
   .settingsTrigger:hover,
