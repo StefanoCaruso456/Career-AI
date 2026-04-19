@@ -2080,14 +2080,6 @@ export function AgentBuilderWorkspace({
             </div>
 
             <aside className={styles.progressRail}>
-              <div className={styles.progressRailHeader}>
-                <h2>Credible Career ID creation status</h2>
-                <p className={styles.progressRailCopy}>
-                  Each trust phase lights up as the profile moves from self-reported context
-                  into stronger verification. Click any phase to edit its intake workflow.
-                </p>
-              </div>
-
               <section className={`${styles.documentHeroCard} ${documentHeroToneClassName}`}>
                 <div className={styles.documentHeroBadgeRow}>
                   <span className={styles.documentHeroEyebrow}>
