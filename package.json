@@ -5,7 +5,6 @@
   "private": true,
   "workspaces": [
     "services/api-gateway",
-    "services/document-verifier",
     "services/pdf-extractor",
     "packages/pdf-signature-verifier",
     "packages/a2a-protocol",
@@ -23,10 +22,8 @@
     "start": "next start",
     "test": "vitest run",
     "dev:gateway": "npm --workspace services/api-gateway run dev",
-    "dev:verifier": "npm --workspace services/document-verifier run dev",
     "dev:extractor": "npm --workspace services/pdf-extractor run dev",
     "build:gateway": "npm --workspace services/api-gateway run build",
-    "build:verifier": "npm --workspace services/document-verifier run build",
     "build:extractor": "npm --workspace services/pdf-extractor run build"
   },
   "repository": {

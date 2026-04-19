@@ -17,7 +17,8 @@
 
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db/index.js";
-import { verifyDocument, type DocumentVerifierResponse } from "../clients/document-verifier.js";
+import { verifyDocument } from "../verifier/index.js";
+import type { VerifyResponse } from "../verifier/types.js";
 import type { ClaimStatus, EmploymentClaim, PublicClaimVerificationResponse } from "../types.js";
 
 export interface SubmitEmploymentClaimInput {
@@ -48,9 +49,9 @@ export async function submitEmploymentClaim(
 
   const claimId = inserted.id;
 
-  // 2. Call document-verifier. Keep the raw response; we persist it verbatim
-  //    so we have an audit trail of exactly what each verifier said.
-  let verification: DocumentVerifierResponse;
+  // 2. Run in-process verification. Keep the raw response; we persist it
+  //    verbatim so we have an audit trail of exactly what each verifier said.
+  let verification: VerifyResponse;
   try {
     verification = await verifyDocument({
       file,

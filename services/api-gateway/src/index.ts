@@ -5,6 +5,7 @@ import { requireSharedSecret } from "./middleware/auth.js";
 import { auditRequest } from "./middleware/audit.js";
 import { claimsRoutes } from "./routes/claims.js";
 import { healthRoutes } from "./routes/health.js";
+import { getVerifierInfo } from "./verifier/index.js";
 
 const app = new Hono<AppEnv>();
 
@@ -39,8 +40,10 @@ app.notFound((c) =>
 
 const port = Number(process.env.PORT ?? 8080);
 const hostname = "0.0.0.0";
+const verifier = getVerifierInfo();
 console.log(`[api-gateway] listening on http://${hostname}:${port}`);
-console.log(`[api-gateway] document-verifier at ${process.env.DOCUMENT_VERIFIER_URL ?? "http://localhost:8787"}`);
+console.log(`[api-gateway] verifier: ${verifier.name} (content extractor: ${verifier.extractor})`);
+console.log(`[api-gateway] pdf-extractor at ${process.env.PDF_EXTRACTOR_URL ?? "http://localhost:8788"}`);
 
 serve({ fetch: app.fetch, port, hostname });
 

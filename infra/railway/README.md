@@ -6,18 +6,19 @@ Each deployable runs as its own Railway service inside one Railway project. Beca
 
 Each service's build/start config lives in its own `railway.toml`. Point each Railway service's **Config-as-Code Path** at the right file (Settings → Config-as-Code → Config Path). Without this, Railway reads the root `railway.toml` (the web service's config) and applies it to every service.
 
-| Railway service     | Root directory | Config-as-Code Path                        | Health path      |
-| ------------------- | -------------- | ------------------------------------------ | ---------------- |
-| `web`               | `.`            | `railway.toml` (repo root — default)       | `/api/v1/health` |
-| `api-gateway`       | `.`            | `services/api-gateway/railway.toml`        | `/v1/health`     |
-| `document-verifier` | `.`            | `services/document-verifier/railway.toml`  | `/v1/health`     |
-| `pdf-extractor`     | `.`            | `services/pdf-extractor/railway.toml`      | `/v1/health`     |
+| Railway service | Root directory | Config-as-Code Path                    | Health path      |
+| --------------- | -------------- | -------------------------------------- | ---------------- |
+| `web`           | `.`            | `railway.toml` (repo root — default)   | `/api/v1/health` |
+| `api-gateway`   | `.`            | `services/api-gateway/railway.toml`    | `/v1/health`     |
+| `pdf-extractor` | `.`            | `services/pdf-extractor/railway.toml`  | `/v1/health`     |
+
+api-gateway now includes the document-verification logic in-process, so there's no separate `document-verifier` service to deploy. It still calls pdf-extractor over HTTP (that one stays separate — it parses untrusted PDF binaries and deserves an isolation boundary).
 
 ## Why rootDirectory = `.` for every service
 
 npm workspaces symlink workspace deps into the **root** `node_modules`. If Railway sets rootDirectory to, say, `services/api-gateway`, the build will run `npm install` there and fail to resolve `@career-ledger/pdf-signature-verifier` because the symlink lives at the repo root.
 
-Watch paths can still be per-service in Railway's config (so a change under `services/document-verifier/` only redeploys that service). Set those in the Railway dashboard.
+Watch paths can still be per-service in Railway's config (so a change under `services/pdf-extractor/` only redeploys that service). Set those in the Railway dashboard.
 
 ## Environment variables
 

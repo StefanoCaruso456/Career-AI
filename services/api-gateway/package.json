@@ -15,11 +15,12 @@
     "db:down": "docker compose down"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.89.0",
     "@hono/node-server": "^1.13.0",
     "drizzle-orm": "^0.36.0",
     "hono": "^4.6.0",
     "postgres": "^3.4.5",
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.12.0",
