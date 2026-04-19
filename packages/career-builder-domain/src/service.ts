@@ -414,7 +414,7 @@ async function buildSnapshot(
   // Derive offer-letter badges from career_builder_evidence's
   // verification_status column. Tiered — mirrors the card-pill UX:
   //   VERIFIED → "Offer letter verified"
-  //   PARTIAL  → "Signed offer letter on file" (real-world case — most
+  //   PARTIAL  → "Offer letter on file" (real-world case — most
   //              DocuSign offer letters users upload don't include the
   //              Certificate of Completion page, so the verifier can't
   //              cross-check sender domain against claimed employer, but
@@ -440,7 +440,7 @@ async function buildSnapshot(
         return [
           {
             id: `badge_offer_letter_${record.id}`,
-            label: "Signed offer letter on file",
+            label: "Offer letter on file",
             phase: "document_backed" as const,
             status: "verified" as const,
           },
