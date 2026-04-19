@@ -162,25 +162,44 @@ async function maybeVerifyOfferLetters(args: {
   // of the files verified, the evidence as a whole is verified. Common case:
   // user uploads document (PARTIAL — envelope-stamp-only, no sender) + CoC
   // (VERIFIED — CoC has Envelope Originator domain matching employer).
-  // Without this fix, DB would record PARTIAL because results[0] is the
-  // document.
   const bestVerdict = pickBestVerdict(results);
+  const logPrefix = `[career-builder-save cid=${args.correlationId}]`;
+  console.log(
+    `${logPrefix} offer-letter verification summary: files=${results.length}, bestVerdict=${bestVerdict ?? "none"}, outcomes=${results
+      .map((r) =>
+        r.outcome.ok ? r.outcome.result.status : `ERR:${r.outcome.reason}`,
+      )
+      .join(",")}`,
+  );
+
   if (bestVerdict && args.session.user?.email) {
     try {
       const identity = await findTalentIdentityByEmail({
         email: args.session.user.email,
         correlationId: args.correlationId,
       });
-      if (identity) {
-        await updateCareerBuilderEvidenceVerificationStatus({
+      if (!identity) {
+        console.warn(
+          `${logPrefix} no talent identity found for email; cannot persist verification_status`,
+        );
+      } else {
+        const rowCount = await updateCareerBuilderEvidenceVerificationStatus({
           careerIdentityId: identity.talentIdentity.id,
           templateId: "offer-letters",
           verificationStatus: bestVerdict,
         });
+        console.log(
+          `${logPrefix} persisted verification_status=${bestVerdict} careerIdentityId=${identity.talentIdentity.id} rowsAffected=${rowCount}`,
+        );
+        if (rowCount === 0) {
+          console.warn(
+            `${logPrefix} UPDATE affected 0 rows — no career_builder_evidence row for (careerIdentityId=${identity.talentIdentity.id}, templateId=offer-letters). The row may not have been created by saveCareerBuilderPhase, or the column may not exist.`,
+          );
+        }
       }
     } catch (err) {
       console.warn(
-        `[career-builder-save] failed to persist verification_status: ${err instanceof Error ? err.message : String(err)}`,
+        `${logPrefix} failed to persist verification_status: ${err instanceof Error ? `${err.message}\n${err.stack}` : String(err)}`,
       );
     }
   }
