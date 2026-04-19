@@ -89,8 +89,10 @@ export async function submitEmploymentClaim(
     .where(eq(schema.claims.id, claimId));
 
   // 5. Normalize to the public response shape. This is where we strip
-  //    internal-only fields (envelope IDs, reason strings, mismatched field
-  //    lists, raw signals) that the frontend doesn't need.
+  //    internal-only fields (envelope IDs, mismatched field lists, raw
+  //    signals) that the frontend doesn't need. For FAILED verdicts we
+  //    surface a single human-readable failureReason so the UI can tell
+  //    the user WHY it failed without leaking internal signal internals.
   const { signals, provenance, confidenceTier } = verification;
   return {
     claimId,
@@ -104,7 +106,39 @@ export async function submitEmploymentClaim(
     },
     authenticitySource: signals.authenticity.source,
     verifiedAt: provenance.verifiedAt,
+    failureReason: claimStatus === "FAILED" ? deriveFailureReason(signals) : undefined,
   };
+}
+
+function deriveFailureReason(signals: {
+  tampering: { detected: boolean; method: string; details?: Record<string, unknown> };
+  content: { mismatches?: string[] };
+}): string {
+  // Tampering hard-fails override everything else — surface that first.
+  if (signals.tampering.detected) {
+    const detailReason =
+      signals.tampering.details &&
+      typeof signals.tampering.details === "object" &&
+      typeof (signals.tampering.details as { reason?: unknown }).reason === "string"
+        ? ((signals.tampering.details as { reason: string }).reason)
+        : null;
+    if (detailReason) return detailReason;
+    if (signals.tampering.method === "pkcs7-verification") {
+      return "Cryptographic signature verification failed — PDF bytes have been modified since signing.";
+    }
+    if (signals.tampering.method === "structural-anomaly") {
+      return "Document structure suggests tampering (DocuSign markers present but signature structure stripped).";
+    }
+    return "Tampering detected in the uploaded document.";
+  }
+
+  if (signals.content.mismatches?.includes("employer")) {
+    return "The claimed employer name was not found anywhere in the document.";
+  }
+
+  // Fallback — FAILED without tampering and without employer mismatch means
+  // the verdict fell through to the "insufficient signals" branch.
+  return "Not enough positive signals to verify the document. No trusted source signature and content did not fully match the claim.";
 }
 
 function displayStatusFor(status: ClaimStatus, tier: string): string {

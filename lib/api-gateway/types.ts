@@ -33,6 +33,11 @@ export interface ClaimVerificationResult {
   };
   authenticitySource: string;
   verifiedAt: string;
+  /**
+   * Present only on FAILED verdicts. One short sentence explaining the
+   * reason (tampering signal, employer mismatch, insufficient signals).
+   */
+  failureReason?: string;
 }
 
 export type VerificationOutcome =

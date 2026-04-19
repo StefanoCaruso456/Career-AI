@@ -80,8 +80,13 @@ function formatSaveMessage(
       return { text: `Saved. ${displayStatus}. ${matchSummary}`, kind: "success" };
     }
     // FAILED — drop the "Saved." prefix so the user doesn't read this as a pass.
+    // Include the failureReason so the ✓ indicators aren't misleading: the
+    // content may have matched but verification failed for a different reason
+    // (tampering, employer mismatch, insufficient signals).
+    const reason = outcome.result.failureReason;
+    const reasonSuffix = reason ? ` ${reason}` : "";
     return {
-      text: `${displayStatus}. ${matchSummary} (file: ${filename})`,
+      text: `${displayStatus}.${reasonSuffix} ${matchSummary} (file: ${filename})`,
       kind: "error",
     };
   }

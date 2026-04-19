@@ -34,4 +34,11 @@ export interface PublicClaimVerificationResponse {
   };
   authenticitySource: "docusign" | "pkcs7-embedded" | "unsigned";
   verifiedAt: string;
+  /**
+   * Present only on FAILED verdicts. One short sentence explaining the
+   * primary reason the verification failed — tampering signal detail,
+   * content mismatch, or "insufficient signals" fallback. Safe to surface
+   * in user-facing copy. Omitted for VERIFIED / PARTIAL / PENDING.
+   */
+  failureReason?: string;
 }
