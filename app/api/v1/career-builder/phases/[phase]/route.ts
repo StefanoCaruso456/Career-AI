@@ -217,6 +217,13 @@ async function verifyAllClaimUploads(args: {
   session: { user?: { email?: string | null; name?: string | null } | null };
   correlationId: string;
 }): Promise<ClaimVerificationEntry[]> {
+  const logPrefix = `[career-builder-save cid=${args.correlationId}]`;
+  const uploadSummary = Object.entries(args.uploadsByTemplateId)
+    .map(([tid, files]) => `${tid}=${files.length}`)
+    .join(",");
+  console.log(
+    `${logPrefix} incoming uploads by template: ${uploadSummary || "(none)"}`,
+  );
   const results: ClaimVerificationEntry[] = [];
   for (const config of CLAIM_TEMPLATE_CONFIGS) {
     const templateResults = await verifyTemplateUploads(config, args);
@@ -234,14 +241,33 @@ async function verifyTemplateUploads(
     correlationId: string;
   },
 ): Promise<ClaimVerificationEntry[]> {
+  const logPrefix = `[career-builder-save cid=${args.correlationId}]`;
   const uploads = args.uploadsByTemplateId[config.templateId];
-  if (!uploads || uploads.length === 0) return [];
+  if (!uploads || uploads.length === 0) {
+    console.log(
+      `${logPrefix} ${config.templateId}: skipping verify — no files in upload map`,
+    );
+    return [];
+  }
 
   const evidence = pickEvidenceEntry(args.payload, config.templateId);
-  if (!evidence) return [];
+  if (!evidence) {
+    console.log(
+      `${logPrefix} ${config.templateId}: skipping verify — no matching evidence entry in payload (files=${uploads.length})`,
+    );
+    return [];
+  }
 
   const claim = config.buildClaim({ evidence, session: args.session });
-  if (claim === null) return [];
+  if (claim === null) {
+    console.log(
+      `${logPrefix} ${config.templateId}: skipping verify — buildClaim returned null. evidence fields: sourceOrIssuer=${JSON.stringify(evidence.sourceOrIssuer)}, role=${JSON.stringify(evidence.role)}, issuedOn=${JSON.stringify(evidence.issuedOn)}`,
+    );
+    return [];
+  }
+  console.log(
+    `${logPrefix} ${config.templateId}: dispatching verify (kind=${config.kind}, files=${uploads.length})`,
+  );
 
   const actorDid = buildActorDid(args.session.user?.email);
   const results: ClaimVerificationEntry[] = [];
@@ -263,7 +289,6 @@ async function verifyTemplateUploads(
   }
 
   const bestVerdict = pickBestVerdict(results);
-  const logPrefix = `[career-builder-save cid=${args.correlationId}]`;
   console.log(
     `${logPrefix} ${config.templateId} verification summary: files=${results.length}, bestVerdict=${bestVerdict ?? "none"}, outcomes=${results
       .map((r) =>
