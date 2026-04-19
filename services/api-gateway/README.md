@@ -61,6 +61,12 @@ signed session token and the DID will be derived server-side.
 }
 ```
 
+When the verdict is `VERIFIED`, the response additionally carries
+`badgeId` — a pointer into the `badges` table. Pre-W3C this is just a
+minimal credential record scoped to the subject DID; once signed W3C VCs
+land, the stored payload becomes the signed credential and the ID and
+ownership stay the same.
+
 Note the normalization: the frontend gets a flat, display-ready envelope. Raw signals, envelope IDs, reviewer notes, and other internal shapes stay on the server side.
 
 ### `GET /v1/claims`
@@ -129,7 +135,7 @@ cp .env.example .env
 npm run db:migrate
 ```
 
-This creates the `claims`, `verifications`, and `audit_events` tables.
+This creates the `claims`, `verifications`, `badges`, and `audit_events` tables.
 
 **4. Start document-verifier in one terminal**
 

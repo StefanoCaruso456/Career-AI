@@ -57,6 +57,11 @@ export interface PublicClaimVerificationResponse {
   authenticitySource: AuthenticitySource;
   verifiedAt: string;
   /**
+   * Present only when the verdict is VERIFIED — the ID of the badge
+   * (pre-W3C credential) issued for this claim. Omitted otherwise.
+   */
+  badgeId?: string;
+  /**
    * Present only on FAILED verdicts. One short sentence explaining the
    * primary reason the verification failed. Omitted otherwise.
    */
@@ -80,6 +85,11 @@ export interface PublicClaimRecord {
   payload: EmploymentClaim;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Present only when a badge has been issued for this claim (verdict was
+   * VERIFIED). Pre-W3C this is just a UUID pointer into the `badges` table.
+   */
+  badgeId?: string;
   verification?: {
     verifiedAt: string;
     authenticitySource: AuthenticitySource;

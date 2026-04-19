@@ -121,20 +121,32 @@ claimsRoutes.get("/", async (c) => {
   }
 
   const ids = claimRows.map((r) => r.id);
-  const verificationRows = await db
-    .select()
-    .from(schema.verifications)
-    .where(inArray(schema.verifications.claimId, ids))
-    .orderBy(desc(schema.verifications.createdAt));
+  const [verificationRows, badgeRows] = await Promise.all([
+    db
+      .select()
+      .from(schema.verifications)
+      .where(inArray(schema.verifications.claimId, ids))
+      .orderBy(desc(schema.verifications.createdAt)),
+    db
+      .select()
+      .from(schema.badges)
+      .where(inArray(schema.badges.claimId, ids)),
+  ]);
 
   // First row per claim wins because we ordered by createdAt desc.
   const latestByClaim = new Map<string, (typeof verificationRows)[number]>();
   for (const v of verificationRows) {
     if (!latestByClaim.has(v.claimId)) latestByClaim.set(v.claimId, v);
   }
+  const badgeByClaim = new Map<string, (typeof badgeRows)[number]>();
+  for (const b of badgeRows) badgeByClaim.set(b.claimId, b);
 
   const claims = claimRows.map((claim) =>
-    buildPublicClaimRecord(claim, latestByClaim.get(claim.id) ?? null),
+    buildPublicClaimRecord(
+      claim,
+      latestByClaim.get(claim.id) ?? null,
+      badgeByClaim.get(claim.id) ?? null,
+    ),
   );
 
   return c.json({ claims });
@@ -168,12 +180,21 @@ claimsRoutes.get("/:id", async (c) => {
     return c.json({ error: "NOT_FOUND", message: "Claim not found." }, 404);
   }
 
-  const [verification] = await db
-    .select()
-    .from(schema.verifications)
-    .where(eq(schema.verifications.claimId, id))
-    .orderBy(desc(schema.verifications.createdAt))
-    .limit(1);
+  const [[verification], [badge]] = await Promise.all([
+    db
+      .select()
+      .from(schema.verifications)
+      .where(eq(schema.verifications.claimId, id))
+      .orderBy(desc(schema.verifications.createdAt))
+      .limit(1),
+    db
+      .select()
+      .from(schema.badges)
+      .where(eq(schema.badges.claimId, id))
+      .limit(1),
+  ]);
 
-  return c.json({ claim: buildPublicClaimRecord(claim, verification ?? null) });
+  return c.json({
+    claim: buildPublicClaimRecord(claim, verification ?? null, badge ?? null),
+  });
 });

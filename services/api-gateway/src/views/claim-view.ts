@@ -32,9 +32,15 @@ export interface VerificationRowForView {
   provenance: unknown;
 }
 
+export interface BadgeRowForView {
+  id: string;
+  revokedAt: Date | null;
+}
+
 export function buildPublicClaimRecord(
   claim: ClaimRowForView,
   verification: VerificationRowForView | null,
+  badge: BadgeRowForView | null = null,
 ): PublicClaimRecord {
   const status = (claim.status as ClaimStatus) ?? "PENDING";
   const payload = claim.payload as EmploymentClaim;
@@ -50,6 +56,7 @@ export function buildPublicClaimRecord(
     payload,
     createdAt: claim.createdAt.toISOString(),
     updatedAt: claim.updatedAt.toISOString(),
+    badgeId: badge && !badge.revokedAt ? badge.id : undefined,
   };
 
   if (verification) {

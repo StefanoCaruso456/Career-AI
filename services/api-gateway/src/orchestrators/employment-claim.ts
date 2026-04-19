@@ -22,6 +22,9 @@ import type { VerifyResponse } from "../verifier/types.js";
 import type { ClaimStatus, EmploymentClaim, PublicClaimVerificationResponse } from "../types.js";
 import { deriveDisplayStatus, deriveFailureReason } from "../views/claim-view.js";
 
+const ISSUER_DID =
+  process.env.ISSUER_DID ?? "did:web:career-ledger.example/issuer";
+
 export interface SubmitEmploymentClaimInput {
   actorDid: string;
   file: Uint8Array;
@@ -89,11 +92,38 @@ export async function submitEmploymentClaim(
     .set({ status: claimStatus, updatedAt: new Date() })
     .where(eq(schema.claims.id, claimId));
 
-  // 5. Normalize to the public response shape. Internal-only fields
+  // 5. Issue a badge when the claim VERIFIED. Pre-W3C the badge is a minimal
+  //    record pointing at the claim; when signed W3C VCs land, the payload
+  //    slot holds the signed credential and the rest of the table stays.
+  let badgeId: string | undefined;
+  const { signals, provenance, confidenceTier } = verification;
+  if (claimStatus === "VERIFIED") {
+    const [badgeRow] = await db
+      .insert(schema.badges)
+      .values({
+        claimId,
+        subjectDid: actorDid,
+        issuerDid: ISSUER_DID,
+        badgeType: "employment",
+        payload: {
+          kind: "bare-employment",
+          employer: claim.employer,
+          role: claim.role,
+          startDate: claim.startDate,
+          endDate: claim.endDate,
+          authenticitySource: signals.authenticity.source,
+          confidenceTier,
+          verifiedAt: provenance.verifiedAt,
+        },
+      })
+      .returning({ id: schema.badges.id });
+    badgeId = badgeRow.id;
+  }
+
+  // 6. Normalize to the public response shape. Internal-only fields
   //    (envelope IDs, raw signal blobs, mismatch lists) stay server-side.
   //    For FAILED verdicts the single-sentence failureReason lets the UI
   //    tell the user WHY it failed without leaking signal internals.
-  const { signals, provenance, confidenceTier } = verification;
   return {
     claimId,
     status: claimStatus,
@@ -110,6 +140,7 @@ export async function submitEmploymentClaim(
     },
     authenticitySource: signals.authenticity.source,
     verifiedAt: provenance.verifiedAt,
+    badgeId,
     failureReason: claimStatus === "FAILED" ? deriveFailureReason(signals) : undefined,
   };
 }
