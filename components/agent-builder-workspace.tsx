@@ -2241,7 +2241,7 @@ export function AgentBuilderWorkspace({
                   ? "Offer letter on file"
                   : "Offer letter verified";
                 const description = isPartial
-                  ? "Structurally signed via DocuSign, but sender domain couldn't be cross-checked against the claimed employer."
+                  ? "Sender domain couldn't be checked against the claimed employer."
                   : "Signed offer letter cross-checked against the claimed employer via DocuSign Certificate of Completion domain match.";
                 const statusLabel = isPartial ? "Evidence" : "Issued";
                 const evidenceDetail = [record.sourceOrIssuer, record.role]
