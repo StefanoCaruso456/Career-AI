@@ -36,8 +36,17 @@ export interface PublicMatches {
   /**
    * True when the document is confidently identified as an offer letter
    * specifically (not a W-2, pay stub, or employment verification).
+   * Offer-letter handler only; other types always false.
    */
   isOfferLetter: boolean;
+  /**
+   * True when the document matches the expected type for the claim that
+   * was submitted (offer letter for offer-letter, HR letter / W-2 for
+   * employment-verification, diploma for education, transcript for
+   * transcript). Generic indicator the UI can key off without branching
+   * on claim type.
+   */
+  isExpectedDocumentType: boolean;
 }
 
 export type AuthenticitySource = "docusign" | "pkcs7-embedded" | "unsigned";

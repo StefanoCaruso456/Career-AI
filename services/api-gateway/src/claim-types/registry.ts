@@ -1,3 +1,4 @@
+import { employmentVerificationHandler } from "./employment-verification.js";
 import { offerLetterHandler } from "./offer-letter.js";
 import type { ClaimTypeHandler } from "./types.js";
 
@@ -16,7 +17,7 @@ import type { ClaimTypeHandler } from "./types.js";
  */
 const handlers: ClaimTypeHandler<unknown>[] = [
   offerLetterHandler as ClaimTypeHandler<unknown>,
-  // employmentVerificationHandler,
+  employmentVerificationHandler as ClaimTypeHandler<unknown>,
   // educationHandler,
   // transcriptHandler,
 ];

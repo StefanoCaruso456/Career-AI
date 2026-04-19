@@ -118,10 +118,12 @@ async function handleClaimUpload(c: Context<AppEnv>, kind: string) {
   }
 }
 
-// Canonical route: /v1/claims/offer-letter. Career-AI's caller posts here.
-// Employment-verification, education, and transcript slot in below as
-// their handlers land in the registry.
+// One route per supported claim type. Each hands off to the same generic
+// orchestrator via the registry — the kind parameter decides which handler.
 claimsRoutes.post("/offer-letter", (c) => handleClaimUpload(c, "offer-letter"));
+claimsRoutes.post("/employment-verification", (c) =>
+  handleClaimUpload(c, "employment-verification"),
+);
 
 /**
  * GET /v1/claims

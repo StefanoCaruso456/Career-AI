@@ -6,7 +6,7 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 
 - [x] **Claim-type registry refactor** — extract offer-letter into a handler module behind a registry interface. Enables employment-verification, education, transcript types to slot in additively. _(landed: `src/claim-types/`)_
 - [x] **Badge lineage + versioning** — `badges.lineage_key` + `badges.version` columns. Re-verifying the same (employer, role) bumps version within a lineage instead of creating a new badge. Offer-letter and employment-verification share `group: "employment"` so they collapse. _(landed)_
-- [ ] **`employment-verification` claim type** — HR letters, W-2s, HR portal exports. Shares lineage group with offer-letter.
+- [x] **`employment-verification` claim type** — HR letters, W-2s, HR portal exports, background-check reports. Shares lineage group with offer-letter (same employer+role collapses into one badge lineage). _(landed: `src/claim-types/employment-verification.ts`, `POST /v1/claims/employment-verification`)_
 - [ ] **`education` claim type** — diploma / degree certificate.
 - [ ] **`transcript` claim type** — shallow (content-match only; no deep structural detection).
 - [ ] **Career-AI: forms for the three new types + POST to their `/v1/claims/<kind>` routes**.
