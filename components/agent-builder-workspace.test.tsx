@@ -440,29 +440,22 @@ describe("AgentBuilderWorkspace", () => {
     });
   });
 
-  it("rejects non-image driver's license uploads before save", async () => {
+  it("hides the duplicate institution-verified rail step and modal", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /institution-verified/i }));
-    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Driver's license" }));
-
-    const frontInput = document.getElementById(
-      "upload-drivers-license-front",
-    ) as HTMLInputElement | null;
-
-    expect(frontInput).not.toBeNull();
-
-    fireEvent.change(frontInput!, {
-      target: {
-        files: [new File(["hello"], "license.txt", { type: "text/plain" })],
-      },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /save institution-verified evidence/i }));
-
     expect(
-      await screen.findByText("Driver's license uploads must be image files."),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /institution-verified/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { level: 2, name: /Institution-verified evidence/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /save institution-verified evidence/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the government ID CTA once document-backed is unlocked", () => {

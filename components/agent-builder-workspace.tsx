@@ -29,7 +29,6 @@ import {
   defaultUploadAccept,
   driversLicenseImageSlots,
   phaseMeta,
-  phaseSequence,
   type BuilderEvidenceTemplate,
 } from "@/packages/career-builder-domain/src/config";
 import type {
@@ -803,6 +802,10 @@ export function AgentBuilderWorkspace({
     () => snapshot.phaseProgress.find((phase) => phase.phase === activePhase) ?? null,
     [activePhase, snapshot.phaseProgress],
   );
+  const visiblePhaseProgress = useMemo(
+    () => snapshot.phaseProgress.filter((phase) => phase.phase !== "institution"),
+    [snapshot.phaseProgress],
+  );
   const careerIdPhaseMap = useMemo(
     () =>
       new Map(
@@ -946,6 +949,10 @@ export function AgentBuilderWorkspace({
   });
 
   function openPhase(phase: CareerPhase) {
+    if (phase === "institution") {
+      return;
+    }
+
     const nextDraft = buildPhaseDraft(snapshot, phase);
     setActivePhase(phase);
     setDraft(nextDraft);
@@ -2111,7 +2118,7 @@ export function AgentBuilderWorkspace({
               </div>
 
               <div className={styles.pipelineSteps}>
-                {snapshot.phaseProgress.map((phase, index) => (
+                {visiblePhaseProgress.map((phase, index) => (
                   (() => {
                     const trustPhase = careerIdPhaseMap.get(phaseToTrustLayer(phase.phase));
                     const isDocumentPhase = phase.phase === "document";
@@ -2164,7 +2171,7 @@ export function AgentBuilderWorkspace({
                                 <span aria-hidden="true" className={styles.pipelineMarkerCore} />
                               )}
                             </span>
-                            {index < snapshot.phaseProgress.length - 1 ? (
+                            {index < visiblePhaseProgress.length - 1 ? (
                               <span
                                 aria-hidden="true"
                                 className={`${styles.pipelineConnector} ${
