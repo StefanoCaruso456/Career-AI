@@ -411,43 +411,73 @@ async function buildSnapshot(
       summary: getPhaseSummary(phase, tierStats[phase], isComplete, isCurrent),
     };
   });
-  // Derive offer-letter badges from career_builder_evidence's
-  // verification_status column. Tiered — mirrors the card-pill UX:
-  //   VERIFIED → "Offer letter verified"
-  //   PARTIAL  → "Offer letter on file" (real-world case — most
-  //              DocuSign offer letters users upload don't include the
-  //              Certificate of Completion page, so the verifier can't
-  //              cross-check sender domain against claimed employer, but
-  //              the document structurally signed)
+  // Derive badges from career_builder_evidence's verification_status
+  // column. One badge per (templateId, verified record). Label copy
+  // differs per template but the tier logic is the same:
+  //   VERIFIED → "<Type> verified"
+  //   PARTIAL  → "<Type> on file"   (evidence present, trusted-source
+  //                                   signal weaker or missing)
   //   FAILED   → no badge
-  // PARTIAL uses status: "verified" in the badge model (there's no
-  // "partial" value in careerIdVerificationStatus), but downstream
-  // renderers can distinguish via the label copy or a new field later.
-  const extraBadges = evidence
-    .filter((record) => record.templateId === "offer-letters")
-    .flatMap((record) => {
-      if (record.verificationStatus === "VERIFIED") {
-        return [
-          {
-            id: `badge_offer_letter_${record.id}`,
-            label: "Offer letter verified",
-            phase: "document_backed" as const,
-            status: "verified" as const,
-          },
-        ];
-      }
-      if (record.verificationStatus === "PARTIAL") {
-        return [
-          {
-            id: `badge_offer_letter_${record.id}`,
-            label: "Offer letter on file",
-            phase: "document_backed" as const,
-            status: "verified" as const,
-          },
-        ];
-      }
-      return [];
-    });
+  // The badge model only has status: "verified" — PARTIAL vs VERIFIED
+  // is distinguished today by label copy; downstream renderers can read
+  // the verification_status field directly if they need finer grain.
+  const BADGE_TEMPLATES: Array<{
+    templateId: string;
+    verifiedLabel: string;
+    partialLabel: string;
+    idPrefix: string;
+  }> = [
+    {
+      templateId: "offer-letters",
+      verifiedLabel: "Offer letter verified",
+      partialLabel: "Offer letter on file",
+      idPrefix: "badge_offer_letter",
+    },
+    {
+      templateId: "employment-history-reports",
+      verifiedLabel: "Employment verified",
+      partialLabel: "Employment evidence on file",
+      idPrefix: "badge_employment_verification",
+    },
+    {
+      templateId: "diplomas-degrees",
+      verifiedLabel: "Education verified",
+      partialLabel: "Education evidence on file",
+      idPrefix: "badge_education",
+    },
+    {
+      templateId: "transcripts",
+      verifiedLabel: "Transcript verified",
+      partialLabel: "Transcript on file",
+      idPrefix: "badge_transcript",
+    },
+  ];
+
+  const extraBadges = evidence.flatMap((record) => {
+    const template = BADGE_TEMPLATES.find((t) => t.templateId === record.templateId);
+    if (!template) return [];
+    if (record.verificationStatus === "VERIFIED") {
+      return [
+        {
+          id: `${template.idPrefix}_${record.id}`,
+          label: template.verifiedLabel,
+          phase: "document_backed" as const,
+          status: "verified" as const,
+        },
+      ];
+    }
+    if (record.verificationStatus === "PARTIAL") {
+      return [
+        {
+          id: `${template.idPrefix}_${record.id}`,
+          label: template.partialLabel,
+          phase: "document_backed" as const,
+          status: "verified" as const,
+        },
+      ];
+    }
+    return [];
+  });
 
   const careerIdPresentation = await getCareerIdPresentation({
     careerIdentityId: aggregate.talentIdentity.id,

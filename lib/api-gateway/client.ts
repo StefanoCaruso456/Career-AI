@@ -18,6 +18,7 @@ export type {
   ConfidenceTier,
   ClaimVerificationResult,
   VerificationOutcome,
+  ClaimVerificationEntry,
   OfferLetterVerificationEntry,
 } from "./types";
 import type {
@@ -25,6 +26,29 @@ import type {
   ClaimVerificationResult,
   VerificationOutcome,
 } from "./types";
+
+export type ClaimKind =
+  | "offer-letter"
+  | "employment-verification"
+  | "education"
+  | "transcript";
+
+export interface VerifyClaimInput {
+  /**
+   * Which gateway claim-type handler to target. Each kind maps to its own
+   * /v1/claims/<kind> route. The shape of `claim` depends on `kind`.
+   */
+  kind: ClaimKind;
+  file: Uint8Array;
+  filename: string;
+  /**
+   * Claim payload. Shape is decided by the chosen `kind` — see the
+   * corresponding handler module in services/api-gateway/src/claim-types/
+   * for the schema the gateway will zod-validate against.
+   */
+  claim: unknown;
+  actorDid: string;
+}
 
 export interface VerifyEmploymentClaimInput {
   file: Uint8Array;
@@ -49,9 +73,7 @@ export function buildActorDid(email: string | null | undefined): string {
 
 const DEFAULT_TIMEOUT_MS = 45_000;
 
-export async function verifyEmploymentClaim(
-  input: VerifyEmploymentClaimInput,
-): Promise<VerificationOutcome> {
+export async function verifyClaim(input: VerifyClaimInput): Promise<VerificationOutcome> {
   const baseUrl = process.env.API_GATEWAY_URL;
   const secret = process.env.GATEWAY_SHARED_SECRET;
 
@@ -74,7 +96,7 @@ export async function verifyEmploymentClaim(
   );
   form.append("claim", JSON.stringify(input.claim));
 
-  const url = `${baseUrl.replace(/\/$/, "")}/v1/claims/offer-letter`;
+  const url = `${baseUrl.replace(/\/$/, "")}/v1/claims/${input.kind}`;
 
   try {
     const res = await fetch(url, {
@@ -105,4 +127,20 @@ export async function verifyEmploymentClaim(
       detail: `api-gateway request failed: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
+}
+
+/**
+ * Offer-letter-specific convenience wrapper. Preserves the pre-registry
+ * signature so existing call sites don't need to change at once.
+ */
+export async function verifyEmploymentClaim(
+  input: VerifyEmploymentClaimInput,
+): Promise<VerificationOutcome> {
+  return verifyClaim({
+    kind: "offer-letter",
+    file: input.file,
+    filename: input.filename,
+    claim: input.claim,
+    actorDid: input.actorDid,
+  });
 }

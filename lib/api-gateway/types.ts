@@ -63,8 +63,22 @@ export type VerificationOutcome =
   | { ok: true; result: ClaimVerificationResult }
   | { ok: false; reason: "UNCONFIGURED" | "UNAVAILABLE" | "GATEWAY_ERROR"; detail: string };
 
-export type OfferLetterVerificationEntry = {
-  templateId: "offer-letters";
+/**
+ * Per-file verification outcome the route handler attaches to the save
+ * response. templateId distinguishes which evidence template the file
+ * came from so the UI can group them under the right card.
+ */
+export type ClaimVerificationEntry = {
+  templateId:
+    | "offer-letters"
+    | "employment-history-reports"
+    | "diplomas-degrees"
+    | "transcripts";
   filename: string;
   outcome: VerificationOutcome;
+};
+
+/** @deprecated Use ClaimVerificationEntry. Kept for callers that key on the offer-letter-only shape. */
+export type OfferLetterVerificationEntry = ClaimVerificationEntry & {
+  templateId: "offer-letters";
 };
