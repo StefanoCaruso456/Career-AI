@@ -153,12 +153,16 @@ async function maybeVerifyOfferLetters(args: {
     });
   }
 
-  // Persist the most recent verdict on the offer-letter evidence record so
-  // the badge derivation (and any reload) can pick it up. Only write when we
-  // actually got a response from api-gateway — best-effort, so an error here
-  // doesn't fail the save.
-  const primary = results[0];
-  if (primary?.outcome.ok && args.session.user?.email) {
+  // Persist the BEST verdict across all uploads onto the evidence record so
+  // the badge derivation (and any reload) can pick it up. Rationale: a
+  // single evidence row represents a set of files for one template — if any
+  // of the files verified, the evidence as a whole is verified. Common case:
+  // user uploads document (PARTIAL — envelope-stamp-only, no sender) + CoC
+  // (VERIFIED — CoC has Envelope Originator domain matching employer).
+  // Without this fix, DB would record PARTIAL because results[0] is the
+  // document.
+  const bestVerdict = pickBestVerdict(results);
+  if (bestVerdict && args.session.user?.email) {
     try {
       const identity = await findTalentIdentityByEmail({
         email: args.session.user.email,
@@ -168,7 +172,7 @@ async function maybeVerifyOfferLetters(args: {
         await updateCareerBuilderEvidenceVerificationStatus({
           careerIdentityId: identity.talentIdentity.id,
           templateId: "offer-letters",
-          verificationStatus: primary.outcome.result.status,
+          verificationStatus: bestVerdict,
         });
       }
     } catch (err) {
@@ -179,6 +183,32 @@ async function maybeVerifyOfferLetters(args: {
   }
 
   return results;
+}
+
+/**
+ * Picks the highest-ranking verdict across all verification outcomes.
+ * Priority: VERIFIED > PARTIAL > FAILED. Ignores non-ok outcomes
+ * (UNCONFIGURED / UNAVAILABLE / GATEWAY_ERROR) — those mean the verifier
+ * didn't produce a verdict, so the DB shouldn't be overwritten with one.
+ * Returns null when no upload produced a usable verdict.
+ */
+function pickBestVerdict(
+  results: OfferLetterVerificationEntry[],
+): "VERIFIED" | "PARTIAL" | "FAILED" | null {
+  const rank: Record<"VERIFIED" | "PARTIAL" | "FAILED", number> = {
+    VERIFIED: 3,
+    PARTIAL: 2,
+    FAILED: 1,
+  };
+  let best: "VERIFIED" | "PARTIAL" | "FAILED" | null = null;
+  for (const entry of results) {
+    if (!entry.outcome.ok) continue;
+    const status = entry.outcome.result.status;
+    if (!best || rank[status] > rank[best]) {
+      best = status;
+    }
+  }
+  return best;
 }
 
 function pickOfferLetterEvidence(
