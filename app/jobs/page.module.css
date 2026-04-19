@@ -700,6 +700,291 @@
   font-size: 0.92rem;
 }
 
+.recruiterMarketplace {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.45rem;
+  background:
+    radial-gradient(circle at top right, rgba(88, 178, 255, 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(20, 31, 48, 0.94), rgba(15, 23, 35, 0.94));
+}
+
+.recruiterMarketplaceHeader h2,
+.recruiterMarketplaceHeader p {
+  margin: 0;
+}
+
+.recruiterMarketplaceHeader {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.recruiterMarketplaceHeader p {
+  color: var(--jobs-text-secondary);
+  line-height: 1.55;
+}
+
+.recruiterPartnerPicker {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.recruiterPartnerPicker label {
+  color: rgba(211, 223, 242, 0.86);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.recruiterPartnerPicker select,
+.recruiterPane select,
+.recruiterChatComposer input,
+.recruiterChatComposer button,
+.recruiterActionButton,
+.recruiterActionButtonSecondary,
+.recruiterCard {
+  font: inherit;
+}
+
+.recruiterPartnerPicker select,
+.recruiterPane select {
+  width: 100%;
+  border: 1px solid rgba(143, 189, 255, 0.28);
+  border-radius: 0.85rem;
+  padding: 0.55rem 0.72rem;
+  background: rgba(14, 22, 34, 0.92);
+  color: var(--jobs-text-primary);
+}
+
+.recruiterCardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.6rem;
+}
+
+.recruiterCard {
+  display: grid;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.72rem 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(143, 189, 255, 0.22);
+  background: rgba(15, 24, 38, 0.9);
+  color: var(--jobs-text-primary);
+  cursor: pointer;
+}
+
+.recruiterCard:hover {
+  border-color: rgba(143, 189, 255, 0.44);
+}
+
+.recruiterCardActive {
+  border-color: rgba(101, 190, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(101, 190, 255, 0.24);
+}
+
+.recruiterName {
+  font-weight: 700;
+}
+
+.recruiterRole {
+  color: var(--jobs-text-secondary);
+  font-size: 0.9rem;
+}
+
+.recruiterProfileSurface {
+  display: grid;
+  gap: 0.78rem;
+  border: 1px solid rgba(143, 189, 255, 0.22);
+  border-radius: 1.05rem;
+  padding: 0.95rem;
+  background: rgba(11, 19, 30, 0.94);
+}
+
+.recruiterProfileTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.recruiterProfileTop h3,
+.recruiterProfileTop p,
+.recruiterBio,
+.recruiterMeta,
+.recruiterMuted,
+.recruiterError {
+  margin: 0;
+}
+
+.recruiterProfileTop p,
+.recruiterBio,
+.recruiterMeta,
+.recruiterMuted {
+  color: var(--jobs-text-secondary);
+}
+
+.recruiterStatusPill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(143, 189, 255, 0.36);
+  border-radius: 999px;
+  padding: 0.22rem 0.54rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #d3ebff;
+}
+
+.recruiterAccessActions {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.recruiterActionButton,
+.recruiterActionButtonSecondary,
+.recruiterChatComposer button {
+  border: 1px solid rgba(143, 189, 255, 0.4);
+  border-radius: 999px;
+  padding: 0.48rem 0.78rem;
+  background: linear-gradient(180deg, rgba(41, 74, 109, 0.95), rgba(31, 58, 89, 0.95));
+  color: #eff8ff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.recruiterActionButtonSecondary {
+  background: rgba(20, 35, 54, 0.96);
+}
+
+.recruiterActionButton:disabled,
+.recruiterActionButtonSecondary:disabled,
+.recruiterChatComposer button:disabled {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.recruiterWorkspace {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.recruiterPane {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+  border: 1px solid rgba(143, 189, 255, 0.18);
+  border-radius: 0.95rem;
+  padding: 0.78rem;
+  background: rgba(7, 14, 24, 0.96);
+}
+
+.recruiterPaneHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.recruiterPaneHeader h4 {
+  margin: 0;
+}
+
+.recruiterPaneHeader span {
+  color: rgba(208, 228, 247, 0.76);
+  font-size: 0.8rem;
+}
+
+.recruiterList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.42rem;
+}
+
+.recruiterList li {
+  display: grid;
+  gap: 0.1rem;
+  border: 1px solid rgba(143, 189, 255, 0.16);
+  border-radius: 0.75rem;
+  padding: 0.52rem 0.62rem;
+}
+
+.recruiterList li strong {
+  font-size: 0.9rem;
+}
+
+.recruiterList li span {
+  color: var(--jobs-text-secondary);
+  font-size: 0.82rem;
+}
+
+.recruiterChatModeLabel {
+  color: rgba(211, 223, 242, 0.86);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.recruiterChatLog {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.recruiterChatMessage {
+  display: grid;
+  gap: 0.28rem;
+  border: 1px solid rgba(143, 189, 255, 0.16);
+  border-radius: 0.78rem;
+  padding: 0.5rem 0.58rem;
+}
+
+.recruiterChatMessage h5,
+.recruiterChatMessage p {
+  margin: 0;
+}
+
+.recruiterChatMessage h5 {
+  font-size: 0.78rem;
+  color: rgba(172, 211, 245, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.recruiterChatMessage p {
+  color: var(--jobs-text-secondary);
+  line-height: 1.45;
+}
+
+.recruiterChatComposer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+
+.recruiterChatComposer input {
+  width: 100%;
+  border: 1px solid rgba(143, 189, 255, 0.28);
+  border-radius: 0.8rem;
+  padding: 0.52rem 0.62rem;
+  background: rgba(10, 16, 26, 0.92);
+  color: var(--jobs-text-primary);
+}
+
+.recruiterChatComposer input::placeholder {
+  color: rgba(187, 208, 227, 0.58);
+}
+
+.recruiterError {
+  color: #ffbdc2;
+}
+
 @media (max-width: 920px) {
   .jobsGrid,
   .envList {
@@ -714,6 +999,10 @@
   .loadMoreRow,
   .filterActions {
     align-items: flex-start;
+  }
+
+  .recruiterWorkspace {
+    grid-template-columns: 1fr;
   }
 
   .searchField {
