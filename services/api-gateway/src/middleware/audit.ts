@@ -28,10 +28,7 @@ export async function auditRequest(c: Context<AppEnv>, next: Next) {
     throw err;
   } finally {
     const duration = Date.now() - started;
-    const actorDid = c.get("actorDid") as string | undefined;
-    void actorDid;
     const status = c.res.status;
-
     const actor = c.get("actorDid") as string | undefined;
 
     // Fire-and-forget insert. We don't want audit logging to block the response
@@ -41,8 +38,8 @@ export async function auditRequest(c: Context<AppEnv>, next: Next) {
         actorDid: actor ?? null,
         method: c.req.method,
         path: c.req.path,
-        statusCode: String(status),
-        durationMs: String(duration),
+        statusCode: status,
+        durationMs: duration,
         correlationId,
       })
       .catch((err) => {
