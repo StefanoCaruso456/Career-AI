@@ -292,12 +292,21 @@ function getEvidenceStateLabel(
 ) {
   const uploadCount = getCompletedUploadCount(template, draft);
 
-  // Matches the Persona "Government ID verified" pattern — when the
-  // document verifier has returned VERIFIED on an offer-letter upload,
-  // the card's status pill advertises that instead of the generic
-  // "N uploads attached" label.
-  if (template.id === "offer-letters" && draft.verificationStatus === "VERIFIED") {
-    return "Offer letter verified";
+  // Tiered offer-letter verdicts on the card's status pill. Mirrors the
+  // Persona "Government ID verified" pattern but with two tiers because the
+  // verifier produces a real trust gradient:
+  //   VERIFIED  → signed + sender signal matches claim (has CoC + domain match)
+  //   PARTIAL   → signed but can't verify sender (most DocuSign PDFs without
+  //               a Certificate of Completion page — the common real case)
+  //   FAILED    → fall through to the generic upload-count label; save banner
+  //               already shows the failure detail inline
+  if (template.id === "offer-letters") {
+    if (draft.verificationStatus === "VERIFIED") {
+      return "Offer letter verified";
+    }
+    if (draft.verificationStatus === "PARTIAL") {
+      return "Signed offer letter on file";
+    }
   }
 
   if (isDriverLicenseTemplate(template)) {
@@ -326,6 +335,24 @@ function getEvidenceStateLabel(
   }
 
   return "Not started";
+}
+
+/**
+ * Returns which visual variant the card's status pill should use. Mirrors
+ * getEvidenceStateLabel's offer-letter branches exactly — when the label
+ * says "Offer letter verified", the pill is green; when it says "Signed
+ * offer letter on file" (PARTIAL), amber; everything else uses the base
+ * neutral styling.
+ */
+function getEvidenceStatePillVariant(
+  template: BuilderEvidenceTemplate,
+  draft: EvidenceDraftState,
+): "default" | "verified" | "partial" {
+  if (template.id === "offer-letters") {
+    if (draft.verificationStatus === "VERIFIED") return "verified";
+    if (draft.verificationStatus === "PARTIAL") return "partial";
+  }
+  return "default";
 }
 
 function serializePhaseDraft(phase: CareerPhase, draft: ModalDraftState) {
@@ -564,6 +591,13 @@ function EvidenceCard({
   template: BuilderEvidenceTemplate;
 }) {
   const stateLabel = getEvidenceStateLabel(template, draft);
+  const statePillVariant = getEvidenceStatePillVariant(template, draft);
+  const statePillClassName =
+    statePillVariant === "verified"
+      ? `${styles.statusBadge} ${styles.statusBadgeVerified}`
+      : statePillVariant === "partial"
+        ? `${styles.statusBadge} ${styles.statusBadgePartial}`
+        : styles.statusBadge;
 
   return (
     <article className={styles.evidenceCard}>
@@ -575,7 +609,7 @@ function EvidenceCard({
 
         <div className={styles.evidenceHeaderMeta}>
           <div className={styles.evidencePillRow}>
-            <span className={styles.statusBadge}>{stateLabel}</span>
+            <span className={statePillClassName}>{stateLabel}</span>
           </div>
           <p className={styles.formatHint}>{template.acceptedFormats}</p>
         </div>

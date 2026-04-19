@@ -411,21 +411,43 @@ async function buildSnapshot(
       summary: getPhaseSummary(phase, tierStats[phase], isComplete, isCurrent),
     };
   });
-  // Derive any "verified offer letter" badges from career_builder_evidence's
-  // verification_status column. Mirrors Stefano's existing "Government ID
-  // verified" pattern — plain JSON badge, no crypto, no VC wrapping. Only
-  // fully VERIFIED rows qualify; PARTIAL / FAILED stay out of the badges list.
+  // Derive offer-letter badges from career_builder_evidence's
+  // verification_status column. Tiered — mirrors the card-pill UX:
+  //   VERIFIED → "Offer letter verified"
+  //   PARTIAL  → "Signed offer letter on file" (real-world case — most
+  //              DocuSign offer letters users upload don't include the
+  //              Certificate of Completion page, so the verifier can't
+  //              cross-check sender domain against claimed employer, but
+  //              the document structurally signed)
+  //   FAILED   → no badge
+  // PARTIAL uses status: "verified" in the badge model (there's no
+  // "partial" value in careerIdVerificationStatus), but downstream
+  // renderers can distinguish via the label copy or a new field later.
   const extraBadges = evidence
-    .filter(
-      (record) =>
-        record.templateId === "offer-letters" && record.verificationStatus === "VERIFIED",
-    )
-    .map((record) => ({
-      id: `badge_offer_letter_${record.id}`,
-      label: "Offer letter verified",
-      phase: "document_backed" as const,
-      status: "verified" as const,
-    }));
+    .filter((record) => record.templateId === "offer-letters")
+    .flatMap((record) => {
+      if (record.verificationStatus === "VERIFIED") {
+        return [
+          {
+            id: `badge_offer_letter_${record.id}`,
+            label: "Offer letter verified",
+            phase: "document_backed" as const,
+            status: "verified" as const,
+          },
+        ];
+      }
+      if (record.verificationStatus === "PARTIAL") {
+        return [
+          {
+            id: `badge_offer_letter_${record.id}`,
+            label: "Signed offer letter on file",
+            phase: "document_backed" as const,
+            status: "verified" as const,
+          },
+        ];
+      }
+      return [];
+    });
 
   const careerIdPresentation = await getCareerIdPresentation({
     careerIdentityId: aggregate.talentIdentity.id,

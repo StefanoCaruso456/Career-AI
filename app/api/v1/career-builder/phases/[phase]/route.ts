@@ -81,14 +81,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       correlationId,
     });
 
-    // If verification actually persisted a verdict, rebuild the snapshot so
-    // the caller sees badges derived from the fresh verification_status
-    // column without needing a page reload. Cheap — just re-reads the
-    // current user's evidence rows.
-    const verifiedOnSave = offerLetterVerifications?.some(
-      (entry) => entry.outcome.ok && entry.outcome.result.status === "VERIFIED",
+    // If verification actually persisted a verdict (VERIFIED or PARTIAL),
+    // rebuild the snapshot so the caller sees the fresh card pill / badge
+    // derived from verification_status without needing a page reload.
+    // Cheap — just re-reads the current user's evidence rows.
+    const anyVerdictLanded = offerLetterVerifications?.some(
+      (entry) =>
+        entry.outcome.ok &&
+        (entry.outcome.result.status === "VERIFIED" ||
+          entry.outcome.result.status === "PARTIAL"),
     );
-    if (verifiedOnSave) {
+    if (anyVerdictLanded) {
       snapshot = await getCareerBuilderWorkspace({
         viewer: {
           email: session.user.email,
