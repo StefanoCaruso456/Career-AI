@@ -65,13 +65,33 @@ export async function submitEmploymentClaim(
       certificateFilename,
     });
   } catch (err) {
-    // Mark the claim as FAILED with a synthetic verification row so downstream
-    // consumers see a consistent shape even when verification errors out.
+    // Append a synthetic verifier-error row before updating status, so the
+    // invariant "claim.status is derived from the latest verification row"
+    // holds even on system errors. Without this the claim would be FAILED
+    // with zero rows, which breaks read-back and violates design rule #7.
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    const nowIso = new Date().toISOString();
+    await db.insert(schema.verifications).values({
+      claimId,
+      verifier: "api-gateway-verifier:error",
+      verdict: "FAILED",
+      confidenceTier: "SELF_REPORTED",
+      signals: {
+        error: {
+          kind: "verifier_error",
+          message: errorMessage,
+        },
+      },
+      provenance: {
+        verifiedAt: nowIso,
+        verifier: "api-gateway-verifier:error",
+      },
+    });
     await db
       .update(schema.claims)
       .set({ status: "FAILED", updatedAt: new Date() })
       .where(eq(schema.claims.id, claimId));
-    throw new Error(`verification failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error("verification failed", { cause: err });
   }
 
   // 3. Append the verification row. Never mutate prior rows — each attempt

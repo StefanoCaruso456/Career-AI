@@ -99,6 +99,9 @@ export function buildMatches(
 }
 
 export function deriveFailureReason(signals: VerificationSignals | null | undefined): string {
+  if (signals?.error) {
+    return "Verification couldn't run — a system error occurred while checking this document. Please try again.";
+  }
   const tampering = signals?.tampering;
   if (tampering?.detected) {
     const detailReason =
@@ -147,5 +150,15 @@ interface VerificationSignals {
     endDate: string | null;
     isOfferLetter?: boolean;
     mismatches?: string[];
+  };
+  /**
+   * Synthetic signal shape used only when the verifier itself errored
+   * before producing real signals. Lets read-back paths surface a generic
+   * "please try again" message instead of falling through to "not enough
+   * positive signals," which would be misleading.
+   */
+  error?: {
+    kind: string;
+    message?: string;
   };
 }
