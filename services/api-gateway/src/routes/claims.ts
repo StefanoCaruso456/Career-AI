@@ -124,6 +124,8 @@ claimsRoutes.post("/offer-letter", (c) => handleClaimUpload(c, "offer-letter"));
 claimsRoutes.post("/employment-verification", (c) =>
   handleClaimUpload(c, "employment-verification"),
 );
+claimsRoutes.post("/education", (c) => handleClaimUpload(c, "education"));
+claimsRoutes.post("/transcript", (c) => handleClaimUpload(c, "transcript"));
 
 /**
  * GET /v1/claims

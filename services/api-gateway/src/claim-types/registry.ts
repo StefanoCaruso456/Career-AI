@@ -1,5 +1,7 @@
+import { educationHandler } from "./education.js";
 import { employmentVerificationHandler } from "./employment-verification.js";
 import { offerLetterHandler } from "./offer-letter.js";
+import { transcriptHandler } from "./transcript.js";
 import type { ClaimTypeHandler } from "./types.js";
 
 /**
@@ -18,8 +20,8 @@ import type { ClaimTypeHandler } from "./types.js";
 const handlers: ClaimTypeHandler<unknown>[] = [
   offerLetterHandler as ClaimTypeHandler<unknown>,
   employmentVerificationHandler as ClaimTypeHandler<unknown>,
-  // educationHandler,
-  // transcriptHandler,
+  educationHandler as ClaimTypeHandler<unknown>,
+  transcriptHandler as ClaimTypeHandler<unknown>,
 ];
 
 const byKind: Record<string, ClaimTypeHandler<unknown>> = Object.fromEntries(
