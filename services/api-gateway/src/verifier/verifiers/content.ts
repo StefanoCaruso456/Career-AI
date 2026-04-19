@@ -72,6 +72,7 @@ export class HeuristicContentExtractor implements ContentExtractor {
       endDate: foundEnd,
       recipient,
       isOfferLetter,
+      isExpectedDocumentType: isOfferLetter,
       extractor: this.name,
       matchesClaim: mismatches.length === 0,
       mismatches: mismatches.length > 0 ? mismatches : undefined,

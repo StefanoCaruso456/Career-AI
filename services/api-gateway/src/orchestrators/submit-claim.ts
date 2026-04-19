@@ -183,6 +183,7 @@ export async function submitClaim<TClaim>(
         ? !signals.content.mismatches?.includes("recipient")
         : undefined,
       isOfferLetter: signals.content.isOfferLetter,
+      isExpectedDocumentType: signals.content.isExpectedDocumentType,
     },
     authenticitySource: signals.authenticity.source,
     verifiedAt: provenance.verifiedAt,

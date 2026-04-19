@@ -97,6 +97,7 @@ export function buildMatches(
       ? !mismatches.includes("recipient")
       : undefined,
     isOfferLetter: Boolean(content?.isOfferLetter),
+    isExpectedDocumentType: Boolean(content?.isExpectedDocumentType ?? content?.isOfferLetter),
   };
 }
 
@@ -151,6 +152,7 @@ interface VerificationSignals {
     startDate: string | null;
     endDate: string | null;
     isOfferLetter?: boolean;
+    isExpectedDocumentType?: boolean;
     mismatches?: string[];
   };
   /**

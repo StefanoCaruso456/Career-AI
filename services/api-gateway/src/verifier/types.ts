@@ -63,9 +63,19 @@ export interface ContentMatchSignal {
   /**
    * True only when we confidently identified the document as an offer letter
    * specifically — not a W-2, pay stub, performance review, employment
-   * verification letter, or other employment-adjacent doc.
+   * verification letter, or other employment-adjacent doc. Offer-letter-only
+   * signal; other claim types always set this to false.
    */
   isOfferLetter: boolean;
+  /**
+   * True when the document matches the expected type for whatever claim
+   * handler ran this extraction. Offer-letter handler: true iff it's an
+   * offer letter. Employment-verification handler: true iff it's an HR
+   * letter / W-2 / HR portal export / pay stub. Education handler: true
+   * iff it's a diploma. Generic flag the UI can use without knowing which
+   * handler produced the signal.
+   */
+  isExpectedDocumentType: boolean;
   extractor: string;
   matchesClaim: boolean;
   /**

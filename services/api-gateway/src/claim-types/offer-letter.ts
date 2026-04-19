@@ -10,6 +10,7 @@ import type {
 import { buildContentExtractor } from "../verifier/verifiers/content.js";
 import { guessEmployerDomain } from "../verifier/verifiers/authenticity.js";
 import { computeVerdict as computeOfferLetterVerdict } from "../verifier/verifiers/verdict.js";
+import { buildEmploymentLineageIdentity } from "./employment-identity.js";
 import type {
   ClaimAuthenticityInput,
   ClaimBadgePayloadInput,
@@ -80,26 +81,13 @@ export const offerLetterHandler: ClaimTypeHandler<EmploymentClaim> = {
   },
 
   buildLineageIdentity(claim: EmploymentClaim): string {
-    // Matches future employment-verification handler so the same
-    // (employer, role) collapses into one lineage regardless of which
-    // document type supplied the evidence.
-    return `${normalizeEmployer(claim.employer)}:${normalizeRole(claim.role)}`;
+    // Shared with employment-verification so re-verifying the same
+    // (employer, role) through either handler collapses into one lineage.
+    return buildEmploymentLineageIdentity({
+      employer: claim.employer,
+      role: claim.role,
+    });
   },
 };
-
-function normalizeEmployer(employer: string): string {
-  return employer
-    .toLowerCase()
-    .replace(
-      /\b(inc\.?|incorporated|llc|l\.l\.c\.|corp\.?|corporation|ltd\.?|limited|gmbh|co\.?|company)\b/gi,
-      "",
-    )
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function normalizeRole(role: string): string {
-  return role.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
 
 export type { AuthenticitySignal, TamperingSignal };
