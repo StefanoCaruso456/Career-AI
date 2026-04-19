@@ -28,7 +28,13 @@ Submit an employment claim plus supporting PDF for verification.
 
 ```
 Authorization: Bearer <GATEWAY_SHARED_SECRET>
+X-Actor-Did:   <DID of the logged-in Career-AI user>
 ```
+
+`X-Actor-Did` is caller-asserted for the demo — the shared secret is the trust
+boundary, so the gateway trusts Career-AI to report the correct logged-in
+user. When identity-service lands, the Authorization header will carry a
+signed session token and the DID will be derived server-side.
 
 **Body** (`multipart/form-data`)
 
@@ -119,6 +125,7 @@ npm run generate:fixture
 # Submit via the gateway
 curl -X POST http://localhost:8080/v1/claims/employment \
   -H "Authorization: Bearer dev-career-ai-secret-change-me" \
+  -H "X-Actor-Did: did:web:career-ai.example/users/demo-user-1" \
   -F "file=@test/fixtures/sample-offer-letter.pdf" \
   -F 'claim={"employer":"Acme Corp","role":"Senior Engineer","startDate":"2022-03-01"}'
 ```
