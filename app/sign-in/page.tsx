@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
+import { CredentialsSignInPanel } from "@/components/credentials-sign-in-panel";
 import { GoogleSignInPanel } from "@/components/google-sign-in-panel";
 import {
   getAuthCallbackUrl,
@@ -66,8 +67,8 @@ export default async function SignInPage({
       : "Sign in to your Career AI workspace";
   const copy =
     persona === "employer"
-      ? "Use Google to verify your email, restore your employer session, and continue into the hiring workspace."
-      : "Use Google to verify your email, restore your session, and continue into your persistent Career AI onboarding or account workspace.";
+      ? "Use the password you created for this workspace, or continue with Google if this employer account was created with Google."
+      : "Use the password you created for this account, or continue with Google if you originally created this account with Google.";
 
   return (
     <main className={styles.page}>
@@ -75,7 +76,13 @@ export default async function SignInPage({
         <div className={styles.eyebrow}>{personaConfig.signInEyebrow}</div>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.copy}>{copy}</p>
-        <GoogleSignInPanel callbackUrl={callbackUrl} persona={persona} />
+        <div className={styles.authStack}>
+          <CredentialsSignInPanel callbackUrl={callbackUrl} />
+          <div className={styles.divider} aria-hidden="true">
+            <span>or</span>
+          </div>
+          <GoogleSignInPanel callbackUrl={callbackUrl} persona={persona} />
+        </div>
       </section>
     </main>
   );

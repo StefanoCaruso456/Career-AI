@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
-    if (error instanceof z.ZodError || error instanceof CredentialUserValidationError) {
+    if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
           error:
@@ -38,10 +38,19 @@ export async function POST(request: Request) {
       );
     }
 
+    if (error instanceof CredentialUserValidationError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+        },
+        { status: 400 },
+      );
+    }
+
     if (error instanceof CredentialUserConflictError) {
       return NextResponse.json(
         {
-          error: "An account with this email already exists. Try signing in instead.",
+          error: error.message,
         },
         { status: 409 },
       );

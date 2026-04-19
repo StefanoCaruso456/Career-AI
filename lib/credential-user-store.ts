@@ -1,25 +1,13 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { promises as fs } from "node:fs";
-import { z } from "zod";
+import { ApiError } from "@/packages/contracts/src";
+import {
+  createPersistentCredentialUser,
+  findPersistentCredentialUserByEmail,
+  recordPersistentUserLogin,
+  type PersistentCredentialUserRecord,
+} from "@/packages/persistence/src";
 
-const credentialUserSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().trim().min(1).max(120),
-  email: z.string().trim().email(),
-  passwordHash: z.string().min(1),
-  passwordSalt: z.string().min(1),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-});
-
-const credentialStoreSchema = z.object({
-  users: z.array(credentialUserSchema),
-});
-
-type CredentialStore = z.infer<typeof credentialStoreSchema>;
-
-export type CredentialUser = z.infer<typeof credentialUserSchema>;
-let credentialStoreWriteChain: Promise<unknown> = Promise.resolve();
+export type CredentialUser = PersistentCredentialUserRecord;
 
 export class CredentialUserConflictError extends Error {
   constructor(message = "An account with this email already exists.") {
@@ -35,11 +23,12 @@ export class CredentialUserValidationError extends Error {
   }
 }
 
-const credentialStoreDirectory = ".artifacts";
-const credentialStorePath = `${credentialStoreDirectory}/auth-users.json`;
-
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function normalizeName(name: string) {
+  return name.replace(/\s+/g, " ").trim();
 }
 
 function derivePasswordHash(password: string, salt: string) {
@@ -57,39 +46,21 @@ function hashesMatch(leftHash: string, rightHash: string) {
   return timingSafeEqual(left, right);
 }
 
-async function readStore(): Promise<CredentialStore> {
-  try {
-    const fileContents = await fs.readFile(credentialStorePath, "utf8");
-    return credentialStoreSchema.parse(JSON.parse(fileContents));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return { users: [] };
-    }
+function deriveNameParts(name: string) {
+  const normalizedName = normalizeName(name);
+  const [firstName, ...rest] = normalizedName.split(" ");
 
-    throw error;
-  }
-}
-
-async function writeStore(store: CredentialStore) {
-  await fs.mkdir(credentialStoreDirectory, { recursive: true });
-  await fs.writeFile(credentialStorePath, JSON.stringify(store, null, 2), "utf8");
-}
-
-function withCredentialStoreWriteLock<T>(task: () => Promise<T>) {
-  const runTask = credentialStoreWriteChain.then(task, task);
-  credentialStoreWriteChain = runTask.then(
-    () => undefined,
-    () => undefined,
-  );
-
-  return runTask;
+  return {
+    firstName: firstName || "Career",
+    fullName: normalizedName,
+    lastName: rest.join(" ").trim() || "Member",
+  };
 }
 
 export async function findCredentialUserByEmail(email: string) {
-  const normalizedEmail = normalizeEmail(email);
-  const store = await readStore();
-
-  return store.users.find((user) => user.email === normalizedEmail) ?? null;
+  return findPersistentCredentialUserByEmail({
+    email,
+  });
 }
 
 export async function createCredentialUser(args: {
@@ -97,8 +68,7 @@ export async function createCredentialUser(args: {
   name: string;
   password: string;
 }) {
-  const normalizedEmail = normalizeEmail(args.email);
-  const normalizedName = args.name.trim();
+  const normalizedName = normalizeName(args.name);
   const password = args.password;
 
   if (!normalizedName) {
@@ -109,30 +79,32 @@ export async function createCredentialUser(args: {
     throw new CredentialUserValidationError("Password must be at least 8 characters.");
   }
 
-  return withCredentialStoreWriteLock(async () => {
-    const store = await readStore();
-    const existingUser = store.users.find((user) => user.email === normalizedEmail);
+  const { firstName, fullName, lastName } = deriveNameParts(normalizedName);
+  const passwordSalt = randomBytes(16).toString("hex");
+  const passwordHash = derivePasswordHash(password, passwordSalt);
 
-    if (existingUser) {
-      throw new CredentialUserConflictError();
+  try {
+    return await createPersistentCredentialUser({
+      correlationId: `credential_signup_${randomUUID()}`,
+      email: normalizeEmail(args.email),
+      firstName,
+      fullName,
+      lastName,
+      passwordHash,
+      passwordSalt,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.errorCode === "CONFLICT") {
+      throw new CredentialUserConflictError(error.message);
     }
 
-    const now = new Date().toISOString();
-    const passwordSalt = randomBytes(16).toString("hex");
-    const user: CredentialUser = {
-      id: `usr_${randomUUID()}`,
-      name: normalizedName,
-      email: normalizedEmail,
-      passwordSalt,
-      passwordHash: derivePasswordHash(password, passwordSalt),
-      createdAt: now,
-      updatedAt: now,
-    };
+    throw error;
+  }
+}
 
-    store.users.push(user);
-    await writeStore(store);
-
-    return user;
+export async function recordCredentialSignIn(userId: string) {
+  await recordPersistentUserLogin({
+    userId,
   });
 }
 

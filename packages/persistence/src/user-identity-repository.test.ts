@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  createPersistentCredentialUser,
+  findPersistentCredentialUserByEmail,
   findPersistentContextByUserId,
   getDatabasePool,
   provisionGoogleUser,
@@ -91,6 +93,87 @@ describe("persistent user identity repository", () => {
     expect(refreshed.user.imageUrl).toBe("https://example.com/avatar.png");
     expect(Number(counts.rows[0]?.users_count ?? 0)).toBe(1);
     expect(Number(counts.rows[0]?.identities_count ?? 0)).toBe(1);
+  });
+
+  it("creates a credential-backed user and linked identity", async () => {
+    const user = await createPersistentCredentialUser({
+      email: "credential.user@example.com",
+      fullName: "Credential User",
+      firstName: "Credential",
+      lastName: "User",
+      passwordHash: "hash-123",
+      passwordSalt: "salt-123",
+      correlationId: "corr-credentials-1",
+    });
+
+    const pool = getDatabasePool();
+    const counts = await pool.query<{
+      users_count: string;
+      identities_count: string;
+      credentials_count: string;
+    }>(`
+      SELECT
+        (SELECT COUNT(*)::text FROM users) AS users_count,
+        (SELECT COUNT(*)::text FROM career_identities) AS identities_count,
+        (SELECT COUNT(*)::text FROM user_credentials) AS credentials_count
+    `);
+    const context = await findPersistentContextByUserId({
+      userId: user.id,
+      correlationId: "corr-credentials-2",
+    });
+
+    expect(user.email).toBe("credential.user@example.com");
+    expect(user.authProvider).toBe("credentials");
+    expect(user.providerUserId).toBe("credentials:credential.user@example.com");
+    expect(user.passwordHash).toBe("hash-123");
+    expect(context.aggregate.talentIdentity.display_name).toBe("Credential User");
+    expect(Number(counts.rows[0]?.users_count ?? 0)).toBe(1);
+    expect(Number(counts.rows[0]?.identities_count ?? 0)).toBe(1);
+    expect(Number(counts.rows[0]?.credentials_count ?? 0)).toBe(1);
+  });
+
+  it("looks up credential-backed users by email", async () => {
+    await createPersistentCredentialUser({
+      email: "lookup.user@example.com",
+      fullName: "Lookup User",
+      firstName: "Lookup",
+      lastName: "User",
+      passwordHash: "hash-lookup",
+      passwordSalt: "salt-lookup",
+      correlationId: "corr-credentials-lookup",
+    });
+
+    const user = await findPersistentCredentialUserByEmail({
+      email: "LOOKUP.USER@example.com",
+    });
+
+    expect(user?.email).toBe("lookup.user@example.com");
+    expect(user?.name).toBe("Lookup User");
+    expect(user?.passwordHash).toBe("hash-lookup");
+  });
+
+  it("rejects password sign-up when the email already belongs to a Google account", async () => {
+    await provisionGoogleUser({
+      email: "existing.google@example.com",
+      fullName: "Existing Google",
+      firstName: "Existing",
+      lastName: "Google",
+      providerUserId: "google-existing-user",
+      emailVerified: true,
+      correlationId: "corr-google-1",
+    });
+
+    await expect(
+      createPersistentCredentialUser({
+        email: "existing.google@example.com",
+        fullName: "Existing Google",
+        firstName: "Existing",
+        lastName: "Google",
+        passwordHash: "hash-google",
+        passwordSalt: "salt-google",
+        correlationId: "corr-google-2",
+      }),
+    ).rejects.toThrowError(/linked to Google/i);
   });
 
   it("updates editable profile fields without touching immutable account metadata", async () => {

@@ -72,7 +72,7 @@ export function requireSessionEmail(user: SessionUserLike, correlationId: string
     throw new ApiError({
       errorCode: "UNAUTHORIZED",
       status: 401,
-      message: "An authenticated Google email is required.",
+      message: "An authenticated email is required.",
       details: null,
       correlationId,
     });
@@ -110,7 +110,7 @@ export async function ensurePersistentCareerIdentityForSessionUser(args: {
 }) {
   const email = requireSessionEmail(args.user, args.correlationId);
 
-  if (args.user.providerUserId) {
+  if (args.user.authProvider === "google" && args.user.providerUserId) {
     const { fullName, firstName, lastName } = deriveIdentityName(args.user);
 
     return provisionGoogleUser({
