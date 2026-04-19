@@ -118,6 +118,11 @@ export function HeaderAuthControls() {
   if (status === "loading") {
     return (
       <div className={styles.actions}>
+        <AuthModalTrigger
+          className={styles.betaAction}
+          defaultMode="signup"
+          label="Beta"
+        />
         <span className={`${styles.ghostAction} ${styles.loadingAction}`}>
           <LoaderCircle className={styles.inlineSpinner} size={16} strokeWidth={2} />
           Checking session
@@ -129,6 +134,11 @@ export function HeaderAuthControls() {
   if (!session?.user) {
     return (
       <div className={styles.actions}>
+        <AuthModalTrigger
+          className={styles.betaAction}
+          defaultMode="signup"
+          label="Beta"
+        />
         <AuthModalTrigger
           className={styles.primaryAction}
           defaultMode="signup"
@@ -158,6 +168,10 @@ export function HeaderAuthControls() {
 
   return (
     <div className={styles.actions}>
+      <Link className={styles.betaAction} href={primaryMenuHref}>
+        Beta
+      </Link>
+
       <div className={styles.settingsMenu} ref={menuRef}>
         <button
           aria-expanded={menuOpen}
