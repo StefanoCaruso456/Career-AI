@@ -5,8 +5,15 @@ import {
   getCorrelationId,
   successResponse,
 } from "@/packages/audit-security/src";
-import { saveCareerBuilderPhase } from "@/packages/career-builder-domain/src";
+import {
+  getCareerBuilderWorkspace,
+  saveCareerBuilderPhase,
+} from "@/packages/career-builder-domain/src";
 import { ApiError, careerPhaseSchema } from "@/packages/contracts/src";
+import { verifyEmploymentClaim } from "@/lib/api-gateway/client";
+import type { OfferLetterVerificationEntry } from "@/lib/api-gateway/types";
+import { findTalentIdentityByEmail } from "@/packages/identity-domain/src";
+import { updateCareerBuilderEvidenceVerificationStatus } from "@/packages/persistence/src";
 
 type RouteContext = {
   params: Promise<{
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
-    const snapshot = await saveCareerBuilderPhase({
+    let snapshot = await saveCareerBuilderPhase({
       viewer: {
         email: session.user.email,
         name: session.user.name,
@@ -64,8 +71,199 @@ export async function POST(request: NextRequest, context: RouteContext) {
       correlationId,
     });
 
-    return successResponse(snapshot, correlationId);
+    // Best-effort synchronous verification for offer-letter uploads only.
+    // Any failure here MUST NOT bubble up as a save failure — the evidence
+    // is already persisted. We attach the outcome so the UI can render it.
+    const offerLetterVerifications = await maybeVerifyOfferLetters({
+      payload,
+      uploadsByTemplateId,
+      session,
+      correlationId,
+    });
+
+    // If verification actually persisted a verdict (VERIFIED or PARTIAL),
+    // rebuild the snapshot so the caller sees the fresh card pill / badge
+    // derived from verification_status without needing a page reload.
+    // Cheap — just re-reads the current user's evidence rows.
+    const anyVerdictLanded = offerLetterVerifications?.some(
+      (entry) =>
+        entry.outcome.ok &&
+        (entry.outcome.result.status === "VERIFIED" ||
+          entry.outcome.result.status === "PARTIAL"),
+    );
+    if (anyVerdictLanded) {
+      snapshot = await getCareerBuilderWorkspace({
+        viewer: {
+          email: session.user.email,
+          name: session.user.name,
+        },
+        correlationId,
+      });
+    }
+
+    const offerLetterRecord = snapshot.evidence.find(
+      (e) => e.templateId === "offer-letters",
+    );
+    console.log(
+      `[career-builder-save cid=${correlationId}] outbound snapshot offer-letter verificationStatus=${offerLetterRecord?.verificationStatus ?? "null"} (rebuilt=${anyVerdictLanded ? "yes" : "no"})`,
+    );
+
+    return successResponse(
+      {
+        ...snapshot,
+        offerLetterVerifications,
+      },
+      correlationId,
+    );
   } catch (error) {
     return errorResponse(error, correlationId);
   }
+}
+
+async function maybeVerifyOfferLetters(args: {
+  payload: unknown;
+  uploadsByTemplateId: Record<string, { file: File; slot?: "front" | "back" }[]>;
+  session: { user?: { email?: string | null; name?: string | null } | null };
+  correlationId: string;
+}): Promise<OfferLetterVerificationEntry[] | undefined> {
+  const offerUploads = args.uploadsByTemplateId["offer-letters"];
+  if (!offerUploads || offerUploads.length === 0) {
+    return undefined;
+  }
+
+  // Pull the claim fields from the submitted evidence input. sourceOrIssuer
+  // maps to employer, issuedOn maps to startDate, role is captured by its own
+  // form input (required for offer-letters by the domain validator).
+  const evidence = pickOfferLetterEvidence(args.payload);
+  if (!evidence) {
+    return undefined;
+  }
+
+  const claim = {
+    employer: evidence.sourceOrIssuer,
+    role: evidence.role,
+    startDate: evidence.issuedOn,
+    // Pass the uploader's account name so api-gateway's content extractor
+    // can confirm the offer letter is addressed to them ("is this your
+    // letter?"). If the session has no name we omit the field — the
+    // recipient check then gets skipped server-side rather than failing.
+    userAccountName: args.session.user?.name ?? undefined,
+  };
+
+  const actorDid = `did:web:career-ai#${args.session.user?.email ?? "anonymous"}`;
+  const results: OfferLetterVerificationEntry[] = [];
+
+  for (const upload of offerUploads) {
+    const buffer = new Uint8Array(await upload.file.arrayBuffer());
+    const outcome = await verifyEmploymentClaim({
+      file: buffer,
+      filename: upload.file.name,
+      claim,
+      actorDid,
+    });
+    results.push({
+      templateId: "offer-letters",
+      filename: upload.file.name,
+      outcome,
+    });
+  }
+
+  // Persist the BEST verdict across all uploads onto the evidence record so
+  // the badge derivation (and any reload) can pick it up. Rationale: a
+  // single evidence row represents a set of files for one template — if any
+  // of the files verified, the evidence as a whole is verified. Common case:
+  // user uploads document (PARTIAL — envelope-stamp-only, no sender) + CoC
+  // (VERIFIED — CoC has Envelope Originator domain matching employer).
+  const bestVerdict = pickBestVerdict(results);
+  const logPrefix = `[career-builder-save cid=${args.correlationId}]`;
+  console.log(
+    `${logPrefix} offer-letter verification summary: files=${results.length}, bestVerdict=${bestVerdict ?? "none"}, outcomes=${results
+      .map((r) =>
+        r.outcome.ok ? r.outcome.result.status : `ERR:${r.outcome.reason}`,
+      )
+      .join(",")}`,
+  );
+
+  if (bestVerdict && args.session.user?.email) {
+    try {
+      const identity = await findTalentIdentityByEmail({
+        email: args.session.user.email,
+        correlationId: args.correlationId,
+      });
+      if (!identity) {
+        console.warn(
+          `${logPrefix} no talent identity found for email; cannot persist verification_status`,
+        );
+      } else {
+        const rowCount = await updateCareerBuilderEvidenceVerificationStatus({
+          careerIdentityId: identity.talentIdentity.id,
+          templateId: "offer-letters",
+          verificationStatus: bestVerdict,
+        });
+        console.log(
+          `${logPrefix} persisted verification_status=${bestVerdict} careerIdentityId=${identity.talentIdentity.id} rowsAffected=${rowCount}`,
+        );
+        if (rowCount === 0) {
+          console.warn(
+            `${logPrefix} UPDATE affected 0 rows — no career_builder_evidence row for (careerIdentityId=${identity.talentIdentity.id}, templateId=offer-letters). The row may not have been created by saveCareerBuilderPhase, or the column may not exist.`,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn(
+        `${logPrefix} failed to persist verification_status: ${err instanceof Error ? `${err.message}\n${err.stack}` : String(err)}`,
+      );
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Picks the highest-ranking verdict across all verification outcomes.
+ * Priority: VERIFIED > PARTIAL > FAILED. Ignores non-ok outcomes
+ * (UNCONFIGURED / UNAVAILABLE / GATEWAY_ERROR) — those mean the verifier
+ * didn't produce a verdict, so the DB shouldn't be overwritten with one.
+ * Returns null when no upload produced a usable verdict.
+ */
+function pickBestVerdict(
+  results: OfferLetterVerificationEntry[],
+): "VERIFIED" | "PARTIAL" | "FAILED" | null {
+  const rank: Record<"VERIFIED" | "PARTIAL" | "FAILED", number> = {
+    VERIFIED: 3,
+    PARTIAL: 2,
+    FAILED: 1,
+  };
+  let best: "VERIFIED" | "PARTIAL" | "FAILED" | null = null;
+  for (const entry of results) {
+    if (!entry.outcome.ok) continue;
+    const status = entry.outcome.result.status;
+    if (!best || rank[status] > rank[best]) {
+      best = status;
+    }
+  }
+  return best;
+}
+
+function pickOfferLetterEvidence(
+  payload: unknown,
+): { sourceOrIssuer: string; role: string; issuedOn: string } | null {
+  if (!payload || typeof payload !== "object") return null;
+  const evidenceList = (payload as { evidence?: unknown }).evidence;
+  if (!Array.isArray(evidenceList)) return null;
+  const entry = evidenceList.find(
+    (item) =>
+      item &&
+      typeof item === "object" &&
+      (item as { templateId?: unknown }).templateId === "offer-letters",
+  ) as { sourceOrIssuer?: unknown; role?: unknown; issuedOn?: unknown } | undefined;
+  if (!entry) return null;
+  if (typeof entry.sourceOrIssuer !== "string" || !entry.sourceOrIssuer.trim()) return null;
+  if (typeof entry.role !== "string" || !entry.role.trim()) return null;
+  if (typeof entry.issuedOn !== "string" || !entry.issuedOn.trim()) return null;
+  return {
+    sourceOrIssuer: entry.sourceOrIssuer,
+    role: entry.role,
+    issuedOn: entry.issuedOn,
+  };
 }

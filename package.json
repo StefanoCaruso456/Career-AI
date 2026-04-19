@@ -3,6 +3,17 @@
   "version": "1.0.0",
   "description": "Career AI frontend and documentation foundation for the Agent Identity Platform.",
   "private": true,
+  "workspaces": [
+    "services/api-gateway",
+    "services/pdf-extractor",
+    "packages/pdf-signature-verifier",
+    "packages/a2a-protocol",
+    "packages/badge-schemas",
+    "packages/chain-client",
+    "packages/did-resolver",
+    "packages/sync-adapter-sdk",
+    "packages/vc-toolkit"
+  ],
   "scripts": {
     "braintrust:bootstrap": "node ./scripts/bootstrap-braintrust.mjs",
     "db:migrate": "tsx packages/persistence/src/migrations.ts",
@@ -10,7 +21,11 @@
     "e2e:recruiter-marketplace": "node ./scripts/e2e/recruiter-marketplace-e2e.mjs",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:gateway": "npm --workspace services/api-gateway run dev",
+    "dev:extractor": "npm --workspace services/pdf-extractor run dev",
+    "build:gateway": "npm --workspace services/api-gateway run build",
+    "build:extractor": "npm --workspace services/pdf-extractor run build"
   },
   "repository": {
     "type": "git",

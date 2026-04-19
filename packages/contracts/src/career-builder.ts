@@ -63,6 +63,10 @@ export const careerArtifactReferenceSchema = z.object({
 export const careerEvidenceInputSchema = z.object({
   templateId: careerEvidenceTemplateIdSchema,
   sourceOrIssuer: shortText(180),
+  // Optional at the type level so non-employment templates (certifications,
+  // licenses, etc.) don't need it. Domain-layer validator enforces that
+  // offer-letter evidence must supply a non-empty role.
+  role: z.string().max(180).default(""),
   issuedOn: isoDateInputSchema,
   validationContext: longText(600),
   whyItMatters: longText(600),
@@ -74,6 +78,12 @@ export const careerBuilderPhaseSaveInputSchema = z.object({
   evidence: z.array(careerEvidenceInputSchema).default([]),
 });
 
+export const careerEvidenceVerificationStatusSchema = z.enum([
+  "VERIFIED",
+  "PARTIAL",
+  "FAILED",
+]);
+
 export const careerEvidenceRecordSchema = z.object({
   id: z.string(),
   talentIdentityId: z.string(),
@@ -81,11 +91,14 @@ export const careerEvidenceRecordSchema = z.object({
   templateId: careerEvidenceTemplateIdSchema,
   completionTier: careerPhaseSchema,
   sourceOrIssuer: z.string(),
+  role: z.string(),
   issuedOn: z.string(),
   validationContext: z.string(),
   whyItMatters: z.string(),
   files: z.array(careerArtifactReferenceSchema),
   status: careerEvidenceStatusSchema,
+  /** Populated by the post-save verifier for offer-letter evidence. */
+  verificationStatus: careerEvidenceVerificationStatusSchema.nullable().default(null),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

@@ -112,11 +112,13 @@ function createEmptyEvidenceRecord(args: {
     templateId: args.template.id,
     completionTier: args.template.completionTier,
     sourceOrIssuer: "",
+    role: "",
     issuedOn: "",
     validationContext: "",
     whyItMatters: "",
     files: [],
     status: "NOT_STARTED",
+    verificationStatus: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -409,10 +411,49 @@ async function buildSnapshot(
       summary: getPhaseSummary(phase, tierStats[phase], isComplete, isCurrent),
     };
   });
+  // Derive offer-letter badges from career_builder_evidence's
+  // verification_status column. Tiered — mirrors the card-pill UX:
+  //   VERIFIED → "Offer letter verified"
+  //   PARTIAL  → "Signed offer letter on file" (real-world case — most
+  //              DocuSign offer letters users upload don't include the
+  //              Certificate of Completion page, so the verifier can't
+  //              cross-check sender domain against claimed employer, but
+  //              the document structurally signed)
+  //   FAILED   → no badge
+  // PARTIAL uses status: "verified" in the badge model (there's no
+  // "partial" value in careerIdVerificationStatus), but downstream
+  // renderers can distinguish via the label copy or a new field later.
+  const extraBadges = evidence
+    .filter((record) => record.templateId === "offer-letters")
+    .flatMap((record) => {
+      if (record.verificationStatus === "VERIFIED") {
+        return [
+          {
+            id: `badge_offer_letter_${record.id}`,
+            label: "Offer letter verified",
+            phase: "document_backed" as const,
+            status: "verified" as const,
+          },
+        ];
+      }
+      if (record.verificationStatus === "PARTIAL") {
+        return [
+          {
+            id: `badge_offer_letter_${record.id}`,
+            label: "Signed offer letter on file",
+            phase: "document_backed" as const,
+            status: "verified" as const,
+          },
+        ];
+      }
+      return [];
+    });
+
   const careerIdPresentation = await getCareerIdPresentation({
     careerIdentityId: aggregate.talentIdentity.id,
     correlationId,
     phaseProgress,
+    extraBadges,
   });
 
   const nextUploads = nextUploadPriority
@@ -487,6 +528,13 @@ function validateEvidenceSubmission(args: {
     if (invalidFile) {
       errors.files = "Driver's license uploads must be images.";
     }
+  }
+
+  // Role is a general-purpose optional field at the schema layer, but for
+  // offer-letters we enforce it at the domain layer — the api-gateway verifier
+  // needs a role to check against the PDF content.
+  if (args.template.id === "offer-letters" && (args.value.role ?? "").trim().length === 0) {
+    errors.role = "Role is required for offer letters.";
   }
 
   return errors;
@@ -639,6 +687,7 @@ export async function saveCareerBuilderPhase(args: {
     const nextRecord = normalizeEvidenceRecord(template, {
       ...currentRecord,
       sourceOrIssuer: evidenceInput.sourceOrIssuer,
+      role: evidenceInput.role ?? "",
       issuedOn: evidenceInput.issuedOn,
       validationContext: evidenceInput.validationContext,
       whyItMatters: evidenceInput.whyItMatters,

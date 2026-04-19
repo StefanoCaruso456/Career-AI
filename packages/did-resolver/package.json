@@ -1,0 +1,20 @@
+{
+  "name": "@career-protocol/did-resolver",
+  "version": "0.0.0",
+  "description": "DID method resolution for the Career Protocol. Supports did:web and did:key initially.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "echo \"TODO: tsc\"",
+    "test": "echo \"TODO: tests\""
+  }
+}

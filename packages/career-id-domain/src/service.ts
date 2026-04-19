@@ -991,6 +991,24 @@ export async function getCareerIdPresentation(args: {
   careerIdentityId: string;
   correlationId: string;
   phaseProgress: CareerPhaseProgress[];
+  /**
+   * Additional badges supplied by the caller (typically career-builder-domain,
+   * which has visibility into career_builder_evidence's verification_status
+   * column). These get concatenated with badges this function derives from
+   * career_id_evidence (government ID etc.). Each caller owns its own badge
+   * source to keep the domain boundary clean.
+   */
+  extraBadges?: Array<{
+    id: string;
+    label: string;
+    phase:
+      | "self_reported"
+      | "relationship_backed"
+      | "document_backed"
+      | "signature_backed"
+      | "institution_verified";
+    status: "verified";
+  }>;
 }) {
   let [evidenceRecords, verifications] = await Promise.all([
     listCareerIdEvidence({
@@ -1067,7 +1085,7 @@ export async function getCareerIdPresentation(args: {
       evidence,
     };
   });
-  const badges =
+  const baseBadges =
     governmentEvidence?.status === "verified"
       ? [
           {
@@ -1078,6 +1096,9 @@ export async function getCareerIdPresentation(args: {
           },
         ]
       : [];
+  // Concat any badges the caller derived from adjacent data sources (e.g.
+  // career_builder_evidence.verification_status from career-builder-domain).
+  const badges = [...baseBadges, ...(args.extraBadges ?? [])];
   const result =
     latestVerification && governmentEvidence
       ? toGovernmentIdVerificationResult(latestVerification, governmentEvidence.id)

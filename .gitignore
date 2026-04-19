@@ -2,13 +2,22 @@ node_modules
 .next
 out
 dist
+build
 *.tsbuildinfo
 .env
 .env.*
 !.env.example
 .artifacts
 .DS_Store
+coverage
+.nyc_output
+.turbo
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Test fixtures — real signed PDFs may contain PII. Never commit.
+# Rebuild locally via generate:fixture or drop your own signed PDFs in.
+services/document-verifier/test/fixtures/

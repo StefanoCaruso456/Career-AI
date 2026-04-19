@@ -31,10 +31,12 @@ type CareerBuilderEvidenceRow = {
   template_id: string;
   completion_tier: CareerPhase;
   source_or_issuer: string;
+  role: string;
   issued_on: Date | string | null;
   validation_context: string;
   why_it_matters: string;
   status: CareerEvidenceStatus;
+  verification_status: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -103,11 +105,18 @@ function mapEvidenceRow(
     templateId: row.template_id as CareerEvidenceRecord["templateId"],
     completionTier: row.completion_tier,
     sourceOrIssuer: row.source_or_issuer,
+    role: row.role,
     issuedOn: formatDateOnly(row.issued_on),
     validationContext: row.validation_context,
     whyItMatters: row.why_it_matters,
     files,
     status: row.status,
+    verificationStatus:
+      row.verification_status === "VERIFIED" ||
+      row.verification_status === "PARTIAL" ||
+      row.verification_status === "FAILED"
+        ? row.verification_status
+        : null,
     createdAt: formatIsoString(row.created_at),
     updatedAt: formatIsoString(row.updated_at),
   };
@@ -151,10 +160,12 @@ export async function listPersistentCareerBuilderEvidence(args: {
         template_id,
         completion_tier,
         source_or_issuer,
+        role,
         issued_on,
         validation_context,
         why_it_matters,
         status,
+        verification_status,
         created_at,
         updated_at
       FROM career_builder_evidence
@@ -279,17 +290,19 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
           template_id,
           completion_tier,
           source_or_issuer,
+          role,
           issued_on,
           validation_context,
           why_it_matters,
           status,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
         ON CONFLICT (career_identity_id, template_id)
         DO UPDATE SET
           completion_tier = EXCLUDED.completion_tier,
           source_or_issuer = EXCLUDED.source_or_issuer,
+          role = EXCLUDED.role,
           issued_on = EXCLUDED.issued_on,
           validation_context = EXCLUDED.validation_context,
           why_it_matters = EXCLUDED.why_it_matters,
@@ -301,10 +314,12 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
           template_id,
           completion_tier,
           source_or_issuer,
+          role,
           issued_on,
           validation_context,
           why_it_matters,
           status,
+          verification_status,
           created_at,
           updated_at
       `,
@@ -314,6 +329,7 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
         args.record.templateId,
         args.record.completionTier,
         args.record.sourceOrIssuer,
+        args.record.role ?? "",
         args.record.issuedOn || null,
         args.record.validationContext,
         args.record.whyItMatters,
@@ -362,4 +378,31 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
 
     return mapEvidenceRow(row, args.soulRecordId, files);
   });
+}
+
+/**
+ * Writes the verifier's verdict onto an existing evidence row without
+ * touching any of the user-editable fields. Used by the phase save route
+ * after it calls api-gateway and gets back a VERIFIED / PARTIAL / FAILED
+ * result. Pass null to clear a prior verdict.
+ *
+ * Scoped by (careerIdentityId, templateId) so a caller can't silently
+ * flip somebody else's row. Returns the number of rows updated so the
+ * caller can log a warning if the evidence record unexpectedly isn't
+ * there (race with a deletion, etc.).
+ */
+export async function updateCareerBuilderEvidenceVerificationStatus(args: {
+  careerIdentityId: string;
+  templateId: string;
+  verificationStatus: "VERIFIED" | "PARTIAL" | "FAILED" | null;
+}): Promise<number> {
+  const result = await getDatabasePool().query(
+    `
+      UPDATE career_builder_evidence
+      SET verification_status = $3, updated_at = NOW()
+      WHERE career_identity_id = $1 AND template_id = $2
+    `,
+    [args.careerIdentityId, args.templateId, args.verificationStatus],
+  );
+  return result.rowCount ?? 0;
 }

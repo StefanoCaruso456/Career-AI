@@ -1,0 +1,23 @@
+{
+  "name": "@career-protocol/sync-adapter-sdk",
+  "version": "0.0.0",
+  "description": "Base SDK for building payroll/HRIS data sync adapters (ADP, Argyle, Pinwheel) that produce normalized claim payloads for VC issuance.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "echo \"TODO: tsc\"",
+    "test": "echo \"TODO: tests\""
+  },
+  "dependencies": {
+    "@career-protocol/badge-schemas": "*"
+  }
+}

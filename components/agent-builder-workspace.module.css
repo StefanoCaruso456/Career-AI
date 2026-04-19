@@ -305,6 +305,25 @@
   line-height: 1.45;
 }
 
+/* PARTIAL variant of the credential card — amber instead of blue. Used for */
+/* "Signed offer letter on file" (structurally DocuSigned but no CoC to */
+/* cross-check sender domain against the claimed employer). */
+.identityBadgeCardPartial .identityBadgeStatus {
+  border-color: rgba(251, 191, 36, 0.42);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.22), rgba(251, 191, 36, 0.1)),
+    rgba(63, 36, 12, 0.86);
+  color: rgba(253, 230, 138, 0.95);
+}
+
+.identityBadgeCardPartial .identityBadgeIcon {
+  border-color: rgba(251, 191, 36, 0.38);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.08)),
+    rgba(53, 33, 11, 0.9);
+  color: rgba(253, 230, 138, 0.95);
+}
+
 .sectionEyebrow {
   display: inline-flex;
   align-items: center;
@@ -1492,6 +1511,27 @@
   color: rgba(244, 247, 252, 0.82);
   font-size: 0.74rem;
   font-weight: 700;
+}
+
+/* Tiered verdicts on the evidence card's status pill. */
+/* VERIFIED — fully trusted (signed + sender signal matches claim). Green. */
+.statusBadgeVerified {
+  background:
+    linear-gradient(180deg, rgba(52, 211, 153, 0.18), rgba(16, 185, 129, 0.08)),
+    rgba(6, 78, 59, 0.5);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: rgba(167, 243, 208, 1);
+}
+
+/* PARTIAL — evidence submitted but no verifiable sender (most real-world */
+/* DocuSign PDFs without a CoC land here). Amber — a step up from "attached" */
+/* but honestly below "verified". */
+.statusBadgePartial {
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.18), rgba(245, 158, 11, 0.08)),
+    rgba(120, 53, 15, 0.45);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: rgba(253, 230, 138, 1);
 }
 
 .uploadSlotGrid {

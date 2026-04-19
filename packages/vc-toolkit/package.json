@@ -1,0 +1,24 @@
+{
+  "name": "@career-protocol/vc-toolkit",
+  "version": "0.0.0",
+  "description": "Reference library for issuing, signing, verifying, and presenting W3C Verifiable Credentials with SD-JWT-VC selective disclosure.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "echo \"TODO: tsc\"",
+    "test": "echo \"TODO: tests\""
+  },
+  "dependencies": {
+    "@career-protocol/badge-schemas": "*",
+    "@career-protocol/did-resolver": "*"
+  }
+}

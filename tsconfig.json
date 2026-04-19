@@ -42,6 +42,14 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "services",
+    "packages/pdf-signature-verifier",
+    "packages/a2a-protocol",
+    "packages/badge-schemas",
+    "packages/chain-client",
+    "packages/did-resolver",
+    "packages/sync-adapter-sdk",
+    "packages/vc-toolkit"
   ]
 }
