@@ -20,6 +20,7 @@ import { db, schema } from "../db/index.js";
 import { verifyDocument } from "../verifier/index.js";
 import type { VerifyResponse } from "../verifier/types.js";
 import type { ClaimStatus, EmploymentClaim, PublicClaimVerificationResponse } from "../types.js";
+import { deriveDisplayStatus, deriveFailureReason } from "../views/claim-view.js";
 
 export interface SubmitEmploymentClaimInput {
   actorDid: string;
@@ -88,23 +89,20 @@ export async function submitEmploymentClaim(
     .set({ status: claimStatus, updatedAt: new Date() })
     .where(eq(schema.claims.id, claimId));
 
-  // 5. Normalize to the public response shape. This is where we strip
-  //    internal-only fields (envelope IDs, mismatched field lists, raw
-  //    signals) that the frontend doesn't need. For FAILED verdicts we
-  //    surface a single human-readable failureReason so the UI can tell
-  //    the user WHY it failed without leaking internal signal internals.
+  // 5. Normalize to the public response shape. Internal-only fields
+  //    (envelope IDs, raw signal blobs, mismatch lists) stay server-side.
+  //    For FAILED verdicts the single-sentence failureReason lets the UI
+  //    tell the user WHY it failed without leaking signal internals.
   const { signals, provenance, confidenceTier } = verification;
   return {
     claimId,
     status: claimStatus,
     confidenceTier,
-    displayStatus: displayStatusFor(claimStatus, confidenceTier),
+    displayStatus: deriveDisplayStatus(claimStatus, confidenceTier),
     matches: {
       employer: signals.content.employer !== null,
       role: signals.content.role !== null,
       dates: signals.content.startDate !== null,
-      // Present only when the uploader supplied userAccountName (otherwise
-      // the recipient check was skipped and we return undefined, not false).
       recipient: claim.userAccountName
         ? !signals.content.mismatches?.includes("recipient")
         : undefined,
@@ -114,52 +112,4 @@ export async function submitEmploymentClaim(
     verifiedAt: provenance.verifiedAt,
     failureReason: claimStatus === "FAILED" ? deriveFailureReason(signals) : undefined,
   };
-}
-
-function deriveFailureReason(signals: {
-  tampering: { detected: boolean; method: string; details?: Record<string, unknown> };
-  content: { mismatches?: string[] };
-}): string {
-  // Tampering hard-fails override everything else — surface that first.
-  if (signals.tampering.detected) {
-    const detailReason =
-      signals.tampering.details &&
-      typeof signals.tampering.details === "object" &&
-      typeof (signals.tampering.details as { reason?: unknown }).reason === "string"
-        ? ((signals.tampering.details as { reason: string }).reason)
-        : null;
-    if (detailReason) return detailReason;
-    if (signals.tampering.method === "pkcs7-verification") {
-      return "Cryptographic signature verification failed — PDF bytes have been modified since signing.";
-    }
-    if (signals.tampering.method === "structural-anomaly") {
-      return "Document structure suggests tampering (DocuSign markers present but signature structure stripped).";
-    }
-    return "Tampering detected in the uploaded document.";
-  }
-
-  if (signals.content.mismatches?.includes("documentType")) {
-    return "This document doesn't look like an offer letter. Offer letters extend a named job offer — W-2s, pay stubs, employment verification letters, and performance reviews don't qualify.";
-  }
-
-  if (signals.content.mismatches?.includes("recipient")) {
-    return "The letter is addressed to someone other than you. Upload the offer letter issued to your own account name.";
-  }
-
-  if (signals.content.mismatches?.includes("employer")) {
-    return "The claimed employer name was not found anywhere in the document.";
-  }
-
-  // Fallback — FAILED without tampering, document-type, recipient, or
-  // employer mismatch means the verdict fell through to the "insufficient
-  // signals" branch.
-  return "Not enough positive signals to verify the document. No trusted source signature and content did not fully match the claim.";
-}
-
-function displayStatusFor(status: ClaimStatus, tier: string): string {
-  if (status === "VERIFIED" && tier === "SOURCE_CONFIRMED") return "Verified by source";
-  if (status === "VERIFIED") return "Verified";
-  if (status === "PARTIAL") return "Evidence submitted";
-  if (status === "FAILED") return "Could not verify";
-  return "Pending";
 }

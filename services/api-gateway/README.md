@@ -63,6 +63,40 @@ signed session token and the DID will be derived server-side.
 
 Note the normalization: the frontend gets a flat, display-ready envelope. Raw signals, envelope IDs, reviewer notes, and other internal shapes stay on the server side.
 
+### `GET /v1/claims`
+
+Lists the authenticated actor's claims, most recent first, each with its
+latest verification summary. Scoped server-side to the `X-Actor-Did` header
+— there is no way to read another user's claims through this endpoint.
+
+```json
+{
+  "claims": [
+    {
+      "claimId": "9f3c0d2e-...",
+      "claimType": "employment",
+      "status": "VERIFIED",
+      "confidenceTier": "REVIEWED",
+      "displayStatus": "Verified",
+      "payload": { "employer": "...", "role": "...", "startDate": "..." },
+      "createdAt": "2026-04-13T14:22:00Z",
+      "updatedAt": "2026-04-13T14:22:00Z",
+      "verification": {
+        "verifiedAt": "2026-04-13T14:22:00Z",
+        "authenticitySource": "docusign",
+        "matches": { "employer": true, "role": true, "dates": true, "isOfferLetter": true }
+      }
+    }
+  ]
+}
+```
+
+### `GET /v1/claims/:id`
+
+Returns one claim + latest verification, scoped to the authenticated actor.
+Returns 404 (not 403) when the claim exists but is owned by a different DID,
+so ownership is not revealed to unrelated callers.
+
 ### `GET /v1/health`
 
 Basic service health. Unauthenticated. Returns `{status, service, version}`.
@@ -181,9 +215,8 @@ Career-AI (Next.js)
 
 ## Known TODOs
 
-- Real session auth via identity-service (replaces shared secret)
+- Real session auth via identity-service (replaces shared secret + X-Actor-Did)
 - Rate limiting (per-actor-DID token bucket)
 - Issuer-service handoff when verdict is `VERIFIED` (mint a VC from the claim)
-- Endpoints for reading back claims and wallet credentials (currently write-only)
 - OpenAPI spec export
 - Structured event emission to `infra/events` for downstream subscribers
