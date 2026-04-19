@@ -48,6 +48,12 @@ export interface ClaimVerificationResult {
      * specifically (not a W-2, pay stub, employment verification, etc.).
      */
     isOfferLetter: boolean;
+    /**
+     * True when the document matches the expected type for the claim
+     * that was submitted. Generic across offer-letter, employment-
+     * verification, education, transcript.
+     */
+    isExpectedDocumentType?: boolean;
   };
   authenticitySource: string;
   verifiedAt: string;
