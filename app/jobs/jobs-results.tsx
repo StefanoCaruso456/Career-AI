@@ -8,6 +8,7 @@ import { fetchJobDetails } from "@/components/jobs/job-details-client";
 import { JobDetailsTrigger } from "@/components/jobs/job-details-trigger";
 import {
   formatSalaryTextForRail,
+  getJobRailLocationLabel,
   sanitizeJobLocationText,
 } from "@/components/jobs/job-rail-utils";
 import { resolveSchemaFamilyForJob } from "@/lib/application-profiles/resolver";
@@ -39,6 +40,114 @@ type WorkplaceFilter = "all" | "remote" | "hybrid" | "onsite";
 type DateFilter = "all" | "1d" | "7d" | "30d";
 const EMPTY_COMPANY_OPTIONS: string[] = [];
 const EMPTY_SOURCE_SNAPSHOTS: JobSourceSnapshotDto[] = [];
+const DEFAULT_USA_ONLY_FILTER = true;
+const USA_ONLY_STORAGE_KEY = "career-ai.jobs.filters.usa-only";
+const US_STATE_CODES = new Set([
+  "al",
+  "ak",
+  "az",
+  "ar",
+  "ca",
+  "co",
+  "ct",
+  "de",
+  "fl",
+  "ga",
+  "hi",
+  "ia",
+  "id",
+  "il",
+  "in",
+  "ks",
+  "ky",
+  "la",
+  "ma",
+  "md",
+  "me",
+  "mi",
+  "mn",
+  "mo",
+  "ms",
+  "mt",
+  "nc",
+  "nd",
+  "ne",
+  "nh",
+  "nj",
+  "nm",
+  "nv",
+  "ny",
+  "oh",
+  "ok",
+  "or",
+  "pa",
+  "ri",
+  "sc",
+  "sd",
+  "tn",
+  "tx",
+  "ut",
+  "va",
+  "vt",
+  "wa",
+  "wi",
+  "wv",
+  "wy",
+  "dc",
+]);
+const US_STATE_NAMES = new Set([
+  "alabama",
+  "alaska",
+  "arizona",
+  "arkansas",
+  "california",
+  "colorado",
+  "connecticut",
+  "delaware",
+  "florida",
+  "georgia",
+  "hawaii",
+  "idaho",
+  "illinois",
+  "indiana",
+  "iowa",
+  "kansas",
+  "kentucky",
+  "louisiana",
+  "maine",
+  "maryland",
+  "massachusetts",
+  "michigan",
+  "minnesota",
+  "mississippi",
+  "missouri",
+  "montana",
+  "nebraska",
+  "nevada",
+  "new hampshire",
+  "new jersey",
+  "new mexico",
+  "new york",
+  "north carolina",
+  "north dakota",
+  "ohio",
+  "oklahoma",
+  "oregon",
+  "pennsylvania",
+  "rhode island",
+  "south carolina",
+  "south dakota",
+  "tennessee",
+  "texas",
+  "utah",
+  "vermont",
+  "virginia",
+  "washington",
+  "west virginia",
+  "wisconsin",
+  "wyoming",
+  "district of columbia",
+]);
 const ROLE_TYPE_OPTIONS = [
   "ai-ml-engineering",
   "software-engineering",
@@ -359,6 +468,32 @@ function matchesCompanyFilter(job: JobPostingDto, companyFilter: string) {
     .some((value) => normalizeHumanLabel(value) === normalizedCompanyFilter);
 }
 
+function matchesUsaDefaultFilter(job: JobPostingDto) {
+  const rawLocation = job.location?.trim();
+
+  if (!rawLocation) {
+    return false;
+  }
+
+  const segments = rawLocation
+    .split(/[|/]|(?:\s+-\s+)/)
+    .flatMap((part) => part.split(","))
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+  const lastSegment = segments.at(-1) ?? "";
+  const countryLabel = getJobRailLocationLabel(rawLocation);
+
+  if (US_STATE_CODES.has(lastSegment) || US_STATE_NAMES.has(lastSegment)) {
+    return true;
+  }
+
+  if (countryLabel === "United States") {
+    return true;
+  }
+
+  return countryLabel === null && inferWorkplaceMode(rawLocation) === "remote";
+}
+
 function getCompanyAvailableCount(sources: JobSourceSnapshotDto[], companyFilter: string) {
   if (companyFilter === "all") {
     return null;
@@ -505,6 +640,7 @@ export function JobsResults({
   const [workplaceFilter, setWorkplaceFilter] = useState<WorkplaceFilter>("all");
   const [salaryRangeFilter, setSalaryRangeFilter] = useState<SalaryRangeFilter>("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [usaOnlyFilter, setUsaOnlyFilter] = useState(DEFAULT_USA_ONLY_FILTER);
   const [visibleCount, setVisibleCount] = useState(() => Math.min(initialCount, jobs.length));
   const [hasMoreAvailable, setHasMoreAvailable] = useState(jobs.length >= initialRequestLimit);
   const [hasHydratedFullWindow, setHasHydratedFullWindow] = useState(
@@ -518,6 +654,7 @@ export function JobsResults({
   const fullWindowHydrationInFlight = useRef(false);
   const companyScopeRequestSequence = useRef(0);
   const salaryHydrationInFlight = useRef(new Set<string>());
+  const skipUsaOnlyPersistence = useRef(true);
   const companyScopedExpectedCount = getCompanyAvailableCount(sourceSnapshots, companyFilter);
   const companyScopeKey = companyFilter === "all" ? null : companyFilter;
   const activeJobs = companyFilter === "all" ? loadedJobs : (companyScopedSnapshot?.jobs ?? []);
@@ -539,10 +676,12 @@ export function JobsResults({
   const jobsMatchingNonSalaryFilters = resolvedActiveJobs.filter((job) => {
     const matchesRoleType = roleTypeFilter === "all" || inferRoleType(job) === roleTypeFilter;
     const matchesCompany = matchesCompanyFilter(job, companyFilter);
+    const matchesCountry = !usaOnlyFilter || matchesUsaDefaultFilter(job);
     const matchesWorkplace =
       workplaceFilter === "all" || inferWorkplaceMode(job.location) === workplaceFilter;
 
     return (
+      matchesCountry &&
       matchesRoleType &&
       matchesCompany &&
       matchesWorkplace &&
@@ -573,13 +712,14 @@ export function JobsResults({
   );
   const remainingCount = Math.max(filteredJobs.length - visibleCount, 0);
   const canRevealLoadedJobs = remainingCount > 0;
-  const hasActiveFilters =
+  const hasManualFilters =
     keyword.length > 0 ||
     roleTypeFilter !== "all" ||
     companyFilter !== "all" ||
     workplaceFilter !== "all" ||
     salaryRangeFilter !== "all" ||
     dateFilter !== "all";
+  const showClearFiltersButton = hasManualFilters || !usaOnlyFilter;
   const canHydrateFullWindow =
     companyFilter === "all" &&
     initialRequestLimit !== Number.MAX_SAFE_INTEGER &&
@@ -588,7 +728,7 @@ export function JobsResults({
     fullJobsWindowLimit > loadedJobs.length;
   const isSearchingAllJobs =
     companyFilter === "all" &&
-    hasActiveFilters &&
+    (hasManualFilters || (usaOnlyFilter && filteredJobs.length === 0)) &&
     filteredJobs.length === 0 &&
     (canHydrateFullWindow || isHydratingFullWindow);
   const desiredSalaryMatchCount = Math.max(initialCount, visibleCount);
@@ -611,7 +751,7 @@ export function JobsResults({
   const showLoadMore =
     companyFilter === "all" ? canRevealLoadedJobs || hasMoreAvailable : canRevealLoadedJobs;
   const resultsTotalLabel =
-    hasActiveFilters &&
+    hasManualFilters &&
     !isLoadingCompanyResults &&
     !isSearchingAllJobs &&
     !isSearchingSalaryMatches
@@ -637,6 +777,7 @@ export function JobsResults({
     setWorkplaceFilter("all");
     setSalaryRangeFilter("all");
     setDateFilter("all");
+    setUsaOnlyFilter(DEFAULT_USA_ONLY_FILTER);
   }
 
   useEffect(() => {
@@ -682,6 +823,34 @@ export function JobsResults({
     initialTotalAvailableCount,
     jobs,
   ]);
+
+  useEffect(() => {
+    if (skipUsaOnlyPersistence.current) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(USA_ONLY_STORAGE_KEY, usaOnlyFilter ? "true" : "false");
+    } catch {
+      // Ignore storage access failures so filtering still works in restricted contexts.
+    }
+  }, [usaOnlyFilter]);
+
+  useEffect(() => {
+    try {
+      const storedPreference = window.localStorage.getItem(USA_ONLY_STORAGE_KEY);
+
+      if (storedPreference === "false") {
+        setUsaOnlyFilter(false);
+      } else if (storedPreference === "true") {
+        setUsaOnlyFilter(true);
+      }
+    } catch {
+      // Ignore storage access failures and keep the safe default on.
+    } finally {
+      skipUsaOnlyPersistence.current = false;
+    }
+  }, []);
 
   async function fetchJobsWindow(limit: number, options?: { company?: string }) {
     const searchParams = new URLSearchParams({
@@ -973,16 +1142,22 @@ export function JobsResults({
   }, [canHydrateFullWindow, fullJobsWindowLimit, isHydratingFullWindow]);
 
   useEffect(() => {
-    if (!hasActiveFilters || !canHydrateFullWindow || isHydratingFullWindow) {
+    if (
+      !(hasManualFilters || (usaOnlyFilter && filteredJobs.length === 0)) ||
+      !canHydrateFullWindow ||
+      isHydratingFullWindow
+    ) {
       return;
     }
 
     void hydrateFullJobsWindow(fullJobsWindowLimit);
   }, [
     canHydrateFullWindow,
+    filteredJobs.length,
     fullJobsWindowLimit,
-    hasActiveFilters,
+    hasManualFilters,
     isHydratingFullWindow,
+    usaOnlyFilter,
   ]);
 
   async function handleLoadMore() {
@@ -1147,8 +1322,23 @@ export function JobsResults({
           </label>
         </div>
 
-        {hasActiveFilters ? (
-          <div className={styles.filterActions}>
+        <div className={styles.filterActions}>
+          <label className={styles.countryToggle}>
+            <input
+              checked={usaOnlyFilter}
+              className={styles.countryToggleInput}
+              onChange={(event) => {
+                setUsaOnlyFilter(event.target.checked);
+              }}
+              type="checkbox"
+            />
+            <span className={styles.countryToggleCopy}>
+              <strong>USA only</strong>
+              <span>On by default for new visitors. Turn it off to browse global roles.</span>
+            </span>
+          </label>
+
+          {showClearFiltersButton ? (
             <button
               className={styles.clearFiltersButton}
               onClick={() => {
@@ -1158,22 +1348,27 @@ export function JobsResults({
             >
               Clear filters
             </button>
-            <p className={styles.filterHint}>
-              {isLoadingCompanyResults
-                ? `Loading all ${companyFilter} roles directly from the jobs snapshot.`
-                : companyScopeError
-                  ? companyScopeError
-                : companyFilter !== "all"
-                  ? `Showing all ${formatCount(activeTotalAvailableCount)} ${companyFilter} jobs available in the snapshot.`
-                : isSearchingAllJobs
-                    ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
-                    : isSearchingSalaryMatches
-                      ? `Checking salary details across ${formatCount(jobsMatchingNonSalaryFilters.length)} filtered ${pluralize(jobsMatchingNonSalaryFilters.length, "role")} so pay range matches can surface even when the saved snapshot is missing compensation metadata.`
-                    : `Filters automatically expand to all ${formatCount(activeTotalAvailableCount)} available jobs in the saved snapshot.`}
-            </p>
-          </div>
-        ) : null}
-          </section>
+          ) : null}
+
+          <p className={styles.filterHint}>
+            {isLoadingCompanyResults
+              ? `Loading all ${companyFilter} roles directly from the jobs snapshot.`
+              : companyScopeError
+                ? companyScopeError
+              : companyFilter !== "all"
+                ? `Showing all ${formatCount(activeTotalAvailableCount)} ${companyFilter} jobs available in the snapshot.`
+              : isSearchingAllJobs
+                  ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs so filters can match beyond the first ${formatCount(loadedJobs.length)} roles.`
+                  : isSearchingSalaryMatches
+                    ? `Checking salary details across ${formatCount(jobsMatchingNonSalaryFilters.length)} filtered ${pluralize(jobsMatchingNonSalaryFilters.length, "role")} so pay range matches can surface even when the saved snapshot is missing compensation metadata.`
+                  : hasManualFilters
+                    ? `Filters automatically expand to all ${formatCount(activeTotalAvailableCount)} available jobs in the saved snapshot.`
+                    : usaOnlyFilter
+                      ? "USA only is active by default. Turn it off to browse global roles."
+                      : `Global browsing is active. Filters automatically expand to all ${formatCount(activeTotalAvailableCount)} available jobs in the saved snapshot.`}
+          </p>
+        </div>
+      </section>
 
           <div className={styles.resultsHeader}>
             <p className={styles.resultsSummary}>
