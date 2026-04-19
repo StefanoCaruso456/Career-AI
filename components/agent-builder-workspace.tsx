@@ -322,7 +322,7 @@ function getEvidenceStateLabel(
       return "Offer letter verified";
     }
     if (draft.verificationStatus === "PARTIAL") {
-      return "Signed offer letter on file";
+      return "Offer letter on file";
     }
   }
 
@@ -2238,7 +2238,7 @@ export function AgentBuilderWorkspace({
               {offerLetterCredentials.map((record) => {
                 const isPartial = record.verificationStatus === "PARTIAL";
                 const title = isPartial
-                  ? "Signed offer letter on file"
+                  ? "Offer letter on file"
                   : "Offer letter verified";
                 const description = isPartial
                   ? "Structurally signed via DocuSign, but sender domain couldn't be cross-checked against the claimed employer."
