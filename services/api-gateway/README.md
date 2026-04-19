@@ -20,9 +20,12 @@ So all user-facing traffic goes through this gateway.
 
 ## API (demo scope)
 
-### `POST /v1/claims/employment`
+### `POST /v1/claims/offer-letter`
 
-Submit an employment claim plus supporting PDF for verification.
+Submit an offer-letter claim plus supporting PDF for verification. One route per
+supported claim type; additional types (`employment-verification`, `education`,
+`transcript`) register at `/v1/claims/<kind>` as their handlers land in the
+claim-type registry (`src/claim-types/`).
 
 **Headers**
 
@@ -163,7 +166,7 @@ cd ../document-verifier
 npm run generate:fixture
 
 # Submit via the gateway
-curl -X POST http://localhost:8080/v1/claims/employment \
+curl -X POST http://localhost:8080/v1/claims/offer-letter \
   -H "Authorization: Bearer dev-career-ai-secret-change-me" \
   -H "X-Actor-Did: did:web:career-ai.example/users/demo-user-1" \
   -F "file=@test/fixtures/sample-offer-letter.pdf" \
