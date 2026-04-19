@@ -25,6 +25,10 @@ const personaMocks = vi.hoisted(() => ({
   retrievePersonaInquiry: vi.fn(),
 }));
 
+vi.mock("@/auth", () => ({
+  publicOrigin: "https://www.careera2a.com",
+}));
+
 vi.mock("./persona", async () => {
   const actual = await vi.importActual<typeof import("./persona")>("./persona");
 
@@ -209,6 +213,25 @@ describe("career-id Persona service", () => {
     expect(verifications[0]?.status).toBe("in_progress");
     expect(evidence).toHaveLength(1);
     expect(evidence[0]?.status).toBe("in_progress");
+  });
+
+  it("uses the configured public origin for Persona redirect return URLs", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://localhost:8080",
+      correlationId: "career-id-session-origin",
+    });
+
+    const launchUrl = new URL(session.launchUrl);
+    const redirectUri = launchUrl.searchParams.get("redirect-uri");
+
+    expect(redirectUri).toBeTruthy();
+    expect(redirectUri).toContain("https://www.careera2a.com/agent-build");
+    expect(redirectUri).toContain("careerIdVerificationId=");
   });
 
   it("keeps government ID verification unlocked before earlier trust phases are complete", async () => {
