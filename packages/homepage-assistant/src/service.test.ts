@@ -567,6 +567,82 @@ describe("homepage assistant service", () => {
     expect(openAIConstructorMock).not.toHaveBeenCalled();
   });
 
+  it("uses deterministic tool-driven formatting for the hired-faster starter action", async () => {
+    findPersistentContextByTalentIdentityIdMock.mockResolvedValue({
+      aggregate: {
+        privacySettings: {
+          allow_public_share_link: true,
+          show_employment_records: true,
+        },
+        soulRecord: {
+          default_share_profile_id: "share_123",
+          id: "soul_123",
+        },
+        talentIdentity: {
+          display_name: "Taylor Candidate",
+          id: "tal_123",
+          talent_agent_id: "TAID-123456",
+        },
+      },
+      onboarding: {
+        profile: {
+          headline: "Senior Product Manager",
+          intent: "Builds evidence-backed B2B workflows.",
+          location: "Austin, TX",
+          recruiterVisibility: "limited",
+        },
+        profileCompletionPercent: 82,
+        roleType: "candidate",
+      },
+    });
+    getPersistentCareerBuilderProfileMock.mockResolvedValue({
+      careerHeadline: "Senior Product Manager",
+      coreNarrative: "Builds evidence-backed B2B workflows.",
+      location: "Austin, TX",
+      targetRole: "Principal Product Manager",
+    });
+    listPersistentCareerBuilderEvidenceMock.mockResolvedValue([
+      {
+        status: "COMPLETE",
+        templateId: "offer-letters",
+      },
+      {
+        status: "COMPLETE",
+        templateId: "portfolio",
+      },
+    ]);
+
+    const reply = await generateHomepageAssistantReply("How can I get hired faster?", [], {
+      agentContext,
+      starterActionId: "job_seeker_hired_faster",
+    });
+
+    expect(reply).toContain("Overview:");
+    expect(reply).toContain("Summary:");
+    expect(reply).toContain("Current Career ID signal:");
+
+    expect(createResponseMock).not.toHaveBeenCalled();
+    expect(openAIConstructorMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps starter action replies structured when Career ID tool access is denied", async () => {
+    const reply = await generateHomepageAssistantReply(
+      "How is this different from a resume builder?",
+      [],
+      {
+        agentContext: guestAgentContext,
+        starterActionId: "job_seeker_resume_builder_difference",
+      },
+    );
+
+    expect(reply).toContain("Overview:");
+    expect(reply).toContain("Summary:");
+    expect(reply).toContain("I attempted to load your Career ID snapshot");
+
+    expect(createResponseMock).not.toHaveBeenCalled();
+    expect(openAIConstructorMock).not.toHaveBeenCalled();
+  });
+
   it("transcribes uploaded audio with the default transcription model", async () => {
     const file = new File(["voice"], "voice-note.webm", { type: "audio/webm" });
     createTranscriptionMock.mockResolvedValue({ text: "  spoken summary  " });

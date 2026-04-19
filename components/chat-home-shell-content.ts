@@ -38,6 +38,7 @@ export type HeroComposerAction =
       accent?: "jobs";
       kind: "prompt";
       label: string;
+      starterActionId?: string;
       value?: string;
     }
   | {
@@ -470,15 +471,31 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         { id: "project-hiring-signals", label: "Hiring signals" },
       ],
       starterActions: [
-        { kind: "prompt", label: "How can I get hired faster?" },
-        { kind: "prompt", label: "Why is this a secure career identity platform?" },
+        {
+          kind: "prompt",
+          label: "How can I get hired faster?",
+          starterActionId: "job_seeker_hired_faster",
+        },
+        {
+          kind: "prompt",
+          label: "Why is this a secure career identity platform?",
+          starterActionId: "job_seeker_secure_identity",
+        },
         {
           accent: "jobs",
           kind: "latest_jobs",
           label: "Find NEW Jobs",
         },
-        { kind: "prompt", label: "What does the agent actually do?" },
-        { kind: "prompt", label: "How is this different from a resume builder?" },
+        {
+          kind: "prompt",
+          label: "What does the agent actually do?",
+          starterActionId: "job_seeker_agent_explainer",
+        },
+        {
+          kind: "prompt",
+          label: "How is this different from a resume builder?",
+          starterActionId: "job_seeker_resume_builder_difference",
+        },
         {
           accent: "primary",
           kind: "link",

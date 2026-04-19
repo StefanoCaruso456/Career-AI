@@ -7,6 +7,7 @@ import {
   listCareerIdAuditEvents,
   listCareerIdEvidence,
   listCareerIdVerifications,
+  upsertCareerIdVerification,
 } from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import {
@@ -15,6 +16,7 @@ import {
   getGovernmentIdVerificationStatus,
   handlePersonaWebhook,
   normalizePersonaInquiry,
+  resetGovernmentIdVerificationState,
   resetGovernmentIdSessionRateLimitStore,
 } from "./service";
 
@@ -22,6 +24,10 @@ const personaMocks = vi.hoisted(() => ({
   createPersonaInquiry: vi.fn(),
   generatePersonaOneTimeLink: vi.fn(),
   retrievePersonaInquiry: vi.fn(),
+}));
+
+vi.mock("@/auth", () => ({
+  publicOrigin: "https://www.careera2a.com",
 }));
 
 vi.mock("./persona", async () => {
@@ -68,14 +74,6 @@ async function unlockDocumentLayer() {
     input: {
       evidence: [
         {
-          templateId: "referrals",
-          sourceOrIssuer: "Avery Smith",
-          issuedOn: "2026-04-10",
-          validationContext: "Referral from prior company collaboration.",
-          whyItMatters: "Adds external relationship proof.",
-          retainedArtifactIds: [],
-        },
-        {
           templateId: "endorsements",
           sourceOrIssuer: "Jordan Lee",
           issuedOn: "2026-04-10",
@@ -83,20 +81,10 @@ async function unlockDocumentLayer() {
           whyItMatters: "Adds social proof.",
           retainedArtifactIds: [],
         },
-        {
-          templateId: "past-colleague-letters",
-          sourceOrIssuer: "Taylor Morgan",
-          issuedOn: "2026-04-10",
-          validationContext: "Past colleague overlap and outcomes.",
-          whyItMatters: "Strengthens trust in delivery history.",
-          retainedArtifactIds: [],
-        },
       ],
     },
     uploadsByTemplateId: {
-      referrals: [{ file: relationshipFile }],
       endorsements: [{ file: relationshipFile }],
-      "past-colleague-letters": [{ file: relationshipFile }],
     },
     correlationId: "career-id-relationship",
   });
@@ -167,6 +155,34 @@ describe("career-id Persona service", () => {
     expect(result.status).toBe("manual_review");
   });
 
+  it("maps Persona expired events to retry-needed instead of leaving verification in progress", () => {
+    const result = normalizePersonaInquiry({
+      eventName: "inquiry.expired",
+      inquiry: {
+        id: "inq_789",
+        attributes: {
+          status: "pending",
+        },
+      },
+    });
+
+    expect(result.status).toBe("retry_needed");
+  });
+
+  it("maps Persona declined events to failed when no retry hints are present", () => {
+    const result = normalizePersonaInquiry({
+      eventName: "inquiry.declined",
+      inquiry: {
+        id: "inq_790",
+        attributes: {
+          status: "pending",
+        },
+      },
+    });
+
+    expect(result.status).toBe("failed");
+  });
+
   it("creates a government ID verification session and persists in-progress evidence", async () => {
     const session = await createGovernmentIdVerificationSession({
       viewer,
@@ -198,6 +214,142 @@ describe("career-id Persona service", () => {
     expect(verifications[0]?.status).toBe("in_progress");
     expect(evidence).toHaveLength(1);
     expect(evidence[0]?.status).toBe("in_progress");
+  });
+
+  it("auto-resets stale in-progress verification to retry-needed when checking status", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-stale-status-start",
+    });
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-stale-status-lookup",
+    });
+    const existingVerifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const staleVerification = existingVerifications[0]!;
+    const staleUpdatedAt = new Date(
+      Date.now() - 11 * 60 * 1000,
+    ).toISOString();
+
+    await upsertCareerIdVerification({
+      record: {
+        ...staleVerification,
+        createdAt: staleVerification.createdAt,
+        updatedAt: staleUpdatedAt,
+      },
+    });
+
+    const status = await getGovernmentIdVerificationStatus({
+      verificationId: session.verificationId,
+      viewer,
+      correlationId: "career-id-stale-status-read",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+
+    expect(status.status).toBe("retry_needed");
+    expect(verifications[0]?.status).toBe("retry_needed");
+    expect(evidence[0]?.status).toBe("retry_needed");
+  });
+
+  it("starts a fresh Persona session instead of resuming stale in-progress verification", async () => {
+    personaMocks.createPersonaInquiry
+      .mockResolvedValueOnce({
+        inquiryId: "inq_123",
+        expiresAt: "2026-04-17T12:00:00.000Z",
+        status: "pending",
+      })
+      .mockResolvedValueOnce({
+        inquiryId: "inq_456",
+        expiresAt: "2026-04-18T12:00:00.000Z",
+        status: "pending",
+      });
+
+    const firstSession = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-stale-restart-1",
+    });
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-stale-restart-lookup",
+    });
+    const existingVerifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const staleVerification = existingVerifications[0]!;
+    const staleUpdatedAt = new Date(
+      Date.now() - 11 * 60 * 1000,
+    ).toISOString();
+
+    await upsertCareerIdVerification({
+      record: {
+        ...staleVerification,
+        createdAt: staleVerification.createdAt,
+        updatedAt: staleUpdatedAt,
+      },
+    });
+
+    const secondSession = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-stale-restart-2",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+
+    expect(secondSession.verificationId).not.toBe(firstSession.verificationId);
+    expect(secondSession.providerReferenceId).toBe("inq_456");
+    expect(verifications).toHaveLength(2);
+    expect(verifications[0]?.status).toBe("in_progress");
+    expect(verifications[0]?.attemptNumber).toBe(2);
+    expect(verifications[1]?.status).toBe("retry_needed");
+    expect(evidence[0]?.status).toBe("in_progress");
+    expect(personaMocks.createPersonaInquiry).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the configured public origin for Persona redirect return URLs", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://localhost:8080",
+      correlationId: "career-id-session-origin",
+    });
+
+    const launchUrl = new URL(session.launchUrl);
+    const redirectUri = launchUrl.searchParams.get("redirect-uri");
+
+    expect(redirectUri).toBeTruthy();
+    expect(redirectUri).toContain("https://www.careera2a.com/agent-build");
+    expect(redirectUri).toContain("careerIdVerificationId=");
   });
 
   it("keeps government ID verification unlocked before earlier trust phases are complete", async () => {
@@ -648,6 +800,137 @@ describe("career-id Persona service", () => {
         status: "verified",
       },
     ]);
+  });
+
+  it("resets government ID verification state back to not started for the signed-in identity", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-reset-start",
+    });
+
+    personaMocks.retrievePersonaInquiry.mockResolvedValue({
+      id: "inq_123",
+      attributes: {
+        status: "approved",
+        "completed-at": "2026-04-10T12:00:00.000Z",
+      },
+      included: [],
+    });
+
+    const rawBody = JSON.stringify({
+      data: {
+        id: "evt_reset_approved_1",
+        attributes: {
+          "created-at": "2026-04-10T12:00:01.000Z",
+          name: "inquiry.approved",
+          payload: {
+            data: {
+              id: session.providerReferenceId,
+              attributes: {
+                status: "approved",
+              },
+            },
+          },
+        },
+      },
+    });
+
+    await handlePersonaWebhook({
+      rawBody,
+      signatureHeader: signWebhookBody(rawBody),
+      correlationId: "career-id-reset-webhook",
+    });
+
+    const resetResult = await resetGovernmentIdVerificationState({
+      viewer,
+      correlationId: "career-id-reset",
+    });
+
+    expect(resetResult.reset).toBe(true);
+    expect(resetResult.deletedEvidence).toBeGreaterThan(0);
+    expect(resetResult.deletedVerifications).toBeGreaterThan(0);
+    expect(resetResult.deletedAuditEvents).toBeGreaterThanOrEqual(0);
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-reset-lookup",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const auditEvents = await listCareerIdAuditEvents({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const presentation = await getCareerIdPresentation({
+      careerIdentityId: identity!.talentIdentity.id,
+      correlationId: "career-id-reset-presentation",
+      phaseProgress: [
+        {
+          phase: "self",
+          label: "Self-reported",
+          completed: 0,
+          started: 0,
+          total: 5,
+          isComplete: false,
+          isCurrent: true,
+          summary: "Self current",
+        },
+        {
+          phase: "relationship",
+          label: "Relationship-backed",
+          completed: 0,
+          started: 0,
+          total: 3,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Relationship locked",
+        },
+        {
+          phase: "document",
+          label: "Document-backed",
+          completed: 0,
+          started: 0,
+          total: 7,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Document available",
+        },
+        {
+          phase: "signature",
+          label: "Signature-backed",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Signature locked",
+        },
+        {
+          phase: "institution",
+          label: "Institution-verified",
+          completed: 0,
+          started: 0,
+          total: 4,
+          isComplete: false,
+          isCurrent: false,
+          summary: "Institution locked",
+        },
+      ],
+    });
+
+    expect(verifications).toHaveLength(0);
+    expect(evidence).toHaveLength(0);
+    expect(auditEvents).toHaveLength(0);
+    expect(presentation.documentVerification.status).toBe("not_started");
+    expect(presentation.careerIdProfile.badges).toEqual([]);
   });
 
   it("allows starting a new Persona verification after a completed verification", async () => {

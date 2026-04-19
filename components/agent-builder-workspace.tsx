@@ -3,6 +3,8 @@
 import {
   AlertCircle,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Check,
   CheckCircle2,
   LoaderCircle,
@@ -29,7 +31,6 @@ import {
   defaultUploadAccept,
   driversLicenseImageSlots,
   phaseMeta,
-  phaseSequence,
   type BuilderEvidenceTemplate,
 } from "@/packages/career-builder-domain/src/config";
 import type {
@@ -137,6 +138,14 @@ type ModalDraftState = {
 type FieldErrors = Record<string, Record<string, string>>;
 type GovernmentVerificationModalStep = "intro" | "consent" | "processing" | "result";
 
+type GovernmentVerificationRequestError = Error & {
+  errorCode?: string | null;
+  statusCode?: number;
+};
+
+const GOVERNMENT_VERIFICATION_POLL_INTERVAL_MS = 4000;
+const GOVERNMENT_VERIFICATION_MAX_AUTO_POLLS = 20;
+
 const profileFieldConfig = [
   {
     field: "legalName",
@@ -190,12 +199,12 @@ const sectionMeta: Record<
     title: "Employment evidence",
   },
   education: {
-    copy: "Academic proof, certifications, and licenses that strengthen the credibility layer behind the Career ID.",
-    title: "Education & certifications",
+    copy: "Academic proof that strengthens the credibility layer behind the Career ID.",
+    title: "Education evidence",
   },
   network: {
-    copy: "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
-    title: "Referrals and endorsements",
+    copy: "Relationship signals that show how trusted people validate your outcomes.",
+    title: "Endorsements",
   },
 };
 
@@ -525,8 +534,9 @@ function getDocumentHeroIcon(status: CareerIdVerificationStatus) {
     case "locked":
       return <LockKeyhole aria-hidden="true" size={18} strokeWidth={2.1} />;
     case "in_progress":
-    case "manual_review":
       return <LoaderCircle aria-hidden="true" className={styles.spinningIcon} size={18} strokeWidth={2.1} />;
+    case "manual_review":
+      return <AlertCircle aria-hidden="true" size={18} strokeWidth={2.1} />;
     case "retry_needed":
     case "failed":
       return <AlertCircle aria-hidden="true" size={18} strokeWidth={2.1} />;
@@ -834,6 +844,8 @@ export function AgentBuilderWorkspace({
     useState<GovernmentVerificationModalStep>("intro");
   const [governmentConsentChecked, setGovernmentConsentChecked] = useState(false);
   const [governmentError, setGovernmentError] = useState<string | null>(null);
+  const [governmentInlineError, setGovernmentInlineError] = useState<string | null>(null);
+  const [isResettingGovernmentVerification, setIsResettingGovernmentVerification] = useState(false);
   const [isGovernmentActionPending, setIsGovernmentActionPending] = useState(false);
   const [governmentVerificationId, setGovernmentVerificationId] = useState<string | null>(
     initialSnapshot.documentVerification.verificationId,
@@ -841,6 +853,7 @@ export function AgentBuilderWorkspace({
   const modalRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const handledReturnRef = useRef(false);
+  const governmentPollAttemptsRef = useRef(0);
   const initialDraftSignatureRef = useRef("");
   const titleId = useId();
   const governmentTitleId = useId();
@@ -856,6 +869,12 @@ export function AgentBuilderWorkspace({
   useEffect(() => {
     setGovernmentVerificationId(snapshot.documentVerification.verificationId);
   }, [snapshot.documentVerification.verificationId]);
+
+  useEffect(() => {
+    if (governmentModalStep !== "processing" || !governmentVerificationId) {
+      governmentPollAttemptsRef.current = 0;
+    }
+  }, [governmentModalStep, governmentVerificationId]);
 
   useEffect(() => {
     if (!activePhase && !isGovernmentModalOpen) {
@@ -918,6 +937,10 @@ export function AgentBuilderWorkspace({
     () => snapshot.phaseProgress.find((phase) => phase.phase === activePhase) ?? null,
     [activePhase, snapshot.phaseProgress],
   );
+  const visiblePhaseProgress = useMemo(
+    () => snapshot.phaseProgress.filter((phase) => phase.phase !== "institution"),
+    [snapshot.phaseProgress],
+  );
   const careerIdPhaseMap = useMemo(
     () =>
       new Map(
@@ -927,6 +950,17 @@ export function AgentBuilderWorkspace({
   );
   const documentVerification = snapshot.documentVerification;
   const documentVerificationStatus = documentVerification.status;
+  const isGovernmentBadgeVerified =
+    documentVerificationStatus === "verified" && Boolean(documentVerification.artifactLabel);
+
+  // Evidence rows that earned a credential card on the Career ID page.
+  // Mirrors Stefano's government-badge pattern — only VERIFIED and PARTIAL
+  // render. VERIFIED → "Issued" (blue). PARTIAL → "Evidence" (amber).
+  const offerLetterCredentials = snapshot.evidence.filter(
+    (record) =>
+      record.templateId === "offer-letters" &&
+      (record.verificationStatus === "VERIFIED" || record.verificationStatus === "PARTIAL"),
+  );
   const documentHeroToneClassName =
     documentVerificationStatus === "verified"
       ? styles.documentHeroCardVerified
@@ -1007,26 +1041,62 @@ export function AgentBuilderWorkspace({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      throw new Error(payload?.message ?? "Refreshing verification status failed.");
+      const error = new Error(
+        payload?.message ?? "Refreshing verification status failed.",
+      ) as GovernmentVerificationRequestError;
+      error.statusCode = response.status;
+      error.errorCode = typeof payload?.error_code === "string" ? payload.error_code : null;
+      throw error;
     }
 
     setGovernmentVerificationId(payload.verificationId ?? verificationId);
     const nextSnapshot = await refreshSnapshot();
-    const nextStatus = payload?.status as CareerIdVerificationStatus | undefined;
-
-    if (nextStatus && nextStatus !== "in_progress" && nextStatus !== "manual_review") {
-      setGovernmentModalStep("result");
-    } else {
-      setGovernmentModalStep("processing");
-    }
+    const payloadStatus = payload?.status as CareerIdVerificationStatus | undefined;
+    const nextStatus = (payloadStatus ??
+      nextSnapshot.documentVerification.status) as CareerIdVerificationStatus;
+    setGovernmentModalStep(nextStatus === "in_progress" ? "processing" : "result");
 
     return {
       nextSnapshot,
-      status: (nextStatus ?? nextSnapshot.documentVerification.status) as CareerIdVerificationStatus,
+      status: nextStatus,
     };
   });
 
+  const handleGovernmentVerificationRefreshError = useEffectEvent(async (error: unknown) => {
+    const fallbackMessage = "Refreshing verification status failed.";
+    const message = error instanceof Error ? error.message : fallbackMessage;
+    const statusCode =
+      typeof (error as GovernmentVerificationRequestError | null | undefined)?.statusCode === "number"
+        ? (error as GovernmentVerificationRequestError).statusCode
+        : null;
+    const errorCode =
+      typeof (error as GovernmentVerificationRequestError | null | undefined)?.errorCode === "string"
+        ? (error as GovernmentVerificationRequestError).errorCode
+        : null;
+
+    if (statusCode === 404 || errorCode === "NOT_FOUND") {
+      setGovernmentVerificationId(null);
+      setGovernmentModalStep("intro");
+      setGovernmentError(
+        "This verification session is no longer active. Start a new verification.",
+      );
+
+      try {
+        await refreshSnapshot();
+      } catch {
+        // Keep the current snapshot if the refresh fails.
+      }
+      return;
+    }
+
+    setGovernmentError(message);
+  });
+
   function openPhase(phase: CareerPhase) {
+    if (phase === "institution") {
+      return;
+    }
+
     const nextDraft = buildPhaseDraft(snapshot, phase);
     setActivePhase(phase);
     setDraft(nextDraft);
@@ -1070,15 +1140,18 @@ export function AgentBuilderWorkspace({
       return;
     }
 
+    setGovernmentInlineError(null);
     setGovernmentError(null);
     setGovernmentConsentChecked(false);
     setIsGovernmentModalOpen(true);
 
-    if (
-      documentVerificationStatus === "in_progress" ||
-      documentVerificationStatus === "manual_review"
-    ) {
+    if (documentVerificationStatus === "in_progress") {
       setGovernmentModalStep("processing");
+      return;
+    }
+
+    if (documentVerificationStatus === "manual_review") {
+      setGovernmentModalStep("result");
       return;
     }
 
@@ -1104,6 +1177,7 @@ export function AgentBuilderWorkspace({
   }
 
   async function launchGovernmentVerificationFlow() {
+    setGovernmentInlineError(null);
     setGovernmentError(null);
     setIsGovernmentActionPending(true);
 
@@ -1142,6 +1216,52 @@ export function AgentBuilderWorkspace({
     }
   }
 
+  async function resetGovernmentVerificationState() {
+    if (isResettingGovernmentVerification) {
+      return;
+    }
+
+    const shouldReset =
+      typeof window === "undefined"
+        ? false
+        : window.confirm(
+            "Reset government ID verification for this account and start over from scratch?",
+          );
+
+    if (!shouldReset) {
+      return;
+    }
+
+    setGovernmentInlineError(null);
+    setGovernmentError(null);
+    setIsResettingGovernmentVerification(true);
+
+    try {
+      const response = await fetch("/api/v1/career-id/verifications/government-id/session", {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Resetting identity verification failed.");
+      }
+
+      setGovernmentVerificationId(null);
+      setGovernmentModalStep("intro");
+      setGovernmentConsentChecked(false);
+      setIsGovernmentModalOpen(false);
+      await refreshSnapshot();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Resetting identity verification failed.";
+      setGovernmentInlineError(message);
+      setGovernmentError(message);
+    } finally {
+      setIsResettingGovernmentVerification(false);
+    }
+  }
+
   useEffect(() => {
     if (handledReturnRef.current || typeof window === "undefined") {
       return;
@@ -1161,13 +1281,11 @@ export function AgentBuilderWorkspace({
     setGovernmentError(null);
 
     void refreshGovernmentVerification(returnedVerificationId).catch((error) => {
-      setGovernmentError(
-        error instanceof Error ? error.message : "Refreshing verification status failed.",
-      );
+      void handleGovernmentVerificationRefreshError(error);
     });
 
     window.history.replaceState({}, "", window.location.pathname);
-  }, [refreshGovernmentVerification]);
+  }, [handleGovernmentVerificationRefreshError, refreshGovernmentVerification]);
 
   useEffect(() => {
     if (
@@ -1178,13 +1296,20 @@ export function AgentBuilderWorkspace({
       return;
     }
 
+    if (governmentPollAttemptsRef.current >= GOVERNMENT_VERIFICATION_MAX_AUTO_POLLS) {
+      setGovernmentModalStep("result");
+      setGovernmentError(
+        "Verification is taking longer than expected. Use Refresh status to check again.",
+      );
+      return;
+    }
+
     const timer = window.setTimeout(() => {
+      governmentPollAttemptsRef.current += 1;
       void refreshGovernmentVerification(governmentVerificationId).catch((error) => {
-        setGovernmentError(
-          error instanceof Error ? error.message : "Refreshing verification status failed.",
-        );
+        void handleGovernmentVerificationRefreshError(error);
       });
-    }, 4000);
+    }, GOVERNMENT_VERIFICATION_POLL_INTERVAL_MS);
 
     return () => {
       window.clearTimeout(timer);
@@ -1192,6 +1317,7 @@ export function AgentBuilderWorkspace({
   }, [
     governmentModalStep,
     governmentVerificationId,
+    handleGovernmentVerificationRefreshError,
     isGovernmentModalOpen,
     refreshGovernmentVerification,
   ]);
@@ -1600,38 +1726,6 @@ export function AgentBuilderWorkspace({
                         {activeTemplates.length > 1 ? (
                           <section className={styles.templateNavigator}>
                             <div className={styles.templateNavigatorControls}>
-                              <div
-                                aria-label="Trust phase steps"
-                                className={styles.templatePillRow}
-                                role="tablist"
-                              >
-                                {activeTemplates.map((template, index) => {
-                                  const isActiveTemplate = template.id === activeTemplate.id;
-
-                                  return (
-                                    <button
-                                      aria-label={`Step ${index + 1}: ${template.title}`}
-                                      aria-selected={isActiveTemplate}
-                                      className={`${styles.templatePillButton} ${
-                                        isActiveTemplate ? styles.templatePillButtonActive : ""
-                                      }`}
-                                      key={template.id}
-                                      onClick={() => {
-                                        selectTemplate(template.id);
-                                      }}
-                                      role="tab"
-                                      type="button"
-                                    >
-                                      <span className={styles.templatePillIndex}>{index + 1}</span>
-                                      <span className={styles.templatePillLabelGroup}>
-                                        <strong>{template.title}</strong>
-                                        <span>{sectionMeta[template.section].title}</span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
                               <div className={styles.templateNavButtons}>
                                 <button
                                   className={styles.templateNavButton}
@@ -1641,7 +1735,8 @@ export function AgentBuilderWorkspace({
                                   }}
                                   type="button"
                                 >
-                                  Previous
+                                  <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.4} />
+                                  <span>Previous</span>
                                 </button>
 
                                 <button
@@ -1652,9 +1747,41 @@ export function AgentBuilderWorkspace({
                                   }}
                                   type="button"
                                 >
-                                  Next
+                                  <span>Next</span>
+                                  <ChevronRight aria-hidden="true" size={16} strokeWidth={2.4} />
                                 </button>
                               </div>
+                            </div>
+
+                            <div
+                              aria-label="Trust phase steps"
+                              className={styles.templatePillRow}
+                              role="tablist"
+                            >
+                              {activeTemplates.map((template, index) => {
+                                const isActiveTemplate = template.id === activeTemplate.id;
+
+                                return (
+                                  <button
+                                    aria-label={`Step ${index + 1}: ${template.title}`}
+                                    aria-selected={isActiveTemplate}
+                                    className={`${styles.templatePillButton} ${
+                                      isActiveTemplate ? styles.templatePillButtonActive : ""
+                                    }`}
+                                    key={template.id}
+                                    onClick={() => {
+                                      selectTemplate(template.id);
+                                    }}
+                                    role="tab"
+                                    type="button"
+                                  >
+                                    <span className={styles.templatePillIndex}>{index + 1}</span>
+                                    <span className={styles.templatePillLabel}>
+                                      <strong>{template.title}</strong>
+                                    </span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </section>
                         ) : null}
@@ -1766,6 +1893,8 @@ export function AgentBuilderWorkspace({
                           ? "Verifying your identity"
                           : documentVerificationStatus === "verified"
                             ? "Identity verified"
+                            : documentVerificationStatus === "in_progress"
+                              ? "Verification in progress"
                             : documentVerificationStatus === "manual_review"
                               ? "Verification under review"
                               : documentVerificationStatus === "retry_needed"
@@ -1781,6 +1910,8 @@ export function AgentBuilderWorkspace({
                           ? "We're reviewing your ID and comparing it with your live selfie."
                           : documentVerificationStatus === "verified"
                             ? "Your Career ID now includes a verified government ID artifact."
+                            : documentVerificationStatus === "in_progress"
+                              ? "Verification is still processing. You can refresh status to check for completion."
                             : documentVerificationStatus === "manual_review"
                               ? "Your submission is being reviewed. We'll update your Career ID when it's complete."
                               : documentVerificationStatus === "retry_needed"
@@ -1982,11 +2113,30 @@ export function AgentBuilderWorkspace({
 
                         void refreshGovernmentVerification(governmentVerificationId).catch(
                           (error) => {
-                            setGovernmentError(
-                              error instanceof Error
-                                ? error.message
-                                : "Refreshing verification status failed.",
-                            );
+                            void handleGovernmentVerificationRefreshError(error);
+                          },
+                        );
+                      }}
+                      type="button"
+                    >
+                      Refresh status
+                    </button>
+                  ) : null}
+
+                  {governmentModalStep === "result" &&
+                  (documentVerificationStatus === "manual_review" ||
+                    documentVerificationStatus === "in_progress") ? (
+                    <button
+                      className={styles.primaryAction}
+                      disabled={isGovernmentActionPending || !governmentVerificationId}
+                      onClick={() => {
+                        if (!governmentVerificationId) {
+                          return;
+                        }
+
+                        void refreshGovernmentVerification(governmentVerificationId).catch(
+                          (error) => {
+                            void handleGovernmentVerificationRefreshError(error);
                           },
                         );
                       }}
@@ -2024,40 +2174,110 @@ export function AgentBuilderWorkspace({
             <div className={styles.heroCopy}>
               <div className={styles.heroIntro}>
                 <h1 className={styles.heroTitle}>Career ID Badges</h1>
-                {snapshot.careerIdProfile.badges.length > 0 ? (
-                  <div
-                    aria-label="Earned verification badges"
-                    className={styles.earnedBadgesRow}
-                    role="list"
-                  >
-                    {snapshot.careerIdProfile.badges.map((badge) => {
-                      // Tiered tint: the PARTIAL offer-letter badge is labeled
-                      // "Signed offer letter on file" and should read as amber
-                      // (evidence, not fully verified). Everything else renders
-                      // as the default verified-green.
-                      const isPartial = badge.label.startsWith("Signed ");
-                      const chipClassName = isPartial
-                        ? `${styles.earnedBadgeChip} ${styles.earnedBadgeChipPartial}`
-                        : styles.earnedBadgeChip;
-                      return (
-                        <span
-                          aria-label={`${badge.label} badge`}
-                          className={chipClassName}
-                          key={badge.id}
-                          role="listitem"
-                        >
-                          <ShieldCheck aria-hidden="true" size={14} strokeWidth={2.4} />
-                          <span>{badge.label}</span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className={styles.earnedBadgesEmpty}>
-                    Complete trust actions below to earn verification badges.
-                  </p>
-                )}
               </div>
+
+              {isGovernmentBadgeVerified ? (
+                <section className={styles.identityBadgeCanvas}>
+                  <div className={`${styles.identityBadgeCard} ${styles.identityBadgeCardVerified}`}>
+                    <div className={styles.identityBadgeHeader}>
+                      <span className={styles.identityBadgeProgram}>Career ID Credential</span>
+                      <span className={styles.identityBadgeStatus}>Issued</span>
+                    </div>
+
+                    <div className={styles.identityBadgeBody}>
+                      <span className={styles.identityBadgeIcon}>
+                        <ShieldCheck aria-hidden="true" size={22} strokeWidth={2.1} />
+                      </span>
+
+                      <div className={styles.identityBadgeCopy}>
+                        <strong>{documentVerification.artifactLabel}</strong>
+                        <p>Verified by Persona and ready as trusted Career ID proof.</p>
+                      </div>
+                    </div>
+
+                    <dl className={styles.identityBadgeMeta}>
+                      <div>
+                        <dt>Issuer</dt>
+                        <dd>Career AI Trust</dd>
+                      </div>
+                      <div>
+                        <dt>Evidence</dt>
+                        <dd>Persona government ID + selfie</dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  <button
+                    className={styles.identityBadgeResetButton}
+                    disabled={isResettingGovernmentVerification}
+                    onClick={() => {
+                      void resetGovernmentVerificationState();
+                    }}
+                    type="button"
+                  >
+                    {isResettingGovernmentVerification ? "Resetting..." : "Reset verification state"}
+                  </button>
+
+                  {governmentInlineError ? (
+                    <p className={styles.identityBadgeInlineError}>
+                      <AlertCircle aria-hidden="true" size={14} strokeWidth={2} />
+                      <span>{governmentInlineError}</span>
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {offerLetterCredentials.map((record) => {
+                const isPartial = record.verificationStatus === "PARTIAL";
+                const title = isPartial
+                  ? "Signed offer letter on file"
+                  : "Offer letter verified";
+                const description = isPartial
+                  ? "Structurally signed via DocuSign, but sender domain couldn't be cross-checked against the claimed employer."
+                  : "Signed offer letter cross-checked against the claimed employer via DocuSign Certificate of Completion domain match.";
+                const statusLabel = isPartial ? "Evidence" : "Issued";
+                const evidenceDetail = [record.sourceOrIssuer, record.role]
+                  .filter(Boolean)
+                  .join(" • ") || "Offer letter";
+                return (
+                  <section key={record.id} className={styles.identityBadgeCanvas}>
+                    <div
+                      className={`${styles.identityBadgeCard} ${
+                        isPartial
+                          ? styles.identityBadgeCardPartial
+                          : styles.identityBadgeCardVerified
+                      }`}
+                    >
+                      <div className={styles.identityBadgeHeader}>
+                        <span className={styles.identityBadgeProgram}>Career ID Credential</span>
+                        <span className={styles.identityBadgeStatus}>{statusLabel}</span>
+                      </div>
+
+                      <div className={styles.identityBadgeBody}>
+                        <span className={styles.identityBadgeIcon}>
+                          <ShieldCheck aria-hidden="true" size={22} strokeWidth={2.1} />
+                        </span>
+
+                        <div className={styles.identityBadgeCopy}>
+                          <strong>{title}</strong>
+                          <p>{description}</p>
+                        </div>
+                      </div>
+
+                      <dl className={styles.identityBadgeMeta}>
+                        <div>
+                          <dt>Issuer</dt>
+                          <dd>Career AI Trust</dd>
+                        </div>
+                        <div>
+                          <dt>Evidence</dt>
+                          <dd>{evidenceDetail}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </section>
+                );
+              })}
             </div>
 
             <aside className={styles.progressRail}>
@@ -2084,38 +2304,24 @@ export function AgentBuilderWorkspace({
                   </div>
                 </div>
 
-                {documentVerification.ctaLabel ? (
-                  <button
-                    className={styles.documentHeroCta}
-                    onClick={openGovernmentVerificationModal}
-                    type="button"
-                  >
-                    <span>{documentVerification.ctaLabel}</span>
-                    <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
-                  </button>
-                ) : null}
-
-                {documentVerification.artifactLabel ? (
-                  <div className={styles.documentArtifactCard}>
-                    <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                    <div>
-                      <strong>{documentVerification.artifactLabel}</strong>
-                      <span>Verified by Persona</span>
-                    </div>
+                {documentVerification.ctaLabel || documentVerification.artifactLabel ? (
+                  <div className={styles.documentHeroActions}>
+                    {documentVerification.ctaLabel ? (
+                      <button
+                        className={styles.documentHeroCta}
+                        onClick={openGovernmentVerificationModal}
+                        type="button"
+                      >
+                        <span>{documentVerification.ctaLabel}</span>
+                        <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.1} />
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </section>
 
-              <div className={styles.progressRailHeader}>
-                <h2>Credible Career ID creation status</h2>
-                <p className={styles.progressRailCopy}>
-                  Each trust phase lights up as the profile moves from self-reported context
-                  into stronger verification. Click any phase to edit its intake workflow.
-                </p>
-              </div>
-
               <div className={styles.pipelineSteps}>
-                {snapshot.phaseProgress.map((phase, index) => (
+                {visiblePhaseProgress.map((phase, index) => (
                   (() => {
                     const trustPhase = careerIdPhaseMap.get(phaseToTrustLayer(phase.phase));
                     const isDocumentPhase = phase.phase === "document";
@@ -2168,7 +2374,7 @@ export function AgentBuilderWorkspace({
                                 <span aria-hidden="true" className={styles.pipelineMarkerCore} />
                               )}
                             </span>
-                            {index < snapshot.phaseProgress.length - 1 ? (
+                            {index < visiblePhaseProgress.length - 1 ? (
                               <span
                                 aria-hidden="true"
                                 className={`${styles.pipelineConnector} ${
@@ -2191,20 +2397,16 @@ export function AgentBuilderWorkspace({
 
                         {isDocumentPhase ? (
                           <div className={styles.pipelineActionRow}>
-                            <div className={styles.pipelineActionMeta}>
-                              <span className={styles.statusTag}>
-                                {getDocumentStatusTagLabel(documentVerificationStatus)}
-                              </span>
-                            </div>
+                            {documentVerificationStatus !== "verified" ? (
+                              <div className={styles.pipelineActionMeta}>
+                                <span className={styles.statusTag}>
+                                  {getDocumentStatusTagLabel(documentVerificationStatus)}
+                                </span>
+                              </div>
+                            ) : null}
 
                             {documentVerification.artifactLabel ? (
-                              <div className={styles.documentArtifactCard}>
-                                <ShieldCheck aria-hidden="true" size={18} strokeWidth={2} />
-                                <div>
-                                  <strong>{documentVerification.artifactLabel}</strong>
-                                  <span>Verified by Persona</span>
-                                </div>
-                              </div>
+                              <span className={styles.pipelineVerifiedCopy}>Verified by Persona</span>
                             ) : null}
                           </div>
                         ) : null}

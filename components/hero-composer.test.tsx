@@ -1295,9 +1295,11 @@ describe("HeroComposer", () => {
     ) as [string | URL | Request, RequestInit?] | undefined;
     const requestBody = JSON.parse(String(chatRequest?.[1]?.body ?? "{}")) as {
       message?: string;
+      starterActionId?: string;
     };
 
     expect(requestBody.message).toBe("How can I get hired faster?");
+    expect(requestBody.starterActionId).toBe("job_seeker_hired_faster");
   });
 
   it("does not show the jobs side panel for non-job prompts", async () => {

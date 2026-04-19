@@ -13,24 +13,12 @@ export const careerPhaseValues = [
 ] as const;
 
 export const careerEvidenceTemplateIds = [
-  "idme-verification",
   "drivers-license",
-  "signature-backed-documents",
   "offer-letters",
   "employment-history-reports",
-  "promotion-letters",
-  "company-letters",
-  "hr-official-letters",
   "diplomas-degrees",
   "transcripts",
-  "professional-certifications",
-  "professional-licenses",
-  "institution-verification-letters",
-  "certification-registry-verifications",
-  "referrals",
   "endorsements",
-  "past-colleague-letters",
-  "hiring-manager-letters",
 ] as const;
 
 export const careerEvidenceStatusValues = [

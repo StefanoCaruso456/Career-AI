@@ -69,6 +69,7 @@ async function handleChatPost(request: Request) {
           message_length: parsedPayload.message.length,
           persona: parsedPayload.persona,
           project_id: parsedPayload.projectId,
+          starter_action_id: parsedPayload.starterActionId ?? null,
         }),
         tags: ["stage:parse"],
         type: "function",
@@ -105,7 +106,10 @@ async function handleChatPost(request: Request) {
     }));
     const requiresFreshExternalInfo =
       payload.persona !== "employer" && requiresCurrentExternalSearch(payload.message);
+    const hasStarterActionOverride =
+      payload.persona !== "employer" && Boolean(payload.starterActionId);
     const shouldUseJobSeekerAgent =
+      !hasStarterActionOverride &&
       payload.persona !== "employer" &&
       (isJobIntent(payload.message) || requiresFreshExternalInfo);
     let assistantReply: string;
@@ -130,6 +134,7 @@ async function handleChatPost(request: Request) {
         {
           agentContext,
           conversationMessages,
+          starterActionId: payload.starterActionId,
         },
       );
     } else if (payload.persona !== "employer") {
@@ -177,6 +182,7 @@ async function handleChatPost(request: Request) {
             {
               agentContext,
               conversationMessages,
+              starterActionId: payload.starterActionId,
             },
           );
         }

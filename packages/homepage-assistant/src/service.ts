@@ -37,6 +37,7 @@ export type HomepageAssistantRuntimeMode = "bounded_loop" | "single_round";
 export type HomepageAssistantReplyResult = {
   source:
     | "matched_reply"
+    | "starter_tool_reply"
     | "missing_openai_api_key_fallback"
     | "openai_bounded_loop"
     | "openai_empty_fallback"
@@ -55,11 +56,30 @@ type HomepageAssistantReplyOptions = {
   instructions?: string;
   loopConfig?: Partial<AgentOrchestrationConfig>;
   runtimeMode?: HomepageAssistantRuntimeMode;
+  starterActionId?: string | null;
   toolRegistry?: AgentToolRegistry | null;
   workflowId?: string;
 };
 
 type HomepageOpenAIInput = ResponseInput | string;
+
+const deterministicStarterActionIds = [
+  "job_seeker_hired_faster",
+  "job_seeker_secure_identity",
+  "job_seeker_agent_explainer",
+  "job_seeker_resume_builder_difference",
+] as const;
+
+type DeterministicStarterActionId = (typeof deterministicStarterActionIds)[number];
+
+type CareerSummarySnapshot = {
+  credibilityLabel: string | null;
+  evidenceCount: number | null;
+  profileCompletionPercent: number | null;
+  recruiterVisibility: string | null;
+  searchable: boolean | null;
+  targetRole: string | null;
+};
 
 export class OpenAIConfigError extends Error {
   constructor(message: string) {
@@ -224,6 +244,255 @@ function getEffectiveToolRegistry(
   toolRegistry?: AgentToolRegistry | null,
 ) {
   return toolRegistry ?? homepageAssistantToolRegistry;
+}
+
+function normalizeStarterActionId(value: string | null | undefined) {
+  const normalized = value?.trim().toLowerCase();
+
+  return normalized ? normalized : null;
+}
+
+function asDeterministicStarterActionId(
+  value: string | null | undefined,
+): DeterministicStarterActionId | null {
+  const normalized = normalizeStarterActionId(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  return deterministicStarterActionIds.find((candidate) => candidate === normalized) ?? null;
+}
+
+function isKnownToolErrorOutput(
+  value: unknown,
+): value is {
+  error: { code: string; message: string };
+  ok: false;
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "ok" in value &&
+    value.ok === false &&
+    "error" in value &&
+    typeof value.error === "object" &&
+    value.error !== null &&
+    "code" in value.error &&
+    typeof value.error.code === "string" &&
+    "message" in value.error &&
+    typeof value.error.message === "string"
+  );
+}
+
+function readCareerSummarySnapshot(value: unknown): CareerSummarySnapshot | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const record = value as {
+    found?: unknown;
+    summary?: unknown;
+  };
+
+  if (record.found !== true || typeof record.summary !== "object" || record.summary === null) {
+    return null;
+  }
+
+  const summary = record.summary as Record<string, unknown>;
+
+  return {
+    credibilityLabel:
+      typeof summary.credibilityLabel === "string" ? summary.credibilityLabel : null,
+    evidenceCount:
+      typeof summary.evidenceCount === "number" ? Math.round(summary.evidenceCount) : null,
+    profileCompletionPercent:
+      typeof summary.profileCompletionPercent === "number"
+        ? Math.round(summary.profileCompletionPercent)
+        : null,
+    recruiterVisibility:
+      typeof summary.recruiterVisibility === "string" ? summary.recruiterVisibility : null,
+    searchable: typeof summary.searchable === "boolean" ? summary.searchable : null,
+    targetRole: typeof summary.targetRole === "string" ? summary.targetRole : null,
+  };
+}
+
+function buildOverviewBulletsSummaryReply(args: {
+  bullets: string[];
+  overview: string;
+  summary: string;
+}) {
+  return [
+    `Overview: ${args.overview}`,
+    "",
+    ...args.bullets.map((bullet) => `- ${bullet}`),
+    "",
+    `Summary: ${args.summary}`,
+  ].join("\n");
+}
+
+function buildCareerSnapshotBullet(args: {
+  snapshot: CareerSummarySnapshot | null;
+  toolErrorMessage: string | null;
+}) {
+  if (args.snapshot) {
+    const completion =
+      args.snapshot.profileCompletionPercent !== null
+        ? `${args.snapshot.profileCompletionPercent}% profile completion`
+        : "profile completion not yet measured";
+    const evidence =
+      args.snapshot.evidenceCount !== null
+        ? `${args.snapshot.evidenceCount} completed evidence records`
+        : "evidence count not yet available";
+    const role =
+      args.snapshot.targetRole !== null
+        ? `target role set to ${args.snapshot.targetRole}`
+        : "target role not set yet";
+
+    return `Current Career ID signal: ${completion}, ${evidence}, and ${role}.`;
+  }
+
+  if (args.toolErrorMessage) {
+    return `I attempted to load your Career ID snapshot, but it was unavailable in this request (${args.toolErrorMessage}).`;
+  }
+
+  return "I could not find a complete Career ID snapshot in this request, so this guidance stays platform-level.";
+}
+
+function buildVisibilityBullet(snapshot: CareerSummarySnapshot | null) {
+  if (!snapshot) {
+    return "Keep sharing explicit and permission-based so recruiters only see what you intend to expose.";
+  }
+
+  if (snapshot.recruiterVisibility) {
+    return `Recruiter visibility is currently set to ${snapshot.recruiterVisibility}, which controls how broadly your profile can be discovered.`;
+  }
+
+  if (snapshot.searchable === false) {
+    return "Your profile is currently not searchable, so discovery may be limited until visibility settings are updated.";
+  }
+
+  return "Use visibility controls deliberately so your profile is discoverable where you want it and private where you do not.";
+}
+
+function buildDeterministicStarterReply(args: {
+  snapshot: CareerSummarySnapshot | null;
+  starterActionId: DeterministicStarterActionId;
+  toolErrorMessage: string | null;
+}) {
+  const careerSnapshotBullet = buildCareerSnapshotBullet({
+    snapshot: args.snapshot,
+    toolErrorMessage: args.toolErrorMessage,
+  });
+
+  if (args.starterActionId === "job_seeker_hired_faster") {
+    return buildOverviewBulletsSummaryReply({
+      overview:
+        "You can get hired faster by combining a stronger Career ID trust signal with targeted applications, so recruiters can evaluate you with less back-and-forth.",
+      bullets: [
+        careerSnapshotBullet,
+        "Prioritize proof for identity, recent work history, and role-relevant outcomes before broad outreach.",
+        "Use Find NEW Jobs for live role discovery; this starter response is focused on profile readiness, not job retrieval.",
+      ],
+      summary:
+        "Fastest path: strengthen your highest-impact proof first, then apply to targeted openings with a clearer trust profile.",
+    });
+  }
+
+  if (args.starterActionId === "job_seeker_secure_identity") {
+    return buildOverviewBulletsSummaryReply({
+      overview:
+        "Career AI is a secure career identity platform because it is designed around permission-based sharing and evidence-backed profile context instead of disconnected documents.",
+      bullets: [
+        careerSnapshotBullet,
+        buildVisibilityBullet(args.snapshot),
+        "Security here is operational: sharing boundaries, verification context, and provenance stay attached to what is shown.",
+      ],
+      summary:
+        "Security in this workflow comes from explicit sharing control plus attached verification context, not from document upload alone.",
+    });
+  }
+
+  if (args.starterActionId === "job_seeker_agent_explainer") {
+    return buildOverviewBulletsSummaryReply({
+      overview:
+        "The agent turns your Career ID into recruiter-readable guidance by using tools to ground responses in profile and platform data rather than guessing.",
+      bullets: [
+        careerSnapshotBullet,
+        "It explains verification context clearly so hiring teams can distinguish backed signals from incomplete claims.",
+        "It can support workflows such as profile guidance and job discovery, while keeping each action path explicit.",
+      ],
+      summary:
+        "The agent's job is to make your career signal legible, grounded, and actionable for hiring workflows.",
+    });
+  }
+
+  return buildOverviewBulletsSummaryReply({
+    overview:
+      "A resume builder formats your story, while Career AI is designed to connect that story to persistent identity and evidence-backed trust context.",
+    bullets: [
+      careerSnapshotBullet,
+      "Resumes are presentation artifacts; Career ID is an evolving trust surface with explicit verification context.",
+      buildVisibilityBullet(args.snapshot),
+    ],
+    summary:
+      "Use a resume to present your narrative and Career ID to support that narrative with durable, permissioned proof context.",
+  });
+}
+
+async function runDeterministicStarterActionReply(args: {
+  agentContext?: AgentContext | null;
+  starterActionId?: string | null;
+  toolRegistry?: AgentToolRegistry | null;
+}) {
+  const starterActionId = asDeterministicStarterActionId(args.starterActionId);
+
+  if (!starterActionId) {
+    return null;
+  }
+
+  let snapshot: CareerSummarySnapshot | null = null;
+  let toolCallsUsed = 0;
+  let toolErrorMessage: string | null = null;
+
+  if (args.agentContext) {
+    toolCallsUsed = 1;
+
+    try {
+      const toolOutput = await executeHomepageTool({
+        agentContext: args.agentContext,
+        registry: getEffectiveToolRegistry(args.toolRegistry),
+        toolCall: {
+          arguments: JSON.stringify({ lookup: null }),
+          callId: null,
+          name: "get_career_id_summary",
+          sideEffect: "read",
+        },
+      });
+
+      if (isKnownToolErrorOutput(toolOutput)) {
+        toolErrorMessage = toolOutput.error.message;
+      } else {
+        snapshot = readCareerSummarySnapshot(toolOutput);
+      }
+    } catch (error) {
+      toolErrorMessage = error instanceof Error ? error.message : "tool execution failed";
+    }
+  } else {
+    toolErrorMessage = "missing session context";
+  }
+
+  return {
+    source: "starter_tool_reply" as const,
+    stepsUsed: 1,
+    stopReason: "completed" as const,
+    text: buildDeterministicStarterReply({
+      snapshot,
+      starterActionId,
+      toolErrorMessage,
+    }),
+    toolCallsUsed,
+  };
 }
 
 function buildToolDefinitions(
@@ -696,6 +965,16 @@ export async function generateHomepageAssistantReplyDetailed(
       type: "task",
     },
     async (): Promise<HomepageAssistantReplyResult> => {
+      const starterActionReply = await runDeterministicStarterActionReply({
+        agentContext: options?.agentContext,
+        starterActionId: options?.starterActionId,
+        toolRegistry: options?.toolRegistry,
+      });
+
+      if (starterActionReply) {
+        return starterActionReply;
+      }
+
       const matchedReply = getMatchedHomepageReply(message, attachments);
 
       if (matchedReply) {

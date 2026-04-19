@@ -27,8 +27,9 @@ describe("TrustExplainerSection", () => {
   it("renders the shared trust copy and job seeker CTA", () => {
     render(<TrustExplainerSection content={landingContentByPersona.job_seeker.trustExplainer} />);
 
+    expect(screen.getByText("A2A protocol for hiring")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "How secure Career ID works" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Career AI to Career AI")).toBeInTheDocument();
+    expect(screen.getByAltText("Career AI logo")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Job seekers build verified credibility over time. Hiring agents can request trusted information securely through agent-to-agent communication.",
@@ -56,9 +57,9 @@ describe("TrustExplainerSection", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByAltText(
+      screen.queryByAltText(
         "Illustration of secure agent-to-agent communication around verified Career ID trust.",
       ),
-    ).toHaveAttribute("src", "/career-id-a2a-trust.png");
+    ).not.toBeInTheDocument();
   });
 });

@@ -140,12 +140,12 @@ describe("career builder service", () => {
     });
   });
 
-  it("saves education and certification evidence in the new builder section", async () => {
+  it("saves education and transcript evidence in the builder section", async () => {
     const diplomaFile = new File(["diploma"], "mba-diploma.pdf", {
       type: "application/pdf",
     });
 
-    const certificationFile = new File(["cert"], "pmp-certificate.pdf", {
+    const transcriptFile = new File(["transcript"], "mba-transcript.pdf", {
       type: "application/pdf",
     });
 
@@ -163,18 +163,18 @@ describe("career builder service", () => {
             retainedArtifactIds: [],
           },
           {
-            templateId: "professional-certifications",
-            sourceOrIssuer: "Project Management Institute",
+            templateId: "transcripts",
+            sourceOrIssuer: "Northwestern University Registrar",
             issuedOn: "2025-02-01",
-            validationContext: "Verifies active PMP certification.",
-            whyItMatters: "Shows verified credentialing for program delivery leadership.",
+            validationContext: "Verifies completed coursework and graduation records.",
+            whyItMatters: "Adds institution-backed academic detail to the Career ID.",
             retainedArtifactIds: [],
           },
         ],
       },
       uploadsByTemplateId: {
         "diplomas-degrees": [{ file: diplomaFile }],
-        "professional-certifications": [{ file: certificationFile }],
+        transcripts: [{ file: transcriptFile }],
       },
       correlationId: "corr-6",
     });
@@ -183,8 +183,7 @@ describe("career builder service", () => {
       saved.evidence.find((record) => record.templateId === "diplomas-degrees")?.files[0]?.name,
     ).toBe("mba-diploma.pdf");
     expect(
-      saved.evidence.find((record) => record.templateId === "professional-certifications")
-        ?.status,
+      saved.evidence.find((record) => record.templateId === "transcripts")?.status,
     ).toBe("COMPLETE");
     expect(saved.phaseProgress.find((phase) => phase.phase === "document")?.completed).toBe(2);
   });

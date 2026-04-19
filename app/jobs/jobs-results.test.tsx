@@ -1318,4 +1318,24 @@ describe("JobsResults", () => {
     expect(screen.getByText("Product Manager")).toBeInTheDocument();
     expect(screen.queryByText("Support Engineer")).not.toBeInTheDocument();
   });
+
+  it("switches to recruiter mode from the jobs counter row and returns to jobs", async () => {
+    const jobs = Array.from({ length: 24 }, (_, index) => createJob(index + 1));
+
+    render(<JobsResults initialTotalAvailableCount={12959} jobs={jobs} />);
+
+    expect(screen.getByRole("button", { name: "Find Recruiters" })).toBeInTheDocument();
+    expect(screen.getByText("12,959 jobs available")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Find Recruiters" }));
+
+    expect(await screen.findByRole("heading", { name: "Find Recruiters" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to Jobs" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Keyword")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Jobs" }));
+
+    expect(screen.getByLabelText("Keyword")).toBeInTheDocument();
+    expect(screen.getByText("Role 1")).toBeInTheDocument();
+  });
 });

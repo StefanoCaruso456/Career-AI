@@ -92,58 +92,236 @@
 .heroCopy {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   height: 100%;
   min-height: 100%;
-  gap: 0;
+  gap: 1.35rem;
 }
 
 .heroIntro {
   display: grid;
-  gap: 1.7rem;
+  gap: 1.2rem;
   max-width: 42rem;
 }
 
-/* Earned-badges row, rendered under the "Career ID Badges" H1 on the main */
-/* /agent-build page. Reads snapshot.careerIdProfile.badges. Chips are */
-/* tinted based on label: "verified" → green, "Signed ... on file" → amber. */
-.earnedBadgesRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  align-items: center;
-  margin-top: 1rem;
+.identityBadgeCanvas {
+  display: grid;
+  gap: 0.72rem;
+  width: min(100%, 34rem);
+  margin-top: clamp(0.5rem, 1.4vw, 1rem);
 }
 
-.earnedBadgeChip {
+.identityBadgeCard {
+  position: relative;
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.05rem 1.08rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.identityBadgeCard::before {
+  content: none;
+}
+
+.identityBadgeHeader,
+.identityBadgeBody,
+.identityBadgeMeta {
+  position: relative;
+  z-index: 1;
+}
+
+.identityBadgeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.identityBadgeProgram {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.85rem;
+  min-height: 1.55rem;
+  padding: 0.1rem 0.52rem;
   border-radius: 999px;
-  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(240, 246, 255, 0.74);
+  font-size: 0.66rem;
   font-weight: 700;
-  line-height: 1;
-  background:
-    linear-gradient(180deg, rgba(52, 211, 153, 0.2), rgba(16, 185, 129, 0.08)),
-    rgba(6, 78, 59, 0.45);
-  border: 1px solid rgba(52, 211, 153, 0.45);
-  color: rgba(167, 243, 208, 1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.earnedBadgeChipPartial {
+.identityBadgeStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.65rem;
+  padding: 0.12rem 0.56rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+    rgba(35, 39, 47, 0.92);
+  color: rgba(247, 252, 255, 0.82);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.identityBadgeCardVerified .identityBadgeStatus {
+  border-color: rgba(143, 198, 255, 0.4);
+  background:
+    linear-gradient(180deg, rgba(97, 166, 255, 0.24), rgba(97, 166, 255, 0.14)),
+    rgba(25, 43, 63, 0.86);
+  color: rgba(230, 246, 255, 0.95);
+}
+
+.identityBadgeBody {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.8rem;
+}
+
+.identityBadgeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02)),
+    rgba(26, 30, 38, 0.92);
+  color: rgba(240, 246, 255, 0.94);
+}
+
+.identityBadgeCardVerified .identityBadgeIcon {
+  border-color: rgba(136, 198, 255, 0.38);
+  background:
+    linear-gradient(180deg, rgba(108, 172, 255, 0.22), rgba(108, 172, 255, 0.08)),
+    rgba(20, 36, 53, 0.9);
+}
+
+.identityBadgeCopy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.identityBadgeCopy strong {
+  color: var(--builder-text);
+  font-size: 1.08rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.identityBadgeCopy p {
+  margin: 0;
+  color: rgba(219, 228, 243, 0.76);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.identityBadgeMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.identityBadgeMeta div {
+  display: grid;
+  gap: 0.08rem;
+  padding: 0.5rem 0.56rem;
+  border-radius: 0.76rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
+    rgba(30, 33, 42, 0.9);
+}
+
+.identityBadgeMeta dt {
+  color: rgba(202, 213, 234, 0.66);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.identityBadgeMeta dd {
+  margin: 0;
+  color: rgba(245, 250, 255, 0.92);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+}
+
+.identityBadgeResetButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 2.1rem;
+  padding: 0.46rem 0.84rem;
+  border-radius: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025)),
+    rgba(39, 39, 45, 0.94);
+  color: rgba(243, 247, 252, 0.9);
+  font-size: 0.79rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    border-color 170ms ease,
+    box-shadow 170ms ease;
+}
+
+.identityBadgeResetButton:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.17);
+  transform: translateY(-1px);
+}
+
+.identityBadgeResetButton:disabled {
+  cursor: wait;
+  opacity: 0.72;
+  transform: none;
+  box-shadow: none;
+}
+
+.identityBadgeInlineError {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: rgba(255, 184, 184, 0.95);
+  font-size: 0.79rem;
+  line-height: 1.45;
+}
+
+/* PARTIAL variant of the credential card — amber instead of blue. Used for */
+/* "Signed offer letter on file" (structurally DocuSigned but no CoC to */
+/* cross-check sender domain against the claimed employer). */
+.identityBadgeCardPartial .identityBadgeStatus {
+  border-color: rgba(251, 191, 36, 0.42);
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.22), rgba(251, 191, 36, 0.1)),
+    rgba(63, 36, 12, 0.86);
+  color: rgba(253, 230, 138, 0.95);
+}
+
+.identityBadgeCardPartial .identityBadgeIcon {
+  border-color: rgba(251, 191, 36, 0.38);
   background:
     linear-gradient(180deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.08)),
-    rgba(120, 53, 15, 0.45);
-  border-color: rgba(251, 191, 36, 0.45);
-  color: rgba(253, 230, 138, 1);
-}
-
-.earnedBadgesEmpty {
-  margin-top: 1rem;
-  font-size: 0.85rem;
-  color: rgba(219, 226, 243, 0.6);
-  max-width: 36rem;
+    rgba(53, 33, 11, 0.9);
+  color: rgba(253, 230, 138, 0.95);
 }
 
 .sectionEyebrow {
@@ -243,6 +421,7 @@
 .documentHeroBadgeRow,
 .documentHeroHeader,
 .documentHeroMeta,
+.documentHeroActions,
 .documentHeroCta,
 .documentHeroNote,
 .documentArtifactCard {
@@ -320,31 +499,54 @@
   gap: 0.55rem;
 }
 
+.documentHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
 .documentHeroCta {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   width: fit-content;
-  min-height: 2.8rem;
-  padding: 0.7rem 1rem;
-  border: 1px solid rgba(155, 145, 255, 0.4);
-  border-radius: 999px;
+  min-height: 2.5rem;
+  padding: 0.58rem 0.9rem;
+  border: 1px solid rgba(155, 145, 255, 0.36);
+  border-radius: 0.92rem;
   background: linear-gradient(135deg, rgba(98, 103, 255, 0.96), rgba(123, 103, 255, 0.96));
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.86rem;
   font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
   cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
   box-shadow:
-    0 16px 32px rgba(99, 91, 255, 0.24),
+    0 12px 24px rgba(99, 91, 255, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
+.documentHeroCta svg {
+  opacity: 0.95;
+}
+
 .documentHeroCta:hover {
+  border-color: rgba(176, 168, 255, 0.56);
   box-shadow:
-    0 20px 38px rgba(99, 91, 255, 0.32),
+    0 16px 30px rgba(99, 91, 255, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.16);
   transform: translateY(-1px);
+}
+
+.documentHeroCta:active {
+  transform: translateY(0);
 }
 
 .documentHeroNote {
@@ -408,6 +610,7 @@
 .fileChipRemove:focus-visible,
 .pipelinePrimaryCta:focus-visible,
 .documentHeroCta:focus-visible,
+.identityBadgeResetButton:focus-visible,
 .consentRow input:focus-visible {
   outline: 2px solid rgba(166, 161, 255, 0.92);
   outline-offset: 3px;
@@ -556,6 +759,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
+}
+
+.pipelineVerifiedCopy {
+  color: rgba(217, 227, 244, 0.7);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .supportChip,
@@ -745,53 +955,66 @@
 
 .templateNavigator {
   display: grid;
-  padding: var(--modal-space-6);
-  border-radius: 1.2rem;
+  gap: 0.6rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
   border: 1px solid var(--builder-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
-    rgba(26, 26, 31, 0.94);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(23, 23, 28, 0.94);
 }
 
 .templateNavigatorControls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--modal-space-6);
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .templatePillRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.1rem;
+}
+
+.templatePillRow::-webkit-scrollbar {
+  height: 6px;
+}
+
+.templatePillRow::-webkit-scrollbar-thumb {
+  background: rgba(148, 162, 247, 0.28);
+  border-radius: 999px;
 }
 
 .templatePillButton {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 3.15rem;
-  padding: 0.6rem 0.92rem;
-  border-radius: 1.05rem;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+  min-height: 2.3rem;
+  padding: 0.44rem 0.72rem;
+  border-radius: 0.82rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(39, 39, 45, 0.92);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    rgba(38, 38, 43, 0.92);
   color: var(--builder-text);
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
-    transform 180ms ease,
     background 180ms ease;
 }
 
 .templatePillButton:hover {
   border-color: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
 }
 
 .templatePillButton:focus-visible,
@@ -803,27 +1026,25 @@
 .templatePillButtonActive {
   border-color: rgba(159, 153, 255, 0.42);
   background:
-    linear-gradient(180deg, rgba(121, 110, 255, 0.18), rgba(115, 139, 255, 0.06)),
+    linear-gradient(180deg, rgba(121, 110, 255, 0.16), rgba(115, 139, 255, 0.05)),
     rgba(32, 32, 39, 0.96);
-  box-shadow:
-    0 0 0 4px rgba(133, 147, 255, 0.1),
-    0 14px 28px rgba(40, 46, 83, 0.18);
+  box-shadow: 0 0 0 3px rgba(133, 147, 255, 0.1);
 }
 
 .templatePillIndex {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 1.7rem;
-  width: 1.7rem;
-  height: 1.7rem;
+  flex: 0 0 1.36rem;
+  width: 1.36rem;
+  height: 1.36rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background:
     linear-gradient(180deg, rgba(54, 53, 58, 0.98), rgba(28, 29, 33, 0.98)),
     rgba(8, 11, 18, 0.82);
   color: rgba(244, 247, 252, 0.92);
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
@@ -831,20 +1052,23 @@
   border-color: rgba(166, 182, 255, 0.42);
 }
 
-.templatePillLabelGroup {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.templatePillLabelGroup strong {
-  font-size: 0.9rem;
+.templatePillLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
   line-height: 1.2;
+  letter-spacing: 0.01em;
 }
 
-.templatePillLabelGroup span {
+.templatePillLabel strong {
+  font-size: 0.83rem;
+  font-weight: 650;
+}
+
+.templatePillLabel span {
+  font-size: 0.74rem;
   color: var(--builder-muted);
-  font-size: 0.76rem;
-  line-height: 1.35;
+  opacity: 0.92;
 }
 
 .verificationHeroMeta {
@@ -973,7 +1197,7 @@
 .templateNavButtons {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.45rem;
   flex: 0 0 auto;
   margin-left: auto;
 }
@@ -982,16 +1206,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.45rem;
-  padding: 0.6rem 0.95rem;
-  border-radius: 999px;
+  gap: 0.32rem;
+  min-height: 2.1rem;
+  padding: 0.43rem 0.64rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--builder-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.014)),
     rgba(41, 41, 46, 0.94);
   color: rgba(244, 247, 252, 0.86);
   font: inherit;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 650;
   cursor: pointer;
   transition:
     border-color 180ms ease,
@@ -1552,8 +1778,7 @@
   }
 
   .evidenceCardHeader,
-  .sectionHeader,
-  .templateNavigatorControls {
+  .sectionHeader {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1586,12 +1811,8 @@
     grid-template-columns: 1fr;
   }
 
-  .templateNavButtons {
-    width: 100%;
-  }
-
-  .templateNavButton {
-    flex: 1;
+  .templateNavigatorControls {
+    align-items: flex-start;
   }
 }
 
@@ -1637,16 +1858,32 @@
     gap: 1.2rem;
   }
 
+  .identityBadgeCanvas {
+    width: 100%;
+  }
+
+  .identityBadgeMeta {
+    grid-template-columns: 1fr;
+  }
+
+  .identityBadgeResetButton {
+    width: 100%;
+  }
+
   .documentHeroCard {
     padding: 1rem;
     border-radius: 1.3rem;
+  }
+
+  .documentHeroActions {
+    width: 100%;
   }
 
   .documentHeroCta {
     width: 100%;
   }
 
-  .templatePillButton {
-    width: 100%;
+  .templateNavButtons {
+    margin-left: 0;
   }
 }

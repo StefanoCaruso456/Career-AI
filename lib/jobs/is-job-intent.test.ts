@@ -12,6 +12,10 @@ describe("isJobIntent", () => {
     expect(isJobIntent("open software roles in the USA")).toBe(true);
   });
 
+  it("treats follow-up role refinements as job intent", () => {
+    expect(isJobIntent("how about some data science roles")).toBe(true);
+  });
+
   it("does not over-classify general product questions as job search", () => {
     expect(isJobIntent("what does the agent actually do")).toBe(false);
     expect(isJobIntent("how does this help me get hired faster")).toBe(false);

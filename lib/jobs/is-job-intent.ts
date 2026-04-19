@@ -38,6 +38,8 @@ const jobSearchVerbs = [
 ] as const;
 
 const jobTitleTerms = [
+  "data",
+  "science",
   "software",
   "engineer",
   "engineers",

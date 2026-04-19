@@ -5,7 +5,7 @@ import type {
   CareerIdVerificationStatus,
   TrustLayer,
 } from "@/packages/contracts/src";
-import { getDatabasePool, queryOptional, queryRequired } from "./client";
+import { getDatabasePool, queryOptional, queryRequired, withDatabaseTransaction } from "./client";
 
 type GovernmentIdChecks = {
   documentAuthenticity: CareerIdCheckOutcome;
@@ -115,6 +115,12 @@ export type CareerIdAuditEventRecord = {
   payloadHash: string | null;
   metadata: Record<string, unknown>;
   createdAt: string;
+};
+
+export type CareerIdGovernmentVerificationResetResult = {
+  deletedAuditEvents: number;
+  deletedEvidence: number;
+  deletedVerifications: number;
 };
 
 type UpsertCareerIdVerificationArgs = Omit<CareerIdVerificationRecord, "createdAt" | "updatedAt"> & {
@@ -675,4 +681,59 @@ export async function listCareerIdAuditEvents(args: {
   );
 
   return result.rows.map(mapCareerIdAuditEventRow);
+}
+
+export async function resetCareerIdGovernmentVerificationState(args: {
+  careerIdentityId: string;
+}): Promise<CareerIdGovernmentVerificationResetResult> {
+  return withDatabaseTransaction(async (client) => {
+    const verificationIdResult = await client.query<{ id: string }>(
+      `
+        SELECT id
+        FROM career_id_verifications
+        WHERE career_identity_id = $1
+          AND type = 'government_id'
+      `,
+      [args.careerIdentityId],
+    );
+    const verificationIds = verificationIdResult.rows.map((row) => row.id);
+
+    let deletedAuditEvents = 0;
+
+    if (verificationIds.length > 0) {
+      const auditCountResult = await client.query<{ total: string }>(
+        `
+          SELECT COUNT(*)::text AS total
+          FROM career_id_audit_events
+          WHERE career_identity_id = $1
+            AND verification_id = ANY($2::text[])
+        `,
+        [args.careerIdentityId, verificationIds],
+      );
+      deletedAuditEvents = Number(auditCountResult.rows[0]?.total ?? "0");
+    }
+
+    const evidenceDeleteResult = await client.query(
+      `
+        DELETE FROM career_id_evidence
+        WHERE career_identity_id = $1
+          AND type = 'government_id'
+      `,
+      [args.careerIdentityId],
+    );
+    const verificationDeleteResult = await client.query(
+      `
+        DELETE FROM career_id_verifications
+        WHERE career_identity_id = $1
+          AND type = 'government_id'
+      `,
+      [args.careerIdentityId],
+    );
+
+    return {
+      deletedAuditEvents,
+      deletedEvidence: evidenceDeleteResult.rowCount ?? 0,
+      deletedVerifications: verificationDeleteResult.rowCount ?? 0,
+    };
+  });
 }

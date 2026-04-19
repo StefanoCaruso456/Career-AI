@@ -11,45 +11,23 @@ export function TrustExplainerSection({ content }: { content: TrustExplainerCont
         <div className={styles.panel}>
           <div className={styles.topGrid}>
             <div className={styles.copyColumn}>
+              <span className={styles.eyebrow}>A2A protocol for hiring</span>
               <h2 className={styles.headline}>{content.headline}</h2>
               <p className={styles.subheadline}>{content.subheadline}</p>
               <p className={styles.body}>{content.body}</p>
             </div>
 
             <div className={styles.visualColumn}>
-              <div className={styles.visualContextRow} aria-label="Career AI to Career AI">
-                <span className={styles.visualContextBrandBlock} aria-hidden="true">
-                  <Image
-                    alt=""
-                    className={styles.visualContextBrandLogo}
-                    height={392}
-                    sizes="(max-width: 760px) 8rem, 10rem"
-                    src="/career-ai-header-logo.png"
-                    width={684}
-                  />
-                </span>
-                <span className={styles.visualContextConnector}>2</span>
-                <span className={styles.visualContextBrandBlock} aria-hidden="true">
-                  <Image
-                    alt=""
-                    className={styles.visualContextBrandLogo}
-                    height={392}
-                    sizes="(max-width: 760px) 8rem, 10rem"
-                    src="/career-ai-header-logo.png"
-                    width={684}
-                  />
-                </span>
-              </div>
-
-              <div className={styles.visualFrame}>
+              <div className={styles.logoPanel}>
                 <Image
-                  alt="Illustration of secure agent-to-agent communication around verified Career ID trust."
-                  className={styles.visualImage}
-                  height={1024}
-                  sizes="(max-width: 920px) 100vw, 46vw"
-                  src="/career-id-a2a-trust.png"
-                  width={1536}
+                  alt="Career AI logo"
+                  className={styles.logoImage}
+                  height={392}
+                  sizes="(max-width: 760px) 11rem, 14rem"
+                  src="/career-ai-header-logo.png"
+                  width={684}
                 />
+                <p className={styles.logoCaption}>Recruiter Agent &lt;-&gt; Job Seeker Agent</p>
               </div>
             </div>
           </div>
