@@ -34,9 +34,9 @@ describe("HeaderCenterTab", () => {
 
     expect(
       screen.getAllByRole("link").map((link) => link.textContent),
-    ).toEqual(["Jobs", "Career ID", "Wallet"]);
+    ).toEqual(["Find Recruiters", "Career ID", "Wallet"]);
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
-    expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(screen.getByRole("link", { name: "Find Recruiters" })).toHaveAttribute("href", "/jobs");
     expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");
   });
 
@@ -89,7 +89,7 @@ describe("HeaderCenterTab", () => {
     render(<HeaderCenterTab />);
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
-    expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(screen.getByRole("link", { name: "Find Recruiters" })).toHaveAttribute("href", "/jobs");
     expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");
     expect(screen.queryByRole("link", { name: "Candidates" })).not.toBeInTheDocument();
   });
@@ -100,7 +100,7 @@ describe("HeaderCenterTab", () => {
     render(<HeaderCenterTab />);
 
     expect(screen.getByRole("link", { name: "Career ID" })).toHaveAttribute("href", "/agent-build");
-    expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(screen.getByRole("link", { name: "Find Recruiters" })).toHaveAttribute("href", "/jobs");
     expect(screen.getByRole("link", { name: "Wallet" })).toHaveAttribute("href", "/wallet");
     expect(screen.queryByRole("link", { name: "Candidates" })).not.toBeInTheDocument();
   });

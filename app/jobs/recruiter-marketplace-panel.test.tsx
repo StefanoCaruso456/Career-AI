@@ -102,7 +102,7 @@ describe("RecruiterMarketplacePanel", () => {
 
     render(<RecruiterMarketplacePanel />);
 
-    expect(await screen.findByText("Recruiter Marketplace")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Find Recruiters" })).toBeInTheDocument();
     expect(await screen.findByText("Avery Patel")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Request recruiter access" })).toBeInTheDocument();
   });
