@@ -174,10 +174,13 @@ const CLAIM_TEMPLATE_CONFIGS: ClaimTemplateConfig[] = [
     templateId: "employment-history-reports",
     kind: "employment-verification",
     buildClaim: ({ evidence, session }) => {
-      if (!evidence.sourceOrIssuer || !evidence.role) return null;
+      // Role is optional for employment-verification — HR letters, W-2s,
+      // and pay stubs often don't echo the role, and the UI form doesn't
+      // require it. Employer is the only hard requirement.
+      if (!evidence.sourceOrIssuer) return null;
       return {
         employer: evidence.sourceOrIssuer,
-        role: evidence.role,
+        role: evidence.role || undefined,
         startDate: evidence.issuedOn || undefined,
         userAccountName: session.user?.name ?? undefined,
       };
