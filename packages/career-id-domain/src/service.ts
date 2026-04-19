@@ -105,6 +105,7 @@ const GOVERNMENT_ID_RECOVERY_HINTS = [
   "Make sure your document is sharp and readable.",
   "Keep your full face visible during the live selfie.",
 ];
+const DEFAULT_GOVERNMENT_ID_IN_PROGRESS_STALE_TIMEOUT_MS = 10 * 60 * 1000;
 
 const trustLayerTitleByPhase: Record<TrustLayer, string> = {
   self_reported: "Self-reported",
@@ -238,6 +239,33 @@ function defaultChecks(): GovernmentIdChecks {
 
 function isRetryableStatus(status: CareerIdVerificationStatus) {
   return status === "retry_needed" || status === "failed";
+}
+
+function getGovernmentIdInProgressStaleTimeoutMs() {
+  const configured = Number(
+    process.env.CAREER_ID_GOVERNMENT_ID_IN_PROGRESS_STALE_TIMEOUT_MS ??
+      `${DEFAULT_GOVERNMENT_ID_IN_PROGRESS_STALE_TIMEOUT_MS}`,
+  );
+
+  if (!Number.isFinite(configured) || configured <= 0) {
+    return DEFAULT_GOVERNMENT_ID_IN_PROGRESS_STALE_TIMEOUT_MS;
+  }
+
+  return configured;
+}
+
+function isGovernmentIdVerificationStale(verification: CareerIdVerificationRecord) {
+  if (verification.status !== "in_progress") {
+    return false;
+  }
+
+  const updatedAtMs = Date.parse(verification.updatedAt);
+
+  if (!Number.isFinite(updatedAtMs)) {
+    return false;
+  }
+
+  return Date.now() - updatedAtMs >= getGovernmentIdInProgressStaleTimeoutMs();
 }
 
 function getLatestGovernmentIdVerification(
@@ -858,6 +886,70 @@ async function upsertGovernmentIdEvidence(args: {
   });
 }
 
+async function autoResetStaleInProgressGovernmentVerification(args: {
+  correlationId: string;
+  evidence: CareerIdEvidenceRecord | null;
+  verification: CareerIdVerificationRecord | null;
+}) {
+  if (!args.verification || !isGovernmentIdVerificationStale(args.verification)) {
+    return {
+      evidence: args.evidence,
+      verification: args.verification,
+    };
+  }
+
+  const timedOutAt = new Date().toISOString();
+  const staleTimeoutMs = getGovernmentIdInProgressStaleTimeoutMs();
+  const updatedVerification = await upsertCareerIdVerification({
+    record: {
+      ...args.verification,
+      status: "retry_needed",
+      confidenceBand: "low",
+      manualReviewRequired: false,
+      completedAt: null,
+      updatedAt: timedOutAt,
+    },
+  });
+  const updatedEvidence = await upsertGovernmentIdEvidence({
+    careerIdentityId: args.verification.careerIdentityId,
+    existingEvidenceId: args.evidence?.id,
+    providerReferenceEncrypted: args.verification.providerReferenceEncrypted,
+    providerReferenceHash: args.verification.providerReferenceHash,
+    recoveryHints: [...GOVERNMENT_ID_RECOVERY_HINTS],
+    verificationId: args.verification.id,
+    result: {
+      status: "retry_needed",
+      checks: args.verification.checks,
+      confidenceBand: "low",
+      completedAt: null,
+      metadata: {
+        autoResetReason: "in_progress_timeout",
+        staleTimeoutMs,
+        timedOutAt,
+      },
+    },
+  });
+
+  logAuditEvent({
+    eventType: "verification_auto_reset",
+    actorType: "system_service",
+    actorId: "career_id_timeout_guard",
+    targetType: "career_id_verification",
+    targetId: args.verification.id,
+    correlationId: args.correlationId,
+    metadataJson: {
+      reason: "in_progress_timeout",
+      staleTimeoutMs,
+      previousStatus: args.verification.status,
+    },
+  });
+
+  return {
+    evidence: updatedEvidence,
+    verification: updatedVerification,
+  };
+}
+
 function ensureVerificationOwnership(
   verification: CareerIdVerificationRecord | null,
   careerIdentityId: string,
@@ -924,7 +1016,18 @@ export async function getCareerIdPresentation(args: {
     }
   }
 
-  const governmentEvidence = getGovernmentIdEvidence(evidenceRecords);
+  let governmentEvidence = getGovernmentIdEvidence(evidenceRecords);
+
+  if (latestVerification) {
+    const staleReset = await autoResetStaleInProgressGovernmentVerification({
+      verification: latestVerification,
+      evidence: governmentEvidence,
+      correlationId: args.correlationId,
+    });
+    latestVerification = staleReset.verification;
+    governmentEvidence = staleReset.evidence;
+  }
+
   const documentUnlocked = true;
   const documentStatus = computeDocumentVerificationStatus({
     evidence: governmentEvidence,
@@ -1031,8 +1134,18 @@ export async function createGovernmentIdVerificationSession(args: {
       careerIdentityId: identity.careerIdentityId,
     }),
   ]);
-  const existingEvidence = getGovernmentIdEvidence(existingEvidenceRecords);
-  const latestVerification = getLatestGovernmentIdVerification(existingVerifications);
+  let existingEvidence = getGovernmentIdEvidence(existingEvidenceRecords);
+  let latestVerification = getLatestGovernmentIdVerification(existingVerifications);
+
+  if (latestVerification) {
+    const staleReset = await autoResetStaleInProgressGovernmentVerification({
+      verification: latestVerification,
+      evidence: existingEvidence,
+      correlationId: args.correlationId,
+    });
+    latestVerification = staleReset.verification;
+    existingEvidence = staleReset.evidence;
+  }
 
   if (latestVerification?.status === "manual_review") {
     throw new ApiError({
@@ -1200,11 +1313,19 @@ export async function getGovernmentIdVerificationStatus(args: {
     }
   }
 
-  const evidence = getGovernmentIdEvidence(
+  let evidence = getGovernmentIdEvidence(
     await listCareerIdEvidence({
       careerIdentityId: identity.careerIdentityId,
     }),
   );
+
+  const staleReset = await autoResetStaleInProgressGovernmentVerification({
+    verification,
+    evidence,
+    correlationId: args.correlationId,
+  });
+  verification = staleReset.verification ?? verification;
+  evidence = staleReset.evidence;
 
   return toGovernmentIdVerificationResult(verification, evidence?.id ?? null);
 }

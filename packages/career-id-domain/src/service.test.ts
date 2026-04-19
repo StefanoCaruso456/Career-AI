@@ -7,6 +7,7 @@ import {
   listCareerIdAuditEvents,
   listCareerIdEvidence,
   listCareerIdVerifications,
+  upsertCareerIdVerification,
 } from "@/packages/persistence/src";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 import {
@@ -213,6 +214,123 @@ describe("career-id Persona service", () => {
     expect(verifications[0]?.status).toBe("in_progress");
     expect(evidence).toHaveLength(1);
     expect(evidence[0]?.status).toBe("in_progress");
+  });
+
+  it("auto-resets stale in-progress verification to retry-needed when checking status", async () => {
+    const session = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-stale-status-start",
+    });
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-stale-status-lookup",
+    });
+    const existingVerifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const staleVerification = existingVerifications[0]!;
+    const staleUpdatedAt = new Date(
+      Date.now() - 11 * 60 * 1000,
+    ).toISOString();
+
+    await upsertCareerIdVerification({
+      record: {
+        ...staleVerification,
+        createdAt: staleVerification.createdAt,
+        updatedAt: staleUpdatedAt,
+      },
+    });
+
+    const status = await getGovernmentIdVerificationStatus({
+      verificationId: session.verificationId,
+      viewer,
+      correlationId: "career-id-stale-status-read",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+
+    expect(status.status).toBe("retry_needed");
+    expect(verifications[0]?.status).toBe("retry_needed");
+    expect(evidence[0]?.status).toBe("retry_needed");
+  });
+
+  it("starts a fresh Persona session instead of resuming stale in-progress verification", async () => {
+    personaMocks.createPersonaInquiry
+      .mockResolvedValueOnce({
+        inquiryId: "inq_123",
+        expiresAt: "2026-04-17T12:00:00.000Z",
+        status: "pending",
+      })
+      .mockResolvedValueOnce({
+        inquiryId: "inq_456",
+        expiresAt: "2026-04-18T12:00:00.000Z",
+        status: "pending",
+      });
+
+    const firstSession = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-stale-restart-1",
+    });
+
+    const identity = await findTalentIdentityByEmail({
+      email: viewer.email,
+      correlationId: "career-id-stale-restart-lookup",
+    });
+    const existingVerifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const staleVerification = existingVerifications[0]!;
+    const staleUpdatedAt = new Date(
+      Date.now() - 11 * 60 * 1000,
+    ).toISOString();
+
+    await upsertCareerIdVerification({
+      record: {
+        ...staleVerification,
+        createdAt: staleVerification.createdAt,
+        updatedAt: staleUpdatedAt,
+      },
+    });
+
+    const secondSession = await createGovernmentIdVerificationSession({
+      viewer,
+      input: {
+        returnUrl: "/agent-build",
+        source: "career_id_page",
+      },
+      requestOrigin: "https://career-ai.example",
+      correlationId: "career-id-stale-restart-2",
+    });
+    const verifications = await listCareerIdVerifications({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+    const evidence = await listCareerIdEvidence({
+      careerIdentityId: identity!.talentIdentity.id,
+    });
+
+    expect(secondSession.verificationId).not.toBe(firstSession.verificationId);
+    expect(secondSession.providerReferenceId).toBe("inq_456");
+    expect(verifications).toHaveLength(2);
+    expect(verifications[0]?.status).toBe("in_progress");
+    expect(verifications[0]?.attemptNumber).toBe(2);
+    expect(verifications[1]?.status).toBe("retry_needed");
+    expect(evidence[0]?.status).toBe("in_progress");
+    expect(personaMocks.createPersonaInquiry).toHaveBeenCalledTimes(2);
   });
 
   it("uses the configured public origin for Persona redirect return URLs", async () => {
