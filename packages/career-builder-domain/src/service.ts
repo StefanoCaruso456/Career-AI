@@ -98,6 +98,24 @@ function createEmptyProfile(args: {
   };
 }
 
+/**
+ * Compound identity key for career_builder_evidence rows.
+ *
+ * The DB has UNIQUE(career_identity_id, template_id, source_or_issuer, role),
+ * so in-memory lookups that want to find "the existing row for this
+ * specific credential" must key by the same tuple. Keying by templateId
+ * alone (the pre-widening shape) caused incoming saves for a new
+ * (employer, role) to reuse an unrelated record's id during UPSERT and
+ * blow up on the primary-key constraint.
+ */
+function buildEvidenceIdentityKey(
+  templateId: string,
+  sourceOrIssuer: string,
+  role: string,
+): string {
+  return `${templateId}\u0000${sourceOrIssuer}\u0000${role}`;
+}
+
 function createEmptyEvidenceRecord(args: {
   talentIdentityId: string;
   soulRecordId: string;
@@ -589,8 +607,23 @@ export async function saveCareerBuilderPhase(args: {
     args.viewer,
     args.correlationId,
   );
-  const evidenceByTemplateId = new Map(
-    persistedEvidence.map((record) => [record.templateId, record] as const),
+  // Multiple evidence rows can exist per template (one per distinct
+  // (employer, role) credential). Look records up by the compound
+  // identity key — not by template alone — so an incoming save for a
+  // new (sourceOrIssuer, role) doesn't reuse an unrelated record's id
+  // and collide on the primary key during UPSERT.
+  const evidenceByIdentity = new Map(
+    persistedEvidence.map(
+      (record) =>
+        [
+          buildEvidenceIdentityKey(
+            record.templateId,
+            record.sourceOrIssuer,
+            record.role,
+          ),
+          record,
+        ] as const,
+    ),
   );
   const fieldErrors: Record<string, Record<string, string>> = {};
   const allowedTemplateIds = new Set(builderPhaseTemplateIds[args.phase]);
@@ -636,7 +669,13 @@ export async function saveCareerBuilderPhase(args: {
     )!;
     const currentRecord = normalizeEvidenceRecord(
       template,
-      evidenceByTemplateId.get(template.id) ??
+      evidenceByIdentity.get(
+        buildEvidenceIdentityKey(
+          template.id,
+          evidenceInput.sourceOrIssuer,
+          evidenceInput.role ?? "",
+        ),
+      ) ??
         createEmptyEvidenceRecord({
           talentIdentityId: aggregate.talentIdentity.id,
           soulRecordId: aggregate.soulRecord.id,
@@ -678,7 +717,13 @@ export async function saveCareerBuilderPhase(args: {
     )!;
     const currentRecord = normalizeEvidenceRecord(
       template,
-      evidenceByTemplateId.get(template.id) ??
+      evidenceByIdentity.get(
+        buildEvidenceIdentityKey(
+          template.id,
+          evidenceInput.sourceOrIssuer,
+          evidenceInput.role ?? "",
+        ),
+      ) ??
         createEmptyEvidenceRecord({
           talentIdentityId: aggregate.talentIdentity.id,
           soulRecordId: aggregate.soulRecord.id,
@@ -731,7 +776,14 @@ export async function saveCareerBuilderPhase(args: {
       record: nextRecord,
     });
 
-    evidenceByTemplateId.set(template.id, persisted);
+    evidenceByIdentity.set(
+      buildEvidenceIdentityKey(
+        persisted.templateId,
+        persisted.sourceOrIssuer,
+        persisted.role,
+      ),
+      persisted,
+    );
   }
 
   logAuditEvent({
