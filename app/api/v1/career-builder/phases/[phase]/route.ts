@@ -123,7 +123,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 async function maybeVerifyOfferLetters(args: {
   payload: unknown;
   uploadsByTemplateId: Record<string, { file: File; slot?: "front" | "back" }[]>;
-  session: { user?: { email?: string | null } | null };
+  session: { user?: { email?: string | null; name?: string | null } | null };
   correlationId: string;
 }): Promise<OfferLetterVerificationEntry[] | undefined> {
   const offerUploads = args.uploadsByTemplateId["offer-letters"];
@@ -143,6 +143,11 @@ async function maybeVerifyOfferLetters(args: {
     employer: evidence.sourceOrIssuer,
     role: evidence.role,
     startDate: evidence.issuedOn,
+    // Pass the uploader's account name so api-gateway's content extractor
+    // can confirm the offer letter is addressed to them ("is this your
+    // letter?"). If the session has no name we omit the field — the
+    // recipient check then gets skipped server-side rather than failing.
+    userAccountName: args.session.user?.name ?? undefined,
   };
 
   const actorDid = `did:web:career-ai#${args.session.user?.email ?? "anonymous"}`;

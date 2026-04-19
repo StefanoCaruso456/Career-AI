@@ -54,6 +54,20 @@ export function computeVerdict(
   if (tampering.detected) {
     return { verdict: "FAILED", confidenceTier: "SELF_REPORTED" };
   }
+  // Document type: if the content extractor determined this isn't an offer
+  // letter (it's a W-2, pay stub, performance review, employment verification,
+  // etc.), no signature or content match can rescue it — the document simply
+  // can't back an offer-letter claim.
+  if (content.mismatches?.includes("documentType")) {
+    return { verdict: "FAILED", confidenceTier: "SELF_REPORTED" };
+  }
+  // Recipient mismatch: the letter is addressed to someone other than the
+  // uploader. This is the "is this YOUR offer letter?" check. Even if the
+  // employer and dates match, a letter belonging to someone else cannot
+  // back the uploader's claim.
+  if (content.mismatches?.includes("recipient")) {
+    return { verdict: "FAILED", confidenceTier: "SELF_REPORTED" };
+  }
   if (content.mismatches?.includes("employer")) {
     return { verdict: "FAILED", confidenceTier: "SELF_REPORTED" };
   }

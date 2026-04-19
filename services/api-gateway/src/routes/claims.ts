@@ -19,6 +19,11 @@ const employmentClaimSchema = z.object({
   role: z.string().min(1).max(200),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  /**
+   * Uploader's account display name. Optional on the wire; when absent the
+   * recipient-match check is skipped by the content extractor.
+   */
+  userAccountName: z.string().min(1).max(200).optional(),
 });
 
 claimsRoutes.post("/employment", async (c) => {

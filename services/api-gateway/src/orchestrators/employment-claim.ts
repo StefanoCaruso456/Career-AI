@@ -103,6 +103,12 @@ export async function submitEmploymentClaim(
       employer: signals.content.employer !== null,
       role: signals.content.role !== null,
       dates: signals.content.startDate !== null,
+      // Present only when the uploader supplied userAccountName (otherwise
+      // the recipient check was skipped and we return undefined, not false).
+      recipient: claim.userAccountName
+        ? !signals.content.mismatches?.includes("recipient")
+        : undefined,
+      isOfferLetter: signals.content.isOfferLetter,
     },
     authenticitySource: signals.authenticity.source,
     verifiedAt: provenance.verifiedAt,
@@ -132,12 +138,21 @@ function deriveFailureReason(signals: {
     return "Tampering detected in the uploaded document.";
   }
 
+  if (signals.content.mismatches?.includes("documentType")) {
+    return "This document doesn't look like an offer letter. Offer letters extend a named job offer — W-2s, pay stubs, employment verification letters, and performance reviews don't qualify.";
+  }
+
+  if (signals.content.mismatches?.includes("recipient")) {
+    return "The letter is addressed to someone other than you. Upload the offer letter issued to your own account name.";
+  }
+
   if (signals.content.mismatches?.includes("employer")) {
     return "The claimed employer name was not found anywhere in the document.";
   }
 
-  // Fallback — FAILED without tampering and without employer mismatch means
-  // the verdict fell through to the "insufficient signals" branch.
+  // Fallback — FAILED without tampering, document-type, recipient, or
+  // employer mismatch means the verdict fell through to the "insufficient
+  // signals" branch.
   return "Not enough positive signals to verify the document. No trusted source signature and content did not fully match the claim.";
 }
 

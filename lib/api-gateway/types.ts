@@ -11,6 +11,13 @@ export interface EmploymentClaim {
   role: string;
   startDate: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
+  /**
+   * The uploader's account display name. Sent so api-gateway's LLM
+   * extractor can confirm the document is addressed to the logged-in user
+   * (vs. a letter belonging to someone else). Optional — omitted when the
+   * session has no name (the recipient check then gets skipped server-side).
+   */
+  userAccountName?: string;
 }
 
 export type Verdict = "VERIFIED" | "PARTIAL" | "FAILED";
@@ -30,12 +37,24 @@ export interface ClaimVerificationResult {
     employer: boolean;
     role: boolean;
     dates: boolean;
+    /**
+     * Present only when userAccountName was supplied. True when the offer
+     * letter's recipient matches the uploader's account name. Absent when
+     * the check was skipped (no uploader name sent).
+     */
+    recipient?: boolean;
+    /**
+     * True when the document is confidently identified as an offer letter
+     * specifically (not a W-2, pay stub, employment verification, etc.).
+     */
+    isOfferLetter: boolean;
   };
   authenticitySource: string;
   verifiedAt: string;
   /**
    * Present only on FAILED verdicts. One short sentence explaining the
-   * reason (tampering signal, employer mismatch, insufficient signals).
+   * reason (tampering, wrong document type, wrong recipient, employer
+   * mismatch, or insufficient signals).
    */
   failureReason?: string;
 }

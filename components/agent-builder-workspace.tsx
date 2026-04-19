@@ -69,11 +69,19 @@ function formatSaveMessage(
       };
     }
     const { status, displayStatus, matches } = outcome.result;
-    const matchSummary = [
+    const summaryParts = [
+      matches.isOfferLetter ? "offer letter ✓" : "offer letter ✗",
       matches.employer ? "employer ✓" : "employer ✗",
       matches.dates ? "dates ✓" : "dates ✗",
       matches.role ? "role ✓" : "role ✗",
-    ].join(" · ");
+    ];
+    // Recipient indicator is only shown when the check was actually run
+    // (uploader supplied a name). Skipping it entirely when undefined
+    // avoids a misleading ✓/✗ for a check we didn't perform.
+    if (typeof matches.recipient === "boolean") {
+      summaryParts.push(matches.recipient ? "recipient ✓" : "recipient ✗");
+    }
+    const matchSummary = summaryParts.join(" · ");
     if (status === "VERIFIED") {
       return { text: `Saved. ${displayStatus}. ${matchSummary}`, kind: "success" };
     }

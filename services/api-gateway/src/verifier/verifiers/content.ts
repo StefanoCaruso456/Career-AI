@@ -1,15 +1,20 @@
-import type { ContentExtractor, ContentMatchSignal, EmploymentClaim } from "../types.js";
-import { ClaudeContentExtractor } from "./content-claude.js";
+import {
+  namesMatchLoosely,
+  type ContentExtractor,
+  type ContentMatchSignal,
+  type EmploymentClaim,
+} from "../types.js";
+import { OpenAIContentExtractor } from "./content-openai.js";
 
 /**
  * Heuristic content extractor.
  *
- * Uses regex and substring matching to find the claimed employer, role, and
- * dates in the PDF text. Not LLM-powered — suitable for structured, typical
- * offer letters.
- *
- * Future: ClaudeContentExtractor that hits the Anthropic API. Same interface,
- * drop-in replacement.
+ * Uses regex and substring matching to find the claimed employer, role,
+ * dates, and recipient in the PDF text. Not LLM-powered — suitable as a
+ * fallback when CONTENT_EXTRACTOR is not set to "openai", or when the
+ * OpenAI extractor fails to call. Best effort on recipient extraction and
+ * offer-letter type detection — the LLM extractor is significantly more
+ * accurate on both.
  */
 export class HeuristicContentExtractor implements ContentExtractor {
   readonly name = "heuristic";
@@ -44,16 +49,66 @@ export class HeuristicContentExtractor implements ContentExtractor {
     const foundStart = startFound ? claim.startDate : null;
     const foundEnd = claim.endDate && endFound ? claim.endDate : null;
 
+    // Offer-letter type detection — heuristic. Look for phrases that are
+    // strong indicators of a job offer extension. Weak signal compared to
+    // the LLM extractor, but better than no check at all.
+    const isOfferLetter = OFFER_LETTER_MARKERS.some((marker) => lower.includes(marker));
+    if (!isOfferLetter) mismatches.push("documentType");
+
+    // Recipient extraction — "Dear <name>," salutation or a "To: <name>"
+    // header. Best-effort: if neither pattern matches, skip the check.
+    const recipient = extractRecipientName(normalized);
+    if (claim.userAccountName) {
+      const recipientMatches = namesMatchLoosely(recipient, claim.userAccountName);
+      // null → unknown → no mismatch recorded (don't penalize when we
+      // couldn't extract a recipient from the document text).
+      if (recipientMatches === false) mismatches.push("recipient");
+    }
+
     return {
       employer: foundEmployer,
       role: foundRole,
       startDate: foundStart,
       endDate: foundEnd,
+      recipient,
+      isOfferLetter,
       extractor: this.name,
       matchesClaim: mismatches.length === 0,
       mismatches: mismatches.length > 0 ? mismatches : undefined,
     };
   }
+}
+
+/**
+ * Phrases commonly found in offer letters but not in other employment docs.
+ * All lowercase for substring matching against the normalized text.
+ */
+const OFFER_LETTER_MARKERS = [
+  "offer of employment",
+  "offer you the position",
+  "pleased to offer",
+  "thrilled to offer",
+  "excited to offer",
+  "this offer letter",
+  "please sign and return",
+];
+
+/**
+ * Extracts the offer recipient's name from common salutation patterns.
+ * Returns null when neither pattern matches. Intentionally conservative —
+ * a false-negative here just skips the recipient check rather than
+ * triggering a wrong verdict.
+ */
+function extractRecipientName(text: string): string | null {
+  // "Dear Jordan Smith," / "Dear Jordan," — anchor on the comma/colon.
+  const dearMatch = text.match(/\bDear\s+([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})\s*[,:]/);
+  if (dearMatch) return dearMatch[1].trim();
+
+  // "To: Jordan Smith" — block-style address header.
+  const toMatch = text.match(/\bTo:\s+([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,3})\b/);
+  if (toMatch) return toMatch[1].trim();
+
+  return null;
 }
 
 function stripCompanySuffix(name: string): string {
@@ -105,9 +160,9 @@ export function buildContentExtractor(): ContentExtractor {
   switch (kind) {
     case "heuristic":
       return new HeuristicContentExtractor();
-    case "claude":
-      return new ClaudeContentExtractor();
+    case "openai":
+      return new OpenAIContentExtractor();
     default:
-      throw new Error(`Unknown CONTENT_EXTRACTOR: ${kind}`);
+      throw new Error(`Unknown CONTENT_EXTRACTOR: ${kind}. Supported: heuristic, openai.`);
   }
 }
