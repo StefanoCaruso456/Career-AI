@@ -75,6 +75,10 @@ export const careerArtifactReferenceSchema = z.object({
 export const careerEvidenceInputSchema = z.object({
   templateId: careerEvidenceTemplateIdSchema,
   sourceOrIssuer: shortText(180),
+  // Optional at the type level so non-employment templates (certifications,
+  // licenses, etc.) don't need it. Domain-layer validator enforces that
+  // offer-letter evidence must supply a non-empty role.
+  role: z.string().max(180).default(""),
   issuedOn: isoDateInputSchema,
   validationContext: longText(600),
   whyItMatters: longText(600),
@@ -93,6 +97,7 @@ export const careerEvidenceRecordSchema = z.object({
   templateId: careerEvidenceTemplateIdSchema,
   completionTier: careerPhaseSchema,
   sourceOrIssuer: z.string(),
+  role: z.string(),
   issuedOn: z.string(),
   validationContext: z.string(),
   whyItMatters: z.string(),

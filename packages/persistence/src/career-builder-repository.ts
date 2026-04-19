@@ -31,6 +31,7 @@ type CareerBuilderEvidenceRow = {
   template_id: string;
   completion_tier: CareerPhase;
   source_or_issuer: string;
+  role: string;
   issued_on: Date | string | null;
   validation_context: string;
   why_it_matters: string;
@@ -103,6 +104,7 @@ function mapEvidenceRow(
     templateId: row.template_id as CareerEvidenceRecord["templateId"],
     completionTier: row.completion_tier,
     sourceOrIssuer: row.source_or_issuer,
+    role: row.role,
     issuedOn: formatDateOnly(row.issued_on),
     validationContext: row.validation_context,
     whyItMatters: row.why_it_matters,
@@ -151,6 +153,7 @@ export async function listPersistentCareerBuilderEvidence(args: {
         template_id,
         completion_tier,
         source_or_issuer,
+        role,
         issued_on,
         validation_context,
         why_it_matters,
@@ -279,17 +282,19 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
           template_id,
           completion_tier,
           source_or_issuer,
+          role,
           issued_on,
           validation_context,
           why_it_matters,
           status,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
         ON CONFLICT (career_identity_id, template_id)
         DO UPDATE SET
           completion_tier = EXCLUDED.completion_tier,
           source_or_issuer = EXCLUDED.source_or_issuer,
+          role = EXCLUDED.role,
           issued_on = EXCLUDED.issued_on,
           validation_context = EXCLUDED.validation_context,
           why_it_matters = EXCLUDED.why_it_matters,
@@ -301,6 +306,7 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
           template_id,
           completion_tier,
           source_or_issuer,
+          role,
           issued_on,
           validation_context,
           why_it_matters,
@@ -314,6 +320,7 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
         args.record.templateId,
         args.record.completionTier,
         args.record.sourceOrIssuer,
+        args.record.role ?? "",
         args.record.issuedOn || null,
         args.record.validationContext,
         args.record.whyItMatters,

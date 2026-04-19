@@ -1491,6 +1491,7 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
         files: buildArtifactReferences(files),
         id: `demo_evidence_${slugify(blueprint.email)}_${evidence.templateId}`,
         issuedOn: evidence.issuedOn,
+        role: "",
         soulRecordId,
         sourceOrIssuer: evidence.employerName,
         status: "COMPLETE",

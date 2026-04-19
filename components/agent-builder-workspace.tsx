@@ -47,9 +47,9 @@ import styles from "./agent-builder-workspace.module.css";
 
 function formatSaveMessage(
   verifications: OfferLetterVerificationEntry[] | undefined,
-): string {
+): { text: string; kind: "success" | "error" } {
   if (!verifications || verifications.length === 0) {
-    return "Saved to your Career ID.";
+    return { text: "Saved to your Career ID.", kind: "success" };
   }
 
   // For the common case of a single offer letter, surface the verdict inline.
@@ -57,9 +57,15 @@ function formatSaveMessage(
     const { outcome, filename } = verifications[0];
     if (!outcome.ok) {
       if (outcome.reason === "UNCONFIGURED") {
-        return `Saved. Verification skipped — verifier not configured.`;
+        return {
+          text: "Saved. Verification skipped — verifier not configured.",
+          kind: "success",
+        };
       }
-      return `Saved. Verification unavailable (${outcome.reason.toLowerCase().replace(/_/g, " ")}).`;
+      return {
+        text: `Verification unavailable (${outcome.reason.toLowerCase().replace(/_/g, " ")}).`,
+        kind: "error",
+      };
     }
     const { status, displayStatus, matches } = outcome.result;
     const matchSummary = [
@@ -67,16 +73,34 @@ function formatSaveMessage(
       matches.dates ? "dates ✓" : "dates ✗",
       matches.role ? "role ✓" : "role ✗",
     ].join(" · ");
-    if (status === "VERIFIED") return `Saved. ${displayStatus}. ${matchSummary}`;
-    if (status === "PARTIAL") return `Saved. ${displayStatus}. ${matchSummary}`;
-    return `Saved. ${displayStatus}. ${matchSummary} (file: ${filename})`;
+    if (status === "VERIFIED") {
+      return { text: `Saved. ${displayStatus}. ${matchSummary}`, kind: "success" };
+    }
+    if (status === "PARTIAL") {
+      return { text: `Saved. ${displayStatus}. ${matchSummary}`, kind: "success" };
+    }
+    // FAILED — drop the "Saved." prefix so the user doesn't read this as a pass.
+    return {
+      text: `${displayStatus}. ${matchSummary} (file: ${filename})`,
+      kind: "error",
+    };
   }
 
-  // Multiple offer letters — summarize counts.
+  // Multiple offer letters — summarize counts. If any failed, render as error.
   const verifiedCount = verifications.filter(
     (v) => v.outcome.ok && v.outcome.result.status === "VERIFIED",
   ).length;
-  return `Saved. ${verifiedCount}/${verifications.length} offer letter(s) verified.`;
+  const failedCount = verifications.filter(
+    (v) => v.outcome.ok && v.outcome.result.status === "FAILED",
+  ).length;
+  const kind: "success" | "error" = failedCount > 0 ? "error" : "success";
+  const prefix = failedCount > 0 ? "" : "Saved. ";
+  return {
+    text: `${prefix}${verifiedCount}/${verifications.length} offer letter(s) verified${
+      failedCount > 0 ? `, ${failedCount} failed` : ""
+    }.`,
+    kind,
+  };
 }
 
 type AgentBuilderWorkspaceProps = {
@@ -93,6 +117,7 @@ type EvidenceDraftState = {
   files: DraftFile[];
   issuedOn: string;
   sourceOrIssuer: string;
+  role: string;
   templateId: CareerEvidenceTemplateId;
   validationContext: string;
   whyItMatters: string;
@@ -217,6 +242,7 @@ function createEvidenceDraft(record: CareerEvidenceRecord): EvidenceDraftState {
   return {
     templateId: record.templateId,
     sourceOrIssuer: record.sourceOrIssuer,
+    role: record.role ?? "",
     issuedOn: record.issuedOn,
     validationContext: record.validationContext,
     whyItMatters: record.whyItMatters,
@@ -348,6 +374,10 @@ function validatePhaseDraft(phase: CareerPhase, draft: ModalDraftState): FieldEr
 
     if (!isValidDate(draftValue.issuedOn)) {
       nextErrors.issuedOn = "Enter a valid date.";
+    }
+
+    if (templateId === "offer-letters" && draftValue.role.trim().length === 0) {
+      nextErrors.role = "Role is required for offer letters.";
     }
 
     if (isDriverLicenseTemplate(template)) {
@@ -617,6 +647,23 @@ function EvidenceCard({
                 ) : null}
               </label>
 
+              {template.id === "offer-letters" ? (
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Role</span>
+                  <input
+                    aria-invalid={Boolean(errors?.role)}
+                    className={styles.input}
+                    onChange={(event) => onChange(template.id, "role", event.target.value)}
+                    placeholder="e.g. Software Engineer"
+                    type="text"
+                    value={draft.role}
+                  />
+                  {errors?.role ? (
+                    <span className={styles.fieldError}>{errors.role}</span>
+                  ) : null}
+                </label>
+              ) : null}
+
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>Verified or issued on</span>
                 <input
@@ -729,7 +776,9 @@ export function AgentBuilderWorkspace({
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<
+    { text: string; kind: "success" | "error" } | null
+  >(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isGovernmentModalOpen, setIsGovernmentModalOpen] = useState(false);
   const [governmentModalStep, setGovernmentModalStep] =
@@ -1277,6 +1326,7 @@ export function AgentBuilderWorkspace({
           issuedOn: string;
           retainedArtifactIds: string[];
           sourceOrIssuer: string;
+          role: string;
           templateId: CareerEvidenceTemplateId;
           validationContext: string;
           whyItMatters: string;
@@ -1291,6 +1341,7 @@ export function AgentBuilderWorkspace({
               return {
                 templateId,
                 sourceOrIssuer: evidenceDraft.sourceOrIssuer,
+                role: evidenceDraft.role ?? "",
                 issuedOn: evidenceDraft.issuedOn,
                 validationContext: evidenceDraft.validationContext,
                 whyItMatters: evidenceDraft.whyItMatters,
@@ -1588,7 +1639,16 @@ export function AgentBuilderWorkspace({
                     </p>
                   ) : null}
 
-                  {saveMessage ? <p className={styles.successBanner}>{saveMessage}</p> : null}
+                  {saveMessage ? (
+                    saveMessage.kind === "error" ? (
+                      <p className={styles.errorBanner}>
+                        <AlertCircle aria-hidden="true" size={16} strokeWidth={2} />
+                        <span>{saveMessage.text}</span>
+                      </p>
+                    ) : (
+                      <p className={styles.successBanner}>{saveMessage.text}</p>
+                    )
+                  ) : null}
                 </div>
 
                 <div className={styles.modalActions}>

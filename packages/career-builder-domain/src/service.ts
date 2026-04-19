@@ -112,6 +112,7 @@ function createEmptyEvidenceRecord(args: {
     templateId: args.template.id,
     completionTier: args.template.completionTier,
     sourceOrIssuer: "",
+    role: "",
     issuedOn: "",
     validationContext: "",
     whyItMatters: "",
@@ -489,6 +490,13 @@ function validateEvidenceSubmission(args: {
     }
   }
 
+  // Role is a general-purpose optional field at the schema layer, but for
+  // offer-letters we enforce it at the domain layer — the api-gateway verifier
+  // needs a role to check against the PDF content.
+  if (args.template.id === "offer-letters" && (args.value.role ?? "").trim().length === 0) {
+    errors.role = "Role is required for offer letters.";
+  }
+
   return errors;
 }
 
@@ -639,6 +647,7 @@ export async function saveCareerBuilderPhase(args: {
     const nextRecord = normalizeEvidenceRecord(template, {
       ...currentRecord,
       sourceOrIssuer: evidenceInput.sourceOrIssuer,
+      role: evidenceInput.role ?? "",
       issuedOn: evidenceInput.issuedOn,
       validationContext: evidenceInput.validationContext,
       whyItMatters: evidenceInput.whyItMatters,

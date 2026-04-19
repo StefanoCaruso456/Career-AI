@@ -97,10 +97,9 @@ async function maybeVerifyOfferLetters(args: {
     return undefined;
   }
 
-  // Pull the claim fields from the submitted evidence input. The current form
-  // collects sourceOrIssuer + issuedOn; we map these to employer + startDate.
-  // role isn't captured by the form today, so we pass a placeholder and
-  // accept role-mismatch verdicts until the form grows that field.
+  // Pull the claim fields from the submitted evidence input. sourceOrIssuer
+  // maps to employer, issuedOn maps to startDate, role is captured by its own
+  // form input (required for offer-letters by the domain validator).
   const evidence = pickOfferLetterEvidence(args.payload);
   if (!evidence) {
     return undefined;
@@ -108,7 +107,7 @@ async function maybeVerifyOfferLetters(args: {
 
   const claim = {
     employer: evidence.sourceOrIssuer,
-    role: "(role not captured on form)",
+    role: evidence.role,
     startDate: evidence.issuedOn,
   };
 
@@ -135,7 +134,7 @@ async function maybeVerifyOfferLetters(args: {
 
 function pickOfferLetterEvidence(
   payload: unknown,
-): { sourceOrIssuer: string; issuedOn: string } | null {
+): { sourceOrIssuer: string; role: string; issuedOn: string } | null {
   if (!payload || typeof payload !== "object") return null;
   const evidenceList = (payload as { evidence?: unknown }).evidence;
   if (!Array.isArray(evidenceList)) return null;
@@ -144,9 +143,14 @@ function pickOfferLetterEvidence(
       item &&
       typeof item === "object" &&
       (item as { templateId?: unknown }).templateId === "offer-letters",
-  ) as { sourceOrIssuer?: unknown; issuedOn?: unknown } | undefined;
+  ) as { sourceOrIssuer?: unknown; role?: unknown; issuedOn?: unknown } | undefined;
   if (!entry) return null;
   if (typeof entry.sourceOrIssuer !== "string" || !entry.sourceOrIssuer.trim()) return null;
+  if (typeof entry.role !== "string" || !entry.role.trim()) return null;
   if (typeof entry.issuedOn !== "string" || !entry.issuedOn.trim()) return null;
-  return { sourceOrIssuer: entry.sourceOrIssuer, issuedOn: entry.issuedOn };
+  return {
+    sourceOrIssuer: entry.sourceOrIssuer,
+    role: entry.role,
+    issuedOn: entry.issuedOn,
+  };
 }
