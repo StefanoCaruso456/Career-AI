@@ -56,8 +56,9 @@ app.onError((err, c) => {
 });
 
 const port = Number(process.env.PORT ?? 8788);
-console.log(`[pdf-extractor] listening on http://localhost:${port}`);
+const hostname = "0.0.0.0";
+console.log(`[pdf-extractor] listening on http://${hostname}:${port}`);
 
-serve({ fetch: app.fetch, port });
+serve({ fetch: app.fetch, port, hostname });
 
 export default app;

@@ -117,10 +117,11 @@ app.onError((err, c) => {
 });
 
 const port = Number(process.env.PORT ?? 8787);
-console.log(`[document-verifier] listening on http://localhost:${port}`);
+const hostname = "0.0.0.0";
+console.log(`[document-verifier] listening on http://${hostname}:${port}`);
 console.log(`[document-verifier] content extractor: ${contentExtractor.name}`);
 console.log(`[document-verifier] pdf-extractor at ${process.env.PDF_EXTRACTOR_URL ?? "http://localhost:8788"}`);
 
-serve({ fetch: app.fetch, port });
+serve({ fetch: app.fetch, port, hostname });
 
 export default app;

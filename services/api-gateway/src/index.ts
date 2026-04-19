@@ -38,9 +38,10 @@ app.notFound((c) =>
 );
 
 const port = Number(process.env.PORT ?? 8080);
-console.log(`[api-gateway] listening on http://localhost:${port}`);
+const hostname = "0.0.0.0";
+console.log(`[api-gateway] listening on http://${hostname}:${port}`);
 console.log(`[api-gateway] document-verifier at ${process.env.DOCUMENT_VERIFIER_URL ?? "http://localhost:8787"}`);
 
-serve({ fetch: app.fetch, port });
+serve({ fetch: app.fetch, port, hostname });
 
 export default app;
