@@ -5,10 +5,15 @@ import {
   getCorrelationId,
   successResponse,
 } from "@/packages/audit-security/src";
-import { saveCareerBuilderPhase } from "@/packages/career-builder-domain/src";
+import {
+  getCareerBuilderWorkspace,
+  saveCareerBuilderPhase,
+} from "@/packages/career-builder-domain/src";
 import { ApiError, careerPhaseSchema } from "@/packages/contracts/src";
 import { verifyEmploymentClaim } from "@/lib/api-gateway/client";
 import type { OfferLetterVerificationEntry } from "@/lib/api-gateway/types";
+import { findTalentIdentityByEmail } from "@/packages/identity-domain/src";
+import { updateCareerBuilderEvidenceVerificationStatus } from "@/packages/persistence/src";
 
 type RouteContext = {
   params: Promise<{
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
-    const snapshot = await saveCareerBuilderPhase({
+    let snapshot = await saveCareerBuilderPhase({
       viewer: {
         email: session.user.email,
         name: session.user.name,
@@ -73,7 +78,25 @@ export async function POST(request: NextRequest, context: RouteContext) {
       payload,
       uploadsByTemplateId,
       session,
+      correlationId,
     });
+
+    // If verification actually persisted a verdict, rebuild the snapshot so
+    // the caller sees badges derived from the fresh verification_status
+    // column without needing a page reload. Cheap — just re-reads the
+    // current user's evidence rows.
+    const verifiedOnSave = offerLetterVerifications?.some(
+      (entry) => entry.outcome.ok && entry.outcome.result.status === "VERIFIED",
+    );
+    if (verifiedOnSave) {
+      snapshot = await getCareerBuilderWorkspace({
+        viewer: {
+          email: session.user.email,
+          name: session.user.name,
+        },
+        correlationId,
+      });
+    }
 
     return successResponse(
       {
@@ -91,6 +114,7 @@ async function maybeVerifyOfferLetters(args: {
   payload: unknown;
   uploadsByTemplateId: Record<string, { file: File; slot?: "front" | "back" }[]>;
   session: { user?: { email?: string | null } | null };
+  correlationId: string;
 }): Promise<OfferLetterVerificationEntry[] | undefined> {
   const offerUploads = args.uploadsByTemplateId["offer-letters"];
   if (!offerUploads || offerUploads.length === 0) {
@@ -127,6 +151,31 @@ async function maybeVerifyOfferLetters(args: {
       filename: upload.file.name,
       outcome,
     });
+  }
+
+  // Persist the most recent verdict on the offer-letter evidence record so
+  // the badge derivation (and any reload) can pick it up. Only write when we
+  // actually got a response from api-gateway — best-effort, so an error here
+  // doesn't fail the save.
+  const primary = results[0];
+  if (primary?.outcome.ok && args.session.user?.email) {
+    try {
+      const identity = await findTalentIdentityByEmail({
+        email: args.session.user.email,
+        correlationId: args.correlationId,
+      });
+      if (identity) {
+        await updateCareerBuilderEvidenceVerificationStatus({
+          careerIdentityId: identity.talentIdentity.id,
+          templateId: "offer-letters",
+          verificationStatus: primary.outcome.result.status,
+        });
+      }
+    } catch (err) {
+      console.warn(
+        `[career-builder-save] failed to persist verification_status: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   return results;

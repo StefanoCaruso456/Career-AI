@@ -118,6 +118,7 @@ function createEmptyEvidenceRecord(args: {
     whyItMatters: "",
     files: [],
     status: "NOT_STARTED",
+    verificationStatus: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -410,10 +411,27 @@ async function buildSnapshot(
       summary: getPhaseSummary(phase, tierStats[phase], isComplete, isCurrent),
     };
   });
+  // Derive any "verified offer letter" badges from career_builder_evidence's
+  // verification_status column. Mirrors Stefano's existing "Government ID
+  // verified" pattern — plain JSON badge, no crypto, no VC wrapping. Only
+  // fully VERIFIED rows qualify; PARTIAL / FAILED stay out of the badges list.
+  const extraBadges = evidence
+    .filter(
+      (record) =>
+        record.templateId === "offer-letters" && record.verificationStatus === "VERIFIED",
+    )
+    .map((record) => ({
+      id: `badge_offer_letter_${record.id}`,
+      label: "Offer letter verified",
+      phase: "document_backed" as const,
+      status: "verified" as const,
+    }));
+
   const careerIdPresentation = await getCareerIdPresentation({
     careerIdentityId: aggregate.talentIdentity.id,
     correlationId,
     phaseProgress,
+    extraBadges,
   });
 
   const nextUploads = nextUploadPriority

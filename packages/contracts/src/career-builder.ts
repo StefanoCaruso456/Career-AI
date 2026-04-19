@@ -90,6 +90,12 @@ export const careerBuilderPhaseSaveInputSchema = z.object({
   evidence: z.array(careerEvidenceInputSchema).default([]),
 });
 
+export const careerEvidenceVerificationStatusSchema = z.enum([
+  "VERIFIED",
+  "PARTIAL",
+  "FAILED",
+]);
+
 export const careerEvidenceRecordSchema = z.object({
   id: z.string(),
   talentIdentityId: z.string(),
@@ -103,6 +109,8 @@ export const careerEvidenceRecordSchema = z.object({
   whyItMatters: z.string(),
   files: z.array(careerArtifactReferenceSchema),
   status: careerEvidenceStatusSchema,
+  /** Populated by the post-save verifier for offer-letter evidence. */
+  verificationStatus: careerEvidenceVerificationStatusSchema.nullable().default(null),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

@@ -1495,6 +1495,7 @@ async function seedCandidate(blueprint: CandidateBlueprint, index: number) {
         soulRecordId,
         sourceOrIssuer: evidence.employerName,
         status: "COMPLETE",
+        verificationStatus: null,
         talentIdentityId,
         templateId: evidence.templateId,
         updatedAt: new Date(Date.UTC(2026, 1, evidenceIndex + 1)).toISOString(),
