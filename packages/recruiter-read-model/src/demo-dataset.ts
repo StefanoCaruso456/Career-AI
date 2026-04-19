@@ -37,8 +37,6 @@ const DEMO_SHARE_BASE_URL = "https://careerai.demo";
 const EMPLOYMENT_EVIDENCE_TEMPLATES: CareerEvidenceTemplateId[] = [
   "offer-letters",
   "employment-history-reports",
-  "promotion-letters",
-  "company-letters",
 ];
 
 const FIRST_NAMES = [
