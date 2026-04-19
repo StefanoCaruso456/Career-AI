@@ -2407,6 +2407,8 @@
   z-index: 4;
   width: fit-content;
   margin-top: 0.4rem;
+  padding: 0.12rem 0.22rem 0.4rem 0;
+  overflow: visible;
 }
 
 .sectionTitleStack .sectionTitle {
@@ -2416,9 +2418,11 @@
 
 .sectionTitleLine {
   display: block;
+  padding-inline-end: 0.05em;
 }
 
 .sectionTitleLineHighlight {
+  padding-block: 0.02em 0.08em;
   background:
     linear-gradient(
       90deg,
