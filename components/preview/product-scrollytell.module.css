@@ -1,0 +1,807 @@
+/* ------------------------------------------------------------------ *
+ * Container + intro
+ * ------------------------------------------------------------------ */
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 80px 48px 0;
+  color: var(--text-primary);
+}
+
+.intro {
+  max-width: 720px;
+  margin: 0 auto 120px;
+  text-align: center;
+}
+
+.introEyebrow {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+  opacity: 0.75;
+}
+
+.introTitle {
+  font-size: 48px;
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0 0 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #c8d2e6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.introLead {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Two-column grid (sticky visual + scrolling narrative)
+ * ------------------------------------------------------------------ */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 96px;
+  align-items: start;
+}
+
+.stickyWrap {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  height: calc(100vh - 120px);
+  min-height: 520px;
+}
+
+.stickyInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(500px 360px at 50% 40%, rgba(146, 182, 255, 0.08), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.008) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticker {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.tickerDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.tickerDotActive {
+  background: var(--accent);
+  transform: scale(1.5);
+}
+
+/* ------------------------------------------------------------------ *
+ * Narrative column
+ * ------------------------------------------------------------------ */
+
+.narrative {
+  display: flex;
+  flex-direction: column;
+}
+
+.beat {
+  min-height: 92vh;
+  display: flex;
+  align-items: center;
+}
+
+.beatContent {
+  max-width: 440px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 16px;
+  opacity: 0.85;
+}
+
+.beatTitle {
+  font-size: 32px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 16px;
+  color: var(--text-primary);
+}
+
+.beatBody {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ *
+ * Final CTA
+ * ------------------------------------------------------------------ */
+
+.ctaSection {
+  min-height: 82vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ctaCard {
+  width: 100%;
+  padding: 48px 56px;
+  background: linear-gradient(160deg, rgba(146, 182, 255, 0.08), rgba(146, 182, 255, 0.02));
+  border: 1px solid rgba(146, 182, 255, 0.2);
+  border-radius: 24px;
+  text-align: center;
+}
+
+.ctaTitle {
+  font-size: 32px;
+  line-height: 1.2;
+  font-weight: 600;
+  margin: 10px 0 14px;
+}
+
+.ctaBody {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 auto 32px;
+  max-width: 420px;
+}
+
+.ctaActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ctaPrimary {
+  padding: 13px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0d1016;
+  background: var(--accent-strong);
+  border-radius: 999px;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.ctaPrimary:hover {
+  transform: translateY(-1px);
+  background: #ffffff;
+}
+
+.ctaSecondary {
+  padding: 13px 24px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.ctaSecondary:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ------------------------------------------------------------------ *
+ * Shared visual primitives
+ * ------------------------------------------------------------------ */
+
+.cardEyebrow {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.8;
+  margin-bottom: 14px;
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 1 — Mess
+ * ------------------------------------------------------------------ */
+
+.messStage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.docChip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(23, 29, 41, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  transform-origin: center;
+}
+
+.docChip svg {
+  color: var(--accent);
+  opacity: 0.8;
+}
+
+.messLabel {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 2 — Claim
+ * ------------------------------------------------------------------ */
+
+.claimStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.claimCard {
+  width: 360px;
+  padding: 28px;
+  background: rgba(23, 29, 41, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.claimRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.claimRow:last-of-type {
+  border-bottom: none;
+}
+
+.claimLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-tertiary);
+}
+
+.claimValue {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.claimAttachment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: rgba(146, 182, 255, 0.07);
+  border: 1px solid rgba(146, 182, 255, 0.18);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.claimAttachment svg {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 3 — Verify
+ * ------------------------------------------------------------------ */
+
+.verifyStage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verifyCard {
+  position: relative;
+  width: 360px;
+  padding: 22px 24px;
+  background: rgba(23, 29, 41, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.verifyCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.verifyCardHeader svg {
+  color: var(--accent);
+}
+
+.scanLine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(146, 182, 255, 0.9),
+    transparent
+  );
+  box-shadow: 0 0 24px rgba(146, 182, 255, 0.5);
+  pointer-events: none;
+}
+
+.verifyFields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.verifyField {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.verifyCheck {
+  display: inline-flex;
+  color: #7ee3b3;
+}
+
+.sealBadge {
+  position: absolute;
+  bottom: 36px;
+  right: 36px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(146, 182, 255, 0.12);
+  border: 1px solid rgba(146, 182, 255, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.sealBadge svg {
+  color: var(--accent-strong);
+}
+
+.sealBadgeCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sealBadgeLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sealBadgeSubtle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 4 — Lineage
+ * ------------------------------------------------------------------ */
+
+.lineageStage {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 8px 24px;
+}
+
+.lineageRow {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.lineageBadge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(23, 29, 41, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  min-width: 260px;
+}
+
+.lineageBadgePrimary {
+  background: rgba(146, 182, 255, 0.1);
+  border-color: rgba(146, 182, 255, 0.3);
+}
+
+.lineageBadge svg {
+  color: var(--accent);
+}
+
+.lineageBadgeTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.lineageBadgeSubtle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.versionPill {
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(146, 182, 255, 0.18);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.lineageSupport {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.lineageDoc {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-tertiary);
+  text-transform: capitalize;
+}
+
+.lineageDocActive {
+  border-color: rgba(146, 182, 255, 0.4);
+  background: rgba(146, 182, 255, 0.1);
+  color: var(--accent-strong);
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 5 — Profile card
+ * ------------------------------------------------------------------ */
+
+.profileStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.profileCard {
+  width: 400px;
+  padding: 28px;
+  background: rgba(23, 29, 41, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+}
+
+.profileHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profileAvatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3a4a6e, #1e2939);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--accent-strong);
+  font-size: 15px;
+}
+
+.profileName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profileTaid {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+.profileVerifiedIcon {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.profileBadges {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 0;
+}
+
+.profileBadgeChip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(146, 182, 255, 0.07);
+  border: 1px solid rgba(146, 182, 255, 0.18);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.profileBadgeChip svg {
+  color: var(--accent);
+}
+
+.profileFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.profileFooter svg {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 6 — Share
+ * ------------------------------------------------------------------ */
+
+.shareStage {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shareSplit {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  padding: 0 12px;
+}
+
+.shareMyCard,
+.shareRecruiterCard {
+  flex: 1;
+  padding: 18px;
+  background: rgba(23, 29, 41, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  min-width: 0;
+}
+
+.shareCardHeader {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
+}
+
+.shareRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.shareToggle {
+  width: 28px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.shareToggleOn {
+  background: var(--accent);
+}
+
+.shareToggleDot {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+}
+
+.shareToggleOn .shareToggleDot {
+  transform: translateX(12px);
+}
+
+.shareArrow {
+  color: var(--text-tertiary);
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.shareRecruiterRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.shareRecruiterRow svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.shareRecruiterTier {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.shareRecruiterHidden {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ------------------------------------------------------------------ *
+ * Beat 7 — Agent
+ * ------------------------------------------------------------------ */
+
+.agentStage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.agentCard {
+  width: 380px;
+  padding: 22px 24px;
+  background: rgba(23, 29, 41, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.agentHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.agentHeader svg {
+  color: var(--accent);
+}
+
+.agentStream {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.agentStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.agentStep svg {
+  color: #7ee3b3;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
