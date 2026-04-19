@@ -114,4 +114,18 @@ export interface ClaimTypeHandler<TClaim = unknown> {
    * VCs land, the same field holds the signed credential instead.
    */
   buildBadgePayload(input: ClaimBadgePayloadInput<TClaim>): unknown;
+
+  /**
+   * Stable identity of "this logical credential" within the group. Used
+   * together with `group` to compute lineage_key. Two claims that should
+   * collapse into the same badge lineage must produce the same identity
+   * string — e.g., offer-letter and employment-verification for the same
+   * (employer, role) both return "acme corp:senior engineer" so their
+   * badges land on the same lineage (group: "employment").
+   *
+   * Normalize inside the handler: lowercase, collapse whitespace, strip
+   * company suffixes / degree honorifics, etc. Consistency matters more
+   * than any particular algorithm.
+   */
+  buildLineageIdentity(claim: TClaim): string;
 }

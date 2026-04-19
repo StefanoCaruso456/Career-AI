@@ -62,6 +62,13 @@ export interface PublicClaimVerificationResponse {
    */
   badgeId?: string;
   /**
+   * Version of the badge within its lineage. 1 on first issuance, N+1
+   * each time a new verification lands on the same (subject, employer,
+   * role) / (subject, institution, degree) lineage. Present whenever
+   * badgeId is.
+   */
+  badgeVersion?: number;
+  /**
    * Present only on FAILED verdicts. One short sentence explaining the
    * primary reason the verification failed. Omitted otherwise.
    */
@@ -90,6 +97,10 @@ export interface PublicClaimRecord {
    * VERIFIED). Pre-W3C this is just a UUID pointer into the `badges` table.
    */
   badgeId?: string;
+  /**
+   * Version of the badge within its lineage. Present whenever badgeId is.
+   */
+  badgeVersion?: number;
   verification?: {
     verifiedAt: string;
     authenticitySource: AuthenticitySource;

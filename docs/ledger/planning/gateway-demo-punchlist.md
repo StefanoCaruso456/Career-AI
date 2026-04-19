@@ -4,6 +4,12 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 
 ## Must-have before demo
 
+- [x] **Claim-type registry refactor** — extract offer-letter into a handler module behind a registry interface. Enables employment-verification, education, transcript types to slot in additively. _(landed: `src/claim-types/`)_
+- [x] **Badge lineage + versioning** — `badges.lineage_key` + `badges.version` columns. Re-verifying the same (employer, role) bumps version within a lineage instead of creating a new badge. Offer-letter and employment-verification share `group: "employment"` so they collapse. _(landed)_
+- [ ] **`employment-verification` claim type** — HR letters, W-2s, HR portal exports. Shares lineage group with offer-letter.
+- [ ] **`education` claim type** — diploma / degree certificate.
+- [ ] **`transcript` claim type** — shallow (content-match only; no deep structural detection).
+- [ ] **Career-AI: forms for the three new types + POST to their `/v1/claims/<kind>` routes**.
 - [ ] **Career-AI UI: read-back integration** — call `GET /v1/claims` on profile load and render verified badges from the gateway instead of local-only state. This is what makes the "log in → see your badges" story work.
 - [x] **Body-size limit** on `POST /v1/claims/employment` — add Hono `bodyLimit` middleware (~10MB) so a large PDF can't OOM the gateway. _(10MB cap scoped to /v1/claims/*)_
 - [x] **Redact `onError` response in production** — currently leaks `error.toString()` outside `NODE_ENV=production`. Return a generic message + correlation ID; keep the stack in server logs only.

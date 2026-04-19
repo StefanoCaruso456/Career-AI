@@ -1,4 +1,12 @@
-import { integer, jsonb, pgTable, text, timestamp, uuid, index } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 /**
  * A candidate's claim about their career history.
@@ -77,6 +85,21 @@ export const badges = pgTable(
     subjectDid: text("subject_did").notNull(),
     issuerDid: text("issuer_did").notNull(),
     badgeType: text("badge_type").notNull(),
+    /**
+     * Stable key identifying "this underlying credential" across
+     * re-verifications. Two badges share a lineage_key when the claim
+     * they verify is semantically the same thing (e.g., same employer +
+     * role). Computed as sha256(group + ":" + handler.buildLineageIdentity).
+     */
+    lineageKey: text("lineage_key").notNull(),
+    /**
+     * Monotonic version within a (subject_did, lineage_key) series.
+     * First issuance is 1; each subsequent verification of the same
+     * logical credential bumps to N+1. Prior versions stay in the table
+     * (append-only) — the UI picks the max-version non-revoked row per
+     * lineage for the "latest badge" view.
+     */
+    version: integer("version").notNull().default(1),
     payload: jsonb("payload").notNull(),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
@@ -84,6 +107,7 @@ export const badges = pgTable(
   (t) => ({
     subjectIdx: index("badges_subject_did_idx").on(t.subjectDid),
     claimIdx: index("badges_claim_id_idx").on(t.claimId),
+    lineageIdx: index("badges_lineage_idx").on(t.subjectDid, t.lineageKey),
   }),
 );
 

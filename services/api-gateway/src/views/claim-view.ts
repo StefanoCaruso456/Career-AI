@@ -34,6 +34,7 @@ export interface VerificationRowForView {
 
 export interface BadgeRowForView {
   id: string;
+  version: number;
   revokedAt: Date | null;
 }
 
@@ -57,6 +58,7 @@ export function buildPublicClaimRecord(
     createdAt: claim.createdAt.toISOString(),
     updatedAt: claim.updatedAt.toISOString(),
     badgeId: badge && !badge.revokedAt ? badge.id : undefined,
+    badgeVersion: badge && !badge.revokedAt ? badge.version : undefined,
   };
 
   if (verification) {

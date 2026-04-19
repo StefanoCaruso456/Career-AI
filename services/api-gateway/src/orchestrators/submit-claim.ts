@@ -21,7 +21,8 @@
  * errors too.
  */
 
-import { eq } from "drizzle-orm";
+import { createHash } from "node:crypto";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import type { ClaimTypeHandler } from "../claim-types/types.js";
 import { db, schema } from "../db/index.js";
 import type {
@@ -121,11 +122,29 @@ export async function submitClaim<TClaim>(
     .set({ status: claimStatus, updatedAt: new Date() })
     .where(eq(schema.claims.id, claimId));
 
-  // 5. Issue a badge when VERIFIED. Lineage/version work lands next —
-  //    for now one badge per VERIFIED claim.
+  // 5. Issue a badge when VERIFIED. Badges are append-only per lineage:
+  //    re-verifying the same (employer, role) through any handler in the
+  //    same group bumps the version instead of creating an unrelated
+  //    badge row. Prior versions stay in the table.
   let badgeId: string | undefined;
+  let badgeVersion: number | undefined;
   const { signals, provenance, confidenceTier } = verification;
   if (claimStatus === "VERIFIED") {
+    const lineageKey = computeLineageKey(handler, claim);
+    const [latestExisting] = await db
+      .select({ version: schema.badges.version })
+      .from(schema.badges)
+      .where(
+        and(
+          eq(schema.badges.subjectDid, actorDid),
+          eq(schema.badges.lineageKey, lineageKey),
+          isNull(schema.badges.revokedAt),
+        ),
+      )
+      .orderBy(desc(schema.badges.version))
+      .limit(1);
+    const nextVersion = (latestExisting?.version ?? 0) + 1;
+
     const payload = handler.buildBadgePayload({
       claim,
       authenticitySource: signals.authenticity.source,
@@ -139,10 +158,13 @@ export async function submitClaim<TClaim>(
         subjectDid: actorDid,
         issuerDid: ISSUER_DID,
         badgeType: handler.kind,
+        lineageKey,
+        version: nextVersion,
         payload: payload as Record<string, unknown>,
       })
-      .returning({ id: schema.badges.id });
+      .returning({ id: schema.badges.id, version: schema.badges.version });
     badgeId = badgeRow.id;
+    badgeVersion = badgeRow.version;
   }
 
   // 6. Public response. Type-specific matches shape still lives on
@@ -165,8 +187,22 @@ export async function submitClaim<TClaim>(
     authenticitySource: signals.authenticity.source,
     verifiedAt: provenance.verifiedAt,
     badgeId,
+    badgeVersion,
     failureReason: claimStatus === "FAILED" ? deriveFailureReason(signals) : undefined,
   };
+}
+
+/**
+ * sha256(group || ":" || identity) as a hex string. Hashing (vs. storing
+ * the plaintext identity) keeps the column fixed-width and doesn't leak
+ * full claim payloads into a field that might be indexed or logged.
+ */
+function computeLineageKey<TClaim>(
+  handler: ClaimTypeHandler<TClaim>,
+  claim: TClaim,
+): string {
+  const identity = handler.buildLineageIdentity(claim);
+  return createHash("sha256").update(`${handler.group}:${identity}`).digest("hex");
 }
 
 interface RunVerificationInput<TClaim> {
