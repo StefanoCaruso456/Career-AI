@@ -22,6 +22,7 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 
 - [x] **Audit schema types** — `status_code` and `duration_ms` are `text`; should be `integer`. Cheap migration. _(landed in hardening branch)_
 - [x] **Audit middleware: drop logging** — when the fire-and-forget insert fails the event silently disappears. Emit a structured `audit_drop` log line with the same fields. _(done — JSON line with full fields on DB failure)_
+- [ ] **Close the "CoC text only" authenticity loophole** — any PDF with the phrase "Certificate of Completion" plus an email matching the claimed employer's domain currently passes authenticity without any cryptographic structure (no signature dict, no XMP DocuSign namespace, no AcroForm ENVELOPEID, no Adobe.PPKMS filter). Extend `detectTampering` in `services/api-gateway/src/verifier/verifiers/tampering.ts` to fire on `hasCocHeading && !hasAnyStructure`, symmetric to the existing `hasEnvelopeText && !hasAnyStructure` check. Will require the fixture generator to stamp a fake AcroForm ENVELOPEID_ field so the SOURCE_CONFIRMED demo path keeps working.
 - [ ] **Rate limit per actor DID** — simple token bucket, e.g. 30 verifications/hour.
 - [ ] **Vitest truth table** for `verifier/verifiers/verdict.ts` — the long comment block is already a spec; codify the (tampering, authenticity, content) → (verdict, tier) matrix.
 - [x] **Cleanup**: dead `void actorDid` line in `audit.ts`. _(landed in hardening branch)_
