@@ -378,7 +378,9 @@ function buildAbsoluteReturnUrl(args: {
   returnUrl: string;
   verificationId: string;
 }) {
-  const origin = args.requestOrigin?.trim() || publicOrigin || "http://localhost:3000";
+  const configuredOrigin = publicOrigin?.trim();
+  const requestOrigin = args.requestOrigin?.trim();
+  const origin = configuredOrigin || requestOrigin || "http://localhost:3000";
   const url = new URL(args.returnUrl, origin);
   url.searchParams.set("careerIdVerificationId", args.verificationId);
   return url.toString();
