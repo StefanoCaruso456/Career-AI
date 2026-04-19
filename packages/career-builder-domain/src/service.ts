@@ -317,28 +317,40 @@ async function buildSnapshot(
   correlationId: string,
 ): Promise<CareerBuilderSnapshotDto> {
   const { aggregate, profile, persistedEvidence } = await loadWorkspaceState(viewer, correlationId);
-  const evidenceByTemplateId = new Map(
-    persistedEvidence.map((record) => [record.templateId, record] as const),
-  );
-  const evidence = builderEvidenceTemplates.map((template) =>
-    normalizeEvidenceRecord(
-      template,
-      evidenceByTemplateId.get(template.id) ??
-        createEmptyEvidenceRecord({
-          talentIdentityId: aggregate.talentIdentity.id,
-          soulRecordId: aggregate.soulRecord.id,
+
+  // A user can own multiple evidence rows per template — one per distinct
+  // credential (Acme/Engineer offer letter + Google/Manager offer letter,
+  // Stanford diploma + MIT diploma, etc.). Ship them all through to the
+  // client so the Career ID renders every badge, not just whichever row
+  // landed last in a templateId-keyed map.
+  const evidence = [
+    ...persistedEvidence.map((record) => {
+      const template = builderEvidenceTemplates.find((t) => t.id === record.templateId);
+      return template ? normalizeEvidenceRecord(template, record) : record;
+    }),
+    // Templates the user hasn't started yet still need an empty
+    // placeholder so the "needs upload" cards can render.
+    ...builderEvidenceTemplates
+      .filter((template) => !persistedEvidence.some((r) => r.templateId === template.id))
+      .map((template) =>
+        normalizeEvidenceRecord(
           template,
-        }),
-    ),
-  );
+          createEmptyEvidenceRecord({
+            talentIdentityId: aggregate.talentIdentity.id,
+            soulRecordId: aggregate.soulRecord.id,
+            template,
+          }),
+        ),
+      ),
+  ];
 
   const completedProfileFields = builderProfileFields.filter((field) =>
     hasProfileFieldValue(profile, field),
   ).length;
+  // Template-level completion: any row under the template counts.
   const completedEvidenceCount = builderEvidenceTemplates.filter((template) =>
-    isEvidenceComplete(
-      template,
-      evidence.find((record) => record.templateId === template.id)!,
+    evidence.some(
+      (record) => record.templateId === template.id && isEvidenceComplete(template, record),
     ),
   ).length;
   const totalTasks = builderProfileFields.length + builderEvidenceTemplates.length;
@@ -367,14 +379,14 @@ async function buildSnapshot(
         phase,
         {
           completed: phaseTemplates.filter((template) =>
-            isEvidenceComplete(
-              template,
-              evidence.find((record) => record.templateId === template.id)!,
+            evidence.some(
+              (record) =>
+                record.templateId === template.id && isEvidenceComplete(template, record),
             ),
           ).length,
           started: phaseTemplates.filter((template) =>
-            isEvidenceStarted(
-              evidence.find((record) => record.templateId === template.id)!,
+            evidence.some(
+              (record) => record.templateId === template.id && isEvidenceStarted(record),
             ),
           ).length,
           total: phaseTemplates.length,
