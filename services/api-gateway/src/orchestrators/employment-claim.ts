@@ -17,7 +17,7 @@
 
 import { eq } from "drizzle-orm";
 import { db, schema } from "../db/index.js";
-import { verifyDocument } from "../verifier/index.js";
+import { VerificationError, verifyDocument } from "../verifier/index.js";
 import type { VerifyResponse } from "../verifier/types.js";
 import type { ClaimStatus, EmploymentClaim, PublicClaimVerificationResponse } from "../types.js";
 import { deriveDisplayStatus, deriveFailureReason } from "../views/claim-view.js";
@@ -91,6 +91,10 @@ export async function submitEmploymentClaim(
       .update(schema.claims)
       .set({ status: "FAILED", updatedAt: new Date() })
       .where(eq(schema.claims.id, claimId));
+    // Preserve VerificationError so the route layer can map its discriminant
+    // (EXTRACTION_UNAVAILABLE, INVALID_REQUEST) to the right HTTP status.
+    // Wrap only unexpected errors so the onError handler still has context.
+    if (err instanceof VerificationError) throw err;
     throw new Error("verification failed", { cause: err });
   }
 
