@@ -2194,11 +2194,13 @@ export function AgentBuilderWorkspace({
 
                         {isDocumentPhase ? (
                           <div className={styles.pipelineActionRow}>
-                            <div className={styles.pipelineActionMeta}>
-                              <span className={styles.statusTag}>
-                                {getDocumentStatusTagLabel(documentVerificationStatus)}
-                              </span>
-                            </div>
+                            {documentVerificationStatus !== "verified" ? (
+                              <div className={styles.pipelineActionMeta}>
+                                <span className={styles.statusTag}>
+                                  {getDocumentStatusTagLabel(documentVerificationStatus)}
+                                </span>
+                              </div>
+                            ) : null}
 
                             {documentVerification.artifactLabel ? (
                               <span className={styles.pipelineVerifiedCopy}>Verified by Persona</span>
