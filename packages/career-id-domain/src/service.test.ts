@@ -168,6 +168,34 @@ describe("career-id Persona service", () => {
     expect(result.status).toBe("manual_review");
   });
 
+  it("maps Persona expired events to retry-needed instead of leaving verification in progress", () => {
+    const result = normalizePersonaInquiry({
+      eventName: "inquiry.expired",
+      inquiry: {
+        id: "inq_789",
+        attributes: {
+          status: "pending",
+        },
+      },
+    });
+
+    expect(result.status).toBe("retry_needed");
+  });
+
+  it("maps Persona declined events to failed when no retry hints are present", () => {
+    const result = normalizePersonaInquiry({
+      eventName: "inquiry.declined",
+      inquiry: {
+        id: "inq_790",
+        attributes: {
+          status: "pending",
+        },
+      },
+    });
+
+    expect(result.status).toBe("failed");
+  });
+
   it("creates a government ID verification session and persists in-progress evidence", async () => {
     const session = await createGovernmentIdVerificationSession({
       viewer,

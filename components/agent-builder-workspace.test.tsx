@@ -524,6 +524,68 @@ describe("AgentBuilderWorkspace", () => {
     expect(within(dialog).getByRole("button", { name: "Refresh status" })).toBeInTheDocument();
   });
 
+  it("recovers to a fresh verification start when the verification id is no longer active", async () => {
+    const snapshot = createSnapshot();
+    unlockDocumentVerification(snapshot);
+    snapshot.documentVerification = {
+      ...snapshot.documentVerification,
+      status: "manual_review",
+      verificationId: "career_id_ver_missing",
+      ctaLabel: "Check verification status",
+      helperText: "We're reviewing your verification. This can take a little longer.",
+    };
+
+    const refreshedSnapshot = createSnapshot();
+    unlockDocumentVerification(refreshedSnapshot);
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.startsWith("/api/v1/career-id/verifications/")) {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({
+            error_code: "NOT_FOUND",
+            message: "Career ID verification was not found.",
+          }),
+        };
+      }
+
+      if (url === "/api/v1/career-builder") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => refreshedSnapshot,
+        };
+      }
+
+      throw new Error(`Unexpected fetch call for ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /check verification status/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Refresh status" }));
+
+    expect(
+      await within(dialog).findByText(
+        "This verification session is no longer active. Start a new verification.",
+      ),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(
+        within(dialog).getByRole("button", { name: "Continue to secure capture" }),
+      ).toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("makes the Persona handoff explicit before starting secure verification", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 

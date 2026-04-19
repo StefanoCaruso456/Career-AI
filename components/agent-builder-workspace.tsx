@@ -71,6 +71,14 @@ type ModalDraftState = {
 type FieldErrors = Record<string, Record<string, string>>;
 type GovernmentVerificationModalStep = "intro" | "consent" | "processing" | "result";
 
+type GovernmentVerificationRequestError = Error & {
+  errorCode?: string | null;
+  statusCode?: number;
+};
+
+const GOVERNMENT_VERIFICATION_POLL_INTERVAL_MS = 4000;
+const GOVERNMENT_VERIFICATION_MAX_AUTO_POLLS = 20;
+
 const profileFieldConfig = [
   {
     field: "legalName",
@@ -418,8 +426,9 @@ function getDocumentHeroIcon(status: CareerIdVerificationStatus) {
     case "locked":
       return <LockKeyhole aria-hidden="true" size={18} strokeWidth={2.1} />;
     case "in_progress":
-    case "manual_review":
       return <LoaderCircle aria-hidden="true" className={styles.spinningIcon} size={18} strokeWidth={2.1} />;
+    case "manual_review":
+      return <AlertCircle aria-hidden="true" size={18} strokeWidth={2.1} />;
     case "retry_needed":
     case "failed":
       return <AlertCircle aria-hidden="true" size={18} strokeWidth={2.1} />;
@@ -710,6 +719,7 @@ export function AgentBuilderWorkspace({
   const modalRef = useRef<HTMLDivElement>(null);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const handledReturnRef = useRef(false);
+  const governmentPollAttemptsRef = useRef(0);
   const initialDraftSignatureRef = useRef("");
   const titleId = useId();
   const governmentTitleId = useId();
@@ -725,6 +735,12 @@ export function AgentBuilderWorkspace({
   useEffect(() => {
     setGovernmentVerificationId(snapshot.documentVerification.verificationId);
   }, [snapshot.documentVerification.verificationId]);
+
+  useEffect(() => {
+    if (governmentModalStep !== "processing" || !governmentVerificationId) {
+      governmentPollAttemptsRef.current = 0;
+    }
+  }, [governmentModalStep, governmentVerificationId]);
 
   useEffect(() => {
     if (!activePhase && !isGovernmentModalOpen) {
@@ -878,23 +894,55 @@ export function AgentBuilderWorkspace({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-      throw new Error(payload?.message ?? "Refreshing verification status failed.");
+      const error = new Error(
+        payload?.message ?? "Refreshing verification status failed.",
+      ) as GovernmentVerificationRequestError;
+      error.statusCode = response.status;
+      error.errorCode = typeof payload?.error_code === "string" ? payload.error_code : null;
+      throw error;
     }
 
     setGovernmentVerificationId(payload.verificationId ?? verificationId);
     const nextSnapshot = await refreshSnapshot();
-    const nextStatus = payload?.status as CareerIdVerificationStatus | undefined;
-
-    if (nextStatus && nextStatus !== "in_progress" && nextStatus !== "manual_review") {
-      setGovernmentModalStep("result");
-    } else {
-      setGovernmentModalStep("processing");
-    }
+    const payloadStatus = payload?.status as CareerIdVerificationStatus | undefined;
+    const nextStatus = (payloadStatus ??
+      nextSnapshot.documentVerification.status) as CareerIdVerificationStatus;
+    setGovernmentModalStep(nextStatus === "in_progress" ? "processing" : "result");
 
     return {
       nextSnapshot,
-      status: (nextStatus ?? nextSnapshot.documentVerification.status) as CareerIdVerificationStatus,
+      status: nextStatus,
     };
+  });
+
+  const handleGovernmentVerificationRefreshError = useEffectEvent(async (error: unknown) => {
+    const fallbackMessage = "Refreshing verification status failed.";
+    const message = error instanceof Error ? error.message : fallbackMessage;
+    const statusCode =
+      typeof (error as GovernmentVerificationRequestError | null | undefined)?.statusCode === "number"
+        ? (error as GovernmentVerificationRequestError).statusCode
+        : null;
+    const errorCode =
+      typeof (error as GovernmentVerificationRequestError | null | undefined)?.errorCode === "string"
+        ? (error as GovernmentVerificationRequestError).errorCode
+        : null;
+
+    if (statusCode === 404 || errorCode === "NOT_FOUND") {
+      setGovernmentVerificationId(null);
+      setGovernmentModalStep("intro");
+      setGovernmentError(
+        "This verification session is no longer active. Start a new verification.",
+      );
+
+      try {
+        await refreshSnapshot();
+      } catch {
+        // Keep the current snapshot if the refresh fails.
+      }
+      return;
+    }
+
+    setGovernmentError(message);
   });
 
   function openPhase(phase: CareerPhase) {
@@ -946,11 +994,13 @@ export function AgentBuilderWorkspace({
     setGovernmentConsentChecked(false);
     setIsGovernmentModalOpen(true);
 
-    if (
-      documentVerificationStatus === "in_progress" ||
-      documentVerificationStatus === "manual_review"
-    ) {
+    if (documentVerificationStatus === "in_progress") {
       setGovernmentModalStep("processing");
+      return;
+    }
+
+    if (documentVerificationStatus === "manual_review") {
+      setGovernmentModalStep("result");
       return;
     }
 
@@ -1080,13 +1130,11 @@ export function AgentBuilderWorkspace({
     setGovernmentError(null);
 
     void refreshGovernmentVerification(returnedVerificationId).catch((error) => {
-      setGovernmentError(
-        error instanceof Error ? error.message : "Refreshing verification status failed.",
-      );
+      void handleGovernmentVerificationRefreshError(error);
     });
 
     window.history.replaceState({}, "", window.location.pathname);
-  }, [refreshGovernmentVerification]);
+  }, [handleGovernmentVerificationRefreshError, refreshGovernmentVerification]);
 
   useEffect(() => {
     if (
@@ -1097,13 +1145,20 @@ export function AgentBuilderWorkspace({
       return;
     }
 
+    if (governmentPollAttemptsRef.current >= GOVERNMENT_VERIFICATION_MAX_AUTO_POLLS) {
+      setGovernmentModalStep("result");
+      setGovernmentError(
+        "Verification is taking longer than expected. Use Refresh status to check again.",
+      );
+      return;
+    }
+
     const timer = window.setTimeout(() => {
+      governmentPollAttemptsRef.current += 1;
       void refreshGovernmentVerification(governmentVerificationId).catch((error) => {
-        setGovernmentError(
-          error instanceof Error ? error.message : "Refreshing verification status failed.",
-        );
+        void handleGovernmentVerificationRefreshError(error);
       });
-    }, 4000);
+    }, GOVERNMENT_VERIFICATION_POLL_INTERVAL_MS);
 
     return () => {
       window.clearTimeout(timer);
@@ -1111,6 +1166,7 @@ export function AgentBuilderWorkspace({
   }, [
     governmentModalStep,
     governmentVerificationId,
+    handleGovernmentVerificationRefreshError,
     isGovernmentModalOpen,
     refreshGovernmentVerification,
   ]);
@@ -1671,6 +1727,8 @@ export function AgentBuilderWorkspace({
                           ? "Verifying your identity"
                           : documentVerificationStatus === "verified"
                             ? "Identity verified"
+                            : documentVerificationStatus === "in_progress"
+                              ? "Verification in progress"
                             : documentVerificationStatus === "manual_review"
                               ? "Verification under review"
                               : documentVerificationStatus === "retry_needed"
@@ -1686,6 +1744,8 @@ export function AgentBuilderWorkspace({
                           ? "We're reviewing your ID and comparing it with your live selfie."
                           : documentVerificationStatus === "verified"
                             ? "Your Career ID now includes a verified government ID artifact."
+                            : documentVerificationStatus === "in_progress"
+                              ? "Verification is still processing. You can refresh status to check for completion."
                             : documentVerificationStatus === "manual_review"
                               ? "Your submission is being reviewed. We'll update your Career ID when it's complete."
                               : documentVerificationStatus === "retry_needed"
@@ -1887,11 +1947,30 @@ export function AgentBuilderWorkspace({
 
                         void refreshGovernmentVerification(governmentVerificationId).catch(
                           (error) => {
-                            setGovernmentError(
-                              error instanceof Error
-                                ? error.message
-                                : "Refreshing verification status failed.",
-                            );
+                            void handleGovernmentVerificationRefreshError(error);
+                          },
+                        );
+                      }}
+                      type="button"
+                    >
+                      Refresh status
+                    </button>
+                  ) : null}
+
+                  {governmentModalStep === "result" &&
+                  (documentVerificationStatus === "manual_review" ||
+                    documentVerificationStatus === "in_progress") ? (
+                    <button
+                      className={styles.primaryAction}
+                      disabled={isGovernmentActionPending || !governmentVerificationId}
+                      onClick={() => {
+                        if (!governmentVerificationId) {
+                          return;
+                        }
+
+                        void refreshGovernmentVerification(governmentVerificationId).catch(
+                          (error) => {
+                            void handleGovernmentVerificationRefreshError(error);
                           },
                         );
                       }}

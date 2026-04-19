@@ -548,6 +548,33 @@ function shouldSyncGovernmentIdVerificationStatus(status: CareerIdVerificationSt
   return status === "in_progress" || status === "manual_review";
 }
 
+const PERSONA_MANUAL_REVIEW_STATUSES = new Set(["needs-review", "marked-for-review", "reviewing"]);
+const PERSONA_MANUAL_REVIEW_EVENTS = new Set([
+  "inquiry.marked-for-review",
+  "inquiry.needs-review",
+  "inquiry.needs_review",
+]);
+const PERSONA_IN_PROGRESS_STATUSES = new Set(["pending", "created", "started", "initiated"]);
+const PERSONA_RETRY_NEEDED_STATUSES = new Set([
+  "failed",
+  "expired",
+  "abandoned",
+  "canceled",
+  "cancelled",
+  "requires-retry",
+  "retry-needed",
+  "needs-resubmission",
+]);
+const PERSONA_RETRY_NEEDED_EVENTS = new Set([
+  "inquiry.failed",
+  "inquiry.expired",
+  "inquiry.abandoned",
+  "inquiry.canceled",
+  "inquiry.cancelled",
+]);
+const PERSONA_FAILED_STATUSES = new Set(["declined"]);
+const PERSONA_FAILED_EVENTS = new Set(["inquiry.declined"]);
+
 export function normalizePersonaInquiry(args: {
   eventName?: string | null;
   inquiry: PersonaInquiryResource | null | undefined;
@@ -568,19 +595,26 @@ export function normalizePersonaInquiry(args: {
   } else if (rawStatus === "completed" || eventName === "inquiry.completed") {
     status = "verified";
   } else if (
-    rawStatus === "needs-review" ||
-    rawStatus === "marked-for-review" ||
-    eventName === "inquiry.marked-for-review" ||
-    eventName === "inquiry.needs-review" ||
-    eventName === "inquiry.needs_review"
+    PERSONA_MANUAL_REVIEW_STATUSES.has(rawStatus) ||
+    PERSONA_MANUAL_REVIEW_EVENTS.has(eventName)
   ) {
     status = "manual_review";
-  } else if (rawStatus === "pending" || rawStatus === "created" || rawStatus === "started") {
+  } else if (
+    PERSONA_RETRY_NEEDED_STATUSES.has(rawStatus) ||
+    PERSONA_RETRY_NEEDED_EVENTS.has(eventName) ||
+    PERSONA_FAILED_STATUSES.has(rawStatus) ||
+    PERSONA_FAILED_EVENTS.has(eventName)
+  ) {
+    const hasRecoverableCaptureIssue = /(blur|blurry|lighting|glare|face|selfie|visible|readable|edge|cropped)/.test(
+      text,
+    );
+    const shouldRetry =
+      PERSONA_RETRY_NEEDED_STATUSES.has(rawStatus) ||
+      PERSONA_RETRY_NEEDED_EVENTS.has(eventName) ||
+      hasRecoverableCaptureIssue;
+    status = shouldRetry ? "retry_needed" : "failed";
+  } else if (PERSONA_IN_PROGRESS_STATUSES.has(rawStatus)) {
     status = "in_progress";
-  } else if (rawStatus === "failed" || rawStatus === "declined" || rawStatus === "expired") {
-    status = /(blur|blurry|lighting|glare|face|selfie|visible|readable|edge|cropped)/.test(text)
-      ? "retry_needed"
-      : "failed";
   }
 
   const checksFromInquiry = deriveVerificationChecksFromPersonaInquiry(args.inquiry);
