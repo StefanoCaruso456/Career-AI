@@ -15,5 +15,6 @@ export * from "./enums";
 export * from "./errors";
 export * from "./identity";
 export * from "./jobs";
+export * from "./recruiter-marketplace";
 export * from "./presentation";
 export * from "./recruiter";
