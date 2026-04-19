@@ -78,6 +78,20 @@ export function detectTampering(
   }
 
   // Structural anomaly: page text claims DocuSign but the structure is missing.
+  //
+  // TODO(demo-cleanup): this check only catches "Envelope Id:" text. It does
+  // NOT fire on "Certificate of Completion" text alone, so a PDF with a
+  // typed-up CoC page (no real DocuSign envelope, no signature dict, no
+  // XMP namespace, no AcroForm ENVELOPEID field) currently passes
+  // authenticity because the with-coc branch in checkAuthenticity trusts
+  // the CoC text verbatim. That's what the Microsoft demo fixture
+  // exploited to reach VERIFIED without any cryptographic structure.
+  //
+  // Fix (post-demo): extend the condition to also fire on
+  // `ds.hasCocHeading && !hasAnyStructure` — symmetric treatment of both
+  // DocuSign text markers. Will need a matching update to the fixture
+  // generator to stamp enough structural evidence (AcroForm ENVELOPEID_
+  // field is the easiest) so legitimate demo flows still trip SOURCE_CONFIRMED.
   if (ds.hasEnvelopeText && !hasAnyStructure) {
     return {
       detected: true,
