@@ -112,9 +112,39 @@ type CreatePersistentIdentityArgs = {
   correlationId: string;
 };
 
+type CreatePersistentCredentialUserArgs = {
+  email: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  passwordHash: string;
+  passwordSalt: string;
+  correlationId: string;
+};
+
 type IdentityCreationState = {
   careerIdentityId: string;
   createdIdentity: boolean;
+};
+
+type CredentialUserRow = {
+  user_id: string;
+  user_email: string;
+  user_full_name: string;
+  user_auth_provider: string;
+  user_provider_user_id: string;
+  password_hash: string;
+  password_salt: string;
+};
+
+export type PersistentCredentialUserRecord = {
+  id: string;
+  email: string;
+  name: string;
+  authProvider: string;
+  providerUserId: string;
+  passwordHash: string;
+  passwordSalt: string;
 };
 
 const selectContextBaseQuery = `
@@ -169,12 +199,29 @@ const selectContextBaseQuery = `
   INNER JOIN soul_records sr ON sr.career_identity_id = ci.id
 `;
 
+const selectCredentialUserBaseQuery = `
+  SELECT
+    u.id AS user_id,
+    u.email AS user_email,
+    u.full_name AS user_full_name,
+    u.auth_provider AS user_auth_provider,
+    u.provider_user_id AS user_provider_user_id,
+    uc.password_hash,
+    uc.password_salt
+  FROM users u
+  INNER JOIN user_credentials uc ON uc.user_id = u.id
+`;
+
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
 function formatIsoString(value: Date | string) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function buildCredentialProviderUserId(email: string) {
+  return `credentials:${normalizeEmail(email)}`;
 }
 
 function formatDisplayName(firstName: string, lastName: string, fullName: string) {
@@ -261,6 +308,18 @@ function mapContextRow(row: ContextRow): PersistentTalentIdentityContext {
         version: row.soul_record_version,
       },
     },
+  };
+}
+
+function mapCredentialUserRow(row: CredentialUserRow): PersistentCredentialUserRecord {
+  return {
+    id: row.user_id,
+    email: row.user_email,
+    name: row.user_full_name,
+    authProvider: row.user_auth_provider,
+    providerUserId: row.user_provider_user_id,
+    passwordHash: row.password_hash,
+    passwordSalt: row.password_salt,
   };
 }
 
@@ -430,6 +489,136 @@ export async function findPersistentContextByEmail(args: {
     [normalizedEmail],
     args.correlationId,
     { email: normalizedEmail },
+  );
+}
+
+export async function findPersistentCredentialUserByEmail(args: {
+  email: string;
+}) {
+  const normalizedEmail = normalizeEmail(args.email);
+  const row = await queryOptional<CredentialUserRow>(
+    getDatabasePool(),
+    `${selectCredentialUserBaseQuery} WHERE u.email = $1`,
+    [normalizedEmail],
+  );
+
+  return row ? mapCredentialUserRow(row) : null;
+}
+
+export async function createPersistentCredentialUser(args: CreatePersistentCredentialUserArgs) {
+  const normalizedEmail = normalizeEmail(args.email);
+  const fullName = formatDisplayName(args.firstName, args.lastName, args.fullName);
+
+  return withDatabaseTransaction(async (client) => {
+    const existingUser = await queryOptional<{
+      id: string;
+      auth_provider: string;
+      has_credentials: boolean;
+    }>(
+      client,
+      `
+        SELECT
+          u.id,
+          u.auth_provider,
+          (uc.user_id IS NOT NULL) AS has_credentials
+        FROM users u
+        LEFT JOIN user_credentials uc ON uc.user_id = u.id
+        WHERE u.email = $1
+        FOR UPDATE
+      `,
+      [normalizedEmail],
+    );
+
+    if (existingUser) {
+      const message = existingUser.has_credentials
+        ? "An account with this email already exists. Try signing in instead."
+        : existingUser.auth_provider === "google"
+          ? "An account with this email already exists and is linked to Google. Continue with Google sign-in for this account."
+          : "An account with this email already exists. Try signing in instead.";
+
+      throw new ApiError({
+        errorCode: "CONFLICT",
+        status: 409,
+        message,
+        details: {
+          authProvider: existingUser.auth_provider,
+          email: normalizedEmail,
+        },
+        correlationId: args.correlationId,
+      });
+    }
+
+    const userId = `user_${crypto.randomUUID()}`;
+    const providerUserId = buildCredentialProviderUserId(normalizedEmail);
+
+    await client.query(
+      `
+        INSERT INTO users (
+          id,
+          email,
+          full_name,
+          first_name,
+          last_name,
+          image_url,
+          auth_provider,
+          provider_user_id,
+          email_verified,
+          created_at,
+          updated_at,
+          last_login_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NULL, 'credentials', $6, false, NOW(), NOW(), NOW())
+      `,
+      [
+        userId,
+        normalizedEmail,
+        fullName,
+        args.firstName,
+        args.lastName,
+        providerUserId,
+      ],
+    );
+
+    await ensureCareerIdentity(client, {
+      userId,
+      displayName: fullName,
+      countryCode: "ZZ",
+    });
+
+    await client.query(
+      `
+        INSERT INTO user_credentials (
+          user_id,
+          password_hash,
+          password_salt,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, NOW(), NOW())
+      `,
+      [userId, args.passwordHash, args.passwordSalt],
+    );
+
+    const user = await queryRequired<CredentialUserRow>(
+      client,
+      `${selectCredentialUserBaseQuery} WHERE u.id = $1`,
+      [userId],
+    );
+
+    return mapCredentialUserRow(user);
+  });
+}
+
+export async function recordPersistentUserLogin(args: {
+  userId: string;
+}) {
+  await getDatabasePool().query(
+    `
+      UPDATE users
+      SET last_login_at = NOW()
+      WHERE id = $1
+    `,
+    [args.userId],
   );
 }
 

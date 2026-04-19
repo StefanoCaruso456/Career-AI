@@ -51,10 +51,9 @@ function getModeCopy({
     return {
       buttonLabel: "Sign in with Google",
       copy:
-        "Return to your hiring workspace to review candidate signals, align your team, and move faster on the right talent.",
+        "Return to your hiring workspace with the password you created for this account, or keep using Google if your workspace was created with Google.",
       emailActionLabel: "Sign in",
-      formStatus:
-        "Email/password sign-in is not enabled yet. Use Google to continue securely.",
+      formStatus: "Use your password or continue with Google to sign in securely.",
       title: "Sign in to Career AI for Employers",
     };
   }
@@ -74,10 +73,9 @@ function getModeCopy({
   return {
     buttonLabel: "Sign in with Google",
     copy:
-      "Return to your workspace and pick up your verified profile where you left it.",
+      "Return with the password you created for this account, or keep using Google if your account was created with Google.",
     emailActionLabel: "Sign in",
-    formStatus:
-      "Email/password sign-in is not enabled yet. Use Google to continue securely.",
+    formStatus: "Use your password or continue with Google to sign in securely.",
     title: "Sign in to Career AI",
   };
 }
@@ -213,11 +211,9 @@ export function AuthModalTrigger({
       return;
     }
 
-    if (persona === "employer") {
+    if (persona === "employer" && authMode === "signup") {
       setFormStatus(
-        authMode === "signup"
-          ? "Email/password sign-up is not enabled yet for employer workspaces. Use Google to continue."
-          : "Email/password sign-in is not enabled yet for employer workspaces. Use Google to continue.",
+        "Email/password sign-up is not enabled yet for employer workspaces. Use Google to continue.",
       );
       return;
     }
@@ -271,7 +267,7 @@ export function AuthModalTrigger({
         setFormStatus(
           authMode === "signup"
             ? "Account created, but we could not sign you in. Please try signing in."
-            : "Invalid email or password.",
+            : "Invalid email or password. If this account was created with Google, use Google sign-in instead.",
         );
         return;
       }

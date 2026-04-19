@@ -10,7 +10,11 @@ import {
   getGoogleClientSecret,
   getPublicBaseUrl,
 } from "@/auth-config";
-import { findCredentialUserByEmail, verifyCredentialPassword } from "@/lib/credential-user-store";
+import {
+  findCredentialUserByEmail,
+  recordCredentialSignIn,
+  verifyCredentialPassword,
+} from "@/lib/credential-user-store";
 
 type GoogleProfile = {
   email?: string;
@@ -18,6 +22,15 @@ type GoogleProfile = {
   name?: string;
   picture?: string;
   sub?: string;
+};
+
+type AuthUser = {
+  authProvider?: string | null;
+  email?: string | null;
+  id?: string | null;
+  image?: string | null;
+  name?: string | null;
+  providerUserId?: string | null;
 };
 
 const googleClientId = getGoogleClientId();
@@ -132,10 +145,14 @@ const authProviders: NextAuthOptions["providers"] = [
         return null;
       }
 
+      await recordCredentialSignIn(user.id);
+
       return {
+        authProvider: user.authProvider,
         id: user.id,
         name: user.name,
         email: user.email,
+        providerUserId: user.providerUserId,
       };
     },
   }),
@@ -180,6 +197,7 @@ export const authOptions = {
 
         await ensurePersistentCareerIdentityForSessionUser({
           user: {
+            authProvider: account.provider,
             email: normalizedEmail,
             emailVerified: true,
             image:
@@ -197,6 +215,8 @@ export const authOptions = {
       return true;
     },
     async jwt({ token, account, profile, user, trigger, session }) {
+      const authUser = user as AuthUser | undefined;
+
       if (trigger === "update" && session && typeof session === "object") {
         const updatedName =
           typeof session.name === "string"
@@ -233,32 +253,47 @@ export const authOptions = {
           const result = await ensurePersistentCareerIdentityForSessionUser({
             user: {
               appUserId:
-                typeof token.appUserId === "string" ? token.appUserId : null,
+                typeof token.appUserId === "string"
+                  ? token.appUserId
+                  : account?.provider === "credentials" && typeof authUser?.id === "string"
+                    ? authUser.id
+                    : null,
               authProvider:
-                typeof token.authProvider === "string" ? token.authProvider : null,
+                typeof token.authProvider === "string"
+                  ? token.authProvider
+                  : account?.provider === "credentials"
+                    ? "credentials"
+                    : null,
               email,
               emailVerified: googleProfile?.email_verified ?? true,
               image:
-                typeof user?.image === "string"
-                  ? user.image
+                typeof authUser?.image === "string"
+                  ? authUser.image
                   : typeof token.picture === "string"
                     ? token.picture
                     : googleProfile?.picture ?? null,
               name:
-                typeof user?.name === "string"
-                  ? user.name
+                typeof authUser?.name === "string"
+                  ? authUser.name
                   : typeof token.name === "string"
                     ? token.name
                     : googleProfile?.name ?? null,
-              providerUserId: getProviderUserId(account?.provider, {
-                accountProviderUserId: account?.providerAccountId,
-                profile: googleProfile,
-                tokenProviderUserId:
-                  typeof token.providerUserId === "string"
+              providerUserId:
+                account?.provider === "google"
+                  ? getProviderUserId(account?.provider, {
+                      accountProviderUserId: account?.providerAccountId,
+                      profile: googleProfile,
+                      tokenProviderUserId:
+                        typeof token.providerUserId === "string"
+                          ? token.providerUserId
+                          : null,
+                      tokenSub: typeof token.sub === "string" ? token.sub : null,
+                    })
+                  : typeof token.providerUserId === "string"
                     ? token.providerUserId
-                    : null,
-                tokenSub: typeof token.sub === "string" ? token.sub : null,
-              }),
+                    : typeof authUser?.providerUserId === "string"
+                      ? authUser.providerUserId
+                      : null,
             },
             correlationId:
               typeof token.sub === "string"
