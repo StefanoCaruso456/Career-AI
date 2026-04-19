@@ -58,4 +58,19 @@ describe("AuthModalTrigger", () => {
     expect(screen.getByRole("heading", { name: "Sign in to Career AI for Employers" })).toBeInTheDocument();
     expect(screen.getByTestId("google-button")).toHaveAttribute("data-callback-url", "/employer");
   });
+
+  it("lets people toggle password visibility in the form", () => {
+    render(<AuthModalTrigger defaultMode="signin" label="Open auth" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open auth" }));
+
+    const passwordInput = screen.getByLabelText("Password");
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(passwordInput).toHaveAttribute("type", "text");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+  });
 });

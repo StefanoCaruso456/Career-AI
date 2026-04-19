@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Eye, EyeOff, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { createPortal } from "react-dom";
@@ -101,6 +101,8 @@ export function AuthModalTrigger({
   const [authMode, setAuthMode] = useState<AuthMode>(defaultMode);
   const [persona, setPersona] = useState<Persona>("job_seeker");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const passwordsMatch =
@@ -157,6 +159,8 @@ export function AuthModalTrigger({
     setAuthMode(defaultMode);
     setPersona("job_seeker");
     setIsSubmitting(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setFormValues(emptyFormValues);
     setFormStatus(null);
     setIsOpen(true);
@@ -394,32 +398,70 @@ export function AuthModalTrigger({
 
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Password</span>
-                    <input
-                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                      className={styles.input}
-                      name="password"
-                      onChange={handleFieldChange("password")}
-                      placeholder={authMode === "signup" ? "Create a secure password" : "Enter your password"}
-                      required
-                      type="password"
-                      value={formValues.password}
-                    />
+                    <div className={styles.passwordField}>
+                      <input
+                        aria-label="Password"
+                        autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                        className={`${styles.input} ${styles.passwordInput}`}
+                        name="password"
+                        onChange={handleFieldChange("password")}
+                        placeholder={authMode === "signup" ? "Create a secure password" : "Enter your password"}
+                        required
+                        type={showPassword ? "text" : "password"}
+                        value={formValues.password}
+                      />
+                      <button
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className={styles.passwordToggle}
+                        onClick={() => {
+                          setShowPassword((currentValue) => !currentValue);
+                        }}
+                        type="button"
+                      >
+                        {showPassword ? (
+                          <EyeOff aria-hidden="true" size={16} strokeWidth={2} />
+                        ) : (
+                          <Eye aria-hidden="true" size={16} strokeWidth={2} />
+                        )}
+                      </button>
+                    </div>
                   </label>
 
                   {authMode === "signup" ? (
                     <label className={styles.field}>
                       <span className={styles.fieldLabel}>Confirm password</span>
-                      <input
-                        autoComplete="new-password"
-                        aria-invalid={!passwordsMatch}
-                        className={!passwordsMatch ? `${styles.input} ${styles.inputError}` : styles.input}
-                        name="confirmPassword"
-                        onChange={handleFieldChange("confirmPassword")}
-                        placeholder="Re-enter your password"
-                        required
-                        type="password"
-                        value={formValues.confirmPassword}
-                      />
+                      <div className={styles.passwordField}>
+                        <input
+                          autoComplete="new-password"
+                          aria-invalid={!passwordsMatch}
+                          aria-label="Confirm password"
+                          className={
+                            !passwordsMatch
+                              ? `${styles.input} ${styles.passwordInput} ${styles.inputError}`
+                              : `${styles.input} ${styles.passwordInput}`
+                          }
+                          name="confirmPassword"
+                          onChange={handleFieldChange("confirmPassword")}
+                          placeholder="Re-enter your password"
+                          required
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={formValues.confirmPassword}
+                        />
+                        <button
+                          aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                          className={styles.passwordToggle}
+                          onClick={() => {
+                            setShowConfirmPassword((currentValue) => !currentValue);
+                          }}
+                          type="button"
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff aria-hidden="true" size={16} strokeWidth={2} />
+                          ) : (
+                            <Eye aria-hidden="true" size={16} strokeWidth={2} />
+                          )}
+                        </button>
+                      </div>
                     </label>
                   ) : null}
                 </div>
