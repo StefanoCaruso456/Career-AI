@@ -84,12 +84,14 @@ export function computeVerdict(
   const contentOk = content.matchesClaim;
 
   if (anySignedMatch && contentOk) {
-    // REVIEWED is the normal ceiling — see block comment above. Crypto
-    // verification passing doesn't change who the sender is, only that
-    // the document wasn't tampered with, so the tier stays REVIEWED.
-    // SOURCE_CONFIRMED still requires an out-of-band signal (email
-    // DKIM, employer registry, or Employer Agent attestation).
-    return { verdict: "VERIFIED", confidenceTier: "REVIEWED" };
+    // Demo policy: grant SOURCE_CONFIRMED when the CoC's sender / signer
+    // domain matches the claimed employer AND all content checks pass.
+    // The block comment above notes this is a weaker signal than a
+    // cryptographic sender attestation, and the ceiling should move
+    // back to REVIEWED once DKIM / employer-registry / A2A attestation
+    // paths land. Kept here to make the demo's highest-trust tier
+    // reachable without those out-of-band systems.
+    return { verdict: "VERIFIED", confidenceTier: "SOURCE_CONFIRMED" };
   }
 
   if (!anySignedMatch && contentOk) {
