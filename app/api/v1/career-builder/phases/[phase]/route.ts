@@ -10,8 +10,11 @@ import {
   saveCareerBuilderPhase,
 } from "@/packages/career-builder-domain/src";
 import { ApiError, careerPhaseSchema } from "@/packages/contracts/src";
-import { buildActorDid, verifyEmploymentClaim } from "@/lib/api-gateway/client";
-import type { OfferLetterVerificationEntry } from "@/lib/api-gateway/types";
+import { buildActorDid, verifyClaim, type ClaimKind } from "@/lib/api-gateway/client";
+import type {
+  ClaimVerificationEntry,
+  OfferLetterVerificationEntry,
+} from "@/lib/api-gateway/types";
 import { findTalentIdentityByEmail } from "@/packages/identity-domain/src";
 import { updateCareerBuilderEvidenceVerificationStatus } from "@/packages/persistence/src";
 
@@ -71,21 +74,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       correlationId,
     });
 
-    // Best-effort synchronous verification for offer-letter uploads only.
-    // Any failure here MUST NOT bubble up as a save failure — the evidence
-    // is already persisted. We attach the outcome so the UI can render it.
-    const offerLetterVerifications = await maybeVerifyOfferLetters({
+    // Best-effort synchronous verification for every claim-backed template
+    // the user uploaded (offer-letter, employment-verification, education,
+    // transcript). Failures here MUST NOT bubble up as save failures —
+    // evidence is already persisted. Outcomes attach to the response.
+    const claimVerifications = await verifyAllClaimUploads({
       payload,
       uploadsByTemplateId,
       session,
       correlationId,
     });
 
-    // If verification actually persisted a verdict (VERIFIED or PARTIAL),
-    // rebuild the snapshot so the caller sees the fresh card pill / badge
-    // derived from verification_status without needing a page reload.
-    // Cheap — just re-reads the current user's evidence rows.
-    const anyVerdictLanded = offerLetterVerifications?.some(
+    // If any verification actually persisted a verdict (VERIFIED or
+    // PARTIAL), rebuild the snapshot so the caller sees the fresh card
+    // pill / badge derived from verification_status without needing a
+    // page reload.
+    const anyVerdictLanded = claimVerifications.some(
       (entry) =>
         entry.outcome.ok &&
         (entry.outcome.result.status === "VERIFIED" ||
@@ -101,6 +105,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
+    const offerLetterVerifications = claimVerifications.filter(
+      (entry): entry is OfferLetterVerificationEntry =>
+        entry.templateId === "offer-letters",
+    );
     const offerLetterRecord = snapshot.evidence.find(
       (e) => e.templateId === "offer-letters",
     );
@@ -111,7 +119,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return successResponse(
       {
         ...snapshot,
-        offerLetterVerifications,
+        claimVerifications,
+        offerLetterVerifications, // back-compat for UI that keys on the offer-letter-only shape
       },
       correlationId,
     );
@@ -120,64 +129,143 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 }
 
-async function maybeVerifyOfferLetters(args: {
+/**
+ * Per-template wiring: how to pull the claim payload out of the save
+ * input and which gateway claim-type handler to call. Each evidence
+ * template that can produce a verified badge registers one entry.
+ */
+interface ClaimTemplateConfig {
+  templateId:
+    | "offer-letters"
+    | "employment-history-reports"
+    | "diplomas-degrees"
+    | "transcripts";
+  kind: ClaimKind;
+  /**
+   * Extract the handler-specific claim payload from the evidence entry.
+   * Returns null when required fields are missing — that skips
+   * verification for this upload set without failing the save.
+   */
+  buildClaim: (params: {
+    evidence: {
+      sourceOrIssuer: string;
+      role: string;
+      issuedOn: string;
+    };
+    session: { user?: { name?: string | null } | null };
+  }) => unknown | null;
+}
+
+const CLAIM_TEMPLATE_CONFIGS: ClaimTemplateConfig[] = [
+  {
+    templateId: "offer-letters",
+    kind: "offer-letter",
+    buildClaim: ({ evidence, session }) => {
+      if (!evidence.sourceOrIssuer || !evidence.role || !evidence.issuedOn) return null;
+      return {
+        employer: evidence.sourceOrIssuer,
+        role: evidence.role,
+        startDate: evidence.issuedOn,
+        userAccountName: session.user?.name ?? undefined,
+      };
+    },
+  },
+  {
+    templateId: "employment-history-reports",
+    kind: "employment-verification",
+    buildClaim: ({ evidence, session }) => {
+      if (!evidence.sourceOrIssuer || !evidence.role) return null;
+      return {
+        employer: evidence.sourceOrIssuer,
+        role: evidence.role,
+        startDate: evidence.issuedOn || undefined,
+        userAccountName: session.user?.name ?? undefined,
+      };
+    },
+  },
+  {
+    templateId: "diplomas-degrees",
+    kind: "education",
+    buildClaim: ({ evidence, session }) => {
+      if (!evidence.sourceOrIssuer || !evidence.role || !evidence.issuedOn) return null;
+      return {
+        institution: evidence.sourceOrIssuer,
+        degree: evidence.role,
+        graduationDate: evidence.issuedOn,
+        userAccountName: session.user?.name ?? undefined,
+      };
+    },
+  },
+  {
+    templateId: "transcripts",
+    kind: "transcript",
+    buildClaim: ({ evidence, session }) => {
+      if (!evidence.sourceOrIssuer) return null;
+      return {
+        institution: evidence.sourceOrIssuer,
+        program: evidence.role || undefined,
+        academicPeriod: evidence.issuedOn || undefined,
+        userAccountName: session.user?.name ?? undefined,
+      };
+    },
+  },
+];
+
+async function verifyAllClaimUploads(args: {
   payload: unknown;
   uploadsByTemplateId: Record<string, { file: File; slot?: "front" | "back" }[]>;
   session: { user?: { email?: string | null; name?: string | null } | null };
   correlationId: string;
-}): Promise<OfferLetterVerificationEntry[] | undefined> {
-  const offerUploads = args.uploadsByTemplateId["offer-letters"];
-  if (!offerUploads || offerUploads.length === 0) {
-    return undefined;
+}): Promise<ClaimVerificationEntry[]> {
+  const results: ClaimVerificationEntry[] = [];
+  for (const config of CLAIM_TEMPLATE_CONFIGS) {
+    const templateResults = await verifyTemplateUploads(config, args);
+    results.push(...templateResults);
   }
+  return results;
+}
 
-  // Pull the claim fields from the submitted evidence input. sourceOrIssuer
-  // maps to employer, issuedOn maps to startDate, role is captured by its own
-  // form input (required for offer-letters by the domain validator).
-  const evidence = pickOfferLetterEvidence(args.payload);
-  if (!evidence) {
-    return undefined;
-  }
+async function verifyTemplateUploads(
+  config: ClaimTemplateConfig,
+  args: {
+    payload: unknown;
+    uploadsByTemplateId: Record<string, { file: File; slot?: "front" | "back" }[]>;
+    session: { user?: { email?: string | null; name?: string | null } | null };
+    correlationId: string;
+  },
+): Promise<ClaimVerificationEntry[]> {
+  const uploads = args.uploadsByTemplateId[config.templateId];
+  if (!uploads || uploads.length === 0) return [];
 
-  const claim = {
-    employer: evidence.sourceOrIssuer,
-    role: evidence.role,
-    startDate: evidence.issuedOn,
-    // Pass the uploader's account name so api-gateway's content extractor
-    // can confirm the offer letter is addressed to them ("is this your
-    // letter?"). If the session has no name we omit the field — the
-    // recipient check then gets skipped server-side rather than failing.
-    userAccountName: args.session.user?.name ?? undefined,
-  };
+  const evidence = pickEvidenceEntry(args.payload, config.templateId);
+  if (!evidence) return [];
+
+  const claim = config.buildClaim({ evidence, session: args.session });
+  if (claim === null) return [];
 
   const actorDid = buildActorDid(args.session.user?.email);
-  const results: OfferLetterVerificationEntry[] = [];
+  const results: ClaimVerificationEntry[] = [];
 
-  for (const upload of offerUploads) {
+  for (const upload of uploads) {
     const buffer = new Uint8Array(await upload.file.arrayBuffer());
-    const outcome = await verifyEmploymentClaim({
+    const outcome = await verifyClaim({
+      kind: config.kind,
       file: buffer,
       filename: upload.file.name,
       claim,
       actorDid,
     });
     results.push({
-      templateId: "offer-letters",
+      templateId: config.templateId,
       filename: upload.file.name,
       outcome,
     });
   }
 
-  // Persist the BEST verdict across all uploads onto the evidence record so
-  // the badge derivation (and any reload) can pick it up. Rationale: a
-  // single evidence row represents a set of files for one template — if any
-  // of the files verified, the evidence as a whole is verified. Common case:
-  // user uploads document (PARTIAL — envelope-stamp-only, no sender) + CoC
-  // (VERIFIED — CoC has Envelope Originator domain matching employer).
   const bestVerdict = pickBestVerdict(results);
   const logPrefix = `[career-builder-save cid=${args.correlationId}]`;
   console.log(
-    `${logPrefix} offer-letter verification summary: files=${results.length}, bestVerdict=${bestVerdict ?? "none"}, outcomes=${results
+    `${logPrefix} ${config.templateId} verification summary: files=${results.length}, bestVerdict=${bestVerdict ?? "none"}, outcomes=${results
       .map((r) =>
         r.outcome.ok ? r.outcome.result.status : `ERR:${r.outcome.reason}`,
       )
@@ -197,21 +285,16 @@ async function maybeVerifyOfferLetters(args: {
       } else {
         const rowCount = await updateCareerBuilderEvidenceVerificationStatus({
           careerIdentityId: identity.talentIdentity.id,
-          templateId: "offer-letters",
+          templateId: config.templateId,
           verificationStatus: bestVerdict,
         });
         console.log(
-          `${logPrefix} persisted verification_status=${bestVerdict} careerIdentityId=${identity.talentIdentity.id} rowsAffected=${rowCount}`,
+          `${logPrefix} persisted verification_status=${bestVerdict} template=${config.templateId} careerIdentityId=${identity.talentIdentity.id} rowsAffected=${rowCount}`,
         );
-        if (rowCount === 0) {
-          console.warn(
-            `${logPrefix} UPDATE affected 0 rows — no career_builder_evidence row for (careerIdentityId=${identity.talentIdentity.id}, templateId=offer-letters). The row may not have been created by saveCareerBuilderPhase, or the column may not exist.`,
-          );
-        }
       }
     } catch (err) {
       console.warn(
-        `${logPrefix} failed to persist verification_status: ${err instanceof Error ? `${err.message}\n${err.stack}` : String(err)}`,
+        `${logPrefix} failed to persist verification_status for ${config.templateId}: ${err instanceof Error ? `${err.message}\n${err.stack}` : String(err)}`,
       );
     }
   }
@@ -227,7 +310,7 @@ async function maybeVerifyOfferLetters(args: {
  * Returns null when no upload produced a usable verdict.
  */
 function pickBestVerdict(
-  results: OfferLetterVerificationEntry[],
+  results: ClaimVerificationEntry[],
 ): "VERIFIED" | "PARTIAL" | "FAILED" | null {
   const rank: Record<"VERIFIED" | "PARTIAL" | "FAILED", number> = {
     VERIFIED: 3,
@@ -245,8 +328,16 @@ function pickBestVerdict(
   return best;
 }
 
-function pickOfferLetterEvidence(
+/**
+ * Pulls a single evidence entry out of the saved payload by templateId.
+ * Returns null when the entry is missing or lacks the generic fields
+ * (sourceOrIssuer / role / issuedOn) the verification flow depends on.
+ * Each claim template config is responsible for checking whether the
+ * fields it actually needs are present before building a claim.
+ */
+function pickEvidenceEntry(
   payload: unknown,
+  templateId: string,
 ): { sourceOrIssuer: string; role: string; issuedOn: string } | null {
   if (!payload || typeof payload !== "object") return null;
   const evidenceList = (payload as { evidence?: unknown }).evidence;
@@ -255,15 +346,12 @@ function pickOfferLetterEvidence(
     (item) =>
       item &&
       typeof item === "object" &&
-      (item as { templateId?: unknown }).templateId === "offer-letters",
+      (item as { templateId?: unknown }).templateId === templateId,
   ) as { sourceOrIssuer?: unknown; role?: unknown; issuedOn?: unknown } | undefined;
   if (!entry) return null;
-  if (typeof entry.sourceOrIssuer !== "string" || !entry.sourceOrIssuer.trim()) return null;
-  if (typeof entry.role !== "string" || !entry.role.trim()) return null;
-  if (typeof entry.issuedOn !== "string" || !entry.issuedOn.trim()) return null;
   return {
-    sourceOrIssuer: entry.sourceOrIssuer,
-    role: entry.role,
-    issuedOn: entry.issuedOn,
+    sourceOrIssuer: typeof entry.sourceOrIssuer === "string" ? entry.sourceOrIssuer : "",
+    role: typeof entry.role === "string" ? entry.role : "",
+    issuedOn: typeof entry.issuedOn === "string" ? entry.issuedOn : "",
   };
 }

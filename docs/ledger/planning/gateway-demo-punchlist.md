@@ -9,7 +9,7 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 - [x] **`employment-verification` claim type** — HR letters, W-2s, HR portal exports, background-check reports. Shares lineage group with offer-letter (same employer+role collapses into one badge lineage). _(landed: `src/claim-types/employment-verification.ts`, `POST /v1/claims/employment-verification`)_
 - [x] **`education` claim type** — diploma / degree certificate. _(landed: `src/claim-types/education.ts`, `POST /v1/claims/education`)_
 - [x] **`transcript` claim type** — shallow (content-match only; no deep structural detection). _(landed: `src/claim-types/transcript.ts`, `POST /v1/claims/transcript`)_
-- [ ] **Career-AI: forms for the three new types + POST to their `/v1/claims/<kind>` routes**.
+- [x] **Career-AI: forms for the three new types + POST to their `/v1/claims/<kind>` routes**. _(landed: generic `verifyClaim(kind)` client + per-template config in the career-builder save route; employment-verification, education, transcript all wired through the existing evidence forms)_
 - [ ] **Career-AI UI: read-back integration** — call `GET /v1/claims` on profile load and render verified badges from the gateway instead of local-only state. This is what makes the "log in → see your badges" story work.
 - [x] **Body-size limit** on `POST /v1/claims/employment` — add Hono `bodyLimit` middleware (~10MB) so a large PDF can't OOM the gateway. _(10MB cap scoped to /v1/claims/*)_
 - [x] **Redact `onError` response in production** — currently leaks `error.toString()` outside `NODE_ENV=production`. Return a generic message + correlation ID; keep the stack in server logs only.
