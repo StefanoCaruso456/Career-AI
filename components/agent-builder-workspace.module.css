@@ -936,53 +936,75 @@
 
 .templateNavigator {
   display: grid;
-  padding: var(--modal-space-6);
-  border-radius: 1.2rem;
+  gap: 0.6rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
   border: 1px solid var(--builder-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
-    rgba(26, 26, 31, 0.94);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(23, 23, 28, 0.94);
 }
 
 .templateNavigatorControls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--modal-space-6);
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.templateProgressHint {
+  margin: 0;
+  color: rgba(222, 227, 236, 0.78);
+  font-size: 0.77rem;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .templatePillRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 0.1rem;
+}
+
+.templatePillRow::-webkit-scrollbar {
+  height: 6px;
+}
+
+.templatePillRow::-webkit-scrollbar-thumb {
+  background: rgba(148, 162, 247, 0.28);
+  border-radius: 999px;
 }
 
 .templatePillButton {
   display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  min-height: 3.15rem;
-  padding: 0.6rem 0.92rem;
-  border-radius: 1.05rem;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+  min-height: 2.3rem;
+  padding: 0.44rem 0.72rem;
+  border-radius: 0.82rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
-    rgba(39, 39, 45, 0.92);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    rgba(38, 38, 43, 0.92);
   color: var(--builder-text);
   cursor: pointer;
   text-align: left;
+  white-space: nowrap;
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
-    transform 180ms ease,
     background 180ms ease;
 }
 
 .templatePillButton:hover {
   border-color: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
 }
 
 .templatePillButton:focus-visible,
@@ -994,27 +1016,25 @@
 .templatePillButtonActive {
   border-color: rgba(159, 153, 255, 0.42);
   background:
-    linear-gradient(180deg, rgba(121, 110, 255, 0.18), rgba(115, 139, 255, 0.06)),
+    linear-gradient(180deg, rgba(121, 110, 255, 0.16), rgba(115, 139, 255, 0.05)),
     rgba(32, 32, 39, 0.96);
-  box-shadow:
-    0 0 0 4px rgba(133, 147, 255, 0.1),
-    0 14px 28px rgba(40, 46, 83, 0.18);
+  box-shadow: 0 0 0 3px rgba(133, 147, 255, 0.1);
 }
 
 .templatePillIndex {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 1.7rem;
-  width: 1.7rem;
-  height: 1.7rem;
+  flex: 0 0 1.36rem;
+  width: 1.36rem;
+  height: 1.36rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background:
     linear-gradient(180deg, rgba(54, 53, 58, 0.98), rgba(28, 29, 33, 0.98)),
     rgba(8, 11, 18, 0.82);
   color: rgba(244, 247, 252, 0.92);
-  font-size: 0.76rem;
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
@@ -1022,20 +1042,23 @@
   border-color: rgba(166, 182, 255, 0.42);
 }
 
-.templatePillLabelGroup {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.templatePillLabelGroup strong {
-  font-size: 0.9rem;
+.templatePillLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
   line-height: 1.2;
+  letter-spacing: 0.01em;
 }
 
-.templatePillLabelGroup span {
+.templatePillLabel strong {
+  font-size: 0.83rem;
+  font-weight: 650;
+}
+
+.templatePillLabel span {
+  font-size: 0.74rem;
   color: var(--builder-muted);
-  font-size: 0.76rem;
-  line-height: 1.35;
+  opacity: 0.92;
 }
 
 .verificationHeroMeta {
@@ -1164,7 +1187,7 @@
 .templateNavButtons {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.45rem;
   flex: 0 0 auto;
   margin-left: auto;
 }
@@ -1173,16 +1196,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.45rem;
-  padding: 0.6rem 0.95rem;
-  border-radius: 999px;
+  gap: 0.32rem;
+  min-height: 2.1rem;
+  padding: 0.43rem 0.64rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--builder-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.014)),
     rgba(41, 41, 46, 0.94);
   color: rgba(244, 247, 252, 0.86);
   font: inherit;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 650;
   cursor: pointer;
   transition:
     border-color 180ms ease,
@@ -1722,8 +1747,7 @@
   }
 
   .evidenceCardHeader,
-  .sectionHeader,
-  .templateNavigatorControls {
+  .sectionHeader {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -1756,12 +1780,8 @@
     grid-template-columns: 1fr;
   }
 
-  .templateNavButtons {
-    width: 100%;
-  }
-
-  .templateNavButton {
-    flex: 1;
+  .templateNavigatorControls {
+    align-items: flex-start;
   }
 }
 
@@ -1832,7 +1852,7 @@
     width: 100%;
   }
 
-  .templatePillButton {
-    width: 100%;
+  .templateNavButtons {
+    margin-left: 0;
   }
 }

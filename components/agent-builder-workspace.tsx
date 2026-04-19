@@ -3,6 +3,8 @@
 import {
   AlertCircle,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Check,
   CheckCircle2,
   LoaderCircle,
@@ -1577,37 +1579,11 @@ export function AgentBuilderWorkspace({
                         {activeTemplates.length > 1 ? (
                           <section className={styles.templateNavigator}>
                             <div className={styles.templateNavigatorControls}>
-                              <div
-                                aria-label="Trust phase steps"
-                                className={styles.templatePillRow}
-                                role="tablist"
-                              >
-                                {activeTemplates.map((template, index) => {
-                                  const isActiveTemplate = template.id === activeTemplate.id;
-
-                                  return (
-                                    <button
-                                      aria-label={`Step ${index + 1}: ${template.title}`}
-                                      aria-selected={isActiveTemplate}
-                                      className={`${styles.templatePillButton} ${
-                                        isActiveTemplate ? styles.templatePillButtonActive : ""
-                                      }`}
-                                      key={template.id}
-                                      onClick={() => {
-                                        selectTemplate(template.id);
-                                      }}
-                                      role="tab"
-                                      type="button"
-                                    >
-                                      <span className={styles.templatePillIndex}>{index + 1}</span>
-                                      <span className={styles.templatePillLabelGroup}>
-                                        <strong>{template.title}</strong>
-                                        <span>{sectionMeta[template.section].title}</span>
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                              <p className={styles.templateProgressHint}>
+                                {`Step ${activeTemplateIndex + 1} of ${activeTemplates.length} · ${
+                                  sectionMeta[activeTemplate.section].title
+                                }`}
+                              </p>
 
                               <div className={styles.templateNavButtons}>
                                 <button
@@ -1618,7 +1594,8 @@ export function AgentBuilderWorkspace({
                                   }}
                                   type="button"
                                 >
-                                  Previous
+                                  <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.4} />
+                                  <span>Previous</span>
                                 </button>
 
                                 <button
@@ -1629,9 +1606,42 @@ export function AgentBuilderWorkspace({
                                   }}
                                   type="button"
                                 >
-                                  Next
+                                  <span>Next</span>
+                                  <ChevronRight aria-hidden="true" size={16} strokeWidth={2.4} />
                                 </button>
                               </div>
+                            </div>
+
+                            <div
+                              aria-label="Trust phase steps"
+                              className={styles.templatePillRow}
+                              role="tablist"
+                            >
+                              {activeTemplates.map((template, index) => {
+                                const isActiveTemplate = template.id === activeTemplate.id;
+
+                                return (
+                                  <button
+                                    aria-label={`Step ${index + 1}: ${template.title}`}
+                                    aria-selected={isActiveTemplate}
+                                    className={`${styles.templatePillButton} ${
+                                      isActiveTemplate ? styles.templatePillButtonActive : ""
+                                    }`}
+                                    key={template.id}
+                                    onClick={() => {
+                                      selectTemplate(template.id);
+                                    }}
+                                    role="tab"
+                                    type="button"
+                                  >
+                                    <span className={styles.templatePillIndex}>{index + 1}</span>
+                                    <span className={styles.templatePillLabel}>
+                                      <strong>{template.title}</strong>
+                                      <span>{sectionMeta[template.section].title}</span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </section>
                         ) : null}
