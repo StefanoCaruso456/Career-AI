@@ -88,14 +88,9 @@ export function ProductScrollytell() {
   return (
     <section className={styles.container}>
       <div className={styles.intro}>
-        <p className={styles.introEyebrow}>Career AI, explained in a scroll</p>
         <h1 className={styles.introTitle}>
           From scattered paperwork to a Career ID you own.
         </h1>
-        <p className={styles.introLead}>
-          Keep scrolling. The left side shows the product doing its thing; the right side
-          tells you why each step matters.
-        </p>
       </div>
 
       <div className={styles.grid}>

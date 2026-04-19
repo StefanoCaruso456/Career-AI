@@ -15,33 +15,16 @@
   text-align: center;
 }
 
-.introEyebrow {
-  display: inline-block;
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-bottom: 20px;
-  opacity: 0.75;
-}
-
 .introTitle {
   font-size: 48px;
   line-height: 1.08;
   font-weight: 600;
   letter-spacing: -0.015em;
-  margin: 0 0 20px;
+  margin: 0;
   background: linear-gradient(180deg, #ffffff 0%, #c8d2e6 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-.introLead {
-  font-size: 17px;
-  line-height: 1.55;
-  color: var(--text-secondary);
-  margin: 0;
 }
 
 /* ------------------------------------------------------------------ *
