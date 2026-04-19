@@ -1,5 +1,15 @@
 import type { ExtractionResult } from "../clients/pdf-extractor.js";
-import type { AuthenticitySignal, EmploymentClaim } from "../types.js";
+import type { AuthenticitySignal } from "../types.js";
+
+/**
+ * What the caller asserts the signing domain should be. Decoupled from the
+ * employment claim shape so education / transcript / employment-verification
+ * types can each supply their own expectation (employer, institution, etc.).
+ */
+export interface AuthenticityExpectation {
+  expectedDomain: string | null;
+  expectedDomainLabel: string;
+}
 
 /**
  * Determines how much the document looks like it came from the claimed
@@ -30,10 +40,11 @@ import type { AuthenticitySignal, EmploymentClaim } from "../types.js";
  */
 export function checkAuthenticity(
   extraction: ExtractionResult,
-  claim: EmploymentClaim,
+  expectation: AuthenticityExpectation,
   cocExtraction?: ExtractionResult,
 ): AuthenticitySignal {
   const ds = extraction.docusignMarkers;
+  const { expectedDomain, expectedDomainLabel } = expectation;
 
   // Decide where to pull CoC text from, in priority order:
   // 1. A separate CoC PDF uploaded alongside the document (variant C)
@@ -48,12 +59,9 @@ export function checkAuthenticity(
 
   if (cocTextSource) {
     const coc = parseCertificateOfCompletion(cocTextSource);
-    const expectedDomain = guessEmployerDomain(claim.employer);
-    const matchingDomain = domainMatches(
-      expectedDomain,
-      coc.senderDomain,
-      coc.signerDomains,
-    );
+    const matchingDomain = expectedDomain
+      ? domainMatches(expectedDomain, coc.senderDomain, coc.signerDomains)
+      : null;
     const envelopeIdMatches =
       cocExtraction && ds.envelopeId && cocExtraction.docusignMarkers.envelopeId
         ? normalizeEnvelopeId(ds.envelopeId) ===
@@ -71,8 +79,10 @@ export function checkAuthenticity(
       completedAt: coc.completedAt,
       matchesClaim: Boolean(matchingDomain),
       reason: matchingDomain
-        ? `DocuSign CoC "Envelope Originator" domain ${matchingDomain} matches claimed employer "${claim.employer}" (via ${sourceLabel}${envelopeIdMatches ? ", envelope ID cross-reference verified" : ""}). Note: CoC text is application-level metadata, not cryptographically attested by the PDF signature. Treat as evidence, not proof.`
-        : `No domain in the DocuSign CoC (${[coc.senderDomain, ...(coc.signerDomains ?? [])].filter(Boolean).join(", ") || "none"}) matches claimed employer "${claim.employer}" (via ${sourceLabel}).`,
+        ? `DocuSign CoC "Envelope Originator" domain ${matchingDomain} matches ${expectedDomainLabel} (via ${sourceLabel}${envelopeIdMatches ? ", envelope ID cross-reference verified" : ""}). Note: CoC text is application-level metadata, not cryptographically attested by the PDF signature. Treat as evidence, not proof.`
+        : expectedDomain
+          ? `No domain in the DocuSign CoC (${[coc.senderDomain, ...(coc.signerDomains ?? [])].filter(Boolean).join(", ") || "none"}) matches ${expectedDomainLabel} (via ${sourceLabel}).`
+          : `DocuSign CoC parsed (sender ${coc.senderDomain ?? "unknown"}) but this claim type does not check a specific domain.`,
     };
   }
 

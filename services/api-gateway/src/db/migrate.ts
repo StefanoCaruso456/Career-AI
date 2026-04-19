@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS badges (
   subject_did TEXT NOT NULL,
   issuer_did TEXT NOT NULL,
   badge_type TEXT NOT NULL,
+  lineage_key TEXT NOT NULL DEFAULT '',
+  version INTEGER NOT NULL DEFAULT 1,
   payload JSONB NOT NULL,
   issued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   revoked_at TIMESTAMPTZ
@@ -49,6 +51,27 @@ CREATE TABLE IF NOT EXISTS badges (
 
 CREATE INDEX IF NOT EXISTS badges_subject_did_idx ON badges(subject_did);
 CREATE INDEX IF NOT EXISTS badges_claim_id_idx ON badges(claim_id);
+
+-- Back-compat: earlier migrations created the badges table without
+-- lineage_key / version. Add them idempotently with a sensible default.
+-- Must run before the lineage index below, or the CREATE INDEX fails on
+-- existing installs where the column doesn't exist yet.
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'badges' AND column_name = 'lineage_key'
+  ) THEN
+    ALTER TABLE badges ADD COLUMN lineage_key TEXT NOT NULL DEFAULT '';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'badges' AND column_name = 'version'
+  ) THEN
+    ALTER TABLE badges ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS badges_lineage_idx ON badges(subject_did, lineage_key);
 
 CREATE TABLE IF NOT EXISTS audit_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

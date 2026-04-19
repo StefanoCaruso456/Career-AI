@@ -1,9 +1,11 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { z } from "zod";
+import { getClaimTypeHandler, listClaimTypes } from "../claim-types/registry.js";
 import { db, schema } from "../db/index.js";
 import type { AppEnv } from "../hono-env.js";
-import { submitEmploymentClaim } from "../orchestrators/employment-claim.js";
+import { submitClaim } from "../orchestrators/submit-claim.js";
 import { VerificationError } from "../verifier/index.js";
 import { buildPublicClaimRecord } from "../views/claim-view.js";
 
@@ -11,27 +13,28 @@ import { buildPublicClaimRecord } from "../views/claim-view.js";
  * Claim routes.
  *
  * Route handlers are intentionally thin — all business logic lives in
- * orchestrators. A handler's job is: parse input, validate shape, delegate,
- * return result. If you find yourself writing `if (verdict === ...)` here,
- * move it to an orchestrator.
+ * orchestrators, and all type-specific behavior lives in claim-type
+ * handlers. A handler's job here is: parse input, validate shape, dispatch.
  */
 
 export const claimsRoutes = new Hono<AppEnv>();
 
-const employmentClaimSchema = z.object({
-  employer: z.string().min(1).max(200),
-  role: z.string().min(1).max(200),
-  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  /**
-   * Uploader's account display name. Optional on the wire; when absent the
-   * recipient-match check is skipped by the content extractor.
-   */
-  userAccountName: z.string().min(1).max(200).optional(),
-});
-
-claimsRoutes.post("/employment", async (c) => {
+/**
+ * Generic upload handler used by every /v1/claims/<kind> route. The kind
+ * parameter must match a handler registered in the claim-types registry.
+ */
+async function handleClaimUpload(c: Context<AppEnv>, kind: string) {
   const actorDid = c.get("actorDid");
+  const handler = getClaimTypeHandler(kind);
+  if (!handler) {
+    return c.json(
+      {
+        error: "UNSUPPORTED_CLAIM_TYPE",
+        message: `Unknown claim type '${kind}'. Supported types: ${listClaimTypes().join(", ")}.`,
+      },
+      404,
+    );
+  }
 
   let form: FormData;
   try {
@@ -63,7 +66,7 @@ claimsRoutes.post("/employment", async (c) => {
   let claim;
   try {
     const parsed = JSON.parse(claimRaw);
-    claim = employmentClaimSchema.parse(parsed);
+    claim = handler.schema.parse(parsed);
   } catch (err) {
     return c.json(
       { error: "VALIDATION_FAILED", message: "Invalid claim JSON.", details: String(err) },
@@ -84,7 +87,7 @@ claimsRoutes.post("/employment", async (c) => {
   }
 
   try {
-    const result = await submitEmploymentClaim({
+    const result = await submitClaim(handler, {
       actorDid,
       file: buffer,
       filename: file.name || "upload.pdf",
@@ -113,7 +116,12 @@ claimsRoutes.post("/employment", async (c) => {
     }
     throw err;
   }
-});
+}
+
+// Canonical route: /v1/claims/offer-letter. Career-AI's caller posts here.
+// Employment-verification, education, and transcript slot in below as
+// their handlers land in the registry.
+claimsRoutes.post("/offer-letter", (c) => handleClaimUpload(c, "offer-letter"));
 
 /**
  * GET /v1/claims

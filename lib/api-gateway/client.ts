@@ -74,7 +74,7 @@ export async function verifyEmploymentClaim(
   );
   form.append("claim", JSON.stringify(input.claim));
 
-  const url = `${baseUrl.replace(/\/$/, "")}/v1/claims/employment`;
+  const url = `${baseUrl.replace(/\/$/, "")}/v1/claims/offer-letter`;
 
   try {
     const res = await fetch(url, {
