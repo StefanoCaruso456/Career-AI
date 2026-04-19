@@ -126,6 +126,7 @@ type EvidenceDraftState = {
   templateId: CareerEvidenceTemplateId;
   validationContext: string;
   whyItMatters: string;
+  verificationStatus: "VERIFIED" | "PARTIAL" | "FAILED" | null;
 };
 
 type ModalDraftState = {
@@ -252,6 +253,7 @@ function createEvidenceDraft(record: CareerEvidenceRecord): EvidenceDraftState {
     validationContext: record.validationContext,
     whyItMatters: record.whyItMatters,
     files: record.files.map(toDraftFile),
+    verificationStatus: record.verificationStatus ?? null,
   };
 }
 
@@ -289,6 +291,14 @@ function getEvidenceStateLabel(
   draft: EvidenceDraftState,
 ) {
   const uploadCount = getCompletedUploadCount(template, draft);
+
+  // Matches the Persona "Government ID verified" pattern — when the
+  // document verifier has returned VERIFIED on an offer-letter upload,
+  // the card's status pill advertises that instead of the generic
+  // "N uploads attached" label.
+  if (template.id === "offer-letters" && draft.verificationStatus === "VERIFIED") {
+    return "Offer letter verified";
+  }
 
   if (isDriverLicenseTemplate(template)) {
     if (uploadCount === driversLicenseImageSlots.length) {
