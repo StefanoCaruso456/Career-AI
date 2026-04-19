@@ -54,6 +54,40 @@ export const verifications = pgTable(
 );
 
 /**
+ * A verified credential ("badge") issued for a claim.
+ *
+ * Populated only when a verification yields `VERIFIED`. One badge per
+ * verified claim. The `payload` holds the ground-truth claim data plus the
+ * authenticity/confidence metadata that was true at issuance time.
+ *
+ * This is intentionally pre-W3C: the shape is minimal so the transition to
+ * signed W3C Verifiable Credentials changes only the `payload` contents
+ * (a `{kind: "vc-employment", vc: "<jwt|ld+json>"}` blob) without moving
+ * IDs, ownership, or the public read path. The read endpoints already hide
+ * the internal signal blobs, so swapping the payload format is transparent
+ * to the frontend.
+ */
+export const badges = pgTable(
+  "badges",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    claimId: uuid("claim_id")
+      .notNull()
+      .references(() => claims.id, { onDelete: "cascade" }),
+    subjectDid: text("subject_did").notNull(),
+    issuerDid: text("issuer_did").notNull(),
+    badgeType: text("badge_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => ({
+    subjectIdx: index("badges_subject_did_idx").on(t.subjectDid),
+    claimIdx: index("badges_claim_id_idx").on(t.claimId),
+  }),
+);
+
+/**
  * Audit log of inbound gateway requests. Captures who called what and with
  * what outcome. Never stores request/response bodies (PII risk) — only the
  * metadata needed for debugging and compliance.

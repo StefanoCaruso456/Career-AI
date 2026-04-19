@@ -36,6 +36,20 @@ CREATE TABLE IF NOT EXISTS verifications (
 
 CREATE INDEX IF NOT EXISTS verifications_claim_id_idx ON verifications(claim_id);
 
+CREATE TABLE IF NOT EXISTS badges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  claim_id UUID NOT NULL REFERENCES claims(id) ON DELETE CASCADE,
+  subject_did TEXT NOT NULL,
+  issuer_did TEXT NOT NULL,
+  badge_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS badges_subject_did_idx ON badges(subject_did);
+CREATE INDEX IF NOT EXISTS badges_claim_id_idx ON badges(claim_id);
+
 CREATE TABLE IF NOT EXISTS audit_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_did TEXT,

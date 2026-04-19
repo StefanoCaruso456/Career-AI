@@ -1,7 +1,10 @@
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { db, schema } from "../db/index.js";
 import type { AppEnv } from "../hono-env.js";
 import { submitEmploymentClaim } from "../orchestrators/employment-claim.js";
+import { buildPublicClaimRecord } from "../views/claim-view.js";
 
 /**
  * Claim routes.
@@ -89,4 +92,109 @@ claimsRoutes.post("/employment", async (c) => {
   });
 
   return c.json(result);
+});
+
+/**
+ * GET /v1/claims
+ *
+ * Lists the authenticated actor's claims with their latest verification.
+ * Scoped to `actorDid` from the auth middleware — there is no way for a
+ * caller to read another user's claims through this endpoint, even though
+ * Career-AI holds the shared secret. Scoping lives server-side.
+ *
+ * No pagination for the demo; capped at a safe ceiling.
+ */
+const CLAIMS_LIST_LIMIT = 100;
+
+claimsRoutes.get("/", async (c) => {
+  const actorDid = c.get("actorDid");
+
+  const claimRows = await db
+    .select()
+    .from(schema.claims)
+    .where(eq(schema.claims.ownerDid, actorDid))
+    .orderBy(desc(schema.claims.createdAt))
+    .limit(CLAIMS_LIST_LIMIT);
+
+  if (claimRows.length === 0) {
+    return c.json({ claims: [] });
+  }
+
+  const ids = claimRows.map((r) => r.id);
+  const [verificationRows, badgeRows] = await Promise.all([
+    db
+      .select()
+      .from(schema.verifications)
+      .where(inArray(schema.verifications.claimId, ids))
+      .orderBy(desc(schema.verifications.createdAt)),
+    db
+      .select()
+      .from(schema.badges)
+      .where(inArray(schema.badges.claimId, ids)),
+  ]);
+
+  // First row per claim wins because we ordered by createdAt desc.
+  const latestByClaim = new Map<string, (typeof verificationRows)[number]>();
+  for (const v of verificationRows) {
+    if (!latestByClaim.has(v.claimId)) latestByClaim.set(v.claimId, v);
+  }
+  const badgeByClaim = new Map<string, (typeof badgeRows)[number]>();
+  for (const b of badgeRows) badgeByClaim.set(b.claimId, b);
+
+  const claims = claimRows.map((claim) =>
+    buildPublicClaimRecord(
+      claim,
+      latestByClaim.get(claim.id) ?? null,
+      badgeByClaim.get(claim.id) ?? null,
+    ),
+  );
+
+  return c.json({ claims });
+});
+
+/**
+ * GET /v1/claims/:id
+ *
+ * Returns a single claim + latest verification, scoped to the authenticated
+ * actor. Returns 404 rather than 403 if the id exists but is owned by a
+ * different DID — we do not reveal ownership to unrelated callers.
+ */
+const claimIdSchema = z.string().uuid();
+
+claimsRoutes.get("/:id", async (c) => {
+  const actorDid = c.get("actorDid");
+
+  const parse = claimIdSchema.safeParse(c.req.param("id"));
+  if (!parse.success) {
+    return c.json({ error: "NOT_FOUND", message: "Claim not found." }, 404);
+  }
+  const id = parse.data;
+
+  const [claim] = await db
+    .select()
+    .from(schema.claims)
+    .where(and(eq(schema.claims.id, id), eq(schema.claims.ownerDid, actorDid)))
+    .limit(1);
+
+  if (!claim) {
+    return c.json({ error: "NOT_FOUND", message: "Claim not found." }, 404);
+  }
+
+  const [[verification], [badge]] = await Promise.all([
+    db
+      .select()
+      .from(schema.verifications)
+      .where(eq(schema.verifications.claimId, id))
+      .orderBy(desc(schema.verifications.createdAt))
+      .limit(1),
+    db
+      .select()
+      .from(schema.badges)
+      .where(eq(schema.badges.claimId, id))
+      .limit(1),
+  ]);
+
+  return c.json({
+    claim: buildPublicClaimRecord(claim, verification ?? null, badge ?? null),
+  });
 });
