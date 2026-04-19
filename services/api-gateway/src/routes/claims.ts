@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db, schema } from "../db/index.js";
 import type { AppEnv } from "../hono-env.js";
 import { submitEmploymentClaim } from "../orchestrators/employment-claim.js";
+import { VerificationError } from "../verifier/index.js";
 import { buildPublicClaimRecord } from "../views/claim-view.js";
 
 /**
@@ -82,16 +83,36 @@ claimsRoutes.post("/employment", async (c) => {
     certificateFilename = certificate.name || "certificate.pdf";
   }
 
-  const result = await submitEmploymentClaim({
-    actorDid,
-    file: buffer,
-    filename: file.name || "upload.pdf",
-    claim,
-    certificateFile: certificateBuffer,
-    certificateFilename,
-  });
-
-  return c.json(result);
+  try {
+    const result = await submitEmploymentClaim({
+      actorDid,
+      file: buffer,
+      filename: file.name || "upload.pdf",
+      claim,
+      certificateFile: certificateBuffer,
+      certificateFilename,
+    });
+    return c.json(result);
+  } catch (err) {
+    // Map typed verification errors to meaningful HTTP codes. Anything else
+    // bubbles up to the global onError handler (500).
+    if (err instanceof VerificationError) {
+      if (err.code === "EXTRACTION_UNAVAILABLE") {
+        return c.json(
+          {
+            error: "SERVICE_UNAVAILABLE",
+            message:
+              "Document extraction service is temporarily unavailable. Please try again in a moment.",
+          },
+          502,
+        );
+      }
+      if (err.code === "INVALID_REQUEST") {
+        return c.json({ error: "INVALID_REQUEST", message: err.message }, 400);
+      }
+    }
+    throw err;
+  }
 });
 
 /**

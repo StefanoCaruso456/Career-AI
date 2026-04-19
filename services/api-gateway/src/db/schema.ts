@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uuid, index } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, timestamp, uuid, index } from "drizzle-orm/pg-core";
 
 /**
  * A candidate's claim about their career history.
@@ -99,8 +99,8 @@ export const auditEvents = pgTable(
     actorDid: text("actor_did"),
     method: text("method").notNull(),
     path: text("path").notNull(),
-    statusCode: text("status_code").notNull(),
-    durationMs: text("duration_ms").notNull(),
+    statusCode: integer("status_code").notNull(),
+    durationMs: integer("duration_ms").notNull(),
     correlationId: text("correlation_id").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
