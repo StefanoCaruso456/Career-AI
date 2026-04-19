@@ -101,6 +101,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
+    const offerLetterRecord = snapshot.evidence.find(
+      (e) => e.templateId === "offer-letters",
+    );
+    console.log(
+      `[career-builder-save cid=${correlationId}] outbound snapshot offer-letter verificationStatus=${offerLetterRecord?.verificationStatus ?? "null"} (rebuilt=${anyVerdictLanded ? "yes" : "no"})`,
+    );
+
     return successResponse(
       {
         ...snapshot,
