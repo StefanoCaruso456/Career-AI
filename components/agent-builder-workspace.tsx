@@ -43,19 +43,27 @@ import type {
   CareerProfileInput,
   EvidenceFileSlot,
 } from "@/packages/contracts/src";
-import type { OfferLetterVerificationEntry } from "@/lib/api-gateway/types";
+import type { ClaimVerificationEntry } from "@/lib/api-gateway/types";
 import styles from "./agent-builder-workspace.module.css";
 
+const DOC_TYPE_LABEL: Record<string, string> = {
+  "offer-letters": "offer letter",
+  "employment-history-reports": "HR letter",
+  "diplomas-degrees": "diploma",
+  transcripts: "transcript",
+};
+
 function formatSaveMessage(
-  verifications: OfferLetterVerificationEntry[] | undefined,
+  verifications: ClaimVerificationEntry[] | undefined,
 ): { text: string; kind: "success" | "error" } {
   if (!verifications || verifications.length === 0) {
     return { text: "Saved to your Career ID.", kind: "success" };
   }
 
-  // For the common case of a single offer letter, surface the verdict inline.
+  // Single-upload case: surface the verdict inline.
   if (verifications.length === 1) {
-    const { outcome, filename } = verifications[0];
+    const { outcome, filename, templateId } = verifications[0];
+    const docLabel = DOC_TYPE_LABEL[templateId] ?? "document";
     if (!outcome.ok) {
       if (outcome.reason === "UNCONFIGURED") {
         return {
@@ -70,28 +78,21 @@ function formatSaveMessage(
     }
     const { status, displayStatus, matches } = outcome.result;
     const summaryParts = [
-      matches.isOfferLetter ? "offer letter ✓" : "offer letter ✗",
+      matches.isExpectedDocumentType ?? matches.isOfferLetter
+        ? `${docLabel} ✓`
+        : `${docLabel} ✗`,
       matches.employer ? "employer ✓" : "employer ✗",
       matches.dates ? "dates ✓" : "dates ✗",
       matches.role ? "role ✓" : "role ✗",
     ];
-    // Recipient indicator is only shown when the check was actually run
-    // (uploader supplied a name). Skipping it entirely when undefined
-    // avoids a misleading ✓/✗ for a check we didn't perform.
     if (typeof matches.recipient === "boolean") {
       summaryParts.push(matches.recipient ? "recipient ✓" : "recipient ✗");
     }
     const matchSummary = summaryParts.join(" · ");
-    if (status === "VERIFIED") {
-      return { text: `Saved. ${displayStatus}. ${matchSummary}`, kind: "success" };
-    }
-    if (status === "PARTIAL") {
+    if (status === "VERIFIED" || status === "PARTIAL") {
       return { text: `Saved. ${displayStatus}. ${matchSummary}`, kind: "success" };
     }
     // FAILED — drop the "Saved." prefix so the user doesn't read this as a pass.
-    // Include the failureReason so the ✓ indicators aren't misleading: the
-    // content may have matched but verification failed for a different reason
-    // (tampering, employer mismatch, insufficient signals).
     const reason = outcome.result.failureReason;
     const reasonSuffix = reason ? ` ${reason}` : "";
     return {
@@ -100,7 +101,7 @@ function formatSaveMessage(
     };
   }
 
-  // Multiple offer letters — summarize counts. If any failed, render as error.
+  // Multiple uploads — summarize counts across all claim types.
   const verifiedCount = verifications.filter(
     (v) => v.outcome.ok && v.outcome.result.status === "VERIFIED",
   ).length;
@@ -110,7 +111,7 @@ function formatSaveMessage(
   const kind: "success" | "error" = failedCount > 0 ? "error" : "success";
   const prefix = failedCount > 0 ? "" : "Saved. ";
   return {
-    text: `${prefix}${verifiedCount}/${verifications.length} offer letter(s) verified${
+    text: `${prefix}${verifiedCount}/${verifications.length} document(s) verified${
       failedCount > 0 ? `, ${failedCount} failed` : ""
     }.`,
     kind,
@@ -1571,9 +1572,12 @@ export function AgentBuilderWorkspace({
       }
 
       const nextSnapshot = body as CareerBuilderSnapshotDto;
-      const offerLetterVerifications = (
-        body as { offerLetterVerifications?: OfferLetterVerificationEntry[] }
-      ).offerLetterVerifications;
+      // Prefer the generic claimVerifications array (covers all four
+      // claim types). Fall back to the legacy offerLetterVerifications
+      // field so responses from older servers still produce a message.
+      const claimVerifications =
+        (body as { claimVerifications?: ClaimVerificationEntry[] }).claimVerifications ??
+        (body as { offerLetterVerifications?: ClaimVerificationEntry[] }).offerLetterVerifications;
 
       startTransition(() => {
         setSnapshot(nextSnapshot);
@@ -1583,7 +1587,7 @@ export function AgentBuilderWorkspace({
       setDraft(nextDraft);
       setFieldErrors({});
       setGlobalError(null);
-      setSaveMessage(formatSaveMessage(offerLetterVerifications));
+      setSaveMessage(formatSaveMessage(claimVerifications));
       initialDraftSignatureRef.current = serializePhaseDraft(activePhase, nextDraft);
     } catch (error) {
       setGlobalError(
