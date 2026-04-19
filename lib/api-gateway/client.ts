@@ -33,6 +33,20 @@ export interface VerifyEmploymentClaimInput {
   actorDid: string;
 }
 
+/**
+ * Build the actor DID the gateway expects for an authenticated Career-AI
+ * user. Emails can contain `@`, `.`, and `+`, which are not in the
+ * DID-core `idchar` set, so we percent-encode into a single method-specific
+ * segment. Anonymous sessions get a stable sentinel DID so the gateway's
+ * header validation still passes (the row just won't resolve to a real
+ * user). When identity-service lands this helper goes away — the server
+ * derives the DID from a signed session token instead.
+ */
+export function buildActorDid(email: string | null | undefined): string {
+  const subject = email && email.length > 0 ? encodeURIComponent(email) : "anonymous";
+  return `did:web:career-ai:users:${subject}`;
+}
+
 const DEFAULT_TIMEOUT_MS = 45_000;
 
 export async function verifyEmploymentClaim(

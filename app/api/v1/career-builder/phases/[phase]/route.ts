@@ -10,7 +10,7 @@ import {
   saveCareerBuilderPhase,
 } from "@/packages/career-builder-domain/src";
 import { ApiError, careerPhaseSchema } from "@/packages/contracts/src";
-import { verifyEmploymentClaim } from "@/lib/api-gateway/client";
+import { buildActorDid, verifyEmploymentClaim } from "@/lib/api-gateway/client";
 import type { OfferLetterVerificationEntry } from "@/lib/api-gateway/types";
 import { findTalentIdentityByEmail } from "@/packages/identity-domain/src";
 import { updateCareerBuilderEvidenceVerificationStatus } from "@/packages/persistence/src";
@@ -150,7 +150,7 @@ async function maybeVerifyOfferLetters(args: {
     userAccountName: args.session.user?.name ?? undefined,
   };
 
-  const actorDid = `did:web:career-ai#${args.session.user?.email ?? "anonymous"}`;
+  const actorDid = buildActorDid(args.session.user?.email);
   const results: OfferLetterVerificationEntry[] = [];
 
   for (const upload of offerUploads) {
