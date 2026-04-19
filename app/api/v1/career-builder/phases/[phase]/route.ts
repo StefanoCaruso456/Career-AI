@@ -286,10 +286,16 @@ async function verifyTemplateUploads(
         const rowCount = await updateCareerBuilderEvidenceVerificationStatus({
           careerIdentityId: identity.talentIdentity.id,
           templateId: config.templateId,
+          // Scope to the specific evidence row just upserted. With the
+          // widened (user, template, sourceOrIssuer, role) uniqueness
+          // key a user can own multiple rows per template, so we must
+          // target only the one matching this claim.
+          sourceOrIssuer: evidence.sourceOrIssuer,
+          role: evidence.role,
           verificationStatus: bestVerdict,
         });
         console.log(
-          `${logPrefix} persisted verification_status=${bestVerdict} template=${config.templateId} careerIdentityId=${identity.talentIdentity.id} rowsAffected=${rowCount}`,
+          `${logPrefix} persisted verification_status=${bestVerdict} template=${config.templateId} employer=${evidence.sourceOrIssuer} role=${evidence.role} careerIdentityId=${identity.talentIdentity.id} rowsAffected=${rowCount}`,
         );
       }
     } catch (err) {

@@ -298,11 +298,9 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
           updated_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
-        ON CONFLICT (career_identity_id, template_id)
+        ON CONFLICT (career_identity_id, template_id, source_or_issuer, role)
         DO UPDATE SET
           completion_tier = EXCLUDED.completion_tier,
-          source_or_issuer = EXCLUDED.source_or_issuer,
-          role = EXCLUDED.role,
           issued_on = EXCLUDED.issued_on,
           validation_context = EXCLUDED.validation_context,
           why_it_matters = EXCLUDED.why_it_matters,
@@ -394,15 +392,34 @@ export async function upsertPersistentCareerBuilderEvidence(args: {
 export async function updateCareerBuilderEvidenceVerificationStatus(args: {
   careerIdentityId: string;
   templateId: string;
+  /**
+   * The identifying fields of the specific evidence row to update. With
+   * the widened uniqueness key (user, templateId, sourceOrIssuer, role),
+   * a user can have multiple rows per templateId — one per distinct
+   * credential — so scoping by templateId alone would clobber every
+   * badge the user owns for that template. Pass the same values the
+   * caller upserted through saveCareerBuilderEvidence.
+   */
+  sourceOrIssuer: string;
+  role: string;
   verificationStatus: "VERIFIED" | "PARTIAL" | "FAILED" | null;
 }): Promise<number> {
   const result = await getDatabasePool().query(
     `
       UPDATE career_builder_evidence
-      SET verification_status = $3, updated_at = NOW()
-      WHERE career_identity_id = $1 AND template_id = $2
+      SET verification_status = $5, updated_at = NOW()
+      WHERE career_identity_id = $1
+        AND template_id = $2
+        AND source_or_issuer = $3
+        AND role = $4
     `,
-    [args.careerIdentityId, args.templateId, args.verificationStatus],
+    [
+      args.careerIdentityId,
+      args.templateId,
+      args.sourceOrIssuer,
+      args.role,
+      args.verificationStatus,
+    ],
   );
   return result.rowCount ?? 0;
 }
