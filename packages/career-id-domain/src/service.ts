@@ -118,13 +118,13 @@ const trustLayerDescriptionByPhase: Record<TrustLayer, string> = {
   self_reported:
     "Add your foundation profile details so the rest of your trust ladder has context.",
   relationship_backed:
-    "Bring in referrals, endorsements, and trusted letters that add social proof.",
+    "Add endorsements from trusted people who can validate your outcomes.",
   document_backed:
-    "Verify a government ID or upload trusted documents to strengthen your Career ID.",
+    "Verify government ID or upload offer, employment, education, and transcript proof.",
   signature_backed:
-    "Add signed proof that carries stronger reviewer confidence.",
+    "Add employer-backed verification that carries stronger reviewer confidence.",
   institution_verified:
-    "Anchor the profile to institution-issued verification and trusted identity providers.",
+    "Anchor the profile to government-issued identity verification.",
 };
 
 declare global {

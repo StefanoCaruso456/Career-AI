@@ -69,14 +69,6 @@ async function unlockDocumentLayer() {
     input: {
       evidence: [
         {
-          templateId: "referrals",
-          sourceOrIssuer: "Avery Smith",
-          issuedOn: "2026-04-10",
-          validationContext: "Referral from prior company collaboration.",
-          whyItMatters: "Adds external relationship proof.",
-          retainedArtifactIds: [],
-        },
-        {
           templateId: "endorsements",
           sourceOrIssuer: "Jordan Lee",
           issuedOn: "2026-04-10",
@@ -84,20 +76,10 @@ async function unlockDocumentLayer() {
           whyItMatters: "Adds social proof.",
           retainedArtifactIds: [],
         },
-        {
-          templateId: "past-colleague-letters",
-          sourceOrIssuer: "Taylor Morgan",
-          issuedOn: "2026-04-10",
-          validationContext: "Past colleague overlap and outcomes.",
-          whyItMatters: "Strengthens trust in delivery history.",
-          retainedArtifactIds: [],
-        },
       ],
     },
     uploadsByTemplateId: {
-      referrals: [{ file: relationshipFile }],
       endorsements: [{ file: relationshipFile }],
-      "past-colleague-letters": [{ file: relationshipFile }],
     },
     correlationId: "career-id-relationship",
   });

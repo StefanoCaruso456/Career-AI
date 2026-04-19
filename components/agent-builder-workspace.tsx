@@ -132,12 +132,12 @@ const sectionMeta: Record<
     title: "Employment evidence",
   },
   education: {
-    copy: "Academic proof, certifications, and licenses that strengthen the credibility layer behind the Career ID.",
-    title: "Education & certifications",
+    copy: "Academic proof that strengthens the credibility layer behind the Career ID.",
+    title: "Education evidence",
   },
   network: {
-    copy: "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
-    title: "Referrals and endorsements",
+    copy: "Relationship signals that show how trusted people validate your outcomes.",
+    title: "Endorsements",
   },
 };
 
