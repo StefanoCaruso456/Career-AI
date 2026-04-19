@@ -42,7 +42,42 @@ import type {
   CareerProfileInput,
   EvidenceFileSlot,
 } from "@/packages/contracts/src";
+import type { OfferLetterVerificationEntry } from "@/lib/api-gateway/types";
 import styles from "./agent-builder-workspace.module.css";
+
+function formatSaveMessage(
+  verifications: OfferLetterVerificationEntry[] | undefined,
+): string {
+  if (!verifications || verifications.length === 0) {
+    return "Saved to your Career ID.";
+  }
+
+  // For the common case of a single offer letter, surface the verdict inline.
+  if (verifications.length === 1) {
+    const { outcome, filename } = verifications[0];
+    if (!outcome.ok) {
+      if (outcome.reason === "UNCONFIGURED") {
+        return `Saved. Verification skipped — verifier not configured.`;
+      }
+      return `Saved. Verification unavailable (${outcome.reason.toLowerCase().replace(/_/g, " ")}).`;
+    }
+    const { status, displayStatus, matches } = outcome.result;
+    const matchSummary = [
+      matches.employer ? "employer ✓" : "employer ✗",
+      matches.dates ? "dates ✓" : "dates ✗",
+      matches.role ? "role ✓" : "role ✗",
+    ].join(" · ");
+    if (status === "VERIFIED") return `Saved. ${displayStatus}. ${matchSummary}`;
+    if (status === "PARTIAL") return `Saved. ${displayStatus}. ${matchSummary}`;
+    return `Saved. ${displayStatus}. ${matchSummary} (file: ${filename})`;
+  }
+
+  // Multiple offer letters — summarize counts.
+  const verifiedCount = verifications.filter(
+    (v) => v.outcome.ok && v.outcome.result.status === "VERIFIED",
+  ).length;
+  return `Saved. ${verifiedCount}/${verifications.length} offer letter(s) verified.`;
+}
 
 type AgentBuilderWorkspaceProps = {
   initialSnapshot: CareerBuilderSnapshotDto;
@@ -1302,6 +1337,9 @@ export function AgentBuilderWorkspace({
       }
 
       const nextSnapshot = body as CareerBuilderSnapshotDto;
+      const offerLetterVerifications = (
+        body as { offerLetterVerifications?: OfferLetterVerificationEntry[] }
+      ).offerLetterVerifications;
 
       startTransition(() => {
         setSnapshot(nextSnapshot);
@@ -1311,7 +1349,7 @@ export function AgentBuilderWorkspace({
       setDraft(nextDraft);
       setFieldErrors({});
       setGlobalError(null);
-      setSaveMessage("Saved to your Career ID.");
+      setSaveMessage(formatSaveMessage(offerLetterVerifications));
       initialDraftSignatureRef.current = serializePhaseDraft(activePhase, nextDraft);
     } catch (error) {
       setGlobalError(
