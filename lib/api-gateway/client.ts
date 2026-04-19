@@ -71,7 +71,14 @@ export function buildActorDid(email: string | null | undefined): string {
   return `did:web:career-ai:users:${subject}`;
 }
 
-const DEFAULT_TIMEOUT_MS = 45_000;
+/**
+ * Max time we wait for the gateway to return a verdict. The gateway's
+ * LLM-backed content extractor (gpt-5 on ~40k-char prompts) is usually
+ * 20-60 seconds but occasionally spikes past that, so the default sits
+ * comfortably above observed worst case. Tune via env without a
+ * redeploy: API_GATEWAY_TIMEOUT_MS=90000.
+ */
+const DEFAULT_TIMEOUT_MS = Number(process.env.API_GATEWAY_TIMEOUT_MS ?? 120_000);
 
 export async function verifyClaim(input: VerifyClaimInput): Promise<VerificationOutcome> {
   const baseUrl = process.env.API_GATEWAY_URL;
