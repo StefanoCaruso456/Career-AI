@@ -93,9 +93,6 @@ type RecruiterVisibility = "limited" | "private" | "searchable";
 const EMPLOYMENT_EVIDENCE_TEMPLATES = new Set([
   "offer-letters",
   "employment-history-reports",
-  "promotion-letters",
-  "company-letters",
-  "hr-official-letters",
 ]);
 const RECRUITER_ROLE_TYPES = new Set(["recruiter", "hiring_manager"]);
 

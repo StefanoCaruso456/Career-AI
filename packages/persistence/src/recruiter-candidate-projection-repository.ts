@@ -4,9 +4,6 @@ import { getDatabasePool, queryOptional, queryRequired } from "./client";
 const EMPLOYMENT_EVIDENCE_TEMPLATES = new Set([
   "offer-letters",
   "employment-history-reports",
-  "promotion-letters",
-  "company-letters",
-  "hr-official-letters",
 ]);
 const SKILL_STOPWORDS = new Set([
   "about",

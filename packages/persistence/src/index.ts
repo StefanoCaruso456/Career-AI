@@ -9,5 +9,6 @@ export * from "./career-builder-repository";
 export * from "./career-id-repository";
 export * from "./chat-repository";
 export * from "./job-posting-repository";
+export * from "./recruiter-marketplace-repository";
 export * from "./recruiter-candidate-projection-repository";
 export * from "./user-identity-repository";

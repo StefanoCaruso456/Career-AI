@@ -48,8 +48,8 @@ function createSnapshot(): CareerBuilderSnapshotDto {
       completedEvidenceCount: 0,
       strongestTier: "self",
       nextUploads: [
-        { templateId: "diplomas-degrees", title: "Diplomas and degrees" },
-        { templateId: "professional-certifications", title: "Professional certifications" },
+        { templateId: "drivers-license", title: "Driver's license" },
+        { templateId: "offer-letters", title: "Offer letter" },
         { templateId: "transcripts", title: "Transcripts" },
       ],
     },
@@ -69,7 +69,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Relationship-backed",
         completed: 0,
         started: 0,
-        total: 3,
+        total: 1,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -79,7 +79,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Document-backed",
         completed: 0,
         started: 0,
-        total: 7,
+        total: 3,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -89,7 +89,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Signature-backed",
         completed: 0,
         started: 0,
-        total: 4,
+        total: 1,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -99,7 +99,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Institution-verified",
         completed: 0,
         started: 0,
-        total: 4,
+        total: 1,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -121,10 +121,10 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         {
           key: "relationship_backed",
           title: "Relationship-backed",
-          description: "Bring in referrals, endorsements, and trusted letters that add social proof.",
+          description: "Add endorsements from trusted people who can validate your outcomes.",
           status: "locked",
           completedCount: 0,
-          totalCount: 3,
+          totalCount: 1,
           unlocked: false,
           evidence: [],
         },
@@ -141,20 +141,20 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         {
           key: "signature_backed",
           title: "Signature-backed",
-          description: "Add signed proof that carries stronger reviewer confidence.",
+          description: "Add employer-backed verification that carries stronger reviewer confidence.",
           status: "locked",
           completedCount: 0,
-          totalCount: 4,
+          totalCount: 1,
           unlocked: false,
           evidence: [],
         },
         {
           key: "institution_verified",
           title: "Institution-verified",
-          description: "Anchor the profile to institution-issued verification and trusted identity providers.",
+          description: "Anchor the profile to government-issued identity verification.",
           status: "locked",
           completedCount: 0,
-          totalCount: 4,
+          totalCount: 1,
           unlocked: false,
           evidence: [],
         },
@@ -195,9 +195,9 @@ function unlockDocumentVerification(snapshot: CareerBuilderSnapshotDto) {
   };
   snapshot.phaseProgress[1] = {
     ...snapshot.phaseProgress[1],
-    completed: 3,
-    started: 3,
-    total: 3,
+    completed: 1,
+    started: 1,
+    total: 1,
     isComplete: true,
     isCurrent: false,
     summary: "Relationship-backed trust is now live inside your Career ID.",
@@ -216,7 +216,7 @@ function unlockDocumentVerification(snapshot: CareerBuilderSnapshotDto) {
   snapshot.careerIdProfile.phases[1] = {
     ...snapshot.careerIdProfile.phases[1],
     status: "verified",
-    completedCount: 3,
+    completedCount: 1,
     unlocked: true,
   };
   snapshot.careerIdProfile.phases[2] = {
@@ -283,34 +283,38 @@ describe("AgentBuilderWorkspace", () => {
   it("uses pill navigation so a phase modal shows one evidence card at a time", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /relationship-backed/i }));
+    fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
 
     const dialog = await screen.findByRole("dialog");
 
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).queryByText("Structured intake")).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("Relationship-backed")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText("Document-backed")).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Previous" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Next" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Offer letter" })).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText(
-        "What hiring signal or opportunity context does this referral provide?",
+        "Which role, employer, and date does this offer validate?",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByPlaceholderText("What capability or outcome does this endorsement reinforce?"),
+      screen.queryByPlaceholderText(
+        "What part of your work history should this employer verification confirm?",
+      ),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Endorsements" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Employment verification" }));
 
-    expect(screen.getByRole("heading", { level: 3, name: "Endorsements" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Employment verification" })).toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText("What capability or outcome does this endorsement reinforce?"),
+      screen.getByPlaceholderText(
+        "What part of your work history should this employer verification confirm?",
+      ),
     ).toBeInTheDocument();
   });
 
-  it("shows education and certification uploads inside the document-backed modal", async () => {
+  it("shows education and transcript uploads inside the document-backed modal", async () => {
     const snapshot = createSnapshot();
     unlockDocumentVerification(snapshot);
 
@@ -319,16 +323,14 @@ describe("AgentBuilderWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getAllByText("Education & certifications").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { level: 3, name: "Diplomas and degrees" })).toBeInTheDocument();
+    expect(screen.getAllByText("Education evidence").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("tab", { name: "Step 3: Education" }));
 
-    fireEvent.click(
-      screen.getByRole("tab", { name: "Step 3: Professional certifications" }),
-    );
+    expect(screen.getByRole("heading", { level: 3, name: "Education" })).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("heading", { level: 3, name: "Professional certifications" }),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Step 4: Transcripts" }));
+
+    expect(screen.getByRole("heading", { level: 3, name: "Transcripts" })).toBeInTheDocument();
   });
 
   it("loads existing saved values into the phase modal", async () => {
@@ -364,7 +366,7 @@ describe("AgentBuilderWorkspace", () => {
     updated.phaseProgress[1] = {
       ...updated.phaseProgress[1],
       isCurrent: true,
-      summary: "Add a referral, endorsement, or trusted letter to unlock this phase.",
+      summary: "Add at least one endorsement to unlock this phase.",
     };
 
     const fetchMock = vi.fn().mockResolvedValue({
