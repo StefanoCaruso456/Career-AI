@@ -21,3 +21,8 @@ pnpm-debug.log*
 # Test fixtures — real signed PDFs may contain PII. Never commit.
 # Rebuild locally via generate:fixture or drop your own signed PDFs in.
 services/document-verifier/test/fixtures/
+services/api-gateway/test/fixtures/
+
+# Claude Code session transcripts moved into the repo for inspection.
+# Not code; just noise in grep/search.
+-Users-fsyed-Documents-capstone/
