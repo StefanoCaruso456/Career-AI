@@ -7,6 +7,7 @@
     "braintrust:bootstrap": "node ./scripts/bootstrap-braintrust.mjs",
     "db:migrate": "tsx packages/persistence/src/migrations.ts",
     "dev": "next dev",
+    "e2e:recruiter-marketplace": "node ./scripts/e2e/recruiter-marketplace-e2e.mjs",
     "build": "next build",
     "start": "next start",
     "test": "vitest run"
