@@ -22,6 +22,7 @@ import {
   SALARY_RANGE_OPTIONS,
   type SalaryRangeFilter,
 } from "./salary-filter-utils";
+import { RecruiterMarketplacePanel } from "./recruiter-marketplace-panel";
 import styles from "./page.module.css";
 
 type JobsResultsProps = {
@@ -497,6 +498,7 @@ export function JobsResults({
     {},
   );
   const [keyword, setKeyword] = useState("");
+  const [activeSurface, setActiveSurface] = useState<"jobs" | "recruiters">("jobs");
   const deferredKeyword = useDeferredValue(keyword.trim().toLowerCase());
   const [roleTypeFilter, setRoleTypeFilter] = useState<"all" | RoleTypeFilter>("all");
   const [companyFilter, setCompanyFilter] = useState("all");
@@ -672,6 +674,7 @@ export function JobsResults({
     setLoadMoreError(null);
     setTotalAvailableCount(initialTotalAvailableCount);
     setVisibleCount(Math.min(initialCount, jobs.length));
+    setActiveSurface("jobs");
   }, [
     initialCompanyOptions,
     initialRequestLimit,
@@ -1019,7 +1022,9 @@ export function JobsResults({
 
   return (
     <div className={styles.jobsResults}>
-      <section className={styles.filterPanel}>
+      {activeSurface === "jobs" ? (
+        <>
+          <section className={styles.filterPanel}>
         <div className={styles.searchField}>
           <Search aria-hidden="true" size={18} strokeWidth={2} />
           <input
@@ -1168,22 +1173,31 @@ export function JobsResults({
             </p>
           </div>
         ) : null}
-      </section>
+          </section>
 
-      <div className={styles.resultsHeader}>
-        <p className={styles.resultsSummary}>
-          {isLoadingCompanyResults
-            ? `Loading ${companyFilter} roles...`
-            : isSearchingAllJobs
-            ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs for matches...`
-            : isSearchingSalaryMatches
-              ? `Checking salary details across ${formatCount(jobsMatchingNonSalaryFilters.length)} filtered ${pluralize(jobsMatchingNonSalaryFilters.length, "role")}...`
-            : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded.`}
-        </p>
-        <p className={styles.resultsTotal}>
-          {resultsTotalLabel}
-        </p>
-      </div>
+          <div className={styles.resultsHeader}>
+            <p className={styles.resultsSummary}>
+              {isLoadingCompanyResults
+                ? `Loading ${companyFilter} roles...`
+                : isSearchingAllJobs
+                ? `Checking all ${formatCount(activeTotalAvailableCount)} available jobs for matches...`
+                : isSearchingSalaryMatches
+                  ? `Checking salary details across ${formatCount(jobsMatchingNonSalaryFilters.length)} filtered ${pluralize(jobsMatchingNonSalaryFilters.length, "role")}...`
+                : `Showing ${visibleJobs.length} of ${filteredJobs.length} matching ${pluralize(filteredJobs.length, "role")} from ${activeJobs.length} loaded.`}
+            </p>
+            <div className={styles.resultsHeaderActions}>
+              <button
+                className={styles.recruiterViewButton}
+                onClick={() => {
+                  setActiveSurface("recruiters");
+                }}
+                type="button"
+              >
+                Find Recruiters
+              </button>
+              <p className={styles.resultsTotal}>{resultsTotalLabel}</p>
+            </div>
+          </div>
 
       {filteredJobs.length > 0 ? (
         <div className={styles.jobsGrid}>
@@ -1354,21 +1368,41 @@ export function JobsResults({
         </article>
       )}
 
-      {filteredJobs.length > 0 && showLoadMore ? (
-        <div className={styles.loadMoreRow}>
-          <button
-            className={styles.loadMoreButton}
-            disabled={isLoadingMore}
-            onClick={() => {
-              void handleLoadMore();
-            }}
-            type="button"
-          >
-            {isLoadingMore ? "Loading..." : "More..."}
-          </button>
-          {loadMoreError ? <p className={styles.loadMoreNote}>{loadMoreError}</p> : null}
-        </div>
-      ) : null}
+          {filteredJobs.length > 0 && showLoadMore ? (
+            <div className={styles.loadMoreRow}>
+              <button
+                className={styles.loadMoreButton}
+                disabled={isLoadingMore}
+                onClick={() => {
+                  void handleLoadMore();
+                }}
+                type="button"
+              >
+                {isLoadingMore ? "Loading..." : "More..."}
+              </button>
+              {loadMoreError ? <p className={styles.loadMoreNote}>{loadMoreError}</p> : null}
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <section className={styles.recruiterTakeoverSurface}>
+          <div className={styles.recruiterTakeoverHeader}>
+            <p className={styles.recruiterTakeoverCopy}>
+              Browse recruiter-owned listings and recommendations in one permissioned workspace.
+            </p>
+            <button
+              className={styles.recruiterViewButton}
+              onClick={() => {
+                setActiveSurface("jobs");
+              }}
+              type="button"
+            >
+              Back to Jobs
+            </button>
+          </div>
+          <RecruiterMarketplacePanel />
+        </section>
+      )}
     </div>
   );
 }

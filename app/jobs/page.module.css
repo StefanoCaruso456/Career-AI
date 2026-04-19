@@ -287,6 +287,15 @@
   border-top: 1px solid var(--jobs-line);
 }
 
+.resultsHeaderActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.62rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
 .resultsSummary,
 .resultsTotal,
 .loadMoreNote {
@@ -310,6 +319,61 @@
   font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+}
+
+.recruiterViewButton {
+  border: 1px solid rgba(167, 214, 255, 0.45);
+  border-radius: 999px;
+  padding: 0.45rem 0.86rem;
+  background:
+    radial-gradient(circle at top, rgba(190, 230, 255, 0.16), transparent 58%),
+    linear-gradient(180deg, rgba(32, 65, 97, 0.94), rgba(24, 49, 75, 0.95));
+  color: #eff8ff;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    0 14px 26px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.recruiterViewButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(192, 232, 255, 0.64);
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.recruiterViewButton:focus-visible {
+  outline: 2px solid rgba(205, 238, 255, 0.95);
+  outline-offset: 3px;
+}
+
+.recruiterTakeoverSurface {
+  display: grid;
+  gap: 1rem;
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--jobs-line);
+}
+
+.recruiterTakeoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.recruiterTakeoverCopy {
+  margin: 0;
+  color: var(--jobs-text-secondary);
+  line-height: 1.55;
 }
 
 .loadMoreNote {
@@ -1033,6 +1097,13 @@
   .loadMoreRow,
   .filterActions {
     align-items: flex-start;
+  }
+
+  .resultsHeaderActions,
+  .recruiterTakeoverHeader {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .recruiterWorkspace {

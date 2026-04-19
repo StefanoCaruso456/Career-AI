@@ -5,7 +5,6 @@ import {
   getSeededJobsCompanyOptions,
 } from "@/packages/jobs-domain/src";
 import { JobsResults } from "./jobs-results";
-import { RecruiterMarketplacePanel } from "./recruiter-marketplace-panel";
 import styles from "./page.module.css";
 
 export const metadata: Metadata = {
@@ -85,8 +84,6 @@ export default async function JobsPage() {
             </article>
           )}
         </section>
-
-        <RecruiterMarketplacePanel />
 
         {visibleSources.length > 0 ? (
           <details className={styles.feedDetails}>
