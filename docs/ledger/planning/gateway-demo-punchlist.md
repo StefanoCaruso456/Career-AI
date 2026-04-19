@@ -27,6 +27,9 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 - [ ] **Issuer keypair** — generate, publish `did.json` at the `ISSUER_DID` host (did:web resolves via HTTPS).
 - [ ] **Swap badge payload kind** — flip `badges.payload.kind` from `"bare-employment"` to `"vc-employment"`; store the signed VC in the same column. No schema change, no ID change, public read path unchanged.
 - [ ] **`GET /v1/badges/:id`** — returns the raw VC JSON for external verifiers. Decide: authenticated or capability-style (unauthenticated but unguessable UUID).
+- [ ] **`credentialUrl` in POST `/v1/claims/employment` response** — when verdict is `VERIFIED`, return a stable URL pointing at `/v1/badges/:id` so the UI can link to the credential without having to reconstruct the URL.
+- [ ] **`GET /v1/wallet`** — authenticated endpoint scoped to `ownerDid` that returns all non-revoked badges for the caller. Sister endpoint to the capability-style `GET /v1/badges/:id`.
+- [ ] **Keep `confidenceTier` OUT of the VC payload** — tier is gateway-policy (how much we trust the signals), not a claim the subject is asserting. VC should carry only ground-truth fields: employer, role, dates, verifiedAt, verifier DID.
 - [ ] **Revocation** — `revokedAt` nullable column already exists; add a StatusList2021 credential and expose its endpoint.
 
 ## Open decisions
