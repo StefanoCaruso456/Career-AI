@@ -1,0 +1,59 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 50% -18%, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, #14171b 0%, #101216 48%, #0d0f13 100%);
+  color: var(--text-primary);
+  isolation: isolate;
+}
+
+.page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.32) 0.9px,
+    transparent 1px
+  );
+  background-size: 14px 14px;
+  opacity: 0.34;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page > * {
+  position: relative;
+  z-index: 1;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.back {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.back:hover {
+  color: var(--text-primary);
+}
+
+.previewTag {
+  padding: 4px 10px;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(146, 182, 255, 0.12);
+  border: 1px solid rgba(146, 182, 255, 0.28);
+  border-radius: 999px;
+}
