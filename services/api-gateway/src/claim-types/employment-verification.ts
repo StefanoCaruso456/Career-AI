@@ -46,7 +46,11 @@ export const VERSION = "0.1.0";
 
 interface EmploymentVerificationClaim {
   employer: string;
-  role: string;
+  /**
+   * Optional — many HR verification forms don't require the user to
+   * re-type their role; we only cross-check role when it's provided.
+   */
+  role?: string;
   startDate?: string;
   endDate?: string;
   userAccountName?: string;
@@ -54,7 +58,7 @@ interface EmploymentVerificationClaim {
 
 const employmentVerificationSchema = z.object({
   employer: z.string().min(1).max(200),
-  role: z.string().min(1).max(200),
+  role: z.string().max(200).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   userAccountName: z.string().min(1).max(200).optional(),
@@ -180,7 +184,7 @@ async function extractEmploymentVerification(
   const prompt = [
     "CLAIM TO VERIFY:",
     `  Employer:       ${claim.employer}`,
-    `  Role:           ${claim.role}`,
+    claim.role ? `  Role:           ${claim.role}` : "  Role:           (not claimed — extract what the document says, do not flag as a mismatch)",
     claim.startDate ? `  Start date:     ${claim.startDate}` : "  Start date:     (not claimed)",
     claim.endDate ? `  End date:       ${claim.endDate}` : "  End date:       (not claimed)",
     `  Uploader name:  ${claim.userAccountName ?? "(not provided — skip recipient match)"}`,
@@ -241,10 +245,13 @@ function buildSignalFromParsed(
 
   if (!parsed.isEmploymentVerification) mismatches.push("documentType");
   if (!parsed.employer.matchesClaim) mismatches.push("employer");
-  // Role match is advisory for employment-verification (W-2s usually have
-  // no role). We only flag a role mismatch when the document names a role
-  // AND it contradicts the claim.
-  if (parsed.role.foundInDocument && !parsed.role.matchesClaim) mismatches.push("role");
+  // Role is advisory. Only flag a mismatch when the uploader actually
+  // claimed a role AND the document names a different one. If no role was
+  // claimed (common — HR letter uploads often skip the role field),
+  // treat role as out-of-scope for this verification.
+  if (claim.role && parsed.role.foundInDocument && !parsed.role.matchesClaim) {
+    mismatches.push("role");
+  }
 
   const accountName = claim.userAccountName ?? null;
   if (accountName) {
@@ -259,7 +266,7 @@ function buildSignalFromParsed(
       ? parsed.employer.nameInDocument ?? claim.employer
       : null,
     role: parsed.role.foundInDocument
-      ? parsed.role.titleInDocument ?? claim.role
+      ? parsed.role.titleInDocument ?? claim.role ?? null
       : null,
     startDate: parsed.startDate.foundInDocument
       ? parsed.startDate.dateInDocument ?? claim.startDate ?? null
@@ -361,11 +368,15 @@ export const employmentVerificationHandler: ClaimTypeHandler<EmploymentVerificat
   },
 
   buildLineageIdentity(claim: EmploymentVerificationClaim): string {
-    // Must match offer-letter so the same (employer, role) lands on the
-    // same badge lineage regardless of which doc type was uploaded first.
+    // When role is claimed, lineage matches offer-letter so the two
+    // collapse into one badge. When role is absent (common for HR
+    // letters uploaded without re-typing the title), lineage is
+    // employer-only — the badge issues on its own track and doesn't
+    // collapse with a role-specific offer-letter badge. Acceptable for
+    // demo; future refinement is fuzzy matching against prior roles.
     return buildEmploymentLineageIdentity({
       employer: claim.employer,
-      role: claim.role,
+      role: claim.role ?? "",
     });
   },
 };
