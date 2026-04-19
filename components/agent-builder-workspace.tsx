@@ -1579,12 +1579,6 @@ export function AgentBuilderWorkspace({
                         {activeTemplates.length > 1 ? (
                           <section className={styles.templateNavigator}>
                             <div className={styles.templateNavigatorControls}>
-                              <p className={styles.templateProgressHint}>
-                                {`Step ${activeTemplateIndex + 1} of ${activeTemplates.length} · ${
-                                  sectionMeta[activeTemplate.section].title
-                                }`}
-                              </p>
-
                               <div className={styles.templateNavButtons}>
                                 <button
                                   className={styles.templateNavButton}

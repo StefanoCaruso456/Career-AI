@@ -953,15 +953,6 @@
   gap: 0.65rem;
 }
 
-.templateProgressHint {
-  margin: 0;
-  color: rgba(222, 227, 236, 0.78);
-  font-size: 0.77rem;
-  line-height: 1.35;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .templatePillRow {
   display: flex;
   flex-wrap: nowrap;
