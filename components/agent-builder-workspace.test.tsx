@@ -323,7 +323,6 @@ describe("AgentBuilderWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getAllByText("Education evidence").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("tab", { name: "Step 3: Education" }));
 
     expect(screen.getByRole("heading", { level: 3, name: "Education" })).toBeInTheDocument();

@@ -1637,7 +1637,6 @@ export function AgentBuilderWorkspace({
                                     <span className={styles.templatePillIndex}>{index + 1}</span>
                                     <span className={styles.templatePillLabel}>
                                       <strong>{template.title}</strong>
-                                      <span>{sectionMeta[template.section].title}</span>
                                     </span>
                                   </button>
                                 );
