@@ -2024,6 +2024,39 @@ export function AgentBuilderWorkspace({
             <div className={styles.heroCopy}>
               <div className={styles.heroIntro}>
                 <h1 className={styles.heroTitle}>Career ID Badges</h1>
+                {snapshot.careerIdProfile.badges.length > 0 ? (
+                  <div
+                    aria-label="Earned verification badges"
+                    className={styles.earnedBadgesRow}
+                    role="list"
+                  >
+                    {snapshot.careerIdProfile.badges.map((badge) => {
+                      // Tiered tint: the PARTIAL offer-letter badge is labeled
+                      // "Signed offer letter on file" and should read as amber
+                      // (evidence, not fully verified). Everything else renders
+                      // as the default verified-green.
+                      const isPartial = badge.label.startsWith("Signed ");
+                      const chipClassName = isPartial
+                        ? `${styles.earnedBadgeChip} ${styles.earnedBadgeChipPartial}`
+                        : styles.earnedBadgeChip;
+                      return (
+                        <span
+                          aria-label={`${badge.label} badge`}
+                          className={chipClassName}
+                          key={badge.id}
+                          role="listitem"
+                        >
+                          <ShieldCheck aria-hidden="true" size={14} strokeWidth={2.4} />
+                          <span>{badge.label}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className={styles.earnedBadgesEmpty}>
+                    Complete trust actions below to earn verification badges.
+                  </p>
+                )}
               </div>
             </div>
 

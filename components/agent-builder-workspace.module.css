@@ -104,6 +104,48 @@
   max-width: 42rem;
 }
 
+/* Earned-badges row, rendered under the "Career ID Badges" H1 on the main */
+/* /agent-build page. Reads snapshot.careerIdProfile.badges. Chips are */
+/* tinted based on label: "verified" → green, "Signed ... on file" → amber. */
+.earnedBadgesRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.earnedBadgeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1;
+  background:
+    linear-gradient(180deg, rgba(52, 211, 153, 0.2), rgba(16, 185, 129, 0.08)),
+    rgba(6, 78, 59, 0.45);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  color: rgba(167, 243, 208, 1);
+}
+
+.earnedBadgeChipPartial {
+  background:
+    linear-gradient(180deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.08)),
+    rgba(120, 53, 15, 0.45);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: rgba(253, 230, 138, 1);
+}
+
+.earnedBadgesEmpty {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: rgba(219, 226, 243, 0.6);
+  max-width: 36rem;
+}
+
 .sectionEyebrow {
   display: inline-flex;
   align-items: center;
