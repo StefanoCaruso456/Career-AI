@@ -195,7 +195,7 @@ async function main() {
       timeout: 60_000,
     });
 
-    await page.getByRole("heading", { name: "Recruiter Marketplace" }).waitFor();
+    await page.getByRole("heading", { name: "Find Recruiters" }).waitFor();
     await page.screenshot({
       path: join(SCREENSHOT_DIR, "01-jobs-page-recruiter-marketplace.png"),
       fullPage: true,

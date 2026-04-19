@@ -397,9 +397,10 @@ export function RecruiterMarketplacePanel() {
   }
 
   return (
-    <section className={styles.recruiterMarketplace} aria-label="Recruiter marketplace">
+    <section className={styles.recruiterMarketplace} aria-label="Find recruiters" id="find-recruiters">
+      <span className={styles.recruiterFeatureTab}>Find Recruiters</span>
       <div className={styles.recruiterMarketplaceHeader}>
-        <h2>Recruiter Marketplace</h2>
+        <h2>Find Recruiters</h2>
         <p>
           Discover partner recruiters, request scoped access, and run recruiter-owned job alignment
           workflows.
