@@ -1,0 +1,10 @@
+[build]
+builder = "RAILPACK"
+buildCommand = "npm install && npm run build:gateway"
+
+[deploy]
+startCommand = "npm --workspace services/api-gateway run db:migrate && npm --workspace services/api-gateway run start"
+healthcheckPath = "/v1/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

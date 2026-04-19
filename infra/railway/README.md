@@ -4,12 +4,14 @@ Each deployable runs as its own Railway service inside one Railway project. Beca
 
 ## Services to configure on Railway
 
-| Railway service  | Root directory | Build command                                     | Start command                                      | Health path    |
-| ---------------- | -------------- | ------------------------------------------------- | -------------------------------------------------- | -------------- |
-| `web`            | `.`            | `npm install && npm run build`                    | `npm run db:migrate && npm run start`              | `/api/v1/health` |
-| `api-gateway`    | `.`            | `npm install && npm run build:gateway`            | `npm --workspace services/api-gateway run start`   | `/v1/health`   |
-| `document-verifier` | `.`         | `npm install && npm run build:verifier`           | `npm --workspace services/document-verifier run start` | `/v1/health` |
-| `pdf-extractor`  | `.`            | `npm install && npm run build:extractor`          | `npm --workspace services/pdf-extractor run start` | `/v1/health`   |
+Each service's build/start config lives in its own `railway.toml`. Point each Railway service's **Config-as-Code Path** at the right file (Settings → Config-as-Code → Config Path). Without this, Railway reads the root `railway.toml` (the web service's config) and applies it to every service.
+
+| Railway service     | Root directory | Config-as-Code Path                        | Health path      |
+| ------------------- | -------------- | ------------------------------------------ | ---------------- |
+| `web`               | `.`            | `railway.toml` (repo root — default)       | `/api/v1/health` |
+| `api-gateway`       | `.`            | `services/api-gateway/railway.toml`        | `/v1/health`     |
+| `document-verifier` | `.`            | `services/document-verifier/railway.toml`  | `/v1/health`     |
+| `pdf-extractor`     | `.`            | `services/pdf-extractor/railway.toml`      | `/v1/health`     |
 
 ## Why rootDirectory = `.` for every service
 
@@ -27,5 +29,6 @@ Local dev uses `infra/docker-compose.yml` on port `5433`. In Railway, add a Post
 
 ## Notes
 
-- `web/railway.toml` exists at the repo root as a legacy config from when Career-AI was its own repo. It still works for the `web` Railway service; the config in this table is a cleaned-up reference for when someone reconfigures Railway from scratch.
-- Service-local `railway.toml` files are intentionally **not** added — they'd be overridden by the root-directory / watch-path setup anyway, and keeping config centralized here avoids drift.
+- The root `railway.toml` is Career-AI's existing Next.js config (build + migrate + start). Leave it alone; set Config Path to it for the `web` service only.
+- Service-local `railway.toml` files now exist under `services/*/railway.toml`. Each specifies the correct workspace-aware build and start commands. Railway only picks these up when the service's Config Path points at them.
+- api-gateway's `railway.toml` runs `db:migrate` before `start` because api-gateway doesn't auto-migrate on boot (Career-AI does; that's why the root config includes it).
