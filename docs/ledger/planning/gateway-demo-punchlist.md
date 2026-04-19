@@ -5,8 +5,8 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 ## Must-have before demo
 
 - [ ] **Career-AI UI: read-back integration** — call `GET /v1/claims` on profile load and render verified badges from the gateway instead of local-only state. This is what makes the "log in → see your badges" story work.
-- [ ] **Body-size limit** on `POST /v1/claims/employment` — add Hono `bodyLimit` middleware (~10MB) so a large PDF can't OOM the gateway.
-- [ ] **Redact `onError` response in production** — currently leaks `error.toString()` outside `NODE_ENV=production`. Return a generic message + correlation ID; keep the stack in server logs only.
+- [x] **Body-size limit** on `POST /v1/claims/employment` — add Hono `bodyLimit` middleware (~10MB) so a large PDF can't OOM the gateway. _(10MB cap scoped to /v1/claims/*)_
+- [x] **Redact `onError` response in production** — currently leaks `error.toString()` outside `NODE_ENV=production`. Return a generic message + correlation ID; keep the stack in server logs only.
 - [ ] **Map `VerificationError` to proper HTTP codes**:
   - `EXTRACTION_UNAVAILABLE` → 502
   - `INVALID_REQUEST` → 400
