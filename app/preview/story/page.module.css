@@ -6,7 +6,9 @@
     linear-gradient(180deg, #14171b 0%, #101216 48%, #0d0f13 100%);
   color: var(--text-primary);
   isolation: isolate;
-  overflow: hidden;
+  /* No overflow: hidden here — it breaks position: sticky on the
+     scrollytelling's left column. The ::before dot pattern is
+     already position: absolute inset: 0 so containment is unneeded. */
 }
 
 .page::before {
