@@ -53,6 +53,60 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   transcripts: "transcript",
 };
 
+/**
+ * Per-template copy for the verified-credential cards on the Career ID
+ * page. The record map must cover every templateId that `verifyClaim`
+ * supports on the backend — any templateId not in this map won't render
+ * a card even if it has a VERIFIED / PARTIAL verification_status.
+ */
+const CREDENTIAL_TEMPLATE_COPY: Record<
+  string,
+  {
+    verifiedTitle: string;
+    partialTitle: string;
+    verifiedDescription: string;
+    partialDescription: string;
+    evidenceFallback: string;
+  }
+> = {
+  "offer-letters": {
+    verifiedTitle: "Offer letter verified",
+    partialTitle: "Offer letter on file",
+    verifiedDescription:
+      "Signed offer letter cross-checked against the claimed employer via DocuSign Certificate of Completion domain match.",
+    partialDescription:
+      "Sender domain couldn't be checked against the claimed employer.",
+    evidenceFallback: "Offer letter",
+  },
+  "employment-history-reports": {
+    verifiedTitle: "Employment verified",
+    partialTitle: "Employment evidence on file",
+    verifiedDescription:
+      "HR verification document cross-checked against the claimed employer.",
+    partialDescription:
+      "HR verification document accepted as evidence; trusted-source signal not present.",
+    evidenceFallback: "Employment verification",
+  },
+  "diplomas-degrees": {
+    verifiedTitle: "Education verified",
+    partialTitle: "Education evidence on file",
+    verifiedDescription:
+      "Degree certificate cross-checked against the claimed institution and degree.",
+    partialDescription:
+      "Education document accepted as evidence; trusted-source signal not present.",
+    evidenceFallback: "Education",
+  },
+  transcripts: {
+    verifiedTitle: "Transcript verified",
+    partialTitle: "Transcript on file",
+    verifiedDescription:
+      "Academic transcript cross-checked against the claimed institution.",
+    partialDescription:
+      "Transcript accepted as evidence; registrar-side verification not performed.",
+    evidenceFallback: "Transcript",
+  },
+};
+
 function formatSaveMessage(
   verifications: ClaimVerificationEntry[] | undefined,
 ): { text: string; kind: "success" | "error" } {
@@ -965,9 +1019,13 @@ export function AgentBuilderWorkspace({
   // Evidence rows that earned a credential card on the Career ID page.
   // Mirrors Stefano's government-badge pattern — only VERIFIED and PARTIAL
   // render. VERIFIED → "Issued" (blue). PARTIAL → "Evidence" (amber).
-  const offerLetterCredentials = snapshot.evidence.filter(
+  // Covers all four claim-backed templates (offer-letter,
+  // employment-verification, education, transcript) so every verified
+  // credential gets its own card.
+  const verifiedCredentials = snapshot.evidence.filter(
     (record) =>
-      record.templateId === "offer-letters" &&
+      CREDENTIAL_TEMPLATE_COPY[record.templateId as keyof typeof CREDENTIAL_TEMPLATE_COPY] !==
+        undefined &&
       (record.verificationStatus === "VERIFIED" || record.verificationStatus === "PARTIAL"),
   );
   const documentHeroToneClassName =
@@ -2239,18 +2297,17 @@ export function AgentBuilderWorkspace({
                 </section>
               ) : null}
 
-              {offerLetterCredentials.map((record) => {
+              {verifiedCredentials.map((record) => {
+                const copy = CREDENTIAL_TEMPLATE_COPY[record.templateId];
                 const isPartial = record.verificationStatus === "PARTIAL";
-                const title = isPartial
-                  ? "Offer letter on file"
-                  : "Offer letter verified";
+                const title = isPartial ? copy.partialTitle : copy.verifiedTitle;
                 const description = isPartial
-                  ? "Sender domain couldn't be checked against the claimed employer."
-                  : "Signed offer letter cross-checked against the claimed employer via DocuSign Certificate of Completion domain match.";
+                  ? copy.partialDescription
+                  : copy.verifiedDescription;
                 const statusLabel = isPartial ? "Evidence" : "Issued";
-                const evidenceDetail = [record.sourceOrIssuer, record.role]
-                  .filter(Boolean)
-                  .join(" • ") || "Offer letter";
+                const evidenceDetail =
+                  [record.sourceOrIssuer, record.role].filter(Boolean).join(" • ") ||
+                  copy.evidenceFallback;
                 return (
                   <section key={record.id} className={styles.identityBadgeCanvas}>
                     <div
