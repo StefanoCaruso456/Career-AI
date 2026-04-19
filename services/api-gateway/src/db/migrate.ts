@@ -55,14 +55,27 @@ CREATE TABLE IF NOT EXISTS audit_events (
   actor_did TEXT,
   method TEXT NOT NULL,
   path TEXT NOT NULL,
-  status_code TEXT NOT NULL,
-  duration_ms TEXT NOT NULL,
+  status_code INTEGER NOT NULL,
+  duration_ms INTEGER NOT NULL,
   correlation_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS audit_events_correlation_idx ON audit_events(correlation_id);
 CREATE INDEX IF NOT EXISTS audit_events_created_idx ON audit_events(created_at);
+
+-- Back-compat: earlier migrations created status_code / duration_ms as TEXT.
+-- Coerce in-place if that is still the case. Idempotent — once the columns
+-- are integer the DO-block is a no-op.
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'audit_events' AND column_name = 'status_code' AND data_type = 'text'
+  ) THEN
+    ALTER TABLE audit_events ALTER COLUMN status_code TYPE integer USING status_code::integer;
+    ALTER TABLE audit_events ALTER COLUMN duration_ms TYPE integer USING duration_ms::integer;
+  END IF;
+END $$;
 `;
 
 async function main() {
