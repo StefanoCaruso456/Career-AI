@@ -15,7 +15,7 @@ Tracking what's left on the api-gateway / Career-AI integration before the demo,
 ## Hardening (nice-to-have)
 
 - [x] **Audit schema types** — `status_code` and `duration_ms` are `text`; should be `integer`. Cheap migration. _(landed in hardening branch)_
-- [ ] **Audit middleware: drop logging** — when the fire-and-forget insert fails the event silently disappears. Emit a structured `audit_drop` log line with the same fields.
+- [x] **Audit middleware: drop logging** — when the fire-and-forget insert fails the event silently disappears. Emit a structured `audit_drop` log line with the same fields. _(done — JSON line with full fields on DB failure)_
 - [ ] **Rate limit per actor DID** — simple token bucket, e.g. 30 verifications/hour.
 - [ ] **Vitest truth table** for `verifier/verifiers/verdict.ts` — the long comment block is already a spec; codify the (tampering, authenticity, content) → (verdict, tier) matrix.
 - [x] **Cleanup**: dead `void actorDid` line in `audit.ts`. _(landed in hardening branch)_

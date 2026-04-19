@@ -32,7 +32,9 @@ export async function auditRequest(c: Context<AppEnv>, next: Next) {
     const actor = c.get("actorDid") as string | undefined;
 
     // Fire-and-forget insert. We don't want audit logging to block the response
-    // path. Errors are logged to stderr but never surfaced to the caller.
+    // path. On DB failure we emit the full audit event as a structured log
+    // line so a log aggregator can still reconstruct the trail — otherwise a
+    // Postgres outage would silently drop the audit record entirely.
     db.insert(schema.auditEvents)
       .values({
         actorDid: actor ?? null,
@@ -42,8 +44,20 @@ export async function auditRequest(c: Context<AppEnv>, next: Next) {
         durationMs: duration,
         correlationId,
       })
-      .catch((err) => {
-        console.error("[audit] failed to persist audit event:", err);
+      .catch((dbErr) => {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            event: "audit_drop",
+            reason: dbErr instanceof Error ? dbErr.message : String(dbErr),
+            correlationId,
+            actorDid: actor ?? null,
+            method: c.req.method,
+            path: c.req.path,
+            statusCode: status,
+            durationMs: duration,
+          }),
+        );
       });
 
     // Structured log for real-time observability.
