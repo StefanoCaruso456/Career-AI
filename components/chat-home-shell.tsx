@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { landingContentByPersona, type SolutionVariant, type StoryTheme } from "./chat-home-shell-content";
 import { HeroComposer } from "./hero-composer";
+import { TrustExplainerSection } from "./trust-explainer-section";
 import styles from "./chat-home-shell.module.css";
 import type { Persona } from "@/lib/personas";
 
@@ -316,13 +317,17 @@ export function ChatHomeShell({ persona = "job_seeker" }: { persona?: Persona })
               <article className={styles.storyCard} key={story.company}>
                 <StoryVisual theme={story.theme} />
                 <div className={styles.storyMeta}>
-                  <strong>{story.company}</strong>
+                  <strong>{story.comingSoon ? "Coming soon" : story.company}</strong>
                   <h3>{story.title}</h3>
                   <p>{story.copy}</p>
-                  <Link className={styles.inlineLink} href="#footer">
-                    {story.cta}
-                    <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
-                  </Link>
+                  {story.comingSoon ? (
+                    <span className={styles.inlineLink}>{story.cta}</span>
+                  ) : (
+                    <Link className={styles.inlineLink} href="#footer">
+                      {story.cta}
+                      <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}
@@ -368,6 +373,8 @@ export function ChatHomeShell({ persona = "job_seeker" }: { persona?: Persona })
           </div>
         </div>
       </section>
+
+      <TrustExplainerSection content={content.trustExplainer} />
 
       <footer className={styles.footer} id="footer">
         <div className={styles.sectionShell}>

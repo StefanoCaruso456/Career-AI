@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { AnchorHTMLAttributes } from "react";
+import type { AnchorHTMLAttributes, ImgHTMLAttributes } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { landingContentByPersona } from "@/components/chat-home-shell-content";
 import { TrustExplainerSection } from "@/components/trust-explainer-section";
@@ -16,12 +16,20 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/image", () => ({
+  default: ({ alt, fill: _fill, priority: _priority, ...props }: ImgHTMLAttributes<HTMLImageElement> & {
+    fill?: boolean;
+    priority?: boolean;
+  }) => <img {...props} alt={alt ?? ""} />,
+}));
+
 describe("TrustExplainerSection", () => {
   it("renders the shared trust copy and job seeker CTA", () => {
     render(<TrustExplainerSection content={landingContentByPersona.job_seeker.trustExplainer} />);
 
     expect(screen.getByText("A2A protocol for hiring")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "How secure Career ID works" })).toBeInTheDocument();
+    expect(screen.getByAltText("Career AI logo")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Job seekers build verified credibility over time. Hiring agents can request trusted information securely through agent-to-agent communication.",

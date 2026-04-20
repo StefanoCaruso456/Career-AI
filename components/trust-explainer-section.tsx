@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { TrustExplainerContent } from "@/components/chat-home-shell-content";
@@ -14,6 +15,20 @@ export function TrustExplainerSection({ content }: { content: TrustExplainerCont
               <h2 className={styles.headline}>{content.headline}</h2>
               <p className={styles.subheadline}>{content.subheadline}</p>
               <p className={styles.body}>{content.body}</p>
+            </div>
+
+            <div className={styles.visualColumn}>
+              <div className={styles.logoPanel}>
+                <Image
+                  alt="Career AI logo"
+                  className={styles.logoImage}
+                  height={392}
+                  sizes="(max-width: 760px) 11rem, 14rem"
+                  src="/career-ai-header-logo.png"
+                  width={684}
+                />
+                <p className={styles.logoCaption}>Recruiter Agent &lt;-&gt; Job Seeker Agent</p>
+              </div>
             </div>
           </div>
 
