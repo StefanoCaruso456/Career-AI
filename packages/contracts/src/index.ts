@@ -16,5 +16,6 @@ export * from "./errors";
 export * from "./identity";
 export * from "./jobs";
 export * from "./recruiter-marketplace";
+export * from "./recruiter-name-lookup";
 export * from "./presentation";
 export * from "./recruiter";

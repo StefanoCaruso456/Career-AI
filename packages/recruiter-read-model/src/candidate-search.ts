@@ -5,9 +5,13 @@ import type {
   EmployerCandidateSearchQueryDto,
   EmployerCandidateSearchResponseDto,
 } from "@/packages/contracts/src";
-import { employerCandidateSearchResponseSchema } from "@/packages/contracts/src";
+import {
+  employerCandidateSearchResponseSchema,
+  getLikelyEmployerCandidateNameLookup,
+} from "@/packages/contracts/src";
 import {
   listPersistentRecruiterCandidateProjections,
+  searchPersistentRecruiterCandidateProjectionsByName,
   type PersistentRecruiterCandidateProjection,
 } from "@/packages/persistence/src";
 import { ensureRecruiterDemoDatasetLoaded } from "./demo-dataset";
@@ -84,6 +88,12 @@ type ScoredCandidate = {
   score: number;
 };
 
+type NameLookup = {
+  normalized: string;
+  raw: string;
+  tokens: string[];
+};
+
 function uniq(values: Array<string | null | undefined>) {
   return Array.from(
     new Set(
@@ -112,6 +122,10 @@ function normalizeLookupToken(value: string) {
   return normalized.toLowerCase();
 }
 
+function normalizeNameLookup(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 function extractLookupTokens(prompt: string) {
   const matches = [
     ...prompt.matchAll(CAREER_ID_LOOKUP_PATTERN),
@@ -121,6 +135,22 @@ function extractLookupTokens(prompt: string) {
   ];
 
   return uniq(matches.map((match) => normalizeLookupToken(match[0] ?? "")));
+}
+
+function buildNameLookup(prompt: string): NameLookup | null {
+  const raw = getLikelyEmployerCandidateNameLookup(prompt);
+
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = normalizeNameLookup(raw);
+
+  return {
+    normalized,
+    raw,
+    tokens: normalized.split(" ").filter(Boolean),
+  };
 }
 
 function tokenize(value: string) {
@@ -375,6 +405,40 @@ function buildLookupMatchReason(args: {
   return "Exact recruiter-safe share token lookup matched this candidate.";
 }
 
+function resolveNameLookupMatch(args: {
+  candidate: SearchableCandidate;
+  nameLookup: NameLookup;
+}) {
+  const normalizedCandidateName = normalizeNameLookup(args.candidate.fullName);
+
+  if (normalizedCandidateName === args.nameLookup.normalized) {
+    return "exact" as const;
+  }
+
+  if (normalizedCandidateName.includes(args.nameLookup.normalized)) {
+    return "partial" as const;
+  }
+
+  const candidateTokens = new Set(normalizedCandidateName.split(" ").filter(Boolean));
+
+  if (args.nameLookup.tokens.every((token) => candidateTokens.has(token))) {
+    return "partial" as const;
+  }
+
+  return null;
+}
+
+function buildNameLookupMatchReason(args: {
+  candidate: SearchableCandidate;
+  matchType: "exact" | "partial";
+}) {
+  if (args.matchType === "exact") {
+    return `Exact name lookup matched ${args.candidate.fullName}.`;
+  }
+
+  return `Name lookup matched ${args.candidate.fullName}.`;
+}
+
 function toEmployerCandidateMatch(args: {
   candidate: SearchableCandidate;
   rankingLabel: string;
@@ -416,10 +480,17 @@ function toEmployerCandidateMatch(args: {
 
 function scoreCandidate(args: {
   candidate: SearchableCandidate;
+  nameLookup: NameLookup | null;
   query: EmployerCandidateSearchQueryDto;
   lookupTokens: string[];
 }): ScoredCandidate | null {
   const exactLookupMatch = args.lookupTokens.some((token) => args.candidate.lookupTokens.includes(token));
+  const nameLookupMatch = args.nameLookup
+    ? resolveNameLookupMatch({
+        candidate: args.candidate,
+        nameLookup: args.nameLookup,
+      })
+    : null;
   const normalizedLocation = args.query.filters.location
     ? normalizeValue(args.query.filters.location)
     : args.query.parsedCriteria.location
@@ -484,6 +555,24 @@ function scoreCandidate(args: {
     };
   }
 
+  if (nameLookupMatch) {
+    const rankingScore = nameLookupMatch === "exact" ? 99 : 92;
+
+    return {
+      score: rankingScore,
+      candidate: toEmployerCandidateMatch({
+        candidate: args.candidate,
+        matchReason: buildNameLookupMatchReason({
+          candidate: args.candidate,
+          matchType: nameLookupMatch,
+        }),
+        rankingLabel: nameLookupMatch === "exact" ? "Exact match" : "Name match",
+        rankingScore,
+        topSkills: args.candidate.displaySkills.slice(0, 4).map((term) => toDisplayTerm(term)),
+      }),
+    };
+  }
+
   const totalScore =
     titleScore * 38 +
     skillScore * 24 +
@@ -526,6 +615,7 @@ function scoreCandidate(args: {
 
 function buildAssistantMessage(args: {
   matches: EmployerCandidateMatchDto[];
+  nameLookup: NameLookup | null;
   query: EmployerCandidateSearchQueryDto;
   lookupTokens: string[];
 }) {
@@ -534,11 +624,20 @@ function buildAssistantMessage(args: {
       return "No Career ID candidate matched that direct lookup. Check the identifier and try again.";
     }
 
+    if (args.nameLookup) {
+      return `No searchable Career ID profile matched the name ${args.nameLookup.raw}. Check the spelling and try again.`;
+    }
+
     return "I could not find aligned Career ID candidates for that search yet. Try broadening the title, adding a few skills, or pasting the full job description.";
   }
 
   if (args.lookupTokens.length > 0) {
     return `I resolved ${args.matches[0]?.fullName ?? "that candidate"} directly from the provided identifier and loaded the recruiter-safe Career ID result.`;
+  }
+
+  if (args.nameLookup) {
+    const profileNoun = args.matches.length === 1 ? "profile" : "profiles";
+    return `I found ${args.matches.length} Career ID ${profileNoun} matching ${args.nameLookup.raw} and loaded them into the recruiter rail.`;
   }
 
   const querySkillFallback = args.query.parsedCriteria.skillKeywords
@@ -579,7 +678,9 @@ export async function searchEmployerCandidates(args: {
     prompt: args.prompt,
   });
   const lookupTokens = extractLookupTokens(args.prompt);
+  const nameLookup = lookupTokens.length === 0 ? buildNameLookup(args.prompt) : null;
   let candidateCorpus: SearchableCandidate[] = [];
+  let candidateSource: SearchableCandidate[] = [];
 
   if (shouldAutoloadRecruiterDemoDataset()) {
     try {
@@ -590,24 +691,46 @@ export async function searchEmployerCandidates(args: {
   }
 
   try {
-    candidateCorpus = await listPersistentRecruiterCandidateProjections({
-      limit: 500,
-    });
+    candidateCorpus = nameLookup
+      ? await searchPersistentRecruiterCandidateProjectionsByName({
+          limit: Math.max(args.limit ?? DEFAULT_SEARCH_LIMIT, 8),
+          name: nameLookup.raw,
+        })
+      : await listPersistentRecruiterCandidateProjections({
+          limit: 500,
+        });
   } catch {
     candidateCorpus = [];
   }
 
-  const exactLookupCorpus =
-    lookupTokens.length > 0
-      ? candidateCorpus.filter((candidate) =>
-          lookupTokens.some((token) => candidate.lookupTokens.includes(token)),
-        )
-      : candidateCorpus;
-  const candidateSource = lookupTokens.length > 0 ? exactLookupCorpus : candidateCorpus;
+  if (lookupTokens.length > 0) {
+    candidateSource = candidateCorpus.filter((candidate) =>
+      lookupTokens.some((token) => candidate.lookupTokens.includes(token)),
+    );
+  } else if (nameLookup && candidateCorpus.length === 0) {
+    try {
+      candidateCorpus = await listPersistentRecruiterCandidateProjections({
+        limit: 500,
+      });
+    } catch {
+      candidateCorpus = [];
+    }
+
+    candidateSource = candidateCorpus.filter(
+      (candidate) =>
+        resolveNameLookupMatch({
+          candidate,
+          nameLookup,
+        }) !== null,
+    );
+  } else {
+    candidateSource = candidateCorpus;
+  }
   const scoredMatches = candidateSource
     .map((candidate) =>
       scoreCandidate({
         candidate,
+        nameLookup,
         query,
         lookupTokens,
       }),
@@ -623,6 +746,7 @@ export async function searchEmployerCandidates(args: {
   const response = employerCandidateSearchResponseSchema.parse({
     assistantMessage: buildAssistantMessage({
       matches: limitedMatches,
+      nameLookup,
       query,
       lookupTokens,
     }),

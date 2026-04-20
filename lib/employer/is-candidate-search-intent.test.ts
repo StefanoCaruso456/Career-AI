@@ -19,6 +19,11 @@ describe("isEmployerCandidateSearchIntent", () => {
     );
   });
 
+  it("treats a plain full name as candidate lookup intent", () => {
+    expect(isEmployerCandidateSearchIntent("stefano caruso")).toBe(true);
+    expect(isEmployerCandidateSearchIntent("machine learning")).toBe(false);
+  });
+
   it("does not treat general employer questions as sourcing intent", () => {
     expect(
       isEmployerCandidateSearchIntent("How do we verify candidate credibility faster?"),

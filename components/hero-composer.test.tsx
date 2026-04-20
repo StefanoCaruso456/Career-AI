@@ -1133,6 +1133,68 @@ describe("HeroComposer", () => {
     ).toBe(false);
   });
 
+  it("resolves plain-name lookups into the employer candidate rail", async () => {
+    const workspace = createWorkspaceSnapshot([createProject("project_employer", "Candidate pipeline")]);
+    const conversation = createConversation("conversation_lookup_name", "project_employer", [
+      createMessage("message_lookup_name_user", "user", "stefano caruso"),
+      createMessage(
+        "message_lookup_name_assistant",
+        "assistant",
+        "I found 1 Career ID profile matching stefano caruso and loaded it into the recruiter rail.",
+      ),
+    ]);
+    const candidatesResponse = createEmployerCandidateResponse("stefano caruso");
+
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = getRequestUrl(input);
+
+      if (url === "/api/chat/state") {
+        return createJsonResponse(workspace);
+      }
+
+      if (url === "/api/chat") {
+        return createJsonResponse({
+          assistantMessage: conversation.messages[1],
+          candidatePanel: candidatesResponse,
+          conversation,
+          userMessage: conversation.messages[0],
+        });
+      }
+
+      if (url === "/api/v1/employer/candidates/search") {
+        return createJsonResponse(candidatesResponse);
+      }
+
+      throw new Error(`Unexpected fetch request: ${url}`);
+    });
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <HeroComposer
+        content={landingContentByPersona.employer.heroComposer}
+        persona="employer"
+      />,
+    );
+
+    const composer = await screen.findByRole("textbox", { name: "Message composer" });
+
+    fireEvent.change(composer, {
+      target: {
+        value: "stefano caruso",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByLabelText("Candidate sourcing panel")).toBeInTheDocument();
+    expect(await screen.findByText("Alex Rivera")).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(
+        ([input]) => getRequestUrl(input) === "/api/v1/employer/candidates/search",
+      ),
+    ).toBe(true);
+  });
+
   it("keeps employer structured filters hidden until the recruiter opens them", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_employer", "Candidate pipeline")]);
 
