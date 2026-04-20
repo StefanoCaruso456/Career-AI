@@ -71,6 +71,7 @@ type LandingSolution = {
   copy: string;
   cta: string;
   eyebrow: string;
+  hideVisual?: boolean;
   icon: LucideIcon;
   size: SolutionSize;
   title: string;
@@ -358,6 +359,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         copy:
           "Expose the same candidate proof base to every reviewer while keeping provenance and permission boundaries intact.",
         cta: "Map review orchestration",
+        hideVisual: true,
         icon: Users2,
         variant: "globalVerification",
         size: "small",

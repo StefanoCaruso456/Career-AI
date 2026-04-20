@@ -377,6 +377,7 @@ function SolutionCard({
   cta,
   copy,
   eyebrow,
+  hideVisual,
   icon: Icon,
   title,
   variant,
@@ -392,7 +393,7 @@ function SolutionCard({
         <p className={styles.solutionBody}>{copy}</p>
       </div>
 
-      <SolutionVisual variant={variant} />
+      {hideVisual ? null : <SolutionVisual variant={variant} />}
 
       <Link className={styles.inlineLink} href="#footer">
         {cta}
