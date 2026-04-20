@@ -68,12 +68,14 @@ import {
 import {
   type CSSProperties,
   type ChangeEvent,
+  type FocusEvent as ReactFocusEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type WheelEvent as ReactWheelEvent,
   startTransition,
   useEffect,
+  useEffectEvent,
   useId,
   useLayoutEffect,
   useRef,
@@ -220,6 +222,7 @@ const attachmentInputAccept = supportedChatAttachmentTypes
   .join(",");
 const STARTER_RAIL_COPY_COUNT = 3;
 const STARTER_RAIL_PRIMARY_COPY_INDEX = 1;
+const STARTER_RAIL_AUTO_SCROLL_PIXELS_PER_SECOND = 30;
 const defaultEmployerCandidateSearchFilters: EmployerCandidateSearchFiltersDto = {
   certifications: [],
   credibilityThreshold: null,
@@ -699,6 +702,12 @@ export function HeroComposer({
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const starterRailRef = useRef<HTMLDivElement>(null);
   const starterRailCycleWidthRef = useRef<number | null>(null);
+  const starterRailAutoScrollFrameRef = useRef<number | null>(null);
+  const starterRailAutoScrollLastTimestampRef = useRef<number | null>(null);
+  const starterRailAutoScrollPausedRef = useRef(false);
+  const starterRailHoveringRef = useRef(false);
+  const starterRailPointerActiveRef = useRef(false);
+  const starterRailFocusWithinRef = useRef(false);
   const starterRailInitialSyncFrameRef = useRef<number | null>(null);
   const starterRailScrollFrameRef = useRef<number | null>(null);
   const starterRailProgrammaticScrollRef = useRef(false);
@@ -794,6 +803,7 @@ export function HeroComposer({
   useEffect(() => {
     return () => {
       cancelStarterRailScrollAnimation();
+      cancelStarterRailAutoScrollAnimation();
     };
   }, []);
 
@@ -839,6 +849,100 @@ export function HeroComposer({
       cancelled = true;
       cancelStarterRailInitialSyncFrame();
       resizeObserver?.disconnect();
+    };
+  }, [isLandingState, starterActions.length]);
+
+  const syncStarterRailAutoScrollPauseState = useEffectEvent(() => {
+    starterRailAutoScrollPausedRef.current =
+      starterRailHoveringRef.current ||
+      starterRailPointerActiveRef.current ||
+      starterRailFocusWithinRef.current;
+    starterRailAutoScrollLastTimestampRef.current = null;
+  });
+
+  const stepStarterRailAutoScroll = useEffectEvent((timestamp: number) => {
+    const starterRail = starterRailRef.current;
+
+    if (!starterRail || !isLandingState) {
+      starterRailAutoScrollFrameRef.current = null;
+      starterRailAutoScrollLastTimestampRef.current = null;
+      return;
+    }
+
+    starterRailAutoScrollFrameRef.current = window.requestAnimationFrame(stepStarterRailAutoScroll);
+
+    if (starterRailAutoScrollPausedRef.current || starterRailScrollFrameRef.current !== null) {
+      starterRailAutoScrollLastTimestampRef.current = null;
+      return;
+    }
+
+    if (starterRail.scrollWidth <= starterRail.clientWidth) {
+      starterRailAutoScrollLastTimestampRef.current = null;
+      return;
+    }
+
+    const cycleWidth = getStarterRailCycleWidth();
+
+    if (!cycleWidth) {
+      starterRailAutoScrollLastTimestampRef.current = null;
+      return;
+    }
+
+    const previousTimestamp = starterRailAutoScrollLastTimestampRef.current;
+    starterRailAutoScrollLastTimestampRef.current = timestamp;
+
+    if (previousTimestamp === null) {
+      return;
+    }
+
+    const elapsed = Math.min(timestamp - previousTimestamp, 48);
+
+    if (elapsed <= 0) {
+      return;
+    }
+
+    starterRailProgrammaticScrollRef.current = true;
+    starterRail.scrollLeft +=
+      (elapsed / 1000) * STARTER_RAIL_AUTO_SCROLL_PIXELS_PER_SECOND;
+    recenterStarterRailScrollPosition();
+    syncStarterRailTargetToCurrentPosition();
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!isLandingState) {
+      starterRailHoveringRef.current = false;
+      starterRailPointerActiveRef.current = false;
+      starterRailFocusWithinRef.current = false;
+      starterRailAutoScrollPausedRef.current = false;
+      cancelStarterRailAutoScrollAnimation();
+      return;
+    }
+
+    const reducedMotionMediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+    const syncReducedMotionPreference = () => {
+      if (reducedMotionMediaQuery.matches) {
+        cancelStarterRailAutoScrollAnimation();
+        return;
+      }
+
+      if (starterRailAutoScrollFrameRef.current === null) {
+        starterRailAutoScrollLastTimestampRef.current = null;
+        starterRailAutoScrollFrameRef.current = window.requestAnimationFrame(stepStarterRailAutoScroll);
+      }
+    };
+
+    syncStarterRailAutoScrollPauseState();
+    syncReducedMotionPreference();
+    reducedMotionMediaQuery.addEventListener("change", syncReducedMotionPreference);
+
+    return () => {
+      reducedMotionMediaQuery.removeEventListener("change", syncReducedMotionPreference);
+      cancelStarterRailAutoScrollAnimation();
     };
   }, [isLandingState, starterActions.length]);
 
@@ -2812,6 +2916,17 @@ export function HeroComposer({
     starterRailScrollFrameRef.current = null;
   }
 
+  function cancelStarterRailAutoScrollAnimation() {
+    starterRailAutoScrollLastTimestampRef.current = null;
+
+    if (starterRailAutoScrollFrameRef.current === null) {
+      return;
+    }
+
+    window.cancelAnimationFrame(starterRailAutoScrollFrameRef.current);
+    starterRailAutoScrollFrameRef.current = null;
+  }
+
   function syncStarterRailTargetToCurrentPosition() {
     const starterRail = starterRailRef.current;
 
@@ -3032,6 +3147,41 @@ export function HeroComposer({
 
     event.preventDefault();
     applyStarterRailManualScroll(normalizedDelta);
+  }
+
+  function handleStarterRailPointerEnter() {
+    starterRailHoveringRef.current = true;
+    syncStarterRailAutoScrollPauseState();
+  }
+
+  function handleStarterRailPointerLeave() {
+    starterRailHoveringRef.current = false;
+    starterRailPointerActiveRef.current = false;
+    syncStarterRailAutoScrollPauseState();
+  }
+
+  function handleStarterRailPointerDown() {
+    starterRailPointerActiveRef.current = true;
+    syncStarterRailAutoScrollPauseState();
+  }
+
+  function handleStarterRailPointerUp() {
+    starterRailPointerActiveRef.current = false;
+    syncStarterRailAutoScrollPauseState();
+  }
+
+  function handleStarterRailFocusCapture() {
+    starterRailFocusWithinRef.current = true;
+    syncStarterRailAutoScrollPauseState();
+  }
+
+  function handleStarterRailBlurCapture(event: ReactFocusEvent<HTMLDivElement>) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) {
+      return;
+    }
+
+    starterRailFocusWithinRef.current = false;
+    syncStarterRailAutoScrollPauseState();
   }
 
   function renderStarterAction(
@@ -3556,7 +3706,14 @@ export function HeroComposer({
           <div
             aria-label="Starter prompts"
             className={styles.heroStarterRail}
+            onBlurCapture={handleStarterRailBlurCapture}
+            onFocusCapture={handleStarterRailFocusCapture}
             onKeyDown={handleStarterRailKeyDown}
+            onPointerCancel={handleStarterRailPointerUp}
+            onPointerDown={handleStarterRailPointerDown}
+            onPointerEnter={handleStarterRailPointerEnter}
+            onPointerLeave={handleStarterRailPointerLeave}
+            onPointerUp={handleStarterRailPointerUp}
             onScroll={handleStarterRailScroll}
             onWheel={handleStarterRailWheel}
             ref={starterRailRef}
