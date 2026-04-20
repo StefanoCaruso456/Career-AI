@@ -420,20 +420,23 @@ function getSolutionSpanClass(size: LandingContent["solutions"][number]["size"])
 }
 
 export function ChatHomeShell({
+  autonomousApplyEnabled = true,
   content,
   embeddedInWorkspaceShell = false,
   persona = "job_seeker",
 }: {
+  autonomousApplyEnabled?: boolean;
   content: LandingContent;
   embeddedInWorkspaceShell?: boolean;
   persona?: Persona;
 }) {
   return (
     <div className={styles.page}>
-      <ChatHomeHero
-        embeddedInWorkspaceShell={embeddedInWorkspaceShell}
-        heroComposer={content.heroComposer}
-        heroTitle={content.heroTitle}
+        <ChatHomeHero
+          autonomousApplyEnabled={autonomousApplyEnabled}
+          embeddedInWorkspaceShell={embeddedInWorkspaceShell}
+          heroComposer={content.heroComposer}
+          heroTitle={content.heroTitle}
         persona={persona}
       />
 

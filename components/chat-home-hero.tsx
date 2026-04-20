@@ -7,11 +7,13 @@ import styles from "./chat-home-shell.module.css";
 import type { Persona } from "@/lib/personas";
 
 export function ChatHomeHero({
+  autonomousApplyEnabled = true,
   embeddedInWorkspaceShell = false,
   heroComposer,
   heroTitle,
   persona = "job_seeker",
 }: {
+  autonomousApplyEnabled?: boolean;
   embeddedInWorkspaceShell?: boolean;
   heroComposer: HeroComposerContent;
   heroTitle: string;
@@ -63,6 +65,7 @@ export function ChatHomeHero({
         </h1>
 
         <HeroComposer
+          autonomousApplyEnabled={autonomousApplyEnabled}
           content={heroComposer}
           onConversationStateChange={setHasActiveConversation}
           persona={persona}

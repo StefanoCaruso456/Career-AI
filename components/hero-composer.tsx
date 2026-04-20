@@ -188,6 +188,7 @@ type BrowserSpeechRecognition = {
 type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 type HeroComposerProps = {
+  autonomousApplyEnabled?: boolean;
   content?: HeroComposerContent;
   onConversationStateChange?: (active: boolean) => void;
   persona?: Persona;
@@ -619,6 +620,7 @@ function formatRelativeTimestamp(timestamp: string | null) {
 }
 
 export function HeroComposer({
+  autonomousApplyEnabled = true,
   content,
   onConversationStateChange,
   persona = "job_seeker",
@@ -4015,6 +4017,7 @@ export function HeroComposer({
                 .join(" ")}
             >
               <JobsSidePanel
+                autonomousApplyEnabled={autonomousApplyEnabled}
                 emptyStateMessage={jobsAssistEmptyState}
                 errorMessage={jobsAssistError}
                 filterOptions={jobsAssistFilterOptions}

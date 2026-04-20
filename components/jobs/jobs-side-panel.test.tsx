@@ -353,6 +353,35 @@ describe("JobsSidePanel", () => {
     expect(container.querySelector('[data-selected="true"]')).toBeNull();
   });
 
+  it("uses truthful Open posting copy in the rail when autonomous apply is disabled", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    const onApply = vi.fn(async () => ({
+      action: "queued" as const,
+      applyRunId: "apply_run_123",
+      message: "Queued",
+    }));
+
+    render(
+      <JobsSidePanel
+        autonomousApplyEnabled={false}
+        jobs={[createJob("job_1")]}
+        onApply={onApply}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://jobs.example.com/job_1",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+
+    expect(onApply).not.toHaveBeenCalled();
+  });
+
   it("lets the filter dropdown open and close without affecting the underlying list", () => {
     render(<JobsSidePanel jobs={[createJob("job_1"), createJob("job_2", { title: "Backend Engineer" })]} />);
 
