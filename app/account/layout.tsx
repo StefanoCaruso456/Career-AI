@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { getPersonaFromRoleType, getPostAuthRoute } from "@/lib/personas";
@@ -14,21 +13,12 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     return <>{children}</>;
   }
 
-  const { context } = await ensurePersistentCareerIdentityForSessionUser({
-    user: {
-      appUserId: session.user.appUserId,
-      authProvider: session.user.authProvider,
-      email: session.user.email,
-      image: session.user.image,
-      name: session.user.name,
-      providerUserId: session.user.providerUserId,
-    },
-    correlationId: `account_layout_${session.user.appUserId ?? session.user.email ?? "unknown"}`,
-  });
+  const destinationPersona = getPersonaFromRoleType(session.user.roleType);
 
-  const destinationPersona = getPersonaFromRoleType(context.onboarding.roleType);
-
-  if (context.onboarding.status === "completed" && destinationPersona === "employer") {
+  if (
+    session.user.onboardingStatus === "completed" &&
+    destinationPersona === "employer"
+  ) {
     redirect(getPostAuthRoute(destinationPersona));
   }
 

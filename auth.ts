@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -365,10 +366,10 @@ export const authOptions = {
   },
 } satisfies NextAuthOptions;
 
-export function auth() {
+export const auth = cache(function auth() {
   if (!authSessionEnabled) {
     return Promise.resolve(null);
   }
 
   return getServerSession(authOptions);
-}
+});
