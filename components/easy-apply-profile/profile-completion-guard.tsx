@@ -69,6 +69,9 @@ export function ProfileCompletionGuard({
     schemaFamily,
   });
   const ApplyIcon = buttonVariant === "jobs-card" ? null : Sparkles;
+  const applyActionStackClassName = `${styles.applyActionStack} ${
+    buttonVariant === "jobs-card" ? styles.applyActionStackJobsCard : ""
+  }`;
 
   function redirectToSignIn() {
     const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
@@ -166,22 +169,27 @@ export function ProfileCompletionGuard({
 
   return (
     <>
-      <button
-        aria-haspopup="dialog"
-        className={`${styles.applyButton} ${
-          buttonVariant === "jobs-card" ? styles.applyButtonJobsCard : ""
-        } ${className ?? ""}`}
-        disabled={isLoading && isAuthenticated}
-        onClick={handleApplyClick}
-        type="button"
-      >
-        {isLoading && isAuthenticated ? (
-          <LoaderCircle className={styles.inlineSpinner} aria-hidden="true" size={16} strokeWidth={2} />
-        ) : ApplyIcon ? (
-          <ApplyIcon aria-hidden="true" size={16} strokeWidth={2} />
-        ) : null}
-        <span>{isLoading && isAuthenticated ? "Checking profile..." : buttonLabel}</span>
-      </button>
+      <div className={applyActionStackClassName} data-testid="apply-action-stack">
+        <button
+          aria-haspopup="dialog"
+          className={`${styles.applyButton} ${
+            buttonVariant === "jobs-card" ? styles.applyButtonJobsCard : ""
+          } ${className ?? ""}`}
+          disabled={isLoading && isAuthenticated}
+          onClick={handleApplyClick}
+          type="button"
+        >
+          {isLoading && isAuthenticated ? (
+            <LoaderCircle className={styles.inlineSpinner} aria-hidden="true" size={16} strokeWidth={2} />
+          ) : ApplyIcon ? (
+            <ApplyIcon aria-hidden="true" size={16} strokeWidth={2} />
+          ) : null}
+          <span>{isLoading && isAuthenticated ? "Checking profile..." : buttonLabel}</span>
+        </button>
+
+        {applyNotice ? <p className={styles.inlineSuccess}>{applyNotice}</p> : null}
+        {applyError || error ? <p className={styles.inlineError}>{applyError ?? error}</p> : null}
+      </div>
 
       <EasyApplyProfileModal
         companyName={companyName}
@@ -233,9 +241,6 @@ export function ProfileCompletionGuard({
         schemaFamily={schemaFamily}
         userKey={userKey}
       />
-
-      {applyNotice ? <p className={styles.inlineSuccess}>{applyNotice}</p> : null}
-      {applyError || error ? <p className={styles.inlineError}>{applyError ?? error}</p> : null}
     </>
   );
 }

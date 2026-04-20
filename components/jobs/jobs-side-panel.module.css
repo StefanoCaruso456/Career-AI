@@ -593,7 +593,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.6rem;
-  align-items: center;
+  align-items: start;
 }
 
 .jobApplyButton {
