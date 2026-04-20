@@ -276,6 +276,74 @@
 .heroStarterRailShell {
   width: min(100%, 54rem);
   margin: 0 auto clamp(0.4rem, 1vw, 0.9rem);
+  position: relative;
+  padding-inline: 3.4rem;
+}
+
+.heroStarterRailFade {
+  position: absolute;
+  top: 0.2rem;
+  bottom: 0.45rem;
+  width: 4.25rem;
+  border-radius: 1.7rem;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.heroStarterRailFadeLeft {
+  left: 0;
+  background: linear-gradient(90deg, rgba(16, 18, 22, 0.98) 0%, rgba(16, 18, 22, 0.82) 48%, transparent 100%);
+}
+
+.heroStarterRailFadeRight {
+  right: 0;
+  background: linear-gradient(270deg, rgba(16, 18, 22, 0.98) 0%, rgba(16, 18, 22, 0.82) 48%, transparent 100%);
+}
+
+.heroStarterRailHint {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03)),
+    rgba(20, 23, 29, 0.72);
+  color: rgba(244, 247, 252, 0.72);
+  box-shadow:
+    0 14px 26px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(calc(-50% - 0.1rem));
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  pointer-events: none;
+  animation: starterRailHintFloat 1800ms ease-in-out infinite alternate;
+}
+
+.heroStarterRailHintLeft {
+  left: 0.45rem;
+}
+
+.heroStarterRailHintRight {
+  right: 0.45rem;
+  animation-delay: 140ms;
+}
+
+@keyframes starterRailHintFloat {
+  0% {
+    opacity: 0.58;
+    transform: translateY(calc(-50% - 0.1rem));
+  }
+
+  100% {
+    opacity: 0.94;
+    transform: translateY(calc(-50% - 0.1rem)) scale(1.02);
+  }
 }
 
 .heroStarterRail {
@@ -3408,12 +3476,30 @@
   .heroStarterRailShell {
     width: min(100%, 100vw);
     margin-bottom: 0.55rem;
+    padding-inline: 2.8rem;
   }
 
   .heroStarterRail {
     gap: 0.6rem;
     padding-bottom: 0.45rem;
     mask-image: none;
+  }
+
+  .heroStarterRailFade {
+    width: 3.2rem;
+  }
+
+  .heroStarterRailHint {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  .heroStarterRailHintLeft {
+    left: 0.18rem;
+  }
+
+  .heroStarterRailHintRight {
+    right: 0.18rem;
   }
 
   .chatStage {
