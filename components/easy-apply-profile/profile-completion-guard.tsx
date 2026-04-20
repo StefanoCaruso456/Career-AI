@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "@/lib/jobs/apply-run-messages";
@@ -57,6 +58,7 @@ export function ProfileCompletionGuard({
   } = useApplicationProfiles();
   const [applyError, setApplyError] = useState<string | null>(null);
   const [applyNotice, setApplyNotice] = useState<string | null>(null);
+  const [queuedApplyRunId, setQueuedApplyRunId] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showMissingFieldsModal, setShowMissingFieldsModal] = useState(false);
   const profile = profiles[getApplicationProfileKey(schemaFamily)];
@@ -88,6 +90,7 @@ export function ProfileCompletionGuard({
     try {
       setApplyError(null);
       setApplyNotice(null);
+      setQueuedApplyRunId(null);
       const nextApplyUrl = await resolveApplyUrl?.();
 
       if (typeof nextApplyUrl === "string") {
@@ -97,6 +100,7 @@ export function ProfileCompletionGuard({
 
       if (nextApplyUrl?.action === "queued") {
         setApplyNotice(nextApplyUrl.message || AUTONOMOUS_APPLY_QUEUED_MESSAGE);
+        setQueuedApplyRunId(nextApplyUrl.applyRunId);
         return;
       }
 
@@ -107,6 +111,7 @@ export function ProfileCompletionGuard({
 
       openExternalApply(applyUrl);
     } catch (error) {
+      setQueuedApplyRunId(null);
       setApplyError(
         error instanceof Error ? error.message : "The application link could not be opened.",
       );
@@ -187,6 +192,11 @@ export function ProfileCompletionGuard({
         </button>
 
         {applyNotice ? <p className={styles.inlineSuccess}>{applyNotice}</p> : null}
+        {queuedApplyRunId ? (
+          <Link className={styles.statusLinkButton} href={`/account/apply-runs/${queuedApplyRunId}`}>
+            View application status
+          </Link>
+        ) : null}
         {applyError || error ? <p className={styles.inlineError}>{applyError ?? error}</p> : null}
       </div>
 
