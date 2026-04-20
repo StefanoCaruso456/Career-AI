@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { PersonaPreferenceSync } from "@/components/persona-preference-sync";
-import { getPersonaSignInRoute } from "@/lib/personas";
+import { getPersonaSignInRoute, getPostAuthRoute } from "@/lib/personas";
 
 export default async function EmployerLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -11,7 +11,7 @@ export default async function EmployerLayout({ children }: { children: ReactNode
   if (!session?.user?.email) {
     redirect(
       getPersonaSignInRoute({
-        callbackUrl: "/employer",
+        callbackUrl: getPostAuthRoute("employer"),
         persona: "employer",
       }),
     );

@@ -7,6 +7,7 @@ type PersonaConfig = {
   description: string;
   landingRoute: string;
   label: string;
+  postAuthRoute: string;
   signInEyebrow: string;
   shortLabel: string;
   workspaceLabel: string;
@@ -18,6 +19,7 @@ export const personaConfigs: Record<Persona, PersonaConfig> = {
     description: "Employer and business hiring workspace",
     landingRoute: "/employer",
     label: "Employer / Business",
+    postAuthRoute: "/employer/candidates",
     signInEyebrow: "Employer access",
     shortLabel: "Employer",
     workspaceLabel: "Hiring workspace",
@@ -27,6 +29,7 @@ export const personaConfigs: Record<Persona, PersonaConfig> = {
     description: "Job seeker identity and trust workspace",
     landingRoute: "/account",
     label: "Job Seeker",
+    postAuthRoute: "/account",
     signInEyebrow: "Verified access",
     shortLabel: "Job Seeker",
     workspaceLabel: "Career workspace",
@@ -110,7 +113,7 @@ export function resolveActivePersona({
 }
 
 export function getPostAuthRoute(persona: Persona) {
-  return personaConfigs[persona].landingRoute;
+  return personaConfigs[persona].postAuthRoute;
 }
 
 export function getSettingsRoute(persona: Persona) {

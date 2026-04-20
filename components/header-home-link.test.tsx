@@ -62,26 +62,26 @@ describe("HeaderHomeLink", () => {
     expect(link).not.toHaveClass(styles.navTabCurrent);
   });
 
-  it("routes employer candidate pages back to the employer overview", () => {
+  it("routes employer candidate pages back to the employer workspace", () => {
     mockUsePathname.mockReturnValue("/employer/candidates");
 
     render(<HeaderHomeLink />);
 
     const link = screen.getByRole("link", { name: "Career AI home" });
-    expect(link).toHaveAttribute("href", "/employer");
-    expect(link).not.toHaveAttribute("aria-current");
+    expect(link).toHaveAttribute("href", "/employer/candidates");
+    expect(link).toHaveAttribute("aria-current", "page");
   });
 
-  it("marks the employer overview as current when already in the employer home", () => {
+  it("keeps the employer landing route pointed back to the workspace", () => {
     mockUsePathname.mockReturnValue("/employer");
 
     render(<HeaderHomeLink />);
 
     const link = screen.getByRole("link", { name: "Career AI home" });
-    expect(link).toHaveAttribute("href", "/employer");
-    expect(link).toHaveAttribute("aria-current", "page");
-    expect(link).toHaveClass(styles.homeActionCurrent);
-    expect(link).toHaveClass(styles.navTabCurrent);
+    expect(link).toHaveAttribute("href", "/employer/candidates");
+    expect(link).not.toHaveAttribute("aria-current");
+    expect(link).not.toHaveClass(styles.homeActionCurrent);
+    expect(link).not.toHaveClass(styles.navTabCurrent);
   });
 
   it("uses the replacement header logo asset", () => {

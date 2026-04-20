@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { RecruiterAccessRequestPanel } from "@/components/access-requests/recruiter-access-request-panel";
+import { getPostAuthRoute } from "@/lib/personas";
 import { ApiError } from "@/packages/contracts/src";
 import { getEmployerCandidateTrace } from "@/packages/recruiter-read-model/src";
 import styles from "./page.module.css";
@@ -67,7 +68,7 @@ export default async function EmployerCandidatesPage({
           </div>
 
           <div className={styles.heroActions}>
-            <Link className={styles.primaryAction} href="/employer">
+            <Link className={styles.primaryAction} href={getPostAuthRoute("employer")}>
               Back to employer workspace
             </Link>
             {trace ? (

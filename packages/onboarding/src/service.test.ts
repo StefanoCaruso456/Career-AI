@@ -114,7 +114,7 @@ describe("onboarding service", () => {
 
     expect(completed.onboarding.status).toBe("completed");
     expect(completed.onboarding.profileCompletionPercent).toBe(100);
-    expect(resolveAuthenticatedDestination(completed)).toBe("/employer");
+    expect(resolveAuthenticatedDestination(completed)).toBe("/employer/candidates");
   });
 
   it("routes completed candidates to the account area", async () => {

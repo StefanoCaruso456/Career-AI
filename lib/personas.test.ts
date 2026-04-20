@@ -19,7 +19,7 @@ describe("persona helpers", () => {
 
   it("returns the configured post-auth routes", () => {
     expect(getPostAuthRoute("job_seeker")).toBe("/account");
-    expect(getPostAuthRoute("employer")).toBe("/employer");
+    expect(getPostAuthRoute("employer")).toBe("/employer/candidates");
     expect(getSettingsRoute("job_seeker")).toBe("/account/settings");
     expect(getSettingsRoute("employer")).toBe("/employer/settings");
   });
@@ -62,7 +62,7 @@ describe("persona helpers", () => {
       "/agent-build",
     );
     expect(getAuthCallbackUrl({ callbackUrl: "https://example.com", persona: "employer" })).toBe(
-      "/employer",
+      "/employer/candidates",
     );
   });
 
