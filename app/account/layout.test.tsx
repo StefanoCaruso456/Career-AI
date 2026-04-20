@@ -100,6 +100,6 @@ describe("AccountLayout", () => {
 
     await Layout({ children: <div>Access requests</div> });
 
-    expect(mocks.redirect).toHaveBeenCalledWith("/employer/candidates");
+    expect(mocks.redirect).toHaveBeenCalledWith("/employer");
   });
 });

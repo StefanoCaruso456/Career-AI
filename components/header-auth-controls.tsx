@@ -158,8 +158,10 @@ export function HeaderAuthControls() {
   const accountMeta = accountTypeLabel;
   const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
   const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
-  const isWorkspacePage =
-    pathname === workspaceHref || pathname.startsWith(`${workspaceHref}/`);
+  const workspaceUsesExactMatch = preferredPersona === "employer";
+  const isWorkspacePage = workspaceUsesExactMatch
+    ? pathname === workspaceHref
+    : pathname === workspaceHref || pathname.startsWith(`${workspaceHref}/`);
   const isSettingsPage =
     pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
   const showWorkspaceShortcut = !shouldResumeOnboarding && !isWorkspacePage;

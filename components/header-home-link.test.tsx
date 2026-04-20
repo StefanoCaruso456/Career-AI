@@ -68,8 +68,8 @@ describe("HeaderHomeLink", () => {
     render(<HeaderHomeLink />);
 
     const link = screen.getByRole("link", { name: "Career AI home" });
-    expect(link).toHaveAttribute("href", "/employer/candidates");
-    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveAttribute("href", "/employer");
+    expect(link).not.toHaveAttribute("aria-current");
   });
 
   it("keeps the employer landing route pointed back to the workspace", () => {
@@ -78,10 +78,10 @@ describe("HeaderHomeLink", () => {
     render(<HeaderHomeLink />);
 
     const link = screen.getByRole("link", { name: "Career AI home" });
-    expect(link).toHaveAttribute("href", "/employer/candidates");
-    expect(link).not.toHaveAttribute("aria-current");
-    expect(link).not.toHaveClass(styles.homeActionCurrent);
-    expect(link).not.toHaveClass(styles.navTabCurrent);
+    expect(link).toHaveAttribute("href", "/employer");
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveClass(styles.homeActionCurrent);
+    expect(link).toHaveClass(styles.navTabCurrent);
   });
 
   it("uses the replacement header logo asset", () => {

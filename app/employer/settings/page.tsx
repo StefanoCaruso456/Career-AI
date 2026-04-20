@@ -4,7 +4,7 @@ import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
 import { CandidateNotificationPreferencesCard } from "@/components/access-requests/candidate-notification-preferences-card";
 import { ApplicationProfileSettingsCard } from "@/components/application-profile-settings-card";
 import { ProfileAccountDetailsCard } from "@/components/profile-account-details-card";
-import { getPersonaSignInRoute } from "@/lib/personas";
+import { getPersonaSignInRoute, getPostAuthRoute } from "@/lib/personas";
 import { getCandidateNotificationPreferences } from "@/packages/access-request-domain/src";
 import styles from "@/components/access-requests/access-request-workflow.module.css";
 
@@ -59,7 +59,7 @@ export default async function EmployerSettingsPage() {
           <a className={styles.sectionTab} href="#application-profile-settings">
             Application profiles
           </a>
-          <a className={styles.sectionTab} href="/employer/candidates">
+          <a className={styles.sectionTab} href={getPostAuthRoute("employer")}>
             Hiring workspace
           </a>
         </nav>

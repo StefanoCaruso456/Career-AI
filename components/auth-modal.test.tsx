@@ -52,7 +52,7 @@ describe("AuthModalTrigger", () => {
     expect(screen.getByRole("heading", { name: "Create your employer workspace" })).toBeInTheDocument();
     expect(screen.getByTestId("google-button")).toHaveAttribute(
       "data-callback-url",
-      "/employer/candidates",
+      "/employer",
     );
     expect(screen.getByTestId("google-button")).toHaveAttribute("data-persona", "employer");
 
@@ -61,7 +61,7 @@ describe("AuthModalTrigger", () => {
     expect(screen.getByRole("heading", { name: "Sign in to Career AI for Employers" })).toBeInTheDocument();
     expect(screen.getByTestId("google-button")).toHaveAttribute(
       "data-callback-url",
-      "/employer/candidates",
+      "/employer",
     );
   });
 

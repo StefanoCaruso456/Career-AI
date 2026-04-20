@@ -56,7 +56,7 @@ describe("HeaderAuthControls", () => {
 
     expect(screen.getByRole("link", { name: "Beta" })).toHaveAttribute(
       "href",
-      "/employer/candidates",
+      "/employer",
     );
     expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
     expect(screen.getByText("Employer")).toBeInTheDocument();
@@ -67,7 +67,10 @@ describe("HeaderAuthControls", () => {
       "href",
       "/employer/settings",
     );
-    expect(screen.queryByRole("menuitem", { name: /hiring workspace/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
+      "href",
+      "/employer",
+    );
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
   });
@@ -97,7 +100,7 @@ describe("HeaderAuthControls", () => {
     );
     expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
       "href",
-      "/employer/candidates",
+      "/employer",
     );
   });
 
