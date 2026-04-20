@@ -376,7 +376,6 @@ export function HeroComposer({
     !isRecording &&
     !isTranscribing &&
     !hasBlockedAttachments;
-  const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
   const isProjectHomeVisible =
@@ -384,6 +383,7 @@ export function HeroComposer({
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
+  const workspaceVisible = hasActiveConversation || isProjectHomeVisible;
   const isLandingState = !isProjectHomeVisible && transcript.length === 0;
   const showWorkspaceRail =
     workspaceVisible && !hasActiveConversation && Boolean(content.workspaceRail?.cards.length);

@@ -489,7 +489,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         { kind: "prompt", label: "What does the agent actually do?" },
         { kind: "prompt", label: "How is this different from a resume builder?" },
         { kind: "prompt", label: "How does the agent help me get hired faster?" },
-        { kind: "link", href: "/agent-build", label: "Start Building My Agent ID" },
+        { kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
       ],
       workspaceRail: {
         ariaLabel: "Job seeker workspace rail",
@@ -505,12 +505,12 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
             title: "Start a fresh jobs search from your verified profile",
           },
           {
-            badges: ["Builder", "Agent ID"],
+            badges: ["Builder", "Career ID"],
             description:
               "Capture your story, evidence, and trust signals once so recruiters see something stronger than a plain resume.",
             id: "job-seeker-rail-builder",
             meta: ["Portable identity", "Recruiter-readable"],
-            primaryAction: { kind: "link", href: "/agent-build", label: "Build Agent ID" },
+            primaryAction: { kind: "link", href: "/agent-build", label: "Build Career ID" },
             secondaryAction: { kind: "prompt", label: "Help me start my verified profile." },
             title: "Build the trust layer before you start applying",
           },
@@ -531,12 +531,12 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       typingLabel: "Thinking through your verification workflow...",
     },
     heroTitle:
-      "Career AI is a trusted identity platform that helps job seekers stand out to employers and get hired faster.",
+      "Career AI is a verified career identity platform for job seekers that helps them build trust, stand out to employers, and get hired faster.",
     introPrimaryCta: "Explore the platform",
     introRailEyebrow: "How Career AI works",
     introRailItems: [
       {
-        label: "Persistent Agent IDs",
+        label: "Persistent Career ID",
         copy: "One durable trust object follows the candidate across applications and review loops.",
       },
       {
@@ -570,7 +570,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       },
       {
         value: "1",
-        label: "portable Agent ID and Soul Record per candidate identity",
+        label: "portable Career ID and Soul Record per candidate identity",
       },
       {
         value: "100%",
@@ -627,7 +627,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         title: "Issue portable Career AI identities with a trust layer built in",
         copy:
           "One candidate, one persistent identity object, one reusable trust surface across applications.",
-        cta: "View the Agent ID model",
+        cta: "View the Career ID model",
         icon: ShieldCheck,
         variant: "agentIdCard",
         size: "small",
@@ -655,31 +655,35 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     ],
     stories: [
       {
-        company: "Lovable",
-        title: "Lovable turns AI-heavy application volume into proof-backed shortlists.",
-        copy: "Candidate evidence becomes readable trust, not another noisy PDF pile.",
-        cta: "Read Lovable's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "aura",
       },
       {
-        company: "Runway",
-        title: "Runway-style teams protect recruiter time with structured verification intake.",
-        copy: "Claims, artifacts, and reviewer actions stay linked from first upload to final decision.",
-        cta: "Read Runway's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "stream",
       },
       {
-        company: "Supabase",
-        title: "Supabase-grade operations keep trust workflows auditable without slowing hiring.",
-        copy: "Every status change flows through one verification engine with preserved provenance.",
-        cta: "Read Supabase's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "grid",
       },
       {
-        company: "Linear",
-        title: "Linear-level hiring loops share recruiter-safe profiles instead of raw evidence.",
-        copy: "The result is cleaner review, better candidate trust, and faster alignment.",
-        cta: "Read Linear's story",
+        comingSoon: true,
+        company: "Coming soon...",
+        title: "Hiring partner stories will appear here once they are live.",
+        copy: "We will replace this placeholder with real partner examples as they launch.",
+        cta: "Coming soon...",
         theme: "orb",
       },
     ],
