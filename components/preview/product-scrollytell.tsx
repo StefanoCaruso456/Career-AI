@@ -1,104 +1,209 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useInView } from "framer-motion";
 import {
   BadgeCheck,
-  Building2,
   CheckCircle2,
   FileText,
-  GraduationCap,
   QrCode,
   ShieldCheck,
   Sparkles,
-  type LucideIcon,
 } from "lucide-react";
-import { ScrollytellShell, type ScrollytellBeat } from "./scrollytell-shell";
 import styles from "./product-scrollytell.module.css";
 
 /**
- * Today's product narrative (6 beats + CTA):
+ * Scrollytelling landing narrative. Sticky visual column on the left tracks
+ * the active beat; narrative scrolls past on the right. Desktop-only — the
+ * parent page collapses this to a "come back on desktop" card on small
+ * screens, so we don't carry a mobile layout here.
  *
- *   1. mess     — scattered evidence
- *   2. claim    — say what's true
- *   3. score    — three tiers, one score
- *   4. wallet   — Career ID with credential lineages
- *   5. share    — permissioned recruiter view
- *   6. agent    — automated workflow
- *
- * See /preview/futureStory for where this is headed (Checkr integration
- * and one-click apply).
+ * Beats (see docs/.../landing-story.md for the copy spec):
+ *   1. Mess        — scattered evidence
+ *   2. Claim       — user states what's true, evidence attached
+ *   3. Verify      — LLM scan + seal + badge reveal
+ *   4. Lineage     — version pill ticks; sibling badges accrue
+ *   5. ProfileCard — Career ID zoom-out
+ *   6. Share       — permissioned recruiter view
+ *   7. Agent       — automated workflow
+ *   (CTA)          — final conversion card
  */
 
-const BEATS: ScrollytellBeat[] = [
+type BeatId = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+const BEATS: Array<{
+  id: BeatId;
+  eyebrow: string;
+  title: string;
+  body: string;
+}> = [
   {
-    id: "mess",
+    id: 1,
     eyebrow: "The problem",
-    title: "Your career proof is scattered across a hundred files.",
-    body: "Offer letters, W-2s, diplomas, transcripts, LinkedIn screenshots — in email threads, Drive folders, camera rolls. Every new application makes you reprove the same things.",
+    title: "Your career history is trapped in a pile of PDFs.",
+    body: "Offer letters, W-2s, diplomas, transcripts, LinkedIn screenshots — scattered across email threads, Drive folders, and photo rolls. Every new application makes you reprove the same things from scratch.",
   },
   {
-    id: "claim",
+    id: 2,
     eyebrow: "Start with truth",
-    title: "You say what's true. We attach the evidence.",
-    body: "Tell Career AI where you worked and what you studied. Each claim is tied to the actual document that backs it — no free-text resume, no unverified LinkedIn copy-paste.",
+    title: "You say what's true.",
+    body: "Tell Career AI about your employment, education, and credentials. Every claim stays attached to the evidence behind it — no free-text resumes, no unverified LinkedIn copy-paste.",
   },
   {
-    id: "score",
-    eyebrow: "Every credential gets a score",
-    title: "Three tiers. One at-a-glance trust level.",
-    body: "We read the document, cross-check the signer's domain, and run tamper checks. You land on one of three tiers — On file, Verified, or Verified by source — depending on how strong the signal is.",
+    id: 3,
+    eyebrow: "We check",
+    title: "Paper becomes portable proof.",
+    body: "We read the document, cross-check the signer's domain, and issue a verified credential. Employer ✓ role ✓ dates ✓ recipient ✓ — not a claim, a confirmation.",
   },
   {
-    id: "wallet",
-    eyebrow: "Your Career ID wallet",
-    title: "Every verified credential stacks into one place you own.",
-    body: "Credentials collect into your Career ID wallet. Same employer + role uploaded twice? It's a version bump on the same badge, not a duplicate. Portable across applications.",
+    id: 4,
+    eyebrow: "One credential, many proofs",
+    title: "Each new document strengthens the same badge.",
+    body: "Upload an HR verification letter, a W-2, a second offer letter for the same role — they all roll up into one credential lineage. Version ticks forward; your profile doesn't fill up with duplicates.",
   },
   {
-    id: "share",
+    id: 5,
+    eyebrow: "Your Career ID",
+    title: "Your career, in one place you own.",
+    body: "A portable identity with every verified credential attached. Portable across applications, permission-scoped, yours to share.",
+  },
+  {
+    id: 6,
     eyebrow: "Share on your terms",
-    title: "Recruiters see only the badges you choose.",
-    body: "Toggle which credentials to include, generate a permissioned link. No scraped LinkedIn, no unsanctioned background pulls. Agent-to-agent, consent-first.",
+    title: "Recruiters see only what you chose to share.",
+    body: "Toggle which badges to include, generate a permissioned link. No scraped LinkedIn, no unsanctioned background pulls. Agent-to-agent, consent-first.",
   },
   {
-    id: "agent",
-    eyebrow: "Your agent handles the rest",
+    id: 7,
+    eyebrow: "Your agent does the rest",
     title: "Applications, screening, follow-up — on autopilot.",
-    body: "Your agent knows what's actually true about you. It finds aligned roles, applies against your verified profile, and keeps the grunt work off your plate.",
+    body: "Your agent knows what's actually true about you. It finds aligned roles, applies against your verified profile, and follows up so the grunt work disappears and the signal goes up.",
   },
 ];
 
 export function ProductScrollytell() {
+  const [activeBeat, setActiveBeat] = useState<BeatId>(1);
+
   return (
-    <ScrollytellShell
-      introTitle="From scattered paperwork to a Career ID you own."
-      beats={BEATS}
-      renderVisual={(beatId) => (
-        <AnimatePresence mode="wait">
-          {beatId === "mess" && <MessVisual key="mess" />}
-          {beatId === "claim" && <ClaimVisual key="claim" />}
-          {beatId === "score" && <ScoringVisual key="score" />}
-          {beatId === "wallet" && <WalletVisual key="wallet" />}
-          {beatId === "share" && <ShareVisual key="share" />}
-          {beatId === "agent" && <AgentVisual key="agent" />}
-        </AnimatePresence>
-      )}
-      cta={{
-        eyebrow: "Ready when you are",
-        title: "Start building your Career ID.",
-        body: "Upload one offer letter or diploma. Watch it become a verified, portable badge in under a minute.",
-        actions: [
-          { href: "/agent-build", label: "Start Building My Career ID", primary: true },
-          { href: "/preview/futureStory", label: "See what's coming next" },
-        ],
-      }}
-    />
+    <section className={styles.container}>
+      <div className={styles.intro}>
+        <h1 className={styles.introTitle}>
+          From scattered paperwork to a Career ID you own.
+        </h1>
+      </div>
+
+      <div className={styles.grid}>
+        <div className={styles.stickyWrap}>
+          <div className={styles.stickyInner}>
+            <Visuals activeBeat={activeBeat} />
+            <BeatTicker activeBeat={activeBeat} />
+          </div>
+        </div>
+
+        <div className={styles.narrative}>
+          {BEATS.map((beat) => (
+            <BeatSection key={beat.id} beat={beat} onActivate={setActiveBeat} />
+          ))}
+
+          <CtaSection />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function BeatSection({
+  beat,
+  onActivate,
+}: {
+  beat: (typeof BEATS)[number];
+  onActivate: (id: BeatId) => void;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  const inView = useInView(ref, { amount: 0.5 });
+
+  useEffect(() => {
+    if (inView) onActivate(beat.id);
+  }, [inView, beat.id, onActivate]);
+
+  return (
+    <section ref={ref} className={styles.beat}>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={inView ? { opacity: 1, y: 0 } : { opacity: 0.25, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className={styles.beatContent}
+      >
+        <span className={styles.eyebrow}>{beat.eyebrow}</span>
+        <h2 className={styles.beatTitle}>{beat.title}</h2>
+        <p className={styles.beatBody}>{beat.body}</p>
+      </motion.div>
+    </section>
+  );
+}
+
+function BeatTicker({ activeBeat }: { activeBeat: BeatId }) {
+  return (
+    <div className={styles.ticker}>
+      {BEATS.map((beat) => (
+        <div
+          key={beat.id}
+          className={`${styles.tickerDot} ${beat.id === activeBeat ? styles.tickerDotActive : ""}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CtaSection() {
+  return (
+    <section className={styles.ctaSection}>
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ amount: 0.4, once: true }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className={styles.ctaCard}
+      >
+        <span className={styles.eyebrow}>Ready when you are</span>
+        <h2 className={styles.ctaTitle}>Start building your Career ID.</h2>
+        <p className={styles.ctaBody}>
+          Upload one offer letter or diploma. Watch it become a verified, portable badge in
+          under a minute.
+        </p>
+        <div className={styles.ctaActions}>
+          <Link href="/agent-build" className={styles.ctaPrimary}>
+            Start Building My Career ID
+          </Link>
+          <Link href="/" className={styles.ctaSecondary}>
+            Back to home
+          </Link>
+        </div>
+      </motion.div>
+    </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Visuals
+// Sticky visuals
 // ---------------------------------------------------------------------------
+
+function Visuals({ activeBeat }: { activeBeat: BeatId }) {
+  return (
+    <div className={styles.stage}>
+      <AnimatePresence mode="wait">
+        {activeBeat === 1 && <MessVisual key="mess" />}
+        {activeBeat === 2 && <ClaimVisual key="claim" />}
+        {activeBeat === 3 && <VerifyVisual key="verify" />}
+        {activeBeat === 4 && <LineageVisual key="lineage" />}
+        {activeBeat === 5 && <ProfileVisual key="profile" />}
+        {activeBeat === 6 && <ShareVisual key="share" />}
+        {activeBeat === 7 && <AgentVisual key="agent" />}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 const SCATTERED_DOCS = [
   { label: "Offer_Letter_Microsoft.pdf", x: -160, y: -110, r: -8 },
@@ -195,141 +300,202 @@ function ClaimVisual() {
   );
 }
 
-const SCORE_TIERS: Array<{
-  id: string;
-  label: string;
-  detail: string;
-  stripeClass: string;
-  highlighted?: boolean;
-}> = [
-  {
-    id: "source",
-    label: "Verified by source",
-    detail: "Signer domain matches the claimed issuer",
-    stripeClass: styles.stripeSource,
-    highlighted: true,
-  },
-  {
-    id: "verified",
-    label: "Verified",
-    detail: "Content + tampering checks passed",
-    stripeClass: styles.stripeVerified,
-  },
-  {
-    id: "onfile",
-    label: "On file",
-    detail: "Evidence submitted, no source signal",
-    stripeClass: styles.stripeOnFile,
-  },
-];
+function VerifyVisual() {
+  const fields = [
+    { label: "Is this an offer letter?", delay: 0.4 },
+    { label: "Employer: Microsoft", delay: 0.9 },
+    { label: "Role: Senior Software Engineer", delay: 1.4 },
+    { label: "Start: Jan 15, 2026", delay: 1.9 },
+    { label: "Recipient: Faheem Syed", delay: 2.4 },
+  ];
 
-function ScoringVisual() {
   return (
     <motion.div
-      key="score"
-      className={styles.scoreStage}
+      key="verify"
+      className={styles.verifyStage}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className={styles.scoreLadder}>
-        {SCORE_TIERS.map((tier, i) => (
-          <motion.div
-            key={tier.id}
-            className={`${styles.scoreTier} ${tier.highlighted ? styles.scoreTierHighlighted : ""}`}
-            initial={{ opacity: 0, x: -24 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 + i * 0.12 }}
-          >
-            <span className={`${styles.scoreStripe} ${tier.stripeClass}`} />
-            <div className={styles.scoreTierBody}>
-              <div className={styles.scoreTierHeader}>
-                <ShieldCheck size={14} />
-                <span className={styles.scoreTierLabel}>{tier.label}</span>
-                {tier.highlighted ? (
-                  <motion.span
-                    className={styles.scoreTierPin}
-                    initial={{ opacity: 0, scale: 0.7 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3, delay: 0.9, ease: "backOut" }}
-                  >
-                    Microsoft · Senior SWE
-                  </motion.span>
-                ) : null}
-              </div>
-              <p className={styles.scoreTierDetail}>{tier.detail}</p>
-            </div>
-          </motion.div>
-        ))}
+      <div className={styles.verifyCard}>
+        <div className={styles.verifyCardHeader}>
+          <FileText size={14} />
+          <span>Offer_Letter_Microsoft.pdf</span>
+        </div>
+        <motion.div
+          className={styles.scanLine}
+          initial={{ y: 0, opacity: 0 }}
+          animate={{ y: 260, opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 2.6, delay: 0.2, ease: "easeInOut" }}
+        />
+        <div className={styles.verifyFields}>
+          {fields.map((field) => (
+            <motion.div
+              key={field.label}
+              className={styles.verifyField}
+              initial={{ opacity: 0.3 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: field.delay }}
+            >
+              <motion.span
+                className={styles.verifyCheck}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.3, delay: field.delay + 0.1 }}
+              >
+                <CheckCircle2 size={14} />
+              </motion.span>
+              <span>{field.label}</span>
+            </motion.div>
+          ))}
+        </div>
       </div>
-      <motion.p
-        className={styles.scoreCaption}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 1.2 }}
+
+      <motion.div
+        className={styles.sealBadge}
+        initial={{ scale: 0, opacity: 0, rotate: -20 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ duration: 0.5, delay: 3, ease: "backOut" }}
       >
-        Your uploaded badge lands at the strongest tier its signals support.
-      </motion.p>
+        <ShieldCheck size={18} />
+        <div className={styles.sealBadgeCopy}>
+          <span className={styles.sealBadgeLabel}>Verified by source</span>
+          <span className={styles.sealBadgeSubtle}>
+            Microsoft · Senior Software Engineer
+          </span>
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
 
-const WALLET_BADGES: Array<{ kind: "employment" | "education"; primary: string; secondary: string }> = [
-  { kind: "employment", primary: "Microsoft", secondary: "Senior Software Engineer" },
-  { kind: "education", primary: "Stanford", secondary: "BS Computer Science" },
-  { kind: "education", primary: "AWS", secondary: "Certified Solutions Architect" },
-  { kind: "employment", primary: "Skywire Systems", secondary: "Software Engineer" },
-];
-
-const KIND_ICON: Record<"employment" | "education", LucideIcon> = {
-  employment: Building2,
-  education: GraduationCap,
-};
-
-function WalletVisual() {
+function LineageVisual() {
   return (
     <motion.div
-      key="wallet"
-      className={styles.walletStage}
+      key="lineage"
+      className={styles.lineageStage}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+    >
+      <div className={styles.lineageRow}>
+        <div className={`${styles.lineageBadge} ${styles.lineageBadgePrimary}`}>
+          <ShieldCheck size={16} />
+          <div>
+            <div className={styles.lineageBadgeTitle}>
+              Microsoft · Senior Software Engineer
+            </div>
+            <div className={styles.lineageBadgeSubtle}>
+              Offer letter + HR verification
+            </div>
+          </div>
+          <motion.span
+            className={styles.versionPill}
+            key="v-pill"
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+          >
+            v2
+          </motion.span>
+        </div>
+      </div>
+
+      <div className={styles.lineageSupport}>
+        {[
+          { label: "offer letter", emphasis: true },
+          { label: "HR verification letter", emphasis: true },
+          { label: "W-2" },
+          { label: "pay stub" },
+        ].map((doc, i) => (
+          <motion.span
+            key={doc.label}
+            className={`${styles.lineageDoc} ${doc.emphasis ? styles.lineageDocActive : ""}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 + i * 0.08 }}
+          >
+            {doc.label}
+          </motion.span>
+        ))}
+      </div>
+
+      <div className={styles.lineageRow}>
+        <motion.div
+          className={styles.lineageBadge}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 1.0 }}
+        >
+          <ShieldCheck size={16} />
+          <div>
+            <div className={styles.lineageBadgeTitle}>Stanford · BS Computer Science</div>
+            <div className={styles.lineageBadgeSubtle}>Diploma</div>
+          </div>
+          <span className={styles.versionPill}>v1</span>
+        </motion.div>
+        <motion.div
+          className={styles.lineageBadge}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 1.3 }}
+        >
+          <ShieldCheck size={16} />
+          <div>
+            <div className={styles.lineageBadgeTitle}>Stanford · Transcript</div>
+            <div className={styles.lineageBadgeSubtle}>Academic record</div>
+          </div>
+          <span className={styles.versionPill}>v1</span>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ProfileVisual() {
+  const badges = [
+    "Microsoft · Senior Software Engineer",
+    "Stanford · BS Computer Science",
+    "Stanford · Transcript",
+    "AWS · Certified Solutions Architect",
+  ];
+  return (
+    <motion.div
+      key="profile"
+      className={styles.profileStage}
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.02 }}
       transition={{ duration: 0.5 }}
     >
-      <div className={styles.walletCard}>
-        <div className={styles.walletHeader}>
-          <div className={styles.walletAvatar}>FS</div>
+      <div className={styles.profileCard}>
+        <div className={styles.profileHeader}>
+          <div className={styles.profileAvatar}>FS</div>
           <div>
-            <div className={styles.walletName}>Faheem Syed</div>
-            <div className={styles.walletTaid}>TAID-000204 · Career ID wallet</div>
+            <div className={styles.profileName}>Faheem Syed</div>
+            <div className={styles.profileTaid}>TAID-000204 · Career ID</div>
           </div>
-          <BadgeCheck size={18} className={styles.walletVerifiedIcon} />
+          <BadgeCheck size={18} className={styles.profileVerifiedIcon} />
         </div>
-        <div className={styles.walletBadges}>
-          {WALLET_BADGES.map((badge, i) => {
-            const Icon = KIND_ICON[badge.kind];
-            return (
-              <motion.div
-                key={badge.primary + badge.secondary}
-                className={styles.walletBadgeChip}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 + i * 0.08 }}
-              >
-                <Icon size={12} strokeWidth={2.2} />
-                <div>
-                  <div className={styles.walletBadgePrimary}>{badge.primary}</div>
-                  <div className={styles.walletBadgeSecondary}>{badge.secondary}</div>
-                </div>
-                <span className={styles.walletBadgeVersion}>v{i === 0 ? 2 : 1}</span>
-              </motion.div>
-            );
-          })}
+        <div className={styles.profileBadges}>
+          {badges.map((label, i) => (
+            <motion.div
+              key={label}
+              className={styles.profileBadgeChip}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 + i * 0.08 }}
+            >
+              <ShieldCheck size={12} />
+              <span>{label}</span>
+            </motion.div>
+          ))}
         </div>
-        <div className={styles.walletFooter}>
+        <div className={styles.profileFooter}>
           <QrCode size={14} />
-          <span>Portable · permissioned · yours</span>
+          <span>Share as permissioned link</span>
         </div>
       </div>
     </motion.div>
@@ -348,7 +514,7 @@ function ShareVisual() {
     >
       <div className={styles.shareSplit}>
         <div className={styles.shareMyCard}>
-          <div className={styles.shareCardHeader}>Your wallet</div>
+          <div className={styles.shareCardHeader}>Your profile</div>
           {[
             { label: "Microsoft · Senior SWE", on: true },
             { label: "Stanford · BS CS", on: true },
@@ -372,7 +538,7 @@ function ShareVisual() {
           <div className={styles.shareCardHeader}>Recruiter sees</div>
           {[
             { label: "Microsoft · Senior SWE", tier: "Verified by source" },
-            { label: "Stanford · BS CS", tier: "Verified" },
+            { label: "Stanford · BS CS", tier: "Evidence submitted" },
             { label: "AWS · SAA", tier: "Verified" },
           ].map((row) => (
             <motion.div
