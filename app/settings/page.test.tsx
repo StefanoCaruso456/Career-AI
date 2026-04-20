@@ -35,6 +35,22 @@ describe("SettingsPage", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/account/settings");
   });
 
+  it("redirects signed-in employers to the canonical employer settings route", async () => {
+    mocks.auth.mockResolvedValue({
+      user: {
+        email: "alex@company.com",
+        roleType: "recruiter",
+      },
+    });
+    mocks.getServerPreferredPersona.mockResolvedValue("job_seeker");
+
+    const Page = (await import("@/app/settings/page")).default;
+
+    await Page();
+
+    expect(mocks.redirect).toHaveBeenCalledWith("/employer/settings");
+  });
+
   it("keeps the sign-in callback pointed at the canonical account settings route", async () => {
     mocks.auth.mockResolvedValue(null);
     mocks.getServerPreferredPersona.mockResolvedValue("job_seeker");
