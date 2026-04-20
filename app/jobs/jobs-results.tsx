@@ -31,6 +31,7 @@ import { RecruiterMarketplacePanel } from "./recruiter-marketplace-panel";
 import styles from "./page.module.css";
 
 type JobsResultsProps = {
+  autonomousApplyEnabled?: boolean;
   jobs: JobPostingDto[];
   initialCompanyOptions?: string[];
   initialCount?: number;
@@ -614,6 +615,7 @@ function inferRoleType(job: JobPostingDto): RoleTypeFilter | "other" {
 }
 
 export function JobsResults({
+  autonomousApplyEnabled = true,
   jobs,
   initialCompanyOptions = EMPTY_COMPANY_OPTIONS,
   initialCount = 24,
@@ -1407,8 +1409,11 @@ export function JobsResults({
             const salaryText = formatSalaryTextForRail(job.salaryText);
             const jobMeta = [displayLocation, job.department, job.commitment].filter(Boolean).join(" • ");
             const schemaFamily = resolveSchemaFamilyForJob(job);
-            const applyLabel = getJobApplyActionLabel(job.applyTarget);
-            const skipProfileGate = !isAutonomousApplySupportedTarget(job.applyTarget);
+            const applyLabel = getJobApplyActionLabel(job.applyTarget, autonomousApplyEnabled);
+            const skipProfileGate = !isAutonomousApplySupportedTarget(
+              job.applyTarget,
+              autonomousApplyEnabled,
+            );
 
             return (
               <article className={styles.jobCard} key={job.id}>

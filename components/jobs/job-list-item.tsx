@@ -14,6 +14,7 @@ import {
 import styles from "./jobs-side-panel.module.css";
 
 type JobListItemProps = {
+  autonomousApplyEnabled?: boolean;
   isSelected?: boolean;
   job: JobListing;
   onApply?:
@@ -32,6 +33,7 @@ const EMPLOYMENT_BADGE_LABELS = {
 const HIDDEN_MATCH_REASONS = new Set(["Verified live listing"]);
 
 export function JobListItem({
+  autonomousApplyEnabled = true,
   isSelected = false,
   job,
   onApply,
@@ -46,7 +48,7 @@ export function JobListItem({
   const badges = getJobRailBadges(job);
   const salaryText = formatSalaryTextForRail(job.salaryText);
   const location = sanitizeJobLocationText(job.location);
-  const applyLabel = getJobApplyActionLabel(job.applyTarget);
+  const applyLabel = getJobApplyActionLabel(job.applyTarget, autonomousApplyEnabled);
   const supportingMeta = [location, employmentType, salaryText].filter(Boolean);
   const visibleMatchReason = job.matchReason?.trim()
     ? HIDDEN_MATCH_REASONS.has(job.matchReason.trim())
@@ -124,6 +126,7 @@ export function JobListItem({
 
         <div className={styles.jobActions}>
           <JobApplyButton
+            autonomousApplyEnabled={autonomousApplyEnabled}
             className={styles.jobApplyButton}
             job={job}
             label={applyLabel}

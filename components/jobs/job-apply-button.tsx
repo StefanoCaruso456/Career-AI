@@ -7,6 +7,7 @@ import { isAutonomousApplySupportedTarget } from "@/lib/jobs/apply-target";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 
 type JobApplyButtonProps = {
+  autonomousApplyEnabled?: boolean;
   className?: string;
   job: JobListing;
   label: string;
@@ -14,12 +15,16 @@ type JobApplyButtonProps = {
 };
 
 export function JobApplyButton({
+  autonomousApplyEnabled = true,
   className,
   job,
   label,
   onApply,
 }: JobApplyButtonProps) {
-  const supportsAutonomousApply = isAutonomousApplySupportedTarget(job.applyTarget);
+  const supportsAutonomousApply = isAutonomousApplySupportedTarget(
+    job.applyTarget,
+    autonomousApplyEnabled,
+  );
   const schemaFamily = resolveSchemaFamily({
     applyUrl: job.canonicalApplyUrl,
     companyName: job.company,

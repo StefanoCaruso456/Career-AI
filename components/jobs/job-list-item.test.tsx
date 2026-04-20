@@ -232,4 +232,26 @@ describe("JobListItem", () => {
 
     expect(screen.queryByText("Fill this out once")).not.toBeInTheDocument();
   });
+
+  it("uses an Open posting label and skips the profile gate when autonomous apply is disabled", async () => {
+    const onApply = vi.fn(async () => "https://redirected.example.com/open/job_1");
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    mockGetMissingRequiredFieldKeys.mockReturnValue(["email"]);
+
+    render(<JobListItem autonomousApplyEnabled={false} job={createJob()} onApply={onApply} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
+
+    await waitFor(() => {
+      expect(onApply).toHaveBeenCalledTimes(1);
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://redirected.example.com/open/job_1",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+
+    expect(screen.queryByText("Fill this out once")).not.toBeInTheDocument();
+  });
 });
