@@ -39,7 +39,7 @@ export default async function EmployerSettingsPage() {
 
   return (
     <main className={styles.page}>
-      <div className={[styles.pageShell, styles.pageShellHeaderOffset].join(" ")}>
+      <div className={styles.pageShell}>
         <section className={styles.pageHero}>
           <span className={styles.eyebrow}>Employer settings</span>
           <h1>Profile and alert controls</h1>

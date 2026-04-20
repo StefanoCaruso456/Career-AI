@@ -3,11 +3,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
+  ensurePersistentCareerIdentityForSessionUser: vi.fn(),
   redirect: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
   auth: mocks.auth,
+}));
+
+vi.mock("@/auth-identity", () => ({
+  ensurePersistentCareerIdentityForSessionUser: mocks.ensurePersistentCareerIdentityForSessionUser,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -28,13 +33,25 @@ describe("GatedAccountLayout", () => {
 
     expect(screen.getByText("Overview")).toBeInTheDocument();
     expect(mocks.redirect).not.toHaveBeenCalled();
+    expect(mocks.ensurePersistentCareerIdentityForSessionUser).not.toHaveBeenCalled();
   });
 
   it("redirects incomplete onboarding back to onboarding for gated pages", async () => {
     mocks.auth.mockResolvedValue({
       user: {
+        appUserId: "user_123",
+        authProvider: "google",
         email: "casey@example.com",
-        onboardingStatus: "in_progress",
+        image: null,
+        name: "Casey Candidate",
+        providerUserId: "google_123",
+      },
+    });
+    mocks.ensurePersistentCareerIdentityForSessionUser.mockResolvedValue({
+      context: {
+        onboarding: {
+          status: "in_progress",
+        },
       },
     });
 
@@ -48,8 +65,19 @@ describe("GatedAccountLayout", () => {
   it("renders completed onboarding pages normally", async () => {
     mocks.auth.mockResolvedValue({
       user: {
+        appUserId: "user_123",
+        authProvider: "google",
         email: "casey@example.com",
-        onboardingStatus: "completed",
+        image: null,
+        name: "Casey Candidate",
+        providerUserId: "google_123",
+      },
+    });
+    mocks.ensurePersistentCareerIdentityForSessionUser.mockResolvedValue({
+      context: {
+        onboarding: {
+          status: "completed",
+        },
       },
     });
 

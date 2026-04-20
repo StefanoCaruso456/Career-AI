@@ -30,6 +30,6 @@ Local dev uses `infra/docker-compose.yml` on port `5433`. In Railway, add a Post
 
 ## Notes
 
-- The root `railway.toml` is the `web` service config. It now builds from `Dockerfile.web` so Playwright's browser binaries and Linux shared libraries are present for one-click apply. Set Config Path to it for the `web` service only.
+- The root `railway.toml` is Career-AI's existing Next.js config (build + migrate + start). Leave it alone; set Config Path to it for the `web` service only.
 - Service-local `railway.toml` files now exist under `services/*/railway.toml`. Each specifies the correct workspace-aware build and start commands. Railway only picks these up when the service's Config Path points at them.
 - api-gateway's `railway.toml` runs `db:migrate` before `start` because api-gateway doesn't auto-migrate on boot (Career-AI does; that's why the root config includes it).

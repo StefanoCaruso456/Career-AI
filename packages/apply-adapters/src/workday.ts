@@ -137,8 +137,6 @@ function buildFieldKeyLookup() {
 }
 
 const workdayFieldKeyLookup = buildFieldKeyLookup();
-const ACTIONABLE_CONTROL_SELECTOR = "button, [role='button'], input[type='submit'], input[type='button']";
-type ActionableLocator = ReturnType<ApplyAdapterContext["page"]["locator"]>;
 
 async function extractVisibleFields(context: ApplyAdapterContext): Promise<VisibleFormField[]> {
   const handles = await context.page.locator("input, textarea, select").elementHandles();
@@ -319,12 +317,15 @@ async function clickButtonByPatterns(
   patterns: RegExp[],
   toolName: string,
 ) {
-  const buttons = context.page.locator(ACTIONABLE_CONTROL_SELECTOR);
+  const buttons = context.page.locator("button, [role='button'], input[type='submit']");
   const count = await buttons.count();
 
   for (let index = 0; index < count; index += 1) {
     const locator = buttons.nth(index);
-    const label = await readActionableLabel(locator);
+    const label = normalizeText(
+      (await locator.innerText().catch(() => "")) ||
+        (await locator.textContent().catch(() => "")),
+    );
 
     if (!patterns.some((pattern) => pattern.test(label))) {
       continue;
@@ -353,45 +354,6 @@ async function clickButtonByPatterns(
   }
 
   return false;
-}
-
-async function readActionableLabel(locator: ActionableLocator) {
-  const rawValues: Array<string | null> = await Promise.all([
-    locator.innerText().catch(() => ""),
-    locator.textContent().catch(() => ""),
-    locator.getAttribute("aria-label").catch(() => null),
-    locator.getAttribute("value").catch(() => null),
-    locator.getAttribute("title").catch(() => null),
-    locator.getAttribute("name").catch(() => null),
-    locator.getAttribute("data-automation-id").catch(() => null),
-    locator.getAttribute("id").catch(() => null),
-  ]);
-
-  return Array.from(
-    new Set(
-      rawValues
-        .map((value) => normalizeText(value))
-        .filter(Boolean),
-    ),
-  ).join(" ");
-}
-
-async function listAvailableActionLabels(context: ApplyAdapterContext) {
-  const buttons = context.page.locator(ACTIONABLE_CONTROL_SELECTOR);
-  const count = await buttons.count();
-  const labels: string[] = [];
-
-  for (let index = 0; index < count; index += 1) {
-    const label = await readActionableLabel(buttons.nth(index));
-
-    if (!label) {
-      continue;
-    }
-
-    labels.push(label);
-  }
-
-  return Array.from(new Set(labels)).slice(0, 8);
 }
 
 export const workdayApplyAdapter: ApplyAdapter = {
@@ -709,16 +671,9 @@ export const workdayApplyAdapter: ApplyAdapter = {
     );
 
     if (!clicked) {
-      const availableActions = await listAvailableActionLabels(context);
       throw createWorkdayError({
         failureCode: "SUBMIT_BLOCKED",
-        message:
-          availableActions.length > 0
-            ? `Workday submit action was not available. Detected actions: ${availableActions.join(", ")}.`
-            : "Workday submit action was not available.",
-        metadata: {
-          availableActions,
-        },
+        message: "Workday submit action was not available.",
       });
     }
 
