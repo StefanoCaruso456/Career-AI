@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "@/lib/jobs/apply-run-messages";
 import { ProfileCompletionGuard } from "./profile-completion-guard";
 
 const mockUseApplicationProfiles = vi.fn();
@@ -195,6 +196,33 @@ describe("ProfileCompletionGuard", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Your application was queued in the background.")).toBeInTheDocument();
+    });
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("uses the shared queued notice when the queued response has no message", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    mockGetMissingRequiredFieldKeys.mockReturnValue([]);
+
+    render(
+      <ProfileCompletionGuard
+        applyUrl="https://boards.greenhouse.io/example/jobs/123"
+        companyName="Example"
+        jobTitle="Product Designer"
+        resolveApplyUrl={async () => ({
+          action: "queued",
+          applyRunId: "apply_run_456",
+          message: "",
+        })}
+        schemaFamily="greenhouse"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(AUTONOMOUS_APPLY_QUEUED_MESSAGE)).toBeInTheDocument();
     });
     expect(openSpy).not.toHaveBeenCalled();
   });

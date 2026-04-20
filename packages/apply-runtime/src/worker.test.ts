@@ -4,6 +4,9 @@ import type { ApplyAdapter } from "@/packages/apply-adapters/src";
 const mocks = vi.hoisted(() => ({
   claimNextQueuedApplyRun: vi.fn(),
   closeApplyBrowserSession: vi.fn(async () => undefined),
+  cleanupExpiredApplyRunArtifacts: vi.fn(async () => ({
+    removedRunDirectories: 0,
+  })),
   createApplyRunEventRecord: vi.fn(async ({ event }) => ({
     ...event,
     id: "apply_event_test",
@@ -30,7 +33,25 @@ const mocks = vi.hoisted(() => ({
     },
     sessionId: "apply_browser_test",
   })),
-  sendApplyRunTerminalEmail: vi.fn(async () => undefined),
+  persistApplyRunScreenshot: vi.fn(async () => ({
+    artifactType: "screenshot_after_submit",
+    id: "artifact_screenshot_test",
+    metadataJson: {},
+    runId: "apply_run_worker_1",
+    storageKey: "apply-runs/apply_run_worker_1/after-submit.png",
+  })),
+  persistApplyRunTextArtifact: vi.fn(async () => ({
+    artifactType: "json_debug",
+    id: "artifact_debug_test",
+    metadataJson: {},
+    runId: "apply_run_worker_1",
+    storageKey: "apply-runs/apply_run_worker_1/failure.json",
+  })),
+  sendApplyRunTerminalEmail: vi.fn(async () => ({
+    messageId: null,
+    provider: "resend" as const,
+    status: "sent" as const,
+  })),
   updateApplyRunRecord: vi.fn(async () => undefined),
 }));
 
@@ -55,6 +76,12 @@ vi.mock("@/packages/apply-domain/src", () => ({
 vi.mock("./browser-session", () => ({
   closeApplyBrowserSession: mocks.closeApplyBrowserSession,
   launchApplyBrowserSession: mocks.launchApplyBrowserSession,
+}));
+
+vi.mock("./artifacts", () => ({
+  cleanupExpiredApplyRunArtifacts: mocks.cleanupExpiredApplyRunArtifacts,
+  persistApplyRunScreenshot: mocks.persistApplyRunScreenshot,
+  persistApplyRunTextArtifact: mocks.persistApplyRunTextArtifact,
 }));
 
 vi.mock("./notifications", () => ({
@@ -208,5 +235,91 @@ describe("autonomous apply worker runtime", () => {
     ).map((call) => call[0].event);
     expect(eventCalls.length).toBeGreaterThan(0);
     expect(eventCalls.every((event) => event.traceId === "apply_trace_worker_1")).toBe(true);
+  });
+
+  it("keeps submitted runs terminal when notification delivery fails", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.sendApplyRunTerminalEmail.mockRejectedValueOnce(new Error("Email provider returned 500."));
+
+    const adapter: ApplyAdapter = {
+      advanceSteps: vi.fn(async () => undefined),
+      analyzeForm: vi.fn(async () => []),
+      canHandle: vi.fn((target) => target.atsFamily === "workday"),
+      classifyFailure: vi.fn(async (_context, error) => ({
+        failureCode: "UNKNOWN_RUNTIME_ERROR" as const,
+        message: error instanceof Error ? error.message : "Unknown failure",
+      })),
+      collectArtifacts: vi.fn(async () => []),
+      confirmSubmission: vi.fn(async () => ({
+        confirmed: true,
+      })),
+      createMappingPlan: vi.fn(async () => ({
+        entries: [],
+        unmappedRequiredFields: [],
+      })),
+      family: "workday",
+      fillFields: vi.fn(async () => undefined),
+      id: "workday_test_adapter",
+      openTarget: vi.fn(async () => undefined),
+      preflight: vi.fn(async () => undefined),
+      submit: vi.fn(async () => undefined),
+      uploadDocuments: vi.fn(async () => undefined),
+    };
+
+    await runAutonomousApplyWorkerCycle({
+      dependencies: {
+        adapterRegistry: [adapter],
+        loadUserEmail: async () => "candidate@example.com",
+      },
+    });
+
+    const updateCalls = (
+      mocks.updateApplyRunRecord.mock.calls as Array<
+        [
+          {
+            status?: string;
+            terminalState?: string | null;
+          },
+        ]
+      >
+    ).map((call) => call[0]);
+    const finalUpdate = updateCalls.find(
+      (call) => call.status === "submitted" && call.terminalState === "submitted",
+    );
+
+    expect(finalUpdate).toBeTruthy();
+
+    const eventCalls = (
+      mocks.createApplyRunEventRecord.mock.calls as Array<
+        [
+          {
+            event: {
+              eventType: string;
+              message?: string | null;
+              stepName?: string | null;
+            };
+          },
+        ]
+      >
+    ).map((call) => call[0].event);
+
+    expect(eventCalls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "apply_run.send_notification_node",
+          message: "Terminal notification failed.",
+          stepName: "send_notification_node",
+        }),
+      ]),
+    );
+    expect(eventCalls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: "apply_run.runtime_error_after_terminal",
+        }),
+      ]),
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });

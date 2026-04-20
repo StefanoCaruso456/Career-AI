@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "@/lib/jobs/apply-run-messages";
 import { ApiError } from "@/packages/contracts/src";
 
 const mocks = vi.hoisted(() => ({
@@ -285,6 +286,7 @@ describe("POST /api/v1/apply-runs", () => {
       diagnostic: {
         diagnosticReason: "queued_supported_target",
       },
+      message: AUTONOMOUS_APPLY_QUEUED_MESSAGE,
     });
     expect(mocks.kickAutonomousApplyWorker).toHaveBeenCalledTimes(1);
   });

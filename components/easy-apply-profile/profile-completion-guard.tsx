@@ -2,6 +2,7 @@
 
 import { LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "@/lib/jobs/apply-run-messages";
 import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
 import { getPersonaSignInRoute } from "@/lib/personas";
 import { getApplicationProfileKey } from "@/lib/application-profiles/defaults";
@@ -95,9 +96,7 @@ export function ProfileCompletionGuard({
       }
 
       if (nextApplyUrl?.action === "queued") {
-        setApplyNotice(
-          nextApplyUrl.message || "Your application was queued. We will email you when it finishes.",
-        );
+        setApplyNotice(nextApplyUrl.message || AUTONOMOUS_APPLY_QUEUED_MESSAGE);
         return;
       }
 
