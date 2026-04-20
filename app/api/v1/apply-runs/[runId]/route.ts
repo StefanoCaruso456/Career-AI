@@ -15,6 +15,7 @@ import {
   getAutonomousApplyStuckInProgressThresholdMinutes,
   getAutonomousApplyStuckQueuedThresholdMinutes,
 } from "@/packages/apply-domain/src";
+import { buildApplyRunTraceTree } from "@/packages/apply-domain/src/trace";
 
 export const runtime = "nodejs";
 
@@ -132,6 +133,10 @@ export async function GET(
             totalEvents: summary?.totalEvents ?? 0,
           },
           traceId: run.traceId,
+        }),
+        traceTree: buildApplyRunTraceTree({
+          events,
+          run,
         }),
       }),
       correlationId,
