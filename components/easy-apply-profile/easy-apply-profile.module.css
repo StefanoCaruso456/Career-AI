@@ -650,16 +650,44 @@
 
 .fieldError,
 .inlineError,
+.inlineSuccess,
 .validationMessage,
 .saveError {
-  color: #ffb6a0;
   font-size: 0.78rem;
   line-height: 1.45;
+  margin: 0;
+}
+
+.fieldError,
+.inlineError,
+.saveError {
+  color: #ffb6a0;
+}
+
+.inlineSuccess {
+  color: rgba(221, 244, 195, 0.9);
 }
 
 .validationMessage {
   margin: 0;
   font-size: 0.84rem;
+}
+
+.applyActionStack {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.applyActionStackJobsCard {
+  align-self: start;
+}
+
+.applyActionStackJobsCard .inlineError,
+.applyActionStackJobsCard .inlineSuccess {
+  padding-inline: 0.1rem;
+  text-wrap: pretty;
 }
 
 .field[data-invalid="true"] .input,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProfileCompletionGuard } from "./profile-completion-guard";
 
@@ -197,6 +197,41 @@ describe("ProfileCompletionGuard", () => {
       expect(screen.getByText("Your application was queued in the background.")).toBeInTheDocument();
     });
     expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps the job-card apply button and inline error in the same layout stack", async () => {
+    mockGetMissingRequiredFieldKeys.mockReturnValue([]);
+
+    render(
+      <ProfileCompletionGuard
+        applyUrl="https://boards.greenhouse.io/example/jobs/123"
+        buttonLabel="One-Click Apply"
+        buttonVariant="jobs-card"
+        companyName="Example"
+        jobTitle="Product Designer"
+        resolveApplyUrl={async () => {
+          throw new Error("One-Click Apply is currently disabled in this environment.");
+        }}
+        schemaFamily="greenhouse"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "One-Click Apply" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("One-Click Apply is currently disabled in this environment."),
+      ).toBeInTheDocument();
+    });
+
+    const actionStack = screen.getByTestId("apply-action-stack");
+
+    expect(
+      within(actionStack).getByRole("button", { name: "One-Click Apply" }),
+    ).toBeInTheDocument();
+    expect(
+      within(actionStack).getByText("One-Click Apply is currently disabled in this environment."),
+    ).toBeInTheDocument();
   });
 
   it("bypasses auth and profile gating when the caller explicitly skips the profile gate", async () => {
