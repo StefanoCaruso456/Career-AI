@@ -8,6 +8,23 @@ import { getPostAuthRoute, personaConfigs, type Persona } from "@/lib/personas";
 import type { PersistentTalentIdentityContext } from "@/packages/persistence/src";
 import styles from "@/app/settings/page.module.css";
 
+type SettingsAction = {
+  href: string;
+  label: string;
+  tone?: "primary" | "secondary";
+};
+
+type SettingsPanel = {
+  actions: SettingsAction[];
+  copy: string;
+  eyebrow: string;
+  rows: Array<{
+    label: string;
+    value: string;
+  }>;
+  title: string;
+};
+
 function formatTimestamp(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
@@ -78,6 +95,54 @@ export function ProfileAccountPage({
   const destinationLabel = isOnboardingComplete ? personaConfig.workspaceLabel : "Onboarding";
   const primaryHref = isOnboardingComplete ? getPostAuthRoute(preferredPersona) : "/onboarding";
   const primaryLabel = isOnboardingComplete ? "Open workspace" : "Finish onboarding";
+  const employerSettingsPanels: SettingsPanel[] =
+    preferredPersona === "employer"
+      ? [
+          {
+            actions: [
+              {
+                href: "/employer",
+                label: "Open hiring workspace",
+                tone: "primary",
+              },
+              {
+                href: "/employer/candidates",
+                label: "Open candidate pipeline",
+                tone: "secondary",
+              },
+            ],
+            copy:
+              "Keep the employer overview, candidate review, and workspace routing one click away from account settings.",
+            eyebrow: "Workspace",
+            rows: [
+              { label: "Workspace home", value: "/employer" },
+              { label: "Candidate pipeline", value: "/employer/candidates" },
+              { label: "Destination", value: destinationLabel },
+              { label: "Setup", value: setupLabel },
+            ],
+            title: "Hiring workspace controls",
+          },
+          {
+            actions: [
+              {
+                href: "/employer/roles",
+                label: "Open roles & permissions",
+                tone: "primary",
+              },
+            ],
+            copy:
+              "Surface role planning and RBAC in the employer client so recruiters and hiring managers can stay inside the right scope.",
+            eyebrow: "Roles & permissions",
+            rows: [
+              { label: "Current role", value: roleLabel ?? "Employer team member" },
+              { label: "Account type", value: accountTypeLabel },
+              { label: "Access model", value: "Role-based and permissioned" },
+              { label: "RBAC surface", value: "/employer/roles" },
+            ],
+            title: "Role-based access controls",
+          },
+        ]
+      : [];
 
   const readOnlyAccountRows = [
     { label: "Account type", value: accountTypeLabel },
@@ -179,6 +244,59 @@ export function ProfileAccountPage({
                 : undefined
             }
           />
+
+          {employerSettingsPanels.length > 0 ? (
+            <section className={styles.panel} aria-label="Employer controls">
+              <div className={styles.panelHeader}>
+                <div className={styles.panelHeaderCopy}>
+                  <span className={styles.summaryLabel}>Employer controls</span>
+                  <h2>Workspace and access settings</h2>
+                  <p className={styles.panelIntro}>
+                    Keep the employer workspace, role planning, and permission surfaces reachable
+                    from the settings page instead of burying them behind a single account card.
+                  </p>
+                </div>
+              </div>
+
+              <div className={styles.employerSettingsGrid}>
+                {employerSettingsPanels.map((panel) => (
+                  <article className={styles.subPanel} key={panel.title}>
+                    <div className={styles.panelHeaderCopy}>
+                      <span className={styles.summaryLabel}>{panel.eyebrow}</span>
+                      <h3 className={styles.subPanelTitle}>{panel.title}</h3>
+                      <p className={styles.panelIntro}>{panel.copy}</p>
+                    </div>
+
+                    <div className={styles.settingsActionRow}>
+                      {panel.actions.map((action) => (
+                        <Link
+                          className={
+                            action.tone === "secondary"
+                              ? styles.secondaryButton
+                              : styles.primaryLink
+                          }
+                          href={action.href}
+                          key={action.label}
+                        >
+                          {action.label}
+                          <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2} />
+                        </Link>
+                      ))}
+                    </div>
+
+                    <dl className={styles.detailList}>
+                      {panel.rows.map((row) => (
+                        <div className={styles.detailRow} key={row.label}>
+                          <dt>{row.label}</dt>
+                          <dd>{row.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </section>
       </div>
     </main>

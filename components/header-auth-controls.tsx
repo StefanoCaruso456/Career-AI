@@ -9,6 +9,7 @@ import {
   LoaderCircle,
   LogOut,
   Settings2,
+  ShieldCheck,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
@@ -153,17 +154,20 @@ export function HeaderAuthControls() {
   const initials = getInitials(session.user.name, session.user.email);
   const workspaceHref = getPostAuthRoute(preferredPersona);
   const settingsHref = getSettingsRoute(preferredPersona);
+  const rolesHref = preferredPersona === "employer" ? "/employer/roles" : null;
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
   const accountLabel = displayName;
   const accountMeta = accountTypeLabel;
   const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
-  const isPrimaryMenuPage =
-    primaryMenuHref === "/onboarding"
-      ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
-      : pathname === primaryMenuHref || pathname.startsWith(`${primaryMenuHref}/`);
+  const isOnboardingPage = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  const isWorkspacePage = pathname === workspaceHref;
   const isSettingsPage =
     pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
-  const showWorkspaceShortcut = !isPrimaryMenuPage;
+  const isRolesPage = rolesHref
+    ? pathname === rolesHref || pathname.startsWith(`${rolesHref}/`)
+    : false;
+  const showWorkspaceShortcut = !shouldResumeOnboarding && !isWorkspacePage;
+  const showOnboardingShortcut = shouldResumeOnboarding && !isOnboardingPage;
   const primaryMenuLabel = shouldResumeOnboarding
     ? "Finish onboarding"
     : personaConfigs[preferredPersona].workspaceLabel;
@@ -249,11 +253,20 @@ export function HeaderAuthControls() {
               />
             </Link>
 
-            {showWorkspaceShortcut ? (
+            {showWorkspaceShortcut || showOnboardingShortcut ? (
               <Link
-                aria-current={isPrimaryMenuPage ? "page" : undefined}
+                aria-current={
+                  showOnboardingShortcut
+                    ? isOnboardingPage
+                      ? "page"
+                      : undefined
+                    : isWorkspacePage
+                      ? "page"
+                      : undefined
+                }
                 className={
-                  isPrimaryMenuPage
+                  (showOnboardingShortcut && isOnboardingPage) ||
+                  (showWorkspaceShortcut && isWorkspacePage)
                     ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
                     : styles.settingsItem
                 }
@@ -267,6 +280,35 @@ export function HeaderAuthControls() {
                   <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
                   <span className={styles.settingsItemCopy}>
                     <strong>{primaryMenuLabel}</strong>
+                  </span>
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className={styles.settingsItemArrow}
+                  size={16}
+                  strokeWidth={2}
+                />
+              </Link>
+            ) : null}
+
+            {rolesHref ? (
+              <Link
+                aria-current={isRolesPage ? "page" : undefined}
+                className={
+                  isRolesPage
+                    ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                    : styles.settingsItem
+                }
+                href={rolesHref}
+                onClick={() => {
+                  setMenuOpen(false);
+                }}
+                role="menuitem"
+              >
+                <span className={styles.settingsItemLead}>
+                  <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+                  <span className={styles.settingsItemCopy}>
+                    <strong>Roles &amp; permissions</strong>
                   </span>
                 </span>
                 <ChevronRight
