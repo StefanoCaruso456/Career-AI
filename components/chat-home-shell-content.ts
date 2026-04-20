@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   Building2,
   FileCheck2,
+  Globe2,
   QrCode,
   ShieldCheck,
   UserRoundCheck,
@@ -24,45 +25,43 @@ export type SolutionSize = "wide" | "tall" | "small" | "wideBottom";
 
 export type HeroComposerAction =
   | {
-      accent?: "primary";
       kind: "link";
       href: string;
       label: string;
     }
   | {
-      accent?: "jobs";
-      kind: "filters";
-      label: string;
-    }
-  | {
-      accent?: "jobs";
       kind: "prompt";
-      label: string;
-      starterActionId?: string;
-      value?: string;
-    }
-  | {
-      accent?: "jobs";
-      kind: "latest_jobs";
       label: string;
     };
 
 export type HeroComposerContent = {
   composerPlaceholder: string;
-  expandedComposerPlaceholder?: string;
   initialProjects: Array<{
     id: string;
     label: string;
   }>;
   starterActions: HeroComposerAction[];
+  workspaceRail?: {
+    ariaLabel: string;
+    cards: Array<{
+      badges: string[];
+      description: string;
+      id: string;
+      meta: string[];
+      primaryAction: HeroComposerAction;
+      secondaryAction?: HeroComposerAction;
+      title: string;
+    }>;
+    eyebrow: string;
+    lead: string;
+  };
   typingLabel: string;
 };
 
 type LandingStoryCard = {
-  comingSoon?: boolean;
   company: string;
   copy: string;
-  cta?: string;
+  cta: string;
   theme: StoryTheme;
   title: string;
 };
@@ -82,37 +81,12 @@ type LandingMetric = {
   value: string;
 };
 
-type LandingProofSurface =
-  | string
-  | {
-      label: string;
-      note?: string;
-    };
-
 type LandingFooterColumn = {
   links: string[];
   title: string;
 };
 
-type TrustExplainerCard = {
-  copy: string;
-  icon: LucideIcon;
-  title: string;
-};
-
-export type TrustExplainerContent = {
-  body: string;
-  cards: TrustExplainerCard[];
-  cta?: {
-    href: string;
-    label: string;
-  };
-  headline: string;
-  subheadline: string;
-  trustLine: string;
-};
-
-export type LandingContent = {
+type LandingContent = {
   footerColumns: LandingFooterColumn[];
   footerCtaLabel: string;
   footerEyebrow: string;
@@ -135,7 +109,7 @@ export type LandingContent = {
   metrics: LandingMetric[];
   metricsEyebrow: string;
   metricsTitle: string;
-  proofSurfaces: LandingProofSurface[];
+  proofSurfaces: string[];
   sectionEyebrow: string;
   solutionHeading: string;
   solutionSubheading: string;
@@ -144,40 +118,7 @@ export type LandingContent = {
   storyCopy: string;
   storyEyebrow: string;
   storyTitle: string;
-  trustExplainer: TrustExplainerContent;
 };
-
-const sharedTrustExplainerCards: TrustExplainerCard[] = [
-  {
-    title: "Build verified credibility",
-    copy:
-      "Candidates add identity, work history, education, credentials, and supporting proof to their Career ID over time.",
-    icon: FileCheck2,
-  },
-  {
-    title: "Share securely",
-    copy:
-      "Information is permission-based and exchanged through secure agent-to-agent communication, so the right data can be requested safely.",
-    icon: ShieldCheck,
-  },
-  {
-    title: "Verify faster",
-    copy:
-      "Hiring agents can review trusted, verified information without waiting on slow manual follow-up and fragmented documents.",
-    icon: Workflow,
-  },
-];
-
-const sharedTrustExplainerContent = {
-  headline: "How secure Career ID works",
-  subheadline:
-    "Job seekers build verified credibility over time. Hiring agents can request trusted information securely through agent-to-agent communication.",
-  body:
-    "Career ID helps candidates turn identity, work history, education, and supporting proof into a portable, verified profile. Instead of repeating the same information across every application, job seekers build credibility once and strengthen it over time. When employers or hiring agents need confirmation, they can request verified information securely through agent-to-agent communication. This creates a faster, safer way to verify candidate information, reduce manual back-and-forth, and build trust on both sides of the hiring process.",
-  cards: sharedTrustExplainerCards,
-  trustLine:
-    "Portable. Verified. Secure. Built for faster trust between job seekers and hiring teams.",
-} satisfies Omit<TrustExplainerContent, "cta">;
 
 export const landingContentByPersona: Record<Persona, LandingContent> = {
   employer: {
@@ -228,30 +169,49 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTagline: "Clearer proof. Faster reviews. Better hiring confidence.",
     footerTitle: "Give every hiring team one recruiter-safe trust surface to review.",
     heroComposer: {
-      composerPlaceholder:
-        "Find jobs, build your Career ID, search talent, or source candidates.",
-      expandedComposerPlaceholder:
-        "Paste a job description or describe the candidate you want to find.",
+      composerPlaceholder: "Ask about candidate credibility, screening friction, or hiring alignment.",
       initialProjects: [
         { id: "project-candidate-pipeline", label: "Candidate pipeline" },
         { id: "project-role-scorecards", label: "Role scorecards" },
         { id: "project-reference-checks", label: "Reference checks" },
       ],
       starterActions: [
-        {
-          accent: "jobs",
-          kind: "filters",
-          label: "Find aligned candidates",
-        },
         { kind: "prompt", label: "How do we verify candidate credibility faster?" },
         { kind: "prompt", label: "How can this reduce screening friction?" },
         { kind: "prompt", label: "How do we find aligned talent with more confidence?" },
-        { accent: "primary", kind: "link", href: "#solutions", label: "See employer workflows" },
+        { kind: "link", href: "#solutions", label: "See employer workflows" },
       ],
+      workspaceRail: {
+        ariaLabel: "Employer workflow rail",
+        cards: [
+          {
+            badges: ["Workflow", "Candidate review"],
+            description:
+              "Open the verification summary, review provenance, and keep every hiring signal attached to explicit evidence.",
+            id: "employer-rail-review",
+            meta: ["Reviewer-ready", "Evidence attached"],
+            primaryAction: { kind: "prompt", label: "Show me the candidate review workflow." },
+            secondaryAction: { kind: "link", href: "#solutions", label: "See workflows" },
+            title: "Open a recruiter-safe candidate review surface",
+          },
+          {
+            badges: ["Prompt", "Screening clarity"],
+            description:
+              "Ask the assistant where friction appears in the funnel and which trust signals deserve attention before interviews start.",
+            id: "employer-rail-screening",
+            meta: ["Faster screening", "Aligned hiring team"],
+            primaryAction: { kind: "prompt", label: "How can we reduce screening friction?" },
+            secondaryAction: { kind: "prompt", label: "How do we surface aligned talent faster?" },
+            title: "Pressure-test the parts of hiring that slow the team down",
+          },
+        ],
+        eyebrow: "Workflow rail",
+        lead: "Keep a second surface open for prompts and review paths while the center column stays focused on the live conversation.",
+      },
       typingLabel: "Thinking through your hiring workflow...",
     },
     heroTitle:
-      "Career AI helps employers verify candidate credibility faster and hire with more confidence.",
+      "Employers verify candidate credibility faster and hire with more confidence.",
     introPrimaryCta: "Explore employer workflows",
     introRailEyebrow: "How employer mode works",
     introRailItems: [
@@ -407,13 +367,6 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "From lean startup teams to structured recruiting organizations, employer mode keeps candidate proof readable, permissioned, and decision-ready.",
     storyEyebrow: "Employer stories",
     storyTitle: "Build a hiring review layer that turns candidate signals into action.",
-    trustExplainer: {
-      ...sharedTrustExplainerContent,
-      cta: {
-        href: "#solutions",
-        label: "See How Verification Works",
-      },
-    },
   },
   job_seeker: {
     footerColumns: [
@@ -463,49 +416,59 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     footerTagline: "Portable identity. Explicit trust. Audit-ready hiring.",
     footerTitle: "Make candidate identity portable, verified, and recruiter-readable.",
     heroComposer: {
-      composerPlaceholder:
-        "Find jobs, build your Career ID, search talent, or source candidates.",
+      composerPlaceholder: "Ask about verification workflows, recruiter trust views, or candidate proof.",
       initialProjects: [
         { id: "project-verified-profile", label: "Verified profile" },
         { id: "project-career-story", label: "Career story" },
         { id: "project-hiring-signals", label: "Hiring signals" },
       ],
       starterActions: [
-        {
-          kind: "prompt",
-          label: "How can I get hired faster?",
-          starterActionId: "job_seeker_hired_faster",
-        },
-        {
-          kind: "prompt",
-          label: "Why is this a secure career identity platform?",
-          starterActionId: "job_seeker_secure_identity",
-        },
-        {
-          accent: "jobs",
-          kind: "latest_jobs",
-          label: "Find NEW Jobs",
-        },
-        {
-          kind: "prompt",
-          label: "What does the agent actually do?",
-          starterActionId: "job_seeker_agent_explainer",
-        },
-        {
-          kind: "prompt",
-          label: "How is this different from a resume builder?",
-          starterActionId: "job_seeker_resume_builder_difference",
-        },
-        {
-          accent: "primary",
-          kind: "link",
-          href: "/agent-build",
-          label: "Start Building My Career ID",
-        },
+        { kind: "prompt", label: "What does the agent actually do?" },
+        { kind: "prompt", label: "How is this different from a resume builder?" },
+        { kind: "prompt", label: "How does the agent help me get hired faster?" },
+        { kind: "link", href: "/agent-build", label: "Start Building My Agent ID" },
       ],
-      typingLabel: "Thinking through your next move...",
+      workspaceRail: {
+        ariaLabel: "Job seeker workspace rail",
+        cards: [
+          {
+            badges: ["Prompt", "Verified profile"],
+            description:
+              "Use one message to turn your stored work history, proof, and preferences into a focused job-search brief inside the workspace.",
+            id: "job-seeker-rail-search",
+            meta: ["Prompt-ready", "Keeps chat flow intact"],
+            primaryAction: { kind: "prompt", label: "Find jobs that match my verified profile." },
+            secondaryAction: { kind: "link", href: "/jobs", label: "Open jobs" },
+            title: "Start a fresh jobs search from your verified profile",
+          },
+          {
+            badges: ["Builder", "Agent ID"],
+            description:
+              "Capture your story, evidence, and trust signals once so recruiters see something stronger than a plain resume.",
+            id: "job-seeker-rail-builder",
+            meta: ["Portable identity", "Recruiter-readable"],
+            primaryAction: { kind: "link", href: "/agent-build", label: "Build Agent ID" },
+            secondaryAction: { kind: "prompt", label: "Help me start my verified profile." },
+            title: "Build the trust layer before you start applying",
+          },
+          {
+            badges: ["Prompt", "Hiring signals"],
+            description:
+              "Pressure-test your next move, tighten your narrative, and decide what to verify first without leaving the workspace.",
+            id: "job-seeker-rail-signals",
+            meta: ["Career strategy", "Proof-first guidance"],
+            primaryAction: { kind: "prompt", label: "How do I get hired faster with Career AI?" },
+            secondaryAction: { kind: "prompt", label: "What should I verify first?" },
+            title: "Use the right rail for next-step guidance while you chat",
+          },
+        ],
+        eyebrow: "Workspace rail",
+        lead: "Keep job-search actions and proof-building shortcuts visible on the right while the center stays open like a chat workspace.",
+      },
+      typingLabel: "Thinking through your verification workflow...",
     },
-    heroTitle: "Get hired faster\nA secure career identity platform",
+    heroTitle:
+      "Career AI is a trusted identity platform that helps job seekers stand out to employers and get hired faster.",
     introPrimaryCta: "Explore the platform",
     introRailEyebrow: "How Career AI works",
     introRailItems: [
@@ -558,10 +521,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "Education",
       "Certifications",
       "Endorsements",
-      {
-        label: "Agent QR",
-        note: "coming soon..",
-      },
+      "Agent QR",
       "Audit trail",
     ],
     sectionEyebrow: "Trust infrastructure for hiring",
@@ -610,6 +570,16 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
         size: "small",
       },
       {
+        eyebrow: "Global verification",
+        title: "Coordinate cross-border verification with consent and provenance at the center",
+        copy:
+          "Support employer checks, institution checks, and future agent-to-agent workflows without overclaiming certainty.",
+        cta: "Map verification orchestration",
+        icon: Globe2,
+        variant: "globalVerification",
+        size: "small",
+      },
+      {
         eyebrow: "Platform embed",
         title: "Embed trust data into your hiring stack without coupling recruiters to write-side systems",
         copy:
@@ -622,35 +592,31 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
     ],
     stories: [
       {
-        comingSoon: true,
-        company: "Coming soon...",
-        title: "Hiring partner stories will appear here once they are live.",
-        copy: "We will replace this placeholder with real partner examples as they launch.",
-        cta: "Coming soon...",
+        company: "Lovable",
+        title: "Lovable turns AI-heavy application volume into proof-backed shortlists.",
+        copy: "Candidate evidence becomes readable trust, not another noisy PDF pile.",
+        cta: "Read Lovable's story",
         theme: "aura",
       },
       {
-        comingSoon: true,
-        company: "Coming soon...",
-        title: "Hiring partner stories will appear here once they are live.",
-        copy: "We will replace this placeholder with real partner examples as they launch.",
-        cta: "Coming soon...",
+        company: "Runway",
+        title: "Runway-style teams protect recruiter time with structured verification intake.",
+        copy: "Claims, artifacts, and reviewer actions stay linked from first upload to final decision.",
+        cta: "Read Runway's story",
         theme: "stream",
       },
       {
-        comingSoon: true,
-        company: "Coming soon...",
-        title: "Hiring partner stories will appear here once they are live.",
-        copy: "We will replace this placeholder with real partner examples as they launch.",
-        cta: "Coming soon...",
+        company: "Supabase",
+        title: "Supabase-grade operations keep trust workflows auditable without slowing hiring.",
+        copy: "Every status change flows through one verification engine with preserved provenance.",
+        cta: "Read Supabase's story",
         theme: "grid",
       },
       {
-        comingSoon: true,
-        company: "Coming soon...",
-        title: "Hiring partner stories will appear here once they are live.",
-        copy: "We will replace this placeholder with real partner examples as they launch.",
-        cta: "Coming soon...",
+        company: "Linear",
+        title: "Linear-level hiring loops share recruiter-safe profiles instead of raw evidence.",
+        copy: "The result is cleaner review, better candidate trust, and faster alignment.",
+        cta: "Read Linear's story",
         theme: "orb",
       },
     ],
@@ -658,12 +624,5 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "From recruiter ops teams to hiring managers and candidate experience leaders, the platform turns fragmented proof into a reusable trust layer.",
     storyEyebrow: "Customer stories",
     storyTitle: "Build a hiring trust foundation that enables faster, cleaner decisions.",
-    trustExplainer: {
-      ...sharedTrustExplainerContent,
-      cta: {
-        href: "/agent-build",
-        label: "Start Building Career ID",
-      },
-    },
   },
 };

@@ -22,51 +22,17 @@ import {
 } from "lucide-react";
 import { AttachmentButton } from "@/components/attachment-button";
 import { ChatMessageAttachments } from "@/components/chat-message-attachments";
-import { EmployerCandidateDetailModal } from "@/components/employer/employer-candidate-detail-modal";
-import { EmployerCandidateResultsRail } from "@/components/employer/employer-candidate-results-rail";
-import { EmployerSourcerFilters } from "@/components/employer/employer-sourcer-filters";
 import { FileUploadDropzone } from "@/components/file-upload-dropzone";
-import { JobsSidePanel } from "@/components/jobs/jobs-side-panel";
 import { PromptComposerAttachments } from "@/components/prompt-composer-attachments";
 import { useChatAttachmentDrafts } from "@/components/use-chat-attachment-drafts";
 import {
-  landingContentByPersona,
-  type HeroComposerAction,
-  type HeroComposerContent,
-} from "@/components/chat-home-shell-content";
-import { isEmployerCandidateSearchIntent } from "@/lib/employer/is-candidate-search-intent";
-import { loadEmployerCandidateMatches } from "@/lib/employer/load-candidate-matches";
-import { isJobIntent } from "@/lib/jobs/is-job-intent";
-import { loadJobListings } from "@/lib/jobs/load-job-listings";
-import { loadLatestJobListings } from "@/lib/jobs/load-latest-job-listings";
-import { mapJobsPanelToListings } from "@/lib/jobs/map-jobs-to-listings";
-import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
-import { startJobApplyRun } from "@/lib/jobs/start-apply-run-client";
-import type { Persona } from "@/lib/personas";
-import {
-  clampStarterRailScrollTarget,
-  getNextStarterRailScrollFrame,
-  getNormalizedStarterRailWheelDelta,
-} from "@/components/starter-rail-scroll";
-import {
-  DEFAULT_LATEST_JOBS_PROMPT,
   type ChatConversation,
-  type ChatProjectActivitySnapshot,
-  type ChatProjectPersistence,
   type ChatMessage,
   type ChatProject,
-  type EmployerCandidateMatchDto,
-  type EmployerCandidateSearchFiltersDto,
-  type EmployerCandidateSearchResponseDto,
-  type JobRailFilterOptionsDto,
-  type JobsPanelResponseDto,
-  type ChatWorkspacePersistence,
   type ChatWorkspaceSnapshot,
-  emptyChatWorkspacePersistence,
   supportedChatAttachmentTypes,
 } from "@/packages/contracts/src";
 import {
-  type CSSProperties,
   type ChangeEvent,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -80,12 +46,12 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import type { HeroComposerContent } from "./chat-home-shell-content";
 import styles from "./chat-home-shell.module.css";
 
 type TranscriptEntry = ChatMessage;
 type ProjectEntry = ChatProject;
 type ChatThread = ChatConversation;
-type ChatProjectPersistenceMap = Record<string, ChatProjectPersistence>;
 
 type SidebarEntityType = "chat" | "project";
 
@@ -113,9 +79,6 @@ type SidebarDeleteDraft =
       type: "chat";
     };
 
-type JobsAssistMode = "latest" | "search";
-const JOBS_ASSIST_RESULT_LIMIT = 24;
-
 type TranscriptScrollIntent =
   | {
       mode: "anchor-entry";
@@ -140,14 +103,6 @@ type ComposerNoticeTone = "active" | "default" | "error";
 type ComposerNotice = {
   message: string;
   tone: ComposerNoticeTone;
-};
-
-type ProjectActivityState = {
-  error: string | null;
-  isLoading: boolean;
-  payload: ChatProjectActivitySnapshot | null;
-  projectId: string | null;
-  restoringCheckpointId: string | null;
 };
 
 type VoiceInputState = "idle" | "recording" | "transcribing";
@@ -188,12 +143,6 @@ type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 type HeroComposerProps = {
   content?: HeroComposerContent;
   onConversationStateChange?: (active: boolean) => void;
-  persona?: Persona;
-};
-
-type ChatSubmitTarget = {
-  conversationId: string | null;
-  projectId: string | null;
 };
 
 type VoiceEnabledWindow = Window &
@@ -202,9 +151,16 @@ type VoiceEnabledWindow = Window &
     webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
   };
 
-type ConversationComposerStyle = CSSProperties & {
-  "--chat-composer-clearance": string;
-  "--chat-conversation-composer-offset": string;
+const defaultHeroComposerContent: HeroComposerContent = {
+  composerPlaceholder: "Ask about verification workflows, recruiter trust views, or candidate proof.",
+  initialProjects: [],
+  starterActions: [
+    { kind: "prompt", label: "What does the agent actually do?" },
+    { kind: "prompt", label: "How is this different from a resume builder?" },
+    { kind: "prompt", label: "How does the agent help me get hired faster?" },
+    { kind: "link", href: "/agent-build", label: "Start Building My Career ID" },
+  ],
+  typingLabel: "Thinking through your verification workflow...",
 };
 
 const preferredRecorderMimeTypes = [
@@ -218,21 +174,6 @@ const cancelledVoiceCaptureError = "__voice-capture-cancelled__";
 const attachmentInputAccept = supportedChatAttachmentTypes
   .map((type) => `.${type.extension}`)
   .join(",");
-const STARTER_RAIL_COPY_COUNT = 3;
-const STARTER_RAIL_PRIMARY_COPY_INDEX = 1;
-const defaultEmployerCandidateSearchFilters: EmployerCandidateSearchFiltersDto = {
-  certifications: [],
-  credibilityThreshold: null,
-  education: null,
-  industry: null,
-  location: null,
-  priorEmployers: [],
-  skills: [],
-  verificationStatus: [],
-  verifiedExperienceOnly: false,
-  workAuthorization: null,
-  yearsExperienceMin: null,
-};
 
 function mergeVoiceDraft(base: string, incoming: string) {
   const normalizedIncoming = incoming.replace(/\s+/g, " ").trim();
@@ -289,69 +230,6 @@ function getAudioExtension(type: string) {
   return ".webm";
 }
 
-function resolveChatSubmitTarget(args: {
-  activeProjectId: string | null;
-  currentThreadId: string | null;
-  projectHomeProjectId: string | null;
-  projects: ProjectEntry[];
-  threads: ChatThread[];
-}): ChatSubmitTarget {
-  const currentThread = args.currentThreadId
-    ? args.threads.find((thread) => thread.id === args.currentThreadId) ?? null
-    : null;
-  const currentThreadProjectIsAvailable =
-    currentThread &&
-    args.projects.some((project) => project.id === currentThread.projectId);
-
-  if (currentThread && currentThreadProjectIsAvailable) {
-    return {
-      conversationId: currentThread.id,
-      projectId: currentThread.projectId,
-    };
-  }
-
-  if (
-    args.activeProjectId &&
-    args.projects.some((project) => project.id === args.activeProjectId)
-  ) {
-    return {
-      conversationId: null,
-      projectId: args.activeProjectId,
-    };
-  }
-
-  if (
-    args.projectHomeProjectId &&
-    args.projects.some((project) => project.id === args.projectHomeProjectId)
-  ) {
-    return {
-      conversationId: null,
-      projectId: args.projectHomeProjectId,
-    };
-  }
-
-  return {
-    conversationId: null,
-    projectId: null,
-  };
-}
-
-function isRecoverableSendFailure(args: {
-  errorCode?: string;
-  message?: string;
-  status: number;
-}) {
-  if (args.message === "Project was not found.") {
-    return args.status === 404 || args.errorCode === "NOT_FOUND";
-  }
-
-  if (args.message === "Conversation is linked to a different project.") {
-    return args.status === 409 || args.errorCode === "CONFLICT";
-  }
-
-  return false;
-}
-
 function getSpeechRecognitionErrorMessage(errorCode?: string) {
   switch (errorCode) {
     case "audio-capture":
@@ -366,10 +244,6 @@ function getSpeechRecognitionErrorMessage(errorCode?: string) {
     default:
       return "Live dictation could not start right now.";
   }
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
 }
 
 function getMicrophoneErrorMessage(error: unknown) {
@@ -430,150 +304,6 @@ function buildThreadPreview(thread: ChatThread) {
   return `${normalizedPreview.slice(0, 93)}...`;
 }
 
-function getLatestJobPromptEntry(entries: TranscriptEntry[]) {
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index];
-
-    if (entry.role === "user" && entry.content.trim() && isJobIntent(entry.content)) {
-      return entry;
-    }
-  }
-
-  return null;
-}
-
-function getLatestCandidatePromptEntry(entries: TranscriptEntry[]) {
-  for (let index = entries.length - 1; index >= 0; index -= 1) {
-    const entry = entries[index];
-
-    if (entry.role === "user" && entry.content.trim() && isEmployerCandidateSearchIntent(entry.content)) {
-      return entry;
-    }
-  }
-
-  return null;
-}
-
-function createJobsAssistRequestKey(mode: JobsAssistMode, prompt: string, refreshKey: number) {
-  return `${mode}::${prompt}::${refreshKey}`;
-}
-
-function deriveJobsAssistMode(prompt: string | null) {
-  if (!prompt) {
-    return null;
-  }
-
-  return prompt.trim().toLowerCase() === DEFAULT_LATEST_JOBS_PROMPT.toLowerCase()
-    ? "latest"
-    : "search";
-}
-
-function serializeEmployerFilters(filters: EmployerCandidateSearchFiltersDto) {
-  return JSON.stringify({
-    ...filters,
-    title: filters.title ?? null,
-  });
-}
-
-function hasEmployerSearchFilters(filters: EmployerCandidateSearchFiltersDto) {
-  return Boolean(
-    filters.title?.trim() ||
-      filters.skills.length > 0 ||
-      filters.yearsExperienceMin !== null ||
-      filters.industry?.trim() ||
-      filters.location?.trim() ||
-      filters.workAuthorization?.trim() ||
-      filters.education?.trim() ||
-      filters.credibilityThreshold !== null ||
-      filters.verificationStatus.length > 0 ||
-      filters.priorEmployers.length > 0 ||
-      filters.certifications.length > 0 ||
-      filters.verifiedExperienceOnly,
-  );
-}
-
-function getCredibilityThresholdLabel(threshold: number | null) {
-  if (threshold === null) {
-    return null;
-  }
-
-  if (threshold >= 0.85) {
-    return "very high confidence";
-  }
-
-  if (threshold >= 0.7) {
-    return "high credibility";
-  }
-
-  return "evidence-backed";
-}
-
-function buildEmployerSourcingBrief(filters: EmployerCandidateSearchFiltersDto) {
-  if (!hasEmployerSearchFilters(filters)) {
-    return "";
-  }
-
-  const clauses: string[] = [];
-
-  if (filters.title?.trim()) {
-    clauses.push(`for a ${filters.title.trim()} role`);
-  }
-
-  if (filters.location?.trim()) {
-    clauses.push(`in ${filters.location.trim()}`);
-  }
-
-  if (filters.skills.length > 0) {
-    clauses.push(`with ${filters.skills.join(", ")}`);
-  }
-
-  if (filters.industry?.trim()) {
-    clauses.push(`with ${filters.industry.trim()} industry background`);
-  }
-
-  if (filters.yearsExperienceMin !== null) {
-    clauses.push(`with at least ${filters.yearsExperienceMin} years of experience`);
-  }
-
-  if (filters.workAuthorization?.trim()) {
-    clauses.push(`with ${filters.workAuthorization.trim()} work authorization`);
-  }
-
-  if (filters.education?.trim()) {
-    clauses.push(`with ${filters.education.trim()} education background`);
-  }
-
-  if (filters.priorEmployers.length > 0) {
-    clauses.push(`from employers like ${filters.priorEmployers.join(", ")}`);
-  }
-
-  if (filters.certifications.length > 0) {
-    clauses.push(`with certifications such as ${filters.certifications.join(", ")}`);
-  }
-
-  const followUps: string[] = [];
-
-  if (filters.verifiedExperienceOnly) {
-    followUps.push("Prioritize candidates with verified experience signals only.");
-  }
-
-  const credibilityLabel = getCredibilityThresholdLabel(filters.credibilityThreshold);
-
-  if (credibilityLabel) {
-    followUps.push(`Focus on ${credibilityLabel} candidates.`);
-  }
-
-  if (filters.verificationStatus.length > 0) {
-    followUps.push(
-      `Match candidates with ${filters.verificationStatus.join(", ").replaceAll("_", " ")} signals.`,
-    );
-  }
-
-  const opening = `Find aligned candidates${clauses.length > 0 ? ` ${clauses.join(" ")}` : ""}.`;
-
-  return [opening, ...followUps].join(" ").trim();
-}
-
 function formatThreadUpdatedAt(updatedAt: string) {
   return new Intl.DateTimeFormat("en-US", {
     day: "numeric",
@@ -581,129 +311,43 @@ function formatThreadUpdatedAt(updatedAt: string) {
   }).format(new Date(updatedAt));
 }
 
-function createClientRequestId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  return `request_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function formatRelativeTimestamp(timestamp: string | null) {
-  if (!timestamp) {
-    return "Not saved yet";
-  }
-
-  const diffMs = Date.now() - new Date(timestamp).getTime();
-  const safeDiffMs = Math.max(diffMs, 0);
-  const minutes = Math.floor(safeDiffMs / (60 * 1000));
-  const hours = Math.floor(safeDiffMs / (60 * 60 * 1000));
-  const days = Math.floor(safeDiffMs / (24 * 60 * 60 * 1000));
-
-  if (minutes <= 0) {
-    return "just now";
-  }
-
-  if (minutes < 60) {
-    return `${minutes}m ago`;
-  }
-
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-
-  return `${days}d ago`;
-}
-
 export function HeroComposer({
-  content,
+  content = defaultHeroComposerContent,
   onConversationStateChange,
-  persona = "job_seeker",
 }: HeroComposerProps) {
-  const composerContent = content ?? landingContentByPersona.job_seeker.heroComposer;
-  const starterActions = composerContent.starterActions;
-  const isEmployerMode = persona === "employer";
   const sidebarId = useId();
   const deleteDialogTitleId = `${sidebarId}-delete-dialog-title`;
   const deleteDialogDescriptionId = `${sidebarId}-delete-dialog-description`;
   const [message, setMessage] = useState("");
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [collapsedProjectIds, setCollapsedProjectIds] = useState<string[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const [projectHomeProjectId, setProjectHomeProjectId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
-  const [workspacePersistence, setWorkspacePersistence] =
-    useState<ChatWorkspacePersistence>(emptyChatWorkspacePersistence);
-  const [projectPersistence, setProjectPersistence] =
-    useState<ChatProjectPersistenceMap>({});
   const [isMounted, setIsMounted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWorkspaceLoading, setIsWorkspaceLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voiceInputState, setVoiceInputState] = useState<VoiceInputState>("idle");
   const [voiceNotice, setVoiceNotice] = useState<ComposerNotice | null>(null);
-  const [composerNotice, setComposerNotice] = useState<ComposerNotice | null>(null);
   const [sidebarActionMenu, setSidebarActionMenu] = useState<SidebarActionMenu | null>(null);
   const [sidebarRenameDraft, setSidebarRenameDraft] = useState<SidebarRenameDraft | null>(null);
   const [sidebarDeleteDraft, setSidebarDeleteDraft] = useState<SidebarDeleteDraft | null>(null);
   const [sidebarNotice, setSidebarNotice] = useState<SidebarNotice | null>(null);
-  const [isEmployerFiltersOpen, setIsEmployerFiltersOpen] = useState(false);
-  const [candidateSearchFilters, setCandidateSearchFilters] =
-    useState<EmployerCandidateSearchFiltersDto>(defaultEmployerCandidateSearchFilters);
-  const [candidateAssistResponse, setCandidateAssistResponse] =
-    useState<EmployerCandidateSearchResponseDto | null>(null);
-  const [candidateAssistError, setCandidateAssistError] = useState<string | null>(null);
-  const [candidateAssistListings, setCandidateAssistListings] = useState<
-    EmployerCandidateMatchDto[]
-  >([]);
-  const [isCandidateAssistLoading, setIsCandidateAssistLoading] = useState(false);
-  const [candidateAssistLoadedRequestKey, setCandidateAssistLoadedRequestKey] =
-    useState<string | null>(null);
-  const [candidateAssistRefreshKey, setCandidateAssistRefreshKey] = useState(0);
-  const [isCandidateAssistDismissed, setIsCandidateAssistDismissed] = useState(false);
-  const [jobsAssistListings, setJobsAssistListings] = useState<JobListing[]>([]);
-  const [jobsAssistEmptyState, setJobsAssistEmptyState] = useState<string | null>(null);
-  const [jobsAssistFilterOptions, setJobsAssistFilterOptions] =
-    useState<JobRailFilterOptionsDto | null>(null);
-  const [jobsAssistError, setJobsAssistError] = useState<string | null>(null);
-  const [isJobsAssistLoading, setIsJobsAssistLoading] = useState(false);
-  const [jobsAssistLoadedRequestKey, setJobsAssistLoadedRequestKey] = useState<string | null>(null);
-  const [isJobsAssistDismissed, setIsJobsAssistDismissed] = useState(false);
-  const [selectedCandidateDetail, setSelectedCandidateDetail] =
-    useState<EmployerCandidateMatchDto | null>(null);
-  const [shortlistedCandidateIds, setShortlistedCandidateIds] = useState<string[]>([]);
-  const [projectActivityState, setProjectActivityState] = useState<ProjectActivityState>({
-    error: null,
-    isLoading: false,
-    payload: null,
-    projectId: null,
-    restoringCheckpointId: null,
-  });
-  const [isCheckpointSaving, setIsCheckpointSaving] = useState(false);
   const {
     addFiles,
     attachments: pendingAttachments,
     clearAttachments,
     clearSelectionError,
-    detachAttachments,
     removeAttachment,
-    releaseDetachedAttachments,
-    restoreAttachments,
+    resetAttachments,
     retryAttachment,
     selectionError,
   } = useChatAttachmentDrafts();
   const attachmentInputRef = useRef<HTMLInputElement>(null);
-  const composerDockRef = useRef<HTMLFormElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
   const starterRailRef = useRef<HTMLDivElement>(null);
-  const starterRailCycleWidthRef = useRef<number | null>(null);
-  const starterRailInitialSyncFrameRef = useRef<number | null>(null);
-  const starterRailScrollFrameRef = useRef<number | null>(null);
-  const starterRailProgrammaticScrollRef = useRef(false);
-  const starterRailScrollRecenteringRef = useRef(false);
-  const starterRailScrollTargetRef = useRef<number | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const sidebarRenameInputRef = useRef<HTMLInputElement>(null);
   const sidebarDeleteCancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -718,320 +362,35 @@ export function HeroComposer({
 
   const isRecording = voiceInputState === "recording";
   const isTranscribing = voiceInputState === "transcribing";
-  const isComposerInputDisabled = isWorkspaceLoading || isRecording || isTranscribing;
-  const hasEmployerStructuredSearchDraft =
-    isEmployerMode &&
-    isEmployerFiltersOpen &&
-    hasEmployerSearchFilters(candidateSearchFilters) &&
-    message.trim().length === 0;
   const hasBlockedAttachments = pendingAttachments.some((attachment) =>
     ["failed", "pending", "uploading"].includes(attachment.uploadStatus),
   );
   const canSubmit =
-    (message.trim().length > 0 ||
-      pendingAttachments.length > 0 ||
-      hasEmployerStructuredSearchDraft) &&
+    (message.trim().length > 0 || pendingAttachments.length > 0) &&
     !isSubmitting &&
     !isWorkspaceLoading &&
     !isRecording &&
     !isTranscribing &&
     !hasBlockedAttachments;
-  const activeComposerNotice =
-    voiceNotice?.tone === "active" ? voiceNotice : composerNotice ?? voiceNotice;
+  const workspaceVisible = true;
   const activeProject = projects.find((project) => project.id === activeProjectId) ?? null;
-  const activeProjectPersistence = activeProjectId
-    ? projectPersistence[activeProjectId] ?? null
-    : null;
   const activeProjectThreads = activeProject ? getProjectThreads(activeProject.id) : [];
   const isProjectHomeVisible =
     activeProject !== null &&
     currentThreadId === null &&
     projectHomeProjectId === activeProject.id;
-  const latestCandidatePromptEntry =
-    isEmployerMode && !isProjectHomeVisible ? getLatestCandidatePromptEntry(transcript) : null;
-  const latestJobPromptEntry =
-    !isEmployerMode && !isProjectHomeVisible ? getLatestJobPromptEntry(transcript) : null;
-  const latestCandidatePrompt = latestCandidatePromptEntry?.content.trim() ?? null;
-  const latestJobPrompt = latestJobPromptEntry?.content.trim() ?? null;
   const hasActiveConversation = !isProjectHomeVisible && (transcript.length > 0 || isSubmitting);
-  const isLandingState = !hasActiveConversation && !isProjectHomeVisible;
-  const workspaceVisible = hasActiveConversation || isProjectHomeVisible;
-  const jobsAssistMode =
-    !isEmployerMode && !isProjectHomeVisible
-      ? latestJobPrompt
-        ? deriveJobsAssistMode(latestJobPrompt)
-        : null
-      : null;
-  const jobsAssistPrompt = jobsAssistMode
-    ? latestJobPrompt ?? DEFAULT_LATEST_JOBS_PROMPT
-    : null;
-  const candidateAssistFiltersKey = serializeEmployerFilters(candidateSearchFilters);
-  const candidateAssistRequestKey = latestCandidatePrompt
-    ? `${latestCandidatePrompt}::${candidateAssistFiltersKey}::${candidateAssistRefreshKey}`
-    : null;
-  const jobsAssistRequestKey =
-    jobsAssistMode && jobsAssistPrompt
-      ? createJobsAssistRequestKey(jobsAssistMode, jobsAssistPrompt, 0)
-      : null;
-  const isCandidateAssistVisible = Boolean(latestCandidatePrompt) && !isCandidateAssistDismissed;
-  const isJobsAssistVisible = Boolean(jobsAssistMode && jobsAssistPrompt) && !isJobsAssistDismissed;
-  const isAssistRailVisible = isEmployerMode ? isCandidateAssistVisible : isJobsAssistVisible;
-  const [isConversationOpening, setIsConversationOpening] = useState(false);
-  const wasLandingStateRef = useRef<boolean | null>(null);
-  const [conversationComposerStyle, setConversationComposerStyle] =
-    useState<ConversationComposerStyle | null>(null);
-  const activeComposerPlaceholder =
-    isEmployerMode && isEmployerFiltersOpen
-      ? composerContent.expandedComposerPlaceholder ?? composerContent.composerPlaceholder
-      : composerContent.composerPlaceholder;
-  const isEmployerFiltersApplyDisabled =
-    !message.trim() && !hasEmployerSearchFilters(candidateSearchFilters);
+  const isLandingState = !isProjectHomeVisible && transcript.length === 0;
+  const showWorkspaceRail =
+    workspaceVisible && !hasActiveConversation && Boolean(content.workspaceRail?.cards.length);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
-    return () => {
-      cancelStarterRailScrollAnimation();
-    };
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!isLandingState) {
-      cancelStarterRailScrollAnimation();
-      starterRailProgrammaticScrollRef.current = false;
-      starterRailCycleWidthRef.current = null;
-      starterRailScrollTargetRef.current = null;
-      return;
-    }
-
-    const starterRail = starterRailRef.current;
-
-    if (!starterRail) {
-      return;
-    }
-
-    let cancelled = false;
-    let resizeObserver: ResizeObserver | null = null;
-    const didSyncImmediately = syncStarterRailLoopPosition({ preserveOffset: false });
-
-    if (!didSyncImmediately) {
-      starterRailInitialSyncFrameRef.current = window.requestAnimationFrame(() => {
-        starterRailInitialSyncFrameRef.current = null;
-
-        if (cancelled) {
-          return;
-        }
-
-        syncStarterRailLoopPosition({ preserveOffset: false });
-      });
-    }
-
-    if (typeof ResizeObserver !== "undefined") {
-      resizeObserver = new ResizeObserver(() => {
-        syncStarterRailLoopPosition();
-      });
-      resizeObserver.observe(starterRail);
-    }
-
-    return () => {
-      cancelled = true;
-      cancelStarterRailInitialSyncFrame();
-      resizeObserver?.disconnect();
-    };
-  }, [isLandingState, starterActions.length]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (window.matchMedia("(max-width: 760px)").matches) {
-      setSidebarOpen(false);
-    }
-  }, []);
-
-  useEffect(() => {
     onConversationStateChange?.(hasActiveConversation);
   }, [hasActiveConversation, onConversationStateChange]);
-
-  useEffect(() => {
-    const wasLandingState = wasLandingStateRef.current;
-    wasLandingStateRef.current = isLandingState;
-
-    if (wasLandingState === null) {
-      return;
-    }
-
-    if (isLandingState) {
-      setIsConversationOpening(false);
-      return;
-    }
-
-    if (!wasLandingState) {
-      return;
-    }
-
-    setIsConversationOpening(true);
-    const timeoutId = window.setTimeout(() => {
-      setIsConversationOpening(false);
-    }, 280);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isLandingState]);
-
-  useEffect(() => {
-    setIsCandidateAssistDismissed(false);
-  }, [latestCandidatePromptEntry?.id]);
-
-  useEffect(() => {
-    setIsJobsAssistDismissed(false);
-  }, [latestJobPromptEntry?.id]);
-
-  useEffect(() => {
-    if (!isEmployerMode && isLandingState && latestJobPromptEntry === null) {
-      setIsJobsAssistDismissed(false);
-    }
-  }, [isEmployerMode, isLandingState, latestJobPromptEntry]);
-
-  useEffect(() => {
-    if (!latestCandidatePrompt) {
-      setCandidateAssistError(null);
-      setCandidateAssistListings([]);
-      setCandidateAssistLoadedRequestKey(null);
-      setCandidateAssistResponse(null);
-      setIsCandidateAssistLoading(false);
-      return;
-    }
-
-    if (candidateAssistLoadedRequestKey === candidateAssistRequestKey) {
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    setIsCandidateAssistLoading(true);
-    setCandidateAssistError(null);
-
-    void loadEmployerCandidateMatches({
-      conversationId: currentThreadId,
-      filters: candidateSearchFilters,
-      limit: 6,
-      prompt: latestCandidatePrompt,
-      refresh: candidateAssistRefreshKey > 0,
-      signal: abortController.signal,
-    })
-      .then((result) => {
-        startTransition(() => {
-          setCandidateAssistListings(result.candidates);
-          setCandidateAssistResponse(result);
-          setCandidateAssistError(null);
-          setCandidateAssistLoadedRequestKey(candidateAssistRequestKey);
-          setIsCandidateAssistLoading(false);
-        });
-      })
-      .catch((error) => {
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        setCandidateAssistError(
-          error instanceof Error
-            ? error.message
-            : "Unable to load recruiter candidate results.",
-        );
-        setIsCandidateAssistLoading(false);
-      });
-
-    return () => {
-      abortController.abort();
-    };
-  }, [
-    candidateAssistLoadedRequestKey,
-    candidateAssistRefreshKey,
-    candidateAssistRequestKey,
-    candidateSearchFilters,
-    currentThreadId,
-    latestCandidatePrompt,
-  ]);
-
-  useEffect(() => {
-    if (!jobsAssistMode || !jobsAssistPrompt) {
-      setIsJobsAssistLoading(false);
-      setJobsAssistEmptyState(null);
-      setJobsAssistError(null);
-      setJobsAssistFilterOptions(null);
-      setJobsAssistListings([]);
-      setJobsAssistLoadedRequestKey(null);
-      return;
-    }
-
-    if (jobsAssistLoadedRequestKey === jobsAssistRequestKey) {
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    setIsJobsAssistLoading(true);
-    setJobsAssistEmptyState(null);
-    setJobsAssistError(null);
-    const loadRequest =
-      jobsAssistMode === "latest"
-        ? loadLatestJobListings({
-            conversationId: currentThreadId,
-            limit: JOBS_ASSIST_RESULT_LIMIT,
-            refresh: false,
-            signal: abortController.signal,
-          })
-        : loadJobListings({
-            conversationId: currentThreadId,
-            limit: JOBS_ASSIST_RESULT_LIMIT,
-            prompt: jobsAssistPrompt,
-            refresh: false,
-            signal: abortController.signal,
-          });
-
-    void loadRequest
-      .then((result) => {
-        startTransition(() => {
-          setJobsAssistListings(result.listings);
-          setJobsAssistEmptyState(result.rail.emptyState);
-          setJobsAssistFilterOptions(result.rail.filterOptions ?? null);
-          setJobsAssistError(null);
-          setJobsAssistLoadedRequestKey(jobsAssistRequestKey);
-          setIsJobsAssistLoading(false);
-        });
-      })
-      .catch((error) => {
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        setJobsAssistEmptyState(null);
-        setJobsAssistFilterOptions(null);
-        setJobsAssistError(
-          error instanceof Error
-            ? error.message
-            : jobsAssistMode === "latest"
-              ? "Latest jobs could not be loaded right now."
-              : "Jobs could not be loaded right now.",
-        );
-        setIsJobsAssistLoading(false);
-      });
-
-    return () => {
-      abortController.abort();
-    };
-  }, [
-    currentThreadId,
-    jobsAssistLoadedRequestKey,
-    jobsAssistMode,
-    jobsAssistPrompt,
-    jobsAssistRequestKey,
-  ]);
 
   useLayoutEffect(() => {
     const transcriptNode = transcriptRef.current;
@@ -1077,55 +436,6 @@ export function HeroComposer({
     });
     transcriptScrollIntentRef.current = null;
   }, [transcript]);
-
-  useLayoutEffect(() => {
-    if (!hasActiveConversation) {
-      setConversationComposerStyle(null);
-      return;
-    }
-
-    const composerDockNode = composerDockRef.current;
-
-    if (!composerDockNode) {
-      return;
-    }
-
-    const updateConversationComposerStyle = () => {
-      const composerHeight = composerDockNode.getBoundingClientRect().height;
-      const nextClearance = `${Math.ceil(composerHeight + 28)}px`;
-      const nextStyle: ConversationComposerStyle = {
-        "--chat-composer-clearance": nextClearance,
-        "--chat-conversation-composer-offset": "0px",
-      };
-
-      setConversationComposerStyle((currentStyle) => {
-        const currentClearance = currentStyle?.["--chat-composer-clearance"];
-        const currentOffset = currentStyle?.["--chat-conversation-composer-offset"];
-
-        if (currentClearance === nextClearance && currentOffset === "0px") {
-          return currentStyle;
-        }
-
-        return nextStyle;
-      });
-    };
-
-    updateConversationComposerStyle();
-
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver(() => {
-      updateConversationComposerStyle();
-    });
-
-    resizeObserver.observe(composerDockNode);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [hasActiveConversation]);
 
   useEffect(() => {
     return () => {
@@ -1253,7 +563,7 @@ export function HeroComposer({
   function applyWorkspaceSnapshot(
     snapshot: ChatWorkspaceSnapshot,
     options?: {
-      idleView?: "neutral" | "preserve" | "project-home";
+      openProjectHome?: boolean;
       preferredConversationId?: string | null;
       preferredProjectId?: string | null;
     },
@@ -1274,15 +584,7 @@ export function HeroComposer({
 
     setProjects(nextProjects);
     setThreads(nextThreads);
-    setWorkspacePersistence(snapshot.persistence ?? emptyChatWorkspacePersistence);
-    setProjectPersistence(snapshot.projectPersistence ?? {});
-    setCollapsedProjectIds((currentIds) =>
-      currentIds.filter((projectId) =>
-        nextProjects.some((project) => project.id === projectId),
-      ),
-    );
     setActiveProjectId(nextProjectId);
-    setComposerNotice(null);
 
     if (nextConversation) {
       setCurrentThreadId(nextConversation.id);
@@ -1291,20 +593,8 @@ export function HeroComposer({
       return;
     }
 
-    const idleView = options?.idleView ?? "preserve";
-    const preservedProjectHomeId =
-      projectHomeProjectId && nextProjects.some((project) => project.id === projectHomeProjectId)
-        ? projectHomeProjectId
-        : null;
-    const nextProjectHomeId =
-      idleView === "project-home"
-        ? nextProjectId
-        : idleView === "preserve"
-          ? preservedProjectHomeId
-          : null;
-
     setCurrentThreadId(null);
-    setProjectHomeProjectId(nextProjectHomeId);
+    setProjectHomeProjectId(options?.openProjectHome ? nextProjectId : null);
     setTranscript([]);
   }
 
@@ -1320,7 +610,7 @@ export function HeroComposer({
   }
 
   async function loadWorkspaceSnapshot(options?: {
-    idleView?: "neutral" | "preserve" | "project-home";
+    openProjectHome?: boolean;
     preferredConversationId?: string | null;
     preferredProjectId?: string | null;
   }) {
@@ -1344,244 +634,21 @@ export function HeroComposer({
     return payload;
   }
 
-  function showComposerError(message: string) {
-    setComposerNotice({ message, tone: "error" });
-    setSidebarNotice({ message, tone: "error" });
-  }
-
-  async function recoverSubmitTargetFromWorkspace(): Promise<ChatSubmitTarget> {
-    const snapshot = await requestWorkspaceSnapshot("/api/chat/state", {
-      method: "GET",
-    });
-    const recoveredConversation = currentThreadId
-      ? snapshot.conversations.find((thread) => thread.id === currentThreadId) ?? null
-      : null;
-    const recoveredProjectId =
-      recoveredConversation?.projectId ??
-      (projectHomeProjectId &&
-      snapshot.projects.some((project) => project.id === projectHomeProjectId)
-        ? projectHomeProjectId
-        : snapshot.projects[0]?.id ?? null);
-
-    applyWorkspaceSnapshot(snapshot, {
-      idleView: projectHomeProjectId ? "project-home" : "neutral",
-      preferredConversationId: recoveredConversation?.id ?? null,
-      preferredProjectId: recoveredProjectId,
-    });
-
-    return {
-      conversationId: recoveredConversation?.id ?? null,
-      projectId: recoveredProjectId,
-    };
-  }
-
-  async function ensureSubmitTargetForMessage(options?: {
-    forceRefresh?: boolean;
-  }): Promise<ChatSubmitTarget> {
-    if (!options?.forceRefresh) {
-      const localTarget = resolveChatSubmitTarget({
-        activeProjectId,
-        currentThreadId,
-        projectHomeProjectId,
-        projects,
-        threads,
-      });
-
-      if (localTarget.projectId) {
-        return localTarget;
-      }
-    }
-
-    let latestErrorMessage: string | null = null;
-
-    try {
-      const recoveredTarget = await recoverSubmitTargetFromWorkspace();
-
-      if (recoveredTarget.projectId) {
-        return recoveredTarget;
-      }
-
-      latestErrorMessage = "Your chat workspace is still starting up. Try again.";
-    } catch (error) {
-      latestErrorMessage = getErrorMessage(
-        error,
-        "Chat history could not be loaded right now.",
-      );
-    }
-
-    try {
-      const snapshot = await requestWorkspaceSnapshot("/api/chat/projects", {
-        body: JSON.stringify({}),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
-      const recoveredProjectId =
-        snapshot.projects[snapshot.projects.length - 1]?.id ?? snapshot.projects[0]?.id ?? null;
-
-      applyWorkspaceSnapshot(snapshot, {
-        preferredConversationId: null,
-        preferredProjectId: recoveredProjectId,
-      });
-
-      if (recoveredProjectId) {
-        return {
-          conversationId: null,
-          projectId: recoveredProjectId,
-        };
-      }
-
-      latestErrorMessage = "Project could not be created right now.";
-    } catch (error) {
-      latestErrorMessage = getErrorMessage(
-        error,
-        "Project could not be created right now.",
-      );
-    }
-
-    showComposerError(
-      latestErrorMessage ?? "Your chat workspace is still starting up. Try again.",
-    );
-    return {
-      conversationId: null,
-      projectId: null,
-    };
-  }
-
-  async function requestChatReply(args: {
-    attachmentIds: string[];
-    candidateSearchFilters?: EmployerCandidateSearchFiltersDto;
-    clientRequestId: string;
-    conversationId: string | null;
-    message: string;
-    persona: Persona;
-    projectId: string;
-    starterActionId?: string | null;
-    traceId: string;
-  }) {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-request-id": args.clientRequestId,
-        "x-trace-id": args.traceId,
-      },
-      body: JSON.stringify({
-        attachmentIds: args.attachmentIds,
-        candidateSearchFilters: args.candidateSearchFilters,
-        clientRequestId: args.clientRequestId,
-        conversationId: args.conversationId,
-        message: args.message,
-        persona: args.persona,
-        projectId: args.projectId,
-        starterActionId: args.starterActionId ?? undefined,
-      }),
-    });
-
-    const payload = (await response.json()) as {
-      assistantMessage?: ChatMessage;
-      candidatePanel?: EmployerCandidateSearchResponseDto | null;
-      conversation?: ChatConversation;
-      error?: string;
-      errorCode?: string;
-      jobsPanel?: JobsPanelResponseDto | null;
-      userMessage?: ChatMessage;
-      workspace?: ChatWorkspaceSnapshot;
-    };
-
-    return {
-      ok: response.ok && Boolean(payload.conversation) && Boolean(payload.userMessage),
-      payload,
-      status: response.status,
-    };
-  }
-
-  async function requestLatestJobsBrowse(args: {
-    clientRequestId: string;
-    conversationId: string | null;
-    projectId: string;
-    traceId: string;
-  }) {
-    const response = await fetch("/api/chat/latest-jobs", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-request-id": args.clientRequestId,
-        "x-trace-id": args.traceId,
-      },
-      body: JSON.stringify({
-        clientRequestId: args.clientRequestId,
-        conversationId: args.conversationId,
-        limit: JOBS_ASSIST_RESULT_LIMIT,
-        projectId: args.projectId,
-      }),
-    });
-
-    const payload = (await response.json()) as {
-      assistantMessage?: ChatMessage;
-      conversation?: ChatConversation;
-      error?: string;
-      errorCode?: string;
-      jobsPanel?: JobsPanelResponseDto | null;
-      userMessage?: ChatMessage;
-      workspace?: ChatWorkspaceSnapshot;
-    };
-
-    return {
-      ok: response.ok && Boolean(payload.conversation) && Boolean(payload.userMessage) && Boolean(payload.jobsPanel),
-      payload,
-      status: response.status,
-    };
-  }
-
-  function applyCandidateAssistResponse(
-    candidatePanel: EmployerCandidateSearchResponseDto | null | undefined,
-  ) {
-    if (!candidatePanel) {
-      return;
-    }
-
-    setCandidateAssistListings(candidatePanel.candidates);
-    setCandidateAssistResponse(candidatePanel);
-    setCandidateAssistLoadedRequestKey(
-      `${candidatePanel.query.prompt}::${serializeEmployerFilters(candidatePanel.query.filters)}::${candidateAssistRefreshKey}`,
-    );
-    setCandidateAssistError(null);
-    setIsCandidateAssistLoading(false);
-    setIsCandidateAssistDismissed(false);
-  }
-
-  function applyJobsAssistResponse(
-    jobsPanel: JobsPanelResponseDto | null | undefined,
-  ) {
-    if (!jobsPanel) {
-      return;
-    }
-
-    const jobsMode = deriveJobsAssistMode(jobsPanel.query.prompt) ?? "search";
-    setJobsAssistListings(mapJobsPanelToListings(jobsPanel));
-    setJobsAssistEmptyState(jobsPanel.rail.emptyState);
-    setJobsAssistFilterOptions(jobsPanel.rail.filterOptions ?? null);
-    setJobsAssistLoadedRequestKey(
-      createJobsAssistRequestKey(jobsMode, jobsPanel.query.prompt, 0),
-    );
-    setJobsAssistError(null);
-    setIsJobsAssistLoading(false);
-    setIsJobsAssistDismissed(false);
-  }
-
   useEffect(() => {
     let isCancelled = false;
 
     void (async () => {
       try {
-        await loadWorkspaceSnapshot({ idleView: "neutral" });
+        await loadWorkspaceSnapshot();
       } catch (error) {
         if (!isCancelled) {
-          showComposerError(
-            getErrorMessage(error, "Chat history could not be loaded right now."),
-          );
+          setSidebarNotice({
+            message:
+              error instanceof Error
+                ? error.message
+                : "Chat history could not be loaded right now.",
+            tone: "error",
+          });
         }
       } finally {
         if (!isCancelled) {
@@ -1893,9 +960,6 @@ export function HeroComposer({
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
-    setCollapsedProjectIds((currentIds) =>
-      currentIds.filter((projectId) => projectId !== thread.projectId),
-    );
     setProjectHomeProjectId(null);
     setActiveProjectId(thread.projectId);
     setCurrentThreadId(thread.id);
@@ -1911,12 +975,7 @@ export function HeroComposer({
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
-    setCollapsedProjectIds((currentIds) =>
-      activeProjectId
-        ? currentIds.filter((projectId) => projectId !== activeProjectId)
-        : currentIds,
-    );
-    setProjectHomeProjectId(activeProjectId);
+    setProjectHomeProjectId(null);
     setCurrentThreadId(null);
     transcriptScrollIntentRef.current = { mode: "top" };
     setTranscript([]);
@@ -1936,9 +995,6 @@ export function HeroComposer({
     cancelVoiceCapture();
     setSidebarActionMenu(null);
     setSidebarRenameDraft(null);
-    setCollapsedProjectIds((currentIds) =>
-      currentIds.filter((currentProjectId) => currentProjectId !== projectId),
-    );
     setActiveProjectId(projectId);
     setProjectHomeProjectId(projectId);
     setSidebarOpen(true);
@@ -1982,63 +1038,32 @@ export function HeroComposer({
       clearSelectionError();
       setMessage("");
       applyWorkspaceSnapshot(snapshot, {
+        openProjectHome: false,
         preferredConversationId: null,
         preferredProjectId: nextProject?.id ?? null,
       });
       focusComposer();
     } catch (error) {
-      showComposerError(getErrorMessage(error, "Project could not be created right now."));
+      setSidebarNotice({
+        message: error instanceof Error ? error.message : "Project could not be created right now.",
+        tone: "error",
+      });
     }
   }
 
-  function handleProjectChatsToggle(projectId: string) {
-    setSidebarActionMenu(null);
-    setSidebarRenameDraft(null);
-    setCollapsedProjectIds((currentIds) =>
-      currentIds.includes(projectId)
-        ? currentIds.filter((currentProjectId) => currentProjectId !== projectId)
-        : [...currentIds, projectId],
-    );
-  }
-
-  async function submitMessage(args?: {
-    starterActionId?: string | null;
-    text?: string;
-  }) {
-    const nextMessage = args?.text;
-    const starterActionId = args?.starterActionId ?? null;
-    const explicitPrompt = (nextMessage ?? message).trim();
-    const derivedEmployerPrompt =
-      !explicitPrompt && isEmployerMode && hasEmployerSearchFilters(candidateSearchFilters)
-        ? buildEmployerSourcingBrief(candidateSearchFilters)
-        : "";
-    const prompt = explicitPrompt || derivedEmployerPrompt;
+  async function submitMessage(nextMessage?: string) {
+    const prompt = (nextMessage ?? message).trim();
     const readyAttachments = pendingAttachments.filter(
       (attachment) => attachment.uploadStatus === "uploaded" && attachment.attachmentId,
     );
 
-    if ((!prompt && readyAttachments.length === 0) || isSubmitting || hasBlockedAttachments) {
-      return;
-    }
-
-    setComposerNotice(null);
-    setIsSubmitting(true);
-
-    const submitTarget = await ensureSubmitTargetForMessage();
-
-    if (!submitTarget.projectId) {
-      if (nextMessage) {
-        setMessage(prompt);
-      }
-      focusComposer();
-      setIsSubmitting(false);
+    if ((!prompt && readyAttachments.length === 0) || isSubmitting || !activeProjectId || hasBlockedAttachments) {
       return;
     }
 
     const previousTranscript = transcript;
     const previousProjectHomeProjectId = projectHomeProjectId;
     const previousCurrentThreadId = currentThreadId;
-    const detachedAttachments = detachAttachments();
     const optimisticUserMessage: TranscriptEntry = {
       attachments: readyAttachments.map((attachment) => ({
         createdAt: new Date().toISOString(),
@@ -2061,61 +1086,33 @@ export function HeroComposer({
       role: "user",
     };
 
+    setIsSubmitting(true);
     setProjectHomeProjectId(null);
-    if (isEmployerMode && isEmployerFiltersOpen) {
-      setIsEmployerFiltersOpen(false);
-    }
     transcriptScrollIntentRef.current = { mode: "bottom" };
     setTranscript([...transcript, optimisticUserMessage]);
-    clearSelectionError();
-    setMessage("");
 
     try {
-      const attachmentIds = readyAttachments
-        .map((attachment) => attachment.attachmentId)
-        .filter((attachmentId): attachmentId is string => Boolean(attachmentId));
-      const clientRequestId = createClientRequestId();
-      const traceId = createClientRequestId();
-      let reply = await requestChatReply({
-        attachmentIds,
-        candidateSearchFilters: isEmployerMode ? candidateSearchFilters : undefined,
-        clientRequestId,
-        conversationId: submitTarget.conversationId,
-        message: prompt,
-        persona,
-        projectId: submitTarget.projectId,
-        starterActionId,
-        traceId,
+      const reply = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          attachmentIds: readyAttachments
+            .map((attachment) => attachment.attachmentId)
+            .filter((attachmentId): attachmentId is string => Boolean(attachmentId)),
+          conversationId: currentThreadId,
+          message: prompt,
+          projectId: activeProjectId,
+        }),
       });
-      let payload = reply.payload;
 
-      if (
-        !reply.ok &&
-        isRecoverableSendFailure({
-          errorCode: payload.errorCode,
-          message: payload.error,
-          status: reply.status,
-        })
-      ) {
-        const recoveredSubmitTarget = await ensureSubmitTargetForMessage({
-          forceRefresh: true,
-        });
-
-        if (recoveredSubmitTarget.projectId) {
-          reply = await requestChatReply({
-            attachmentIds,
-            candidateSearchFilters: isEmployerMode ? candidateSearchFilters : undefined,
-            clientRequestId,
-            conversationId: recoveredSubmitTarget.conversationId,
-            message: prompt,
-            persona,
-            projectId: recoveredSubmitTarget.projectId,
-            starterActionId,
-            traceId,
-          });
-          payload = reply.payload;
-        }
-      }
+      const payload = (await reply.json()) as {
+        assistantMessage?: ChatMessage;
+        conversation?: ChatConversation;
+        error?: string;
+        userMessage?: ChatMessage;
+      };
 
       if (!reply.ok || !payload.conversation || !payload.userMessage) {
         throw new Error(payload.error || "The assistant could not respond.");
@@ -2123,31 +1120,28 @@ export function HeroComposer({
 
       const { conversation, userMessage } = payload;
 
-      releaseDetachedAttachments(detachedAttachments);
+      resetAttachments();
+      clearSelectionError();
+      setMessage("");
 
       startTransition(() => {
-        applyCandidateAssistResponse(payload.candidatePanel);
-        applyJobsAssistResponse(payload.jobsPanel);
         transcriptScrollIntentRef.current = {
           entryId: userMessage.id,
           mode: "anchor-entry",
         };
-        if (payload.workspace) {
-          applyWorkspaceSnapshot(payload.workspace, {
-            preferredConversationId: conversation.id,
-            preferredProjectId: conversation.projectId,
-          });
-        } else {
-          replaceConversation(conversation);
-        }
+        replaceConversation(conversation);
       });
     } catch (requestError) {
       setTranscript(previousTranscript);
       setProjectHomeProjectId(previousProjectHomeProjectId);
       setCurrentThreadId(previousCurrentThreadId);
-      restoreAttachments(detachedAttachments);
-      setMessage(prompt);
-      showComposerError(getErrorMessage(requestError, "The assistant could not respond."));
+      setSidebarNotice({
+        message:
+          requestError instanceof Error
+            ? requestError.message
+            : "The assistant could not respond.",
+        tone: "error",
+      });
 
       if (nextMessage) {
         setMessage(prompt);
@@ -2163,21 +1157,14 @@ export function HeroComposer({
   }
 
   async function handleKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== "Enter" || event.shiftKey) {
-      return;
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      await submitMessage();
     }
-
-    if (isSubmitting || isComposerInputDisabled) {
-      return;
-    }
-
-    event.preventDefault();
-    await submitMessage();
   }
 
   function handleMessageChange(nextMessage: string) {
     setMessage(nextMessage);
-    setComposerNotice(null);
 
     if (voiceNotice?.tone === "error") {
       setVoiceNotice(null);
@@ -2194,305 +1181,8 @@ export function HeroComposer({
     void removeAttachment(attachmentId);
   }
 
-  function handleOpenEmployerFilters() {
-    setIsEmployerFiltersOpen(true);
-    setComposerNotice({
-      message: "Add structured recruiter signals, then use the brief or send the search directly.",
-      tone: "default",
-    });
-  }
-
-  function handleCancelEmployerFilters() {
-    setIsEmployerFiltersOpen(false);
-    setComposerNotice(null);
-    focusComposer();
-  }
-
-  function handleApplyEmployerFilters() {
-    const typedMessage = message.trim();
-    const generatedBrief = buildEmployerSourcingBrief(candidateSearchFilters);
-
-    if (!typedMessage && !generatedBrief) {
-      setComposerNotice({
-        message: "Add a title, skill, location, or recruiter brief before using the sourcing brief.",
-        tone: "error",
-      });
-      return;
-    }
-
-    if (!typedMessage && generatedBrief) {
-      setMessage(generatedBrief);
-    }
-
-    setIsEmployerFiltersOpen(false);
-    setComposerNotice({
-      message: typedMessage
-        ? "Structured filters are ready for your next candidate search."
-        : "Sourcing brief added to the composer. Review it, then send when ready.",
-      tone: "default",
-    });
-    focusComposer();
-  }
-
-  function handleStarterAction(action: HeroComposerAction) {
-    if (action.kind === "filters") {
-      handleOpenEmployerFilters();
-      return;
-    }
-
-    if (action.kind === "latest_jobs") {
-      setIsEmployerFiltersOpen(false);
-      void handleLatestJobsStarter();
-      return;
-    }
-
-    if (action.kind !== "prompt") {
-      return;
-    }
-
-    setIsEmployerFiltersOpen(false);
-    setComposerNotice(null);
-    void submitMessage({
-      starterActionId: action.starterActionId ?? null,
-      text: action.value ?? action.label,
-    });
-  }
-
-  async function handleLatestJobsStarter() {
-    if (isSubmitting) {
-      return;
-    }
-
-    setComposerNotice(null);
-    setIsSubmitting(true);
-
-    try {
-      const submitTarget = await ensureSubmitTargetForMessage();
-
-      if (!submitTarget.projectId) {
-        focusComposer();
-        return;
-      }
-
-      const clientRequestId = createClientRequestId();
-      const traceId = createClientRequestId();
-      const reply = await requestLatestJobsBrowse({
-        clientRequestId,
-        conversationId: submitTarget.conversationId,
-        projectId: submitTarget.projectId,
-        traceId,
-      });
-      const payload = reply.payload;
-
-      if (!reply.ok || !payload.conversation || !payload.userMessage || !payload.jobsPanel) {
-        throw new Error(payload.error || "Latest jobs could not be loaded right now.");
-      }
-
-      const { conversation, jobsPanel, userMessage, workspace } = payload;
-
-      startTransition(() => {
-        applyJobsAssistResponse(jobsPanel);
-        transcriptScrollIntentRef.current = {
-          entryId: userMessage.id,
-          mode: "anchor-entry",
-        };
-        if (workspace) {
-          applyWorkspaceSnapshot(workspace, {
-            preferredConversationId: conversation.id,
-            preferredProjectId: conversation.projectId,
-          });
-        } else {
-          replaceConversation(conversation);
-        }
-      });
-    } catch (error) {
-      showComposerError(
-        getErrorMessage(error, "Latest jobs could not be loaded right now."),
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  function handleOpenCandidateDetail(candidate: EmployerCandidateMatchDto) {
-    setSelectedCandidateDetail(candidate);
-  }
-
-  function closeCandidateDetail() {
-    setSelectedCandidateDetail(null);
-  }
-
-  function handleShortlistCandidate(candidate: EmployerCandidateMatchDto) {
-    setShortlistedCandidateIds((currentIds) => {
-      const alreadyShortlisted = currentIds.includes(candidate.candidateId);
-      const nextIds = alreadyShortlisted
-        ? currentIds.filter((candidateId) => candidateId !== candidate.candidateId)
-        : [...currentIds, candidate.candidateId];
-
-      setComposerNotice({
-        message: alreadyShortlisted
-          ? `${candidate.fullName} removed from shortlist.`
-          : `${candidate.fullName} added to shortlist.`,
-        tone: "default",
-      });
-
-      return nextIds;
-    });
-  }
-
-  async function handleApplyJob(job: JobListing) {
-    try {
-      return await startJobApplyRun({
-        canonicalApplyUrl: job.canonicalApplyUrl,
-        conversationId: currentThreadId,
-        jobId: job.id,
-        metadata: {
-          isOrchestrationReady: job.isOrchestrationReady,
-          sourceLabel: job.sourceLabel,
-          validationStatus: job.validationStatus ?? null,
-        },
-      });
-    } catch (error) {
-      throw new Error(
-        error instanceof Error ? error.message : "The application link could not be opened.",
-      );
-    }
-  }
-
-  async function handleSaveCheckpoint() {
-    if (!activeProjectId || isCheckpointSaving) {
-      return;
-    }
-
-    setIsCheckpointSaving(true);
-    setComposerNotice(null);
-
-    try {
-      const response = await fetch(`/api/chat/projects/${activeProjectId}/checkpoints`, {
-        body: JSON.stringify({
-          conversationId: currentThreadId,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        workspace?: ChatWorkspaceSnapshot;
-      };
-
-      if (!response.ok || !payload.workspace) {
-        throw new Error(payload.error || "Checkpoint could not be saved right now.");
-      }
-
-      applyWorkspaceSnapshot(payload.workspace, {
-        preferredConversationId: currentThreadId,
-        preferredProjectId: activeProjectId,
-      });
-      setComposerNotice({
-        message: "Checkpoint saved.",
-        tone: "default",
-      });
-    } catch (error) {
-      showComposerError(getErrorMessage(error, "Checkpoint could not be saved right now."));
-    } finally {
-      setIsCheckpointSaving(false);
-    }
-  }
-
-  async function openProjectActivityHistory() {
-    if (!activeProjectId) {
-      return;
-    }
-
-    setProjectActivityState({
-      error: null,
-      isLoading: true,
-      payload: null,
-      projectId: activeProjectId,
-      restoringCheckpointId: null,
-    });
-
-    try {
-      const response = await fetch(`/api/chat/projects/${activeProjectId}/activity`, {
-        method: "GET",
-      });
-      const payload = (await response.json()) as ChatProjectActivitySnapshot & {
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Project activity could not be loaded right now.");
-      }
-
-      setProjectActivityState({
-        error: null,
-        isLoading: false,
-        payload,
-        projectId: activeProjectId,
-        restoringCheckpointId: null,
-      });
-    } catch (error) {
-      setProjectActivityState({
-        error: getErrorMessage(error, "Project activity could not be loaded right now."),
-        isLoading: false,
-        payload: null,
-        projectId: activeProjectId,
-        restoringCheckpointId: null,
-      });
-    }
-  }
-
-  function closeProjectActivityHistory() {
-    setProjectActivityState({
-      error: null,
-      isLoading: false,
-      payload: null,
-      projectId: null,
-      restoringCheckpointId: null,
-    });
-  }
-
-  async function restoreCheckpointFromActivity(checkpointId: string) {
-    if (!projectActivityState.projectId) {
-      return;
-    }
-
-    setProjectActivityState((currentState) => ({
-      ...currentState,
-      restoringCheckpointId: checkpointId,
-    }));
-
-    try {
-      const response = await fetch(`/api/chat/checkpoints/${checkpointId}/restore`, {
-        method: "POST",
-      });
-      const payload = (await response.json()) as {
-        error?: string;
-        workspace?: ChatWorkspaceSnapshot;
-      };
-
-      if (!response.ok || !payload.workspace) {
-        throw new Error(payload.error || "Checkpoint could not be restored right now.");
-      }
-
-      applyWorkspaceSnapshot(payload.workspace, {
-        preferredConversationId: currentThreadId,
-        preferredProjectId: projectActivityState.projectId,
-      });
-      closeProjectActivityHistory();
-      setComposerNotice({
-        message: "Checkpoint restored.",
-        tone: "default",
-      });
-    } catch (error) {
-      setProjectActivityState((currentState) => ({
-        ...currentState,
-        error: getErrorMessage(error, "Checkpoint could not be restored right now."),
-        restoringCheckpointId: null,
-      }));
-    }
+  function handleStarterQuestion(question: string) {
+    void submitMessage(question);
   }
 
   function toggleSidebarActionMenu(type: SidebarEntityType, id: string) {
@@ -2553,7 +1243,11 @@ export function HeroComposer({
         },
       );
 
-      applyWorkspaceSnapshot(snapshot);
+      applyWorkspaceSnapshot(snapshot, {
+        openProjectHome: currentThreadId === null && projectHomeProjectId !== null,
+        preferredConversationId: currentThreadId,
+        preferredProjectId: activeProjectId,
+      });
       setSidebarRenameDraft(null);
       setSidebarNotice({
         message: `${capitalizeLabel(entityLabel)} renamed.`,
@@ -2653,6 +1347,7 @@ export function HeroComposer({
       }
 
       applyWorkspaceSnapshot(snapshot, {
+        openProjectHome: currentThreadId === null && projectHomeProjectId !== null,
         preferredConversationId: currentThreadId,
         preferredProjectId: activeProjectId === projectId ? null : activeProjectId,
       });
@@ -2693,6 +1388,7 @@ export function HeroComposer({
       }
 
       applyWorkspaceSnapshot(snapshot, {
+        openProjectHome: currentThreadId === null && projectHomeProjectId !== null,
         preferredConversationId: currentThreadId === chatId ? null : currentThreadId,
         preferredProjectId: chat.projectId,
       });
@@ -2762,181 +1458,6 @@ export function HeroComposer({
     return threads.filter((thread) => thread.projectId === projectId);
   }
 
-  function getStarterRailCycleWidth() {
-    const starterRail = starterRailRef.current;
-
-    if (!starterRail) {
-      return null;
-    }
-
-    const cachedCycleWidth = starterRailCycleWidthRef.current;
-
-    if (cachedCycleWidth && cachedCycleWidth > 0) {
-      return cachedCycleWidth;
-    }
-
-    const firstCopy = starterRail.querySelector<HTMLElement>('[data-starter-rail-copy="0"]');
-    const computedStyle = window.getComputedStyle(starterRail);
-    const gapValue = computedStyle.columnGap || computedStyle.gap || "0";
-    const gap = Number.parseFloat(gapValue) || 0;
-    const measuredCycleWidth =
-      firstCopy && firstCopy.offsetWidth > 0
-        ? firstCopy.offsetWidth + gap
-        : starterRail.scrollWidth / STARTER_RAIL_COPY_COUNT;
-
-    if (measuredCycleWidth <= 0) {
-      return null;
-    }
-
-    starterRailCycleWidthRef.current = measuredCycleWidth;
-    return measuredCycleWidth;
-  }
-
-  function cancelStarterRailInitialSyncFrame() {
-    if (starterRailInitialSyncFrameRef.current === null) {
-      return;
-    }
-
-    window.cancelAnimationFrame(starterRailInitialSyncFrameRef.current);
-    starterRailInitialSyncFrameRef.current = null;
-  }
-
-  function cancelStarterRailScrollAnimation() {
-    cancelStarterRailInitialSyncFrame();
-
-    if (starterRailScrollFrameRef.current === null) {
-      return;
-    }
-
-    window.cancelAnimationFrame(starterRailScrollFrameRef.current);
-    starterRailScrollFrameRef.current = null;
-  }
-
-  function syncStarterRailTargetToCurrentPosition() {
-    const starterRail = starterRailRef.current;
-
-    starterRailScrollTargetRef.current = starterRail ? starterRail.scrollLeft : null;
-  }
-
-  function recenterStarterRailScrollPosition() {
-    const starterRail = starterRailRef.current;
-    const cycleWidth = getStarterRailCycleWidth();
-
-    if (!starterRail || !cycleWidth) {
-      return;
-    }
-
-    let nextLeft = starterRail.scrollLeft;
-
-    while (nextLeft < cycleWidth) {
-      nextLeft += cycleWidth;
-    }
-
-    while (nextLeft >= cycleWidth * 2) {
-      nextLeft -= cycleWidth;
-    }
-
-    if (Math.abs(nextLeft - starterRail.scrollLeft) <= 0.1) {
-      return;
-    }
-
-    const delta = nextLeft - starterRail.scrollLeft;
-    starterRailScrollRecenteringRef.current = true;
-    starterRail.scrollLeft = nextLeft;
-
-    if (starterRailScrollTargetRef.current !== null) {
-      starterRailScrollTargetRef.current += delta;
-    }
-
-    starterRailScrollRecenteringRef.current = false;
-  }
-
-  function syncStarterRailLoopPosition(options?: {
-    preserveOffset?: boolean;
-  }) {
-    const starterRail = starterRailRef.current;
-
-    if (!starterRail) {
-      return false;
-    }
-
-    const previousCycleWidth = starterRailCycleWidthRef.current;
-    starterRailCycleWidthRef.current = null;
-    const nextCycleWidth = getStarterRailCycleWidth();
-
-    if (!nextCycleWidth) {
-      return false;
-    }
-
-    const shouldPreserveOffset = options?.preserveOffset ?? true;
-    let nextLeft = nextCycleWidth;
-
-    if (shouldPreserveOffset && previousCycleWidth && previousCycleWidth > 0) {
-      const offsetWithinCycle =
-        ((starterRail.scrollLeft - previousCycleWidth) % previousCycleWidth + previousCycleWidth) %
-        previousCycleWidth;
-      nextLeft += offsetWithinCycle;
-    }
-
-    starterRailProgrammaticScrollRef.current = true;
-    starterRail.scrollLeft = nextLeft;
-    starterRailScrollTargetRef.current = nextLeft;
-    return true;
-  }
-
-  function flushStarterRailScrollAnimation() {
-    const starterRail = starterRailRef.current;
-
-    if (!starterRail) {
-      starterRailScrollFrameRef.current = null;
-      starterRailScrollTargetRef.current = null;
-      return;
-    }
-
-    const targetLeft = clampStarterRailScrollTarget({
-      clientWidth: starterRail.clientWidth,
-      scrollWidth: starterRail.scrollWidth,
-      targetLeft: starterRailScrollTargetRef.current ?? starterRail.scrollLeft,
-    });
-    const nextFrame = getNextStarterRailScrollFrame({
-      currentLeft: starterRail.scrollLeft,
-      targetLeft,
-    });
-
-    if (nextFrame.done) {
-      starterRailProgrammaticScrollRef.current = true;
-      starterRail.scrollLeft = targetLeft;
-      recenterStarterRailScrollPosition();
-      starterRailScrollFrameRef.current = null;
-      starterRailScrollTargetRef.current = starterRail.scrollLeft;
-      return;
-    }
-
-    starterRailProgrammaticScrollRef.current = true;
-    starterRail.scrollLeft = nextFrame.left;
-    recenterStarterRailScrollPosition();
-    starterRailScrollFrameRef.current = window.requestAnimationFrame(flushStarterRailScrollAnimation);
-  }
-
-  function scrollStarterRailTo(targetLeft: number) {
-    const starterRail = starterRailRef.current;
-
-    if (!starterRail) {
-      return;
-    }
-
-    cancelStarterRailInitialSyncFrame();
-    starterRailScrollTargetRef.current = clampStarterRailScrollTarget({
-      clientWidth: starterRail.clientWidth,
-      scrollWidth: starterRail.scrollWidth,
-      targetLeft,
-    });
-
-    if (starterRailScrollFrameRef.current === null) {
-      starterRailScrollFrameRef.current = window.requestAnimationFrame(flushStarterRailScrollAnimation);
-    }
-  }
-
   function scrollStarterRailBy(offset: number) {
     const starterRail = starterRailRef.current;
 
@@ -2944,31 +1465,13 @@ export function HeroComposer({
       return;
     }
 
-    const currentTarget = starterRailScrollTargetRef.current ?? starterRail.scrollLeft;
-    scrollStarterRailTo(currentTarget + offset);
-  }
-
-  function applyStarterRailManualScroll(offset: number) {
-    const starterRail = starterRailRef.current;
-
-    if (!starterRail) {
-      return;
-    }
-
-    cancelStarterRailScrollAnimation();
-    starterRail.scrollLeft += offset;
-    recenterStarterRailScrollPosition();
-    syncStarterRailTargetToCurrentPosition();
+    starterRail.scrollBy({
+      behavior: "smooth",
+      left: offset,
+    });
   }
 
   function handleStarterRailKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    const starterRail = starterRailRef.current;
-    const cycleWidth = getStarterRailCycleWidth();
-
-    if (!starterRail) {
-      return;
-    }
-
     if (event.key === "ArrowRight") {
       event.preventDefault();
       scrollStarterRailBy(220);
@@ -2983,33 +1486,20 @@ export function HeroComposer({
 
     if (event.key === "Home") {
       event.preventDefault();
-      scrollStarterRailTo(cycleWidth ?? 0);
+      starterRailRef.current?.scrollTo({
+        behavior: "smooth",
+        left: 0,
+      });
       return;
     }
 
     if (event.key === "End") {
       event.preventDefault();
-      scrollStarterRailTo(
-        cycleWidth !== null
-          ? cycleWidth + Math.max(0, cycleWidth - starterRail.clientWidth)
-          : starterRail.scrollWidth,
-      );
+      starterRailRef.current?.scrollTo({
+        behavior: "smooth",
+        left: starterRailRef.current.scrollWidth,
+      });
     }
-  }
-
-  function handleStarterRailScroll() {
-    if (starterRailScrollRecenteringRef.current) {
-      return;
-    }
-
-    if (starterRailProgrammaticScrollRef.current) {
-      starterRailProgrammaticScrollRef.current = false;
-      return;
-    }
-
-    cancelStarterRailScrollAnimation();
-    recenterStarterRailScrollPosition();
-    syncStarterRailTargetToCurrentPosition();
   }
 
   function handleStarterRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -3019,44 +1509,27 @@ export function HeroComposer({
       return;
     }
 
-    const normalizedDelta = getNormalizedStarterRailWheelDelta({
-      clientWidth: starterRail.clientWidth,
-      deltaMode: event.deltaMode,
-      deltaX: event.deltaX,
-      deltaY: event.deltaY,
-    });
+    const intendedHorizontalDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
 
-    if (normalizedDelta === 0) {
+    if (intendedHorizontalDelta === 0) {
       return;
     }
 
     event.preventDefault();
-    applyStarterRailManualScroll(normalizedDelta);
+    starterRail.scrollBy({
+      behavior: "auto",
+      left: intendedHorizontalDelta,
+    });
   }
 
-  function renderStarterAction(
-    action: HeroComposerAction,
-    options?: {
-      copyIndex?: number;
-      isGhostCopy?: boolean;
-    },
-  ) {
-    const copyKeySuffix = options?.copyIndex !== undefined ? `-${options.copyIndex}` : "";
-    const isGhostCopy = options?.isGhostCopy ?? false;
-
-    if (action.kind !== "link") {
+  function renderStarterAction(action: HeroComposerContent["starterActions"][number]) {
+    if (action.kind === "prompt") {
       return (
         <button
-          aria-hidden={isGhostCopy ? true : undefined}
-          className={[
-            styles.starterQuestionPill,
-            action.accent === "jobs" ? styles.starterQuestionPillJobs : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          key={`${action.label}${copyKeySuffix}`}
-          onClick={() => handleStarterAction(action)}
-          tabIndex={isGhostCopy ? -1 : undefined}
+          className={styles.starterQuestionPill}
+          key={action.label}
+          onClick={() => handleStarterQuestion(action.label)}
           type="button"
         >
           {action.label}
@@ -3066,17 +1539,32 @@ export function HeroComposer({
 
     return (
       <Link
-        aria-hidden={isGhostCopy ? true : undefined}
-        className={[
-          styles.starterQuestionPill,
-          action.accent === "primary" ? styles.starterQuestionPillPrimary : "",
-        ]
+        className={[styles.starterQuestionPill, styles.starterQuestionPillPrimary]
           .filter(Boolean)
           .join(" ")}
         href={action.href}
-        key={`${action.label}${copyKeySuffix}`}
-        tabIndex={isGhostCopy ? -1 : undefined}
+        key={action.label}
       >
+        {action.label}
+      </Link>
+    );
+  }
+
+  function renderWorkspaceRailAction(
+    action: NonNullable<HeroComposerContent["workspaceRail"]>["cards"][number]["primaryAction"],
+    className: string,
+    key: string,
+  ) {
+    if (action.kind === "prompt") {
+      return (
+        <button className={className} key={key} onClick={() => handleStarterQuestion(action.label)} type="button">
+          {action.label}
+        </button>
+      );
+    }
+
+    return (
+      <Link className={className} href={action.href} key={key}>
         {action.label}
       </Link>
     );
@@ -3087,12 +1575,12 @@ export function HeroComposer({
       <FileUploadDropzone
         disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
         error={selectionError}
+        hint="Drop PDFs, docs, spreadsheets, slides, text files, or images here."
         onFilesDropped={addFiles}
       >
         <form
           className={[styles.composerDock, className ?? ""].filter(Boolean).join(" ")}
           onSubmit={handleSubmit}
-          ref={composerDockRef}
         >
           <input
             accept={attachmentInputAccept}
@@ -3103,22 +1591,12 @@ export function HeroComposer({
             tabIndex={-1}
             type="file"
           />
-          {isEmployerMode && isEmployerFiltersOpen ? (
-            <EmployerSourcerFilters
-              autoFocusTitle
-              filters={candidateSearchFilters}
-              isApplyDisabled={isEmployerFiltersApplyDisabled}
-              onApply={handleApplyEmployerFilters}
-              onCancel={handleCancelEmployerFilters}
-              onChange={setCandidateSearchFilters}
-            />
-          ) : null}
           <div className={styles.composerTop}>
             <textarea
               aria-label="Message composer"
-              aria-describedby={activeComposerNotice ? "hero-composer-status" : undefined}
+              aria-describedby={voiceNotice ? "hero-composer-voice-status" : undefined}
               className={styles.composerInput}
-              disabled={isComposerInputDisabled}
+              disabled={isSubmitting || isWorkspaceLoading || isRecording || isTranscribing}
               onChange={(event) => handleMessageChange(event.target.value)}
               onKeyDown={(event) => {
                 void handleKeyDown(event);
@@ -3138,21 +1616,21 @@ export function HeroComposer({
             />
           </div>
 
-          {activeComposerNotice ? (
-            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-status">
+          {voiceNotice ? (
+            <div aria-live="polite" className={styles.composerMeta} id="hero-composer-voice-status">
               <p
                 className={[
                   styles.composerStatus,
-                  activeComposerNotice.tone === "active"
+                  voiceNotice.tone === "active"
                     ? styles.composerStatusActive
-                    : activeComposerNotice.tone === "error"
+                    : voiceNotice.tone === "error"
                       ? styles.composerStatusError
                       : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
               >
-                {activeComposerNotice.message}
+                {voiceNotice.message}
               </p>
             </div>
           ) : null}
@@ -3224,60 +1702,11 @@ export function HeroComposer({
     );
   }
 
-  function renderPersistenceBar() {
-    if (
-      !activeProject ||
-      (workspacePersistence.lastSavedAt === null &&
-        workspacePersistence.checkpointCount === 0 &&
-        workspacePersistence.pendingMemoryJobs === 0)
-    ) {
-      return null;
-    }
-
-    const lastSavedLabel = formatRelativeTimestamp(
-      activeProjectPersistence?.lastSavedAt ?? workspacePersistence.lastSavedAt,
-    );
-    const lastCheckpointLabel = formatRelativeTimestamp(
-      activeProjectPersistence?.lastCheckpointAt ?? workspacePersistence.lastCheckpointAt,
-    );
-
-    return (
-      <div className={styles.persistenceBar}>
-        <div className={styles.persistenceMeta}>
-          <span className={styles.persistenceChip}>Saved {lastSavedLabel}</span>
-          <span className={styles.persistenceChip}>Last checkpoint {lastCheckpointLabel}</span>
-        </div>
-        <div className={styles.persistenceActions}>
-          <button
-            className={styles.persistenceAction}
-            disabled={isCheckpointSaving}
-            onClick={() => {
-              void handleSaveCheckpoint();
-            }}
-            type="button"
-          >
-            {isCheckpointSaving ? "Saving checkpoint..." : "Save checkpoint"}
-          </button>
-          <button
-            className={styles.persistenceAction}
-            onClick={() => {
-              void openProjectActivityHistory();
-            }}
-            type="button"
-          >
-            Activity history
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   function renderSidebarItemRow({
     itemClassName,
     labelClassName,
     leadingVisual,
     trailingVisual,
-    supplementalAction,
     id,
     isActive,
     label,
@@ -3290,7 +1719,6 @@ export function HeroComposer({
     labelClassName?: string;
     leadingVisual?: ReactNode;
     trailingVisual?: ReactNode;
-    supplementalAction?: ReactNode;
     id: string;
     isActive: boolean;
     label: string;
@@ -3303,7 +1731,6 @@ export function HeroComposer({
     const isRenaming = sidebarRenameDraft?.id === id && sidebarRenameDraft.type === type;
     const entityLabel = getSidebarEntityLabel(type);
     const menuId = `${sidebarId}-${type}-${id}-menu`;
-    const shouldPersistMenuTriggerVisibility = type === "project" && isActive;
 
     return (
       <div
@@ -3384,35 +1811,30 @@ export function HeroComposer({
                   className={[styles.chatSidebarItemLabel, labelClassName ?? ""]
                     .filter(Boolean)
                     .join(" ")}
-              >
-                {label}
+                >
+                  {label}
                 </span>
                 {trailingVisual ? (
                   <span className={styles.chatSidebarItemAdornment}>{trailingVisual}</span>
                 ) : null}
               </span>
             </button>
-            <div className={styles.chatSidebarItemActions}>
-              {supplementalAction}
-              <button
-                aria-controls={menuId}
-                aria-expanded={isMenuOpen}
-                aria-haspopup="menu"
-                aria-label={`${capitalizeLabel(entityLabel)} actions`}
-                className={[
-                  styles.chatSidebarItemMenuTrigger,
-                  isMenuOpen || shouldPersistMenuTriggerVisibility
-                    ? styles.chatSidebarItemMenuTriggerVisible
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onClick={() => toggleSidebarActionMenu(type, id)}
-                type="button"
-              >
-                <Ellipsis aria-hidden="true" size={16} strokeWidth={2.1} />
-              </button>
-            </div>
+            <button
+              aria-controls={menuId}
+              aria-expanded={isMenuOpen}
+              aria-haspopup="menu"
+              aria-label={`${capitalizeLabel(entityLabel)} actions`}
+              className={[
+                styles.chatSidebarItemMenuTrigger,
+                isMenuOpen ? styles.chatSidebarItemMenuTriggerVisible : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={() => toggleSidebarActionMenu(type, id)}
+              type="button"
+            >
+              <Ellipsis aria-hidden="true" size={16} strokeWidth={2.1} />
+            </button>
 
             {isMenuOpen ? (
               <div
@@ -3465,8 +1887,6 @@ export function HeroComposer({
   function renderProjectRow(project: ProjectEntry) {
     const projectChats = getProjectThreads(project.id);
     const isActiveProject = project.id === activeProjectId;
-    const isProjectCollapsed = collapsedProjectIds.includes(project.id);
-    const isProjectExpanded = isActiveProject && !isProjectCollapsed;
 
     return (
       <li className={styles.chatSidebarProjectGroup} key={project.id}>
@@ -3486,34 +1906,13 @@ export function HeroComposer({
           ),
           onDelete: () => requestProjectDelete(project.id),
           onSelect: () => handleProjectSelect(project.id),
-          supplementalAction: isActiveProject ? (
-            <button
-              aria-expanded={isProjectExpanded}
-              aria-label={`${isProjectExpanded ? "Collapse" : "Expand"} ${project.label} chats`}
-              className={styles.chatSidebarProjectToggle}
-              onClick={(event) => {
-                event.stopPropagation();
-                handleProjectChatsToggle(project.id);
-              }}
-              type="button"
-            >
-              <ChevronDown
-                aria-hidden="true"
-                className={[
-                  styles.chatSidebarProjectToggleIcon,
-                  isProjectExpanded ? styles.chatSidebarProjectToggleIconExpanded : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                size={15}
-                strokeWidth={2}
-              />
-            </button>
+          trailingVisual: isActiveProject ? (
+            <ChevronDown aria-hidden="true" size={15} strokeWidth={2} />
           ) : null,
           type: "project",
         })}
 
-        {isProjectExpanded ? (
+        {isActiveProject ? (
           <div className={styles.chatSidebarProjectCollection}>
             <span className={styles.chatSidebarProjectCollectionLabel}>Recent</span>
             {projectChats.length > 0 ? (
@@ -3543,50 +1942,18 @@ export function HeroComposer({
 
   return (
     <>
-      {isLandingState || isConversationOpening ? (
-        <div
-          aria-hidden={!isLandingState ? true : undefined}
-          className={[
-            styles.heroStarterRailShell,
-            !isLandingState ? styles.heroStarterRailShellExiting : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
+      {isLandingState ? (
+        <div className={styles.heroStarterRailShell}>
           <div
             aria-label="Starter prompts"
             className={styles.heroStarterRail}
             onKeyDown={handleStarterRailKeyDown}
-            onScroll={handleStarterRailScroll}
             onWheel={handleStarterRailWheel}
             ref={starterRailRef}
             role="group"
             tabIndex={0}
           >
-            {Array.from({ length: STARTER_RAIL_COPY_COUNT }, (_, copyIndex) => {
-              const isGhostCopy = copyIndex !== STARTER_RAIL_PRIMARY_COPY_INDEX;
-
-              return (
-                <div
-                  aria-hidden={isGhostCopy ? true : undefined}
-                  className={[
-                    styles.heroStarterRailCopy,
-                    isGhostCopy ? styles.heroStarterRailGhostCopy : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  data-starter-rail-copy={copyIndex}
-                  key={`starter-rail-copy-${copyIndex}`}
-                >
-                  {starterActions.map((action) =>
-                    renderStarterAction(action, {
-                      copyIndex,
-                      isGhostCopy,
-                    }),
-                  )}
-                </div>
-              );
-            })}
+            {content.starterActions.map((action) => renderStarterAction(action))}
           </div>
         </div>
       ) : null}
@@ -3596,7 +1963,6 @@ export function HeroComposer({
           styles.chatStage,
           workspaceVisible ? styles.chatStageActive : "",
           hasActiveConversation ? styles.chatStageConversation : "",
-          isConversationOpening ? styles.chatStageOpening : "",
           isLandingState ? styles.chatStageLanding : "",
         ]
           .filter(Boolean)
@@ -3674,327 +2040,189 @@ export function HeroComposer({
           </aside>
         ) : null}
 
+        {showWorkspaceRail && content.workspaceRail ? (
+          <aside aria-label={content.workspaceRail.ariaLabel} className={styles.workspaceRail}>
+            <header className={styles.workspaceRailHeader}>
+              <span className={styles.workspaceRailEyebrow}>{content.workspaceRail.eyebrow}</span>
+              <p className={styles.workspaceRailLead}>{content.workspaceRail.lead}</p>
+            </header>
+
+            <div className={styles.workspaceRailList}>
+              {content.workspaceRail.cards.map((card) => (
+                <article className={styles.workspaceRailCard} key={card.id}>
+                  <div className={styles.workspaceRailBadgeRow}>
+                    {card.badges.map((badge) => (
+                      <span className={styles.workspaceRailBadge} key={`${card.id}-${badge}`}>
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+
+                  <h2 className={styles.workspaceRailCardTitle}>{card.title}</h2>
+
+                  <div className={styles.workspaceRailMeta}>
+                    {card.meta.map((item) => (
+                      <span key={`${card.id}-${item}`}>{item}</span>
+                    ))}
+                  </div>
+
+                  <p className={styles.workspaceRailCardCopy}>{card.description}</p>
+
+                  <div className={styles.workspaceRailActions}>
+                    {renderWorkspaceRailAction(
+                      card.primaryAction,
+                      [styles.workspaceRailAction, styles.workspaceRailActionPrimary].join(" "),
+                      `${card.id}-primary`,
+                    )}
+                    {card.secondaryAction
+                      ? renderWorkspaceRailAction(
+                          card.secondaryAction,
+                          [styles.workspaceRailAction, styles.workspaceRailActionSecondary].join(" "),
+                          `${card.id}-secondary`,
+                        )
+                      : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </aside>
+        ) : null}
+
         <div
           className={[
             styles.chatStageMain,
-            isAssistRailVisible ? styles.chatStageMainWithJobs : "",
             workspaceVisible && sidebarOpen ? styles.chatStageMainShifted : "",
+            showWorkspaceRail ? styles.chatStageMainWithRail : "",
             workspaceVisible && !sidebarOpen ? styles.chatStageMainExpanded : "",
           ]
             .filter(Boolean)
             .join(" ")}
-          style={conversationComposerStyle ?? undefined}
         >
           <div
+            aria-live="polite"
             className={[
-              styles.chatStagePrimary,
-              isAssistRailVisible ? styles.chatStagePrimaryWithJobs : "",
+              styles.chatTranscript,
+              hasActiveConversation ? styles.chatTranscriptConversation : "",
+              isLandingState ? styles.chatTranscriptLanding : "",
             ]
               .filter(Boolean)
               .join(" ")}
+            ref={transcriptRef}
           >
-            <div
-              aria-live="polite"
-              className={[
-                styles.chatTranscript,
-                hasActiveConversation ? styles.chatTranscriptConversation : "",
-                isLandingState ? styles.chatTranscriptLanding : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              ref={transcriptRef}
-            >
-              {isProjectHomeVisible && activeProject ? (
-                <section className={styles.projectHome}>
-                  <header className={styles.projectHomeHeader}>
-                    <div className={styles.projectHomeTitle}>
-                      <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
-                      <h2>{activeProject.label}</h2>
-                    </div>
-                  </header>
-
-                  {renderComposer(`New chat in ${activeProject.label}`, styles.projectHomeComposer)}
-
-                  <div className={styles.projectHomeTabs}>
-                    <button
-                      className={[styles.projectHomeTab, styles.projectHomeTabActive]
-                        .filter(Boolean)
-                        .join(" ")}
-                      type="button"
-                    >
-                      Chats
-                    </button>
-                    <button className={styles.projectHomeTab} type="button">
-                      Sources
-                    </button>
+            {isProjectHomeVisible && activeProject ? (
+              <section className={styles.projectHome}>
+                <header className={styles.projectHomeHeader}>
+                  <div className={styles.projectHomeTitle}>
+                    <FolderOpen aria-hidden="true" size={22} strokeWidth={1.9} />
+                    <h2>{activeProject.label}</h2>
                   </div>
+                </header>
 
-                  <div className={styles.projectHomeList}>
-                    {activeProjectThreads.length > 0 ? (
-                      activeProjectThreads.map((thread) => (
-                        <button
-                          className={styles.projectHomeThreadRow}
-                          key={thread.id}
-                          onClick={() => openThread(thread)}
-                          type="button"
-                        >
-                          <div className={styles.projectHomeThreadHeader}>
-                            <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
-                            <span className={styles.projectHomeThreadDate}>
-                              {formatThreadUpdatedAt(thread.updatedAt)}
-                            </span>
-                          </div>
-                          <p className={styles.projectHomeThreadPreview}>
-                            {buildThreadPreview(thread)}
-                          </p>
-                        </button>
-                      ))
-                    ) : (
-                      <p className={styles.projectHomeEmpty}>
-                        Start a new chat in this project and it will appear here.
-                      </p>
-                    )}
-                  </div>
-                </section>
-              ) : transcript.length === 0 ? (
-                null
-              ) : (
-                transcript.map((entry, index) => (
-                  <div
-                    className={[
-                      styles.transcriptRow,
-                      hasActiveConversation && index === 0 ? styles.transcriptRowConversationStart : "",
-                      entry.role === "user"
-                        ? styles.transcriptRowUser
-                        : styles.transcriptRowAssistant,
-                    ].join(" ")}
-                    data-transcript-entry-id={entry.id}
-                    key={entry.id}
-                  >
-                    <article
-                      className={[
-                        styles.transcriptBubble,
-                        entry.role === "user"
-                          ? styles.transcriptBubbleUser
-                          : styles.transcriptBubbleAssistant,
-                        entry.error ? styles.transcriptBubbleError : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      {entry.attachments?.length ? (
-                        <ChatMessageAttachments attachments={entry.attachments} />
-                      ) : null}
-                      {entry.content.trim() ? <p>{entry.content}</p> : null}
-                    </article>
-                  </div>
-                ))
-              )}
+                {renderComposer(`New chat in ${activeProject.label}`, styles.projectHomeComposer)}
 
-              {isSubmitting ? (
-                <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
-                  <article
-                    className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
-                  >
-                    <div className={styles.transcriptTyping}>
-                      <LoaderCircle
-                        aria-hidden="true"
-                        className={styles.spinner}
-                        size={18}
-                        strokeWidth={2}
-                      />
-                      <span>{composerContent.typingLabel}</span>
-                    </div>
-                  </article>
-                </div>
-              ) : null}
-            </div>
-
-            {!isProjectHomeVisible
-              ? renderComposer(
-                  activeComposerPlaceholder,
-                  isLandingState ? styles.composerDockLanding : undefined,
-                )
-              : null}
-          </div>
-
-          {isEmployerMode && isCandidateAssistVisible ? (
-            <div
-              className={[
-                styles.chatStageJobsRail,
-                isConversationOpening ? styles.chatStageJobsRailEntering : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <EmployerCandidateResultsRail
-                candidates={candidateAssistListings}
-                errorMessage={candidateAssistError}
-                isLoading={isCandidateAssistLoading}
-                onClose={() => {
-                  setIsCandidateAssistDismissed(true);
-                }}
-                onOpenDetail={handleOpenCandidateDetail}
-                onRefresh={() => {
-                  setCandidateAssistRefreshKey((currentKey) => currentKey + 1);
-                }}
-                onShortlist={handleShortlistCandidate}
-                query={candidateAssistResponse?.query}
-                shortlistedCandidateIds={shortlistedCandidateIds}
-              />
-            </div>
-          ) : null}
-
-          {!isEmployerMode && isJobsAssistVisible ? (
-            <div
-              className={[
-                styles.chatStageJobsRail,
-                isConversationOpening ? styles.chatStageJobsRailEntering : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <JobsSidePanel
-                emptyStateMessage={jobsAssistEmptyState}
-                errorMessage={jobsAssistError}
-                filterOptions={jobsAssistFilterOptions}
-                isLoading={isJobsAssistLoading}
-                jobs={jobsAssistListings}
-                onApply={handleApplyJob}
-                onClose={() => {
-                  setIsJobsAssistDismissed(true);
-                }}
-              />
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {isMounted && projectActivityState.projectId
-        ? createPortal(
-            <div
-              className={styles.sidebarDeleteOverlay}
-              onClick={closeProjectActivityHistory}
-              role="presentation"
-            >
-              <div
-                aria-modal="true"
-                className={styles.activityHistoryDialog}
-                onClick={(event) => {
-                  event.stopPropagation();
-                }}
-                role="dialog"
-              >
-                <div className={styles.activityHistoryHeader}>
-                  <div>
-                    <h2 className={styles.activityHistoryTitle}>Project activity history</h2>
-                    <p className={styles.activityHistoryMeta}>
-                      Review checkpoints, extracted memory, and recent saved events.
-                    </p>
-                  </div>
+                <div className={styles.projectHomeTabs}>
                   <button
-                    className={styles.activityHistoryClose}
-                    onClick={closeProjectActivityHistory}
+                    className={[styles.projectHomeTab, styles.projectHomeTabActive]
+                      .filter(Boolean)
+                      .join(" ")}
                     type="button"
                   >
-                    Close
+                    Chats
+                  </button>
+                  <button className={styles.projectHomeTab} type="button">
+                    Sources
                   </button>
                 </div>
 
-                {projectActivityState.isLoading ? (
-                  <p className={styles.activityHistoryState}>Loading activity...</p>
-                ) : projectActivityState.error ? (
-                  <p className={styles.activityHistoryState}>{projectActivityState.error}</p>
-                ) : projectActivityState.payload ? (
-                  <div className={styles.activityHistoryBody}>
-                    <section className={styles.activityHistorySection}>
-                      <h3>Checkpoints</h3>
-                      {projectActivityState.payload.checkpoints.length > 0 ? (
-                        projectActivityState.payload.checkpoints.map((checkpoint) => (
-                          <div className={styles.activityHistoryRow} key={checkpoint.id}>
-                            <div className={styles.activityHistoryRowCopy}>
-                              <strong>{checkpoint.title}</strong>
-                              <span>{checkpoint.summary}</span>
-                              <small>
-                                {checkpoint.checkpointType} checkpoint •{" "}
-                                {formatRelativeTimestamp(checkpoint.createdAt)}
-                              </small>
-                            </div>
-                            <button
-                              className={styles.persistenceAction}
-                              disabled={
-                                projectActivityState.restoringCheckpointId === checkpoint.id
-                              }
-                              onClick={() => {
-                                void restoreCheckpointFromActivity(checkpoint.id);
-                              }}
-                              type="button"
-                            >
-                              {projectActivityState.restoringCheckpointId === checkpoint.id
-                                ? "Restoring..."
-                                : "Restore"}
-                            </button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className={styles.activityHistoryEmpty}>No checkpoints yet.</p>
-                      )}
-                    </section>
-
-                    <section className={styles.activityHistorySection}>
-                      <h3>Recent activity</h3>
-                      {projectActivityState.payload.events.length > 0 ? (
-                        projectActivityState.payload.events.map((event) => (
-                          <div className={styles.activityHistoryRow} key={event.id}>
-                            <div className={styles.activityHistoryRowCopy}>
-                              <strong>{event.summary}</strong>
-                              <small>
-                                {event.eventType} • {formatRelativeTimestamp(event.createdAt)}
-                              </small>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className={styles.activityHistoryEmpty}>No project activity recorded yet.</p>
-                      )}
-                    </section>
-
-                    <section className={styles.activityHistorySection}>
-                      <h3>Durable memory</h3>
-                      {projectActivityState.payload.memoryRecords.length > 0 ? (
-                        projectActivityState.payload.memoryRecords.map((memory) => (
-                          <div className={styles.activityHistoryRow} key={memory.id}>
-                            <div className={styles.activityHistoryRowCopy}>
-                              <strong>{memory.title}</strong>
-                              <span>{memory.content}</span>
-                              <small>
-                                {memory.memoryType} • {formatRelativeTimestamp(memory.updatedAt)}
-                              </small>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className={styles.activityHistoryEmpty}>
-                          No durable memory has been extracted yet.
+                <div className={styles.projectHomeList}>
+                  {activeProjectThreads.length > 0 ? (
+                    activeProjectThreads.map((thread) => (
+                      <button
+                        className={styles.projectHomeThreadRow}
+                        key={thread.id}
+                        onClick={() => openThread(thread)}
+                        type="button"
+                      >
+                        <div className={styles.projectHomeThreadHeader}>
+                          <span className={styles.projectHomeThreadTitle}>{thread.label}</span>
+                          <span className={styles.projectHomeThreadDate}>
+                            {formatThreadUpdatedAt(thread.updatedAt)}
+                          </span>
+                        </div>
+                        <p className={styles.projectHomeThreadPreview}>
+                          {buildThreadPreview(thread)}
                         </p>
-                      )}
-                    </section>
-                  </div>
-                ) : null}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+                      </button>
+                    ))
+                  ) : (
+                    <p className={styles.projectHomeEmpty}>
+                      Start a new chat in this project and it will appear here.
+                    </p>
+                  )}
+                </div>
+              </section>
+            ) : transcript.length === 0 ? (
+              null
+            ) : (
+              transcript.map((entry, index) => (
+                <div
+                  className={[
+                    styles.transcriptRow,
+                    hasActiveConversation && index === 0 ? styles.transcriptRowConversationStart : "",
+                    entry.role === "user"
+                      ? styles.transcriptRowUser
+                      : styles.transcriptRowAssistant,
+                  ].join(" ")}
+                  data-transcript-entry-id={entry.id}
+                  key={entry.id}
+                >
+                  <article
+                    className={[
+                      styles.transcriptBubble,
+                      entry.role === "user"
+                        ? styles.transcriptBubbleUser
+                        : styles.transcriptBubbleAssistant,
+                      entry.error ? styles.transcriptBubbleError : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                  >
+                    {entry.attachments?.length ? (
+                      <ChatMessageAttachments attachments={entry.attachments} />
+                    ) : null}
+                    {entry.content.trim() ? <p>{entry.content}</p> : null}
+                  </article>
+                </div>
+              ))
+            )}
 
-      {isMounted && selectedCandidateDetail ? (
-        <EmployerCandidateDetailModal
-          candidate={selectedCandidateDetail}
-          isShortlisted={shortlistedCandidateIds.includes(selectedCandidateDetail.candidateId)}
-          onClose={closeCandidateDetail}
-          onShortlist={handleShortlistCandidate}
-        />
-      ) : null}
+            {isSubmitting ? (
+              <div className={[styles.transcriptRow, styles.transcriptRowAssistant].join(" ")}>
+                <article
+                  className={[styles.transcriptBubble, styles.transcriptBubbleAssistant].join(" ")}
+                >
+                  <div className={styles.transcriptTyping}>
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className={styles.spinner}
+                      size={18}
+                      strokeWidth={2}
+                    />
+                    <span>{content.typingLabel}</span>
+                  </div>
+                </article>
+              </div>
+            ) : null}
+          </div>
+
+          {!isProjectHomeVisible
+            ? renderComposer(
+                content.composerPlaceholder,
+                isLandingState ? styles.composerDockLanding : undefined,
+              )
+            : null}
+        </div>
+      </section>
 
       {isMounted && sidebarDeleteDraft
         ? createPortal(
@@ -4017,14 +2245,10 @@ export function HeroComposer({
                   <h2 className={styles.sidebarDeleteDialogTitle} id={deleteDialogTitleId}>
                     {sidebarDeleteDraft.type === "project" ? "Delete project?" : "Delete chat?"}
                   </h2>
-                  <p
-                    className={styles.sidebarDeleteDialogCopy}
-                    id={deleteDialogDescriptionId}
-                  >
+                  <p className={styles.sidebarDeleteDialogCopy} id={deleteDialogDescriptionId}>
                     {sidebarDeleteDraft.type === "project" ? (
                       <>
-                        This will delete{" "}
-                        <strong>{sidebarDeleteDraft.label}</strong>
+                        This will delete <strong>{sidebarDeleteDraft.label}</strong>
                         {sidebarDeleteDraft.chatCount > 0
                           ? ` and ${sidebarDeleteDraft.chatCount} ${
                               sidebarDeleteDraft.chatCount === 1 ? "chat" : "chats"

@@ -1,8 +1,8 @@
 "use client";
 
-import { Eye, EyeOff, X } from "lucide-react";
+import { ShieldCheck, Sparkles, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
-import { signIn } from "next-auth/react";
+import { getGoogleAuthDisabledMessage } from "@/auth-config";
 import { createPortal } from "react-dom";
 import { GoogleSignInButton } from "./google-sign-in-button";
 import { useGoogleAuthStatus } from "./use-google-auth-status";
@@ -12,6 +12,8 @@ import {
   type Persona,
 } from "@/lib/personas";
 import styles from "./auth-modal.module.css";
+
+const defaultGoogleOAuthDisabledMessage = getGoogleAuthDisabledMessage();
 
 type AuthMode = "signup" | "signin";
 type AuthFormValues = {
@@ -25,6 +27,7 @@ type AuthModalTriggerProps = {
   callbackUrl?: string;
   className?: string;
   defaultMode?: AuthMode;
+  googleOAuthEnabled?: boolean;
   label: string;
 };
 
@@ -51,9 +54,10 @@ function getModeCopy({
     return {
       buttonLabel: "Sign in with Google",
       copy:
-        "Return to your hiring workspace with the password you created for this account, or keep using Google if your workspace was created with Google.",
+        "Return to your hiring workspace to review candidate signals, align your team, and move faster on the right talent.",
       emailActionLabel: "Sign in",
-      formStatus: "Use your password or continue with Google to sign in securely.",
+      formStatus:
+        "Email/password sign-in is not enabled yet. Use Google to continue securely.",
       title: "Sign in to Career AI for Employers",
     };
   }
@@ -73,9 +77,10 @@ function getModeCopy({
   return {
     buttonLabel: "Sign in with Google",
     copy:
-      "Return with the password you created for this account, or keep using Google if your account was created with Google.",
+      "Return to your workspace and pick up your verified profile where you left it.",
     emailActionLabel: "Sign in",
-    formStatus: "Use your password or continue with Google to sign in securely.",
+    formStatus:
+      "Email/password sign-in is not enabled yet. Use Google to continue securely.",
     title: "Sign in to Career AI",
   };
 }
@@ -91,6 +96,7 @@ export function AuthModalTrigger({
   callbackUrl,
   className,
   defaultMode = "signin",
+  googleOAuthEnabled: googleOAuthEnabledOverride,
   label,
 }: AuthModalTriggerProps) {
   const modalRef = useRef<HTMLDivElement>(null);
@@ -98,9 +104,6 @@ export function AuthModalTrigger({
   const [isOpen, setIsOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>(defaultMode);
   const [persona, setPersona] = useState<Persona>("job_seeker");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formValues, setFormValues] = useState<AuthFormValues>(emptyFormValues);
   const [formStatus, setFormStatus] = useState<string | null>(null);
   const passwordsMatch =
@@ -108,20 +111,14 @@ export function AuthModalTrigger({
     formValues.confirmPassword.length === 0 ||
     formValues.password === formValues.confirmPassword;
   const titleId = useId();
+  const { isLoading: isGoogleAuthLoading, status: googleAuthStatus } = useGoogleAuthStatus(
+    isOpen && googleOAuthEnabledOverride === undefined,
+  );
   const modeCopy = getModeCopy({ authMode, persona });
   const authCallbackUrl = getAuthCallbackUrl({
     callbackUrl,
     persona,
   });
-  const { isLoading: isGoogleAuthLoading, status: googleAuthStatus } = useGoogleAuthStatus(isOpen);
-  const googleOAuthEnabled = googleAuthStatus.enabled;
-  const googleSignInDisabled = isGoogleAuthLoading || !googleOAuthEnabled;
-  const googleSignInDisabledLabel = isGoogleAuthLoading
-    ? "Checking Google sign-in..."
-    : "Google sign-in unavailable";
-  const googleOAuthDisabledMessage = isGoogleAuthLoading
-    ? "Checking Google sign-in configuration."
-    : googleAuthStatus.disabledMessage;
 
   useEffect(() => {
     setIsMounted(true);
@@ -156,36 +153,21 @@ export function AuthModalTrigger({
   function openModal() {
     setAuthMode(defaultMode);
     setPersona("job_seeker");
-    setIsSubmitting(false);
-    setShowPassword(false);
-    setShowConfirmPassword(false);
     setFormValues(emptyFormValues);
     setFormStatus(null);
     setIsOpen(true);
   }
 
   function closeModal() {
-    if (isSubmitting) {
-      return;
-    }
-
     setIsOpen(false);
   }
 
   function handleAuthModeChange(nextMode: AuthMode) {
-    if (isSubmitting) {
-      return;
-    }
-
     setAuthMode(nextMode);
     setFormStatus(null);
   }
 
   function handlePersonaChange(nextPersona: Persona) {
-    if (isSubmitting) {
-      return;
-    }
-
     setPersona(nextPersona);
     setFormStatus(null);
   }
@@ -203,7 +185,7 @@ export function AuthModalTrigger({
     };
   }
 
-  async function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
+  function handleFormSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (authMode === "signup" && formValues.password !== formValues.confirmPassword) {
@@ -211,74 +193,24 @@ export function AuthModalTrigger({
       return;
     }
 
-    if (persona === "employer" && authMode === "signup") {
-      setFormStatus(
-        "Email/password sign-up is not enabled yet for employer workspaces. Use Google to continue.",
-      );
-      return;
-    }
-
-    const email = formValues.email.trim().toLowerCase();
-    const password = formValues.password;
-
-    if (!email || !password) {
-      setFormStatus("Please enter your email and password.");
-      return;
-    }
-
-    setFormStatus(null);
-    setIsSubmitting(true);
-
-    try {
-      if (authMode === "signup") {
-        const registerResponse = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: formValues.name.trim(),
-            email,
-            password,
-          }),
-        });
-
-        const registerPayload = (await registerResponse.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-
-        if (!registerResponse.ok) {
-          setFormStatus(
-            registerPayload?.error ??
-              "We could not create your account right now. Please try again.",
-          );
-          return;
-        }
-      }
-
-      const signInResult = await signIn("credentials", {
-        callbackUrl: authCallbackUrl,
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (!signInResult || signInResult.error) {
-        setFormStatus(
-          authMode === "signup"
-            ? "Account created, but we could not sign you in. Please try signing in."
-            : "Invalid email or password. If this account was created with Google, use Google sign-in instead.",
-        );
-        return;
-      }
-
-      window.location.assign(signInResult.url ?? authCallbackUrl);
-    } catch {
-      setFormStatus("Something went wrong. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    setFormStatus(modeCopy.formStatus);
   }
+
+  const googleOAuthEnabled = googleOAuthEnabledOverride ?? googleAuthStatus.enabled;
+  const googleSignInDisabled =
+    googleOAuthEnabledOverride === undefined
+      ? isGoogleAuthLoading || !googleOAuthEnabled
+      : !googleOAuthEnabled;
+  const googleSignInDisabledLabel =
+    googleOAuthEnabledOverride === undefined && isGoogleAuthLoading
+      ? "Checking Google sign-in..."
+      : "Google sign-in unavailable";
+  const googleOAuthDisabledMessage =
+    googleOAuthEnabledOverride === undefined
+      ? isGoogleAuthLoading
+        ? "Checking Google sign-in configuration."
+        : googleAuthStatus.disabledMessage
+      : defaultGoogleOAuthDisabledMessage;
 
   const modal =
     isMounted && isOpen
@@ -317,7 +249,6 @@ export function AuthModalTrigger({
                   <span className={styles.selectorLabel}>Access</span>
                   <div className={styles.modeSwitch}>
                     <button
-                      disabled={isSubmitting}
                       className={authMode === "signup" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handleAuthModeChange("signup")}
                       type="button"
@@ -325,7 +256,6 @@ export function AuthModalTrigger({
                       Sign up
                     </button>
                     <button
-                      disabled={isSubmitting}
                       className={authMode === "signin" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handleAuthModeChange("signin")}
                       type="button"
@@ -339,7 +269,6 @@ export function AuthModalTrigger({
                   <span className={styles.selectorLabel}>Experience</span>
                   <div className={styles.modeSwitch}>
                     <button
-                      disabled={isSubmitting}
                       className={persona === "job_seeker" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handlePersonaChange("job_seeker")}
                       type="button"
@@ -347,7 +276,6 @@ export function AuthModalTrigger({
                       {personaConfigs.job_seeker.shortLabel}
                     </button>
                     <button
-                      disabled={isSubmitting}
                       className={persona === "employer" ? styles.modeButtonActive : styles.modeButton}
                       onClick={() => handlePersonaChange("employer")}
                       type="button"
@@ -394,80 +322,38 @@ export function AuthModalTrigger({
 
                   <label className={styles.field}>
                     <span className={styles.fieldLabel}>Password</span>
-                    <div className={styles.passwordField}>
-                      <input
-                        aria-label="Password"
-                        autoComplete={authMode === "signup" ? "new-password" : "current-password"}
-                        className={`${styles.input} ${styles.passwordInput}`}
-                        name="password"
-                        onChange={handleFieldChange("password")}
-                        placeholder={authMode === "signup" ? "Create a secure password" : "Enter your password"}
-                        required
-                        type={showPassword ? "text" : "password"}
-                        value={formValues.password}
-                      />
-                      <button
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                        className={styles.passwordToggle}
-                        onClick={() => {
-                          setShowPassword((currentValue) => !currentValue);
-                        }}
-                        type="button"
-                      >
-                        {showPassword ? (
-                          <EyeOff aria-hidden="true" size={16} strokeWidth={2} />
-                        ) : (
-                          <Eye aria-hidden="true" size={16} strokeWidth={2} />
-                        )}
-                      </button>
-                    </div>
+                    <input
+                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                      className={styles.input}
+                      name="password"
+                      onChange={handleFieldChange("password")}
+                      placeholder={authMode === "signup" ? "Create a secure password" : "Enter your password"}
+                      required
+                      type="password"
+                      value={formValues.password}
+                    />
                   </label>
 
                   {authMode === "signup" ? (
                     <label className={styles.field}>
                       <span className={styles.fieldLabel}>Confirm password</span>
-                      <div className={styles.passwordField}>
-                        <input
-                          autoComplete="new-password"
-                          aria-invalid={!passwordsMatch}
-                          aria-label="Confirm password"
-                          className={
-                            !passwordsMatch
-                              ? `${styles.input} ${styles.passwordInput} ${styles.inputError}`
-                              : `${styles.input} ${styles.passwordInput}`
-                          }
-                          name="confirmPassword"
-                          onChange={handleFieldChange("confirmPassword")}
-                          placeholder="Re-enter your password"
-                          required
-                          type={showConfirmPassword ? "text" : "password"}
-                          value={formValues.confirmPassword}
-                        />
-                        <button
-                          aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                          className={styles.passwordToggle}
-                          onClick={() => {
-                            setShowConfirmPassword((currentValue) => !currentValue);
-                          }}
-                          type="button"
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff aria-hidden="true" size={16} strokeWidth={2} />
-                          ) : (
-                            <Eye aria-hidden="true" size={16} strokeWidth={2} />
-                          )}
-                        </button>
-                      </div>
+                      <input
+                        autoComplete="new-password"
+                        aria-invalid={!passwordsMatch}
+                        className={!passwordsMatch ? `${styles.input} ${styles.inputError}` : styles.input}
+                        name="confirmPassword"
+                        onChange={handleFieldChange("confirmPassword")}
+                        placeholder="Re-enter your password"
+                        required
+                        type="password"
+                        value={formValues.confirmPassword}
+                      />
                     </label>
                   ) : null}
                 </div>
 
-                <button className={styles.emailAction} disabled={isSubmitting || !passwordsMatch} type="submit">
-                  {isSubmitting
-                    ? authMode === "signup"
-                      ? "Creating account..."
-                      : "Signing in..."
-                    : modeCopy.emailActionLabel}
+                <button className={styles.emailAction} type="submit">
+                  {modeCopy.emailActionLabel}
                 </button>
 
                 {formStatus ? (
@@ -476,6 +362,10 @@ export function AuthModalTrigger({
                   </p>
                 ) : null}
               </form>
+
+              <div className={styles.divider}>
+                <span>Or continue instantly</span>
+              </div>
 
               <div className={styles.actionBlock}>
                 <GoogleSignInButton
@@ -486,6 +376,21 @@ export function AuthModalTrigger({
                   label={modeCopy.buttonLabel}
                   persona={persona}
                 />
+                {googleSignInDisabled ? (
+                  <p className={styles.googleStatusNote} role="status">
+                    {googleOAuthDisabledMessage}
+                  </p>
+                ) : null}
+                <div className={styles.trustRow}>
+                  <div className={styles.trustPill}>
+                    <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+                    Verified Google email only
+                  </div>
+                  <div className={styles.trustPill}>
+                    <Sparkles aria-hidden="true" size={16} strokeWidth={2} />
+                    Protected workspace entry
+                  </div>
+                </div>
               </div>
             </div>
           </div>,

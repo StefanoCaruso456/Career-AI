@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
+import { auth, googleOAuthDisabledMessage, googleOAuthEnabled } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
-import { CredentialsSignInPanel } from "@/components/credentials-sign-in-panel";
-import { GoogleSignInPanel } from "@/components/google-sign-in-panel";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { getPostSignInDestination } from "@/lib/authenticated-workspace";
 import {
   getAuthCallbackUrl,
   personaConfigs,
   resolvePersona,
 } from "@/lib/personas";
-import { resolveAuthenticatedDestination } from "@/packages/onboarding/src";
 import styles from "./page.module.css";
 
 function readQueryValue(value: string | string[] | undefined) {
@@ -39,12 +38,17 @@ export default async function SignInPage({
     persona,
   });
   const session = await auth();
+  const personaConfig = personaConfigs[persona];
+  const title =
+    persona === "employer"
+      ? "Sign in to your Career AI employer workspace"
+      : "Sign in to your Career AI workspace";
+  const copy =
+    persona === "employer"
+      ? "Use Google to verify your email, restore your employer session, and step back into your hiring workspace."
+      : "Use Google to verify your email, restore your session, and step straight into your protected Career AI workspace.";
 
   if (session?.user) {
-    if (persona === "employer") {
-      redirect(callbackUrl);
-    }
-
     const { context } = await ensurePersistentCareerIdentityForSessionUser({
       user: {
         appUserId: session.user.appUserId,
@@ -57,18 +61,13 @@ export default async function SignInPage({
       correlationId: `sign_in_page_${session.user.appUserId ?? session.user.email ?? "unknown"}`,
     });
 
-    redirect(resolveAuthenticatedDestination(context));
+    redirect(
+      getPostSignInDestination({
+        callbackUrl,
+        onboardingStatus: context.onboarding.status,
+      }),
+    );
   }
-
-  const personaConfig = personaConfigs[persona];
-  const title =
-    persona === "employer"
-      ? "Sign in to your Career AI employer workspace"
-      : "Sign in to your Career AI workspace";
-  const copy =
-    persona === "employer"
-      ? "Use the password you created for this workspace, or continue with Google if this employer account was created with Google."
-      : "Use the password you created for this account, or continue with Google if you originally created this account with Google.";
 
   return (
     <main className={styles.page}>
@@ -76,12 +75,29 @@ export default async function SignInPage({
         <div className={styles.eyebrow}>{personaConfig.signInEyebrow}</div>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.copy}>{copy}</p>
-        <div className={styles.authStack}>
-          <CredentialsSignInPanel callbackUrl={callbackUrl} />
-          <div className={styles.divider} aria-hidden="true">
-            <span>or</span>
-          </div>
-          <GoogleSignInPanel callbackUrl={callbackUrl} persona={persona} />
+
+        <GoogleSignInButton
+          callbackUrl={callbackUrl}
+          disabled={!googleOAuthEnabled}
+          disabledLabel="Google sign-in unavailable"
+          disabledTitle={
+            googleOAuthEnabled ? undefined : googleOAuthDisabledMessage
+          }
+          label="Sign in with Google"
+          persona={persona}
+        />
+
+        <div className={styles.noteCard}>
+          <strong>
+            {googleOAuthEnabled
+              ? "Google sign-in runs through our server-side OAuth flow."
+              : "Google sign-in is disabled locally."}
+          </strong>
+          <p>
+            {googleOAuthEnabled
+              ? `After authentication, you will land in ${callbackUrl}.`
+              : `${googleOAuthDisabledMessage} The Google client secret stays on the server.`}
+          </p>
         </div>
       </section>
     </main>

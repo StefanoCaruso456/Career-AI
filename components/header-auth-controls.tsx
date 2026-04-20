@@ -4,21 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
   Settings2,
+  ShieldCheck,
+  UserRound,
 } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { AuthModalTrigger } from "./auth-modal";
+import {
+  getAuthenticatedWorkspaceHref,
+  hasIncompleteOnboarding,
+} from "@/lib/authenticated-workspace";
 import { readPreferredPersona } from "@/lib/persona-preference";
 import {
   defaultPersona,
-  getPostAuthRoute,
+  getPersonaFromRoute,
   personaConfigs,
-  resolveActivePersona,
   type Persona,
 } from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
@@ -46,83 +51,53 @@ function getInitials(name: string | null | undefined, email: string | null | und
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-function getAccountTypeLabel(roleType: string | null | undefined, preferredPersona: Persona) {
-  if (roleType === "candidate") {
-    return "Job seeker";
-  }
-
-  if (roleType === "recruiter") {
-    return "Employer";
-  }
-
-  if (roleType === "hiring_manager") {
-    return "Employer";
-  }
-
-  return personaConfigs[preferredPersona].shortLabel;
-}
-
-export function HeaderAuthControls() {
+export function HeaderAuthControls({
+  googleOAuthEnabled,
+}: {
+  googleOAuthEnabled?: boolean;
+} = {}) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [preferredPersona, setPreferredPersona] = useState<Persona>(defaultPersona);
   const menuRef = useRef<HTMLDivElement>(null);
-  const shouldResumeOnboarding =
-    session?.user?.onboardingStatus !== null &&
-    session?.user?.onboardingStatus !== undefined &&
-    session.user.onboardingStatus !== "completed";
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [preferredPersona, setPreferredPersona] = useState<Persona>(defaultPersona);
 
   useEffect(() => {
-    setMenuOpen(false);
+    setPreferredPersona(getPersonaFromRoute(pathname) ?? readPreferredPersona());
+    setIsMenuOpen(false);
   }, [pathname]);
 
   useEffect(() => {
-    setPreferredPersona(
-      resolveActivePersona({
-        preferredPersona: readPreferredPersona(),
-        roleType: session?.user?.roleType,
-        route: pathname,
-      }),
-    );
-  }, [pathname, session?.user?.roleType]);
-
-  useEffect(() => {
-    if (!menuOpen) {
+    if (!isMenuOpen) {
       return;
     }
 
     function handlePointerDown(event: MouseEvent | TouchEvent) {
       if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
+        setIsMenuOpen(false);
       }
     }
 
-    function handleEscape(event: KeyboardEvent) {
+    function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setMenuOpen(false);
+        setIsMenuOpen(false);
       }
     }
 
     document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("touchstart", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("touchstart", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [menuOpen]);
+  }, [isMenuOpen]);
 
   if (status === "loading") {
     return (
       <div className={styles.actions}>
-        <AuthModalTrigger
-          className={styles.betaAction}
-          defaultMode="signup"
-          label="Beta"
-        />
         <span className={`${styles.ghostAction} ${styles.loadingAction}`}>
           <LoaderCircle className={styles.inlineSpinner} size={16} strokeWidth={2} />
           Checking session
@@ -135,13 +110,9 @@ export function HeaderAuthControls() {
     return (
       <div className={styles.actions}>
         <AuthModalTrigger
-          className={styles.betaAction}
-          defaultMode="signup"
-          label="Beta"
-        />
-        <AuthModalTrigger
           className={styles.primaryAction}
           defaultMode="signup"
+          googleOAuthEnabled={googleOAuthEnabled}
           label="Getting Started"
         />
       </div>
@@ -150,123 +121,135 @@ export function HeaderAuthControls() {
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
-  const workspaceHref = getPostAuthRoute(preferredPersona);
-  const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
-  const accountLabel = displayName;
-  const accountMeta = accountTypeLabel;
-  const isCareerWorkspaceRoute = pathname === "/account" || pathname.startsWith("/account/");
-  const showWorkspaceShortcuts =
-    shouldResumeOnboarding || !(preferredPersona === "job_seeker" && isCareerWorkspaceRoute);
-  const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
-  const isPrimaryMenuPage =
-    primaryMenuHref === "/onboarding"
-      ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
-      : pathname === primaryMenuHref || pathname.startsWith(`${primaryMenuHref}/`);
-  const primaryMenuLabel = shouldResumeOnboarding
-    ? "Finish onboarding"
+  const shouldResumeOnboarding = hasIncompleteOnboarding(session.user.onboardingStatus);
+  const workspaceHref = getAuthenticatedWorkspaceHref({
+    onboardingStatus: session.user.onboardingStatus,
+    persona: preferredPersona,
+  });
+  const workspaceLabel = shouldResumeOnboarding
+    ? `${personaConfigs[preferredPersona].shortLabel} setup`
     : personaConfigs[preferredPersona].workspaceLabel;
+  const accountTypeLabel = personaConfigs[preferredPersona].shortLabel;
+  const accountTypeDescription = shouldResumeOnboarding
+    ? session.user.currentStep
+      ? `Finish step ${session.user.currentStep} of 4 to unlock the full ${personaConfigs[preferredPersona].workspaceLabel.toLowerCase()}.`
+      : `Finish onboarding to unlock the full ${personaConfigs[preferredPersona].workspaceLabel.toLowerCase()}.`
+    : personaConfigs[preferredPersona].description;
 
   return (
     <div className={styles.actions}>
-      <Link className={styles.betaAction} href={primaryMenuHref}>
-        Beta
-      </Link>
-
-      <div className={styles.settingsMenu} ref={menuRef}>
+      <div className={styles.accountMenuShell} ref={menuRef}>
         <button
-          aria-expanded={menuOpen}
+          aria-expanded={isMenuOpen}
           aria-haspopup="menu"
-          className={
-            menuOpen
-              ? `${styles.settingsTrigger} ${styles.settingsTriggerOpen}`
-              : styles.settingsTrigger
-          }
+          className={[styles.accountAction, isMenuOpen ? styles.accountActionOpen : ""]
+            .filter(Boolean)
+            .join(" ")}
           onClick={() => {
-            setMenuOpen((open) => !open);
+            setIsMenuOpen((currentValue) => !currentValue);
           }}
           type="button"
         >
-          <span className={styles.accountAvatar} aria-hidden="true">
+          <span aria-hidden="true" className={styles.accountAvatar}>
             {initials}
           </span>
-          <span className={styles.settingsCopy}>
-            <strong>{accountLabel}</strong>
-            <small>{accountMeta}</small>
+          <span className={styles.accountCopy}>
+            <strong>Settings</strong>
+            <small>{displayName}</small>
           </span>
-          <span className={styles.settingsIcons} aria-hidden="true">
-            <Settings2 size={16} strokeWidth={2} />
-            <ChevronDown
-              className={menuOpen ? styles.settingsCaretOpen : undefined}
-              size={16}
-              strokeWidth={2}
+          <Settings2
+            aria-hidden="true"
+            className={styles.accountActionIcon}
+            size={16}
+            strokeWidth={2}
+          />
+          {isMenuOpen ? (
+            <ChevronUp
+              aria-hidden="true"
+              className={styles.accountActionIcon}
+              size={18}
+              strokeWidth={2.1}
             />
-          </span>
+          ) : (
+            <ChevronDown
+              aria-hidden="true"
+              className={styles.accountActionIcon}
+              size={18}
+              strokeWidth={2.1}
+            />
+          )}
         </button>
 
-        {menuOpen ? (
-          <div className={styles.settingsPanel} role="menu">
-            <div className={styles.settingsPanelProfile}>
-              <div className={styles.settingsPanelIdentity}>
-                <span className={styles.settingsPanelAvatar} aria-hidden="true">
+        {isMenuOpen ? (
+          <div className={styles.accountMenu} role="menu">
+            <div className={styles.accountMenuProfile}>
+              <div className={styles.accountMenuIdentity}>
+                <span aria-hidden="true" className={styles.accountMenuAvatar}>
                   {initials}
                 </span>
-                <div className={styles.settingsPanelIdentityCopy}>
+                <div className={styles.accountMenuCopyBlock}>
                   <strong>{displayName}</strong>
                   <span>{session.user.email ?? "Google account email unavailable"}</span>
                 </div>
               </div>
-              <span className={styles.settingsPanelBadge}>{accountTypeLabel}</span>
+              <span className={styles.accountMenuBadge}>{accountTypeLabel}</span>
+              <p className={styles.accountMenuDescription}>{accountTypeDescription}</p>
             </div>
 
-            {showWorkspaceShortcuts ? (
-              <>
-                <div className={styles.settingsPanelDivider} />
+            <div className={styles.accountMenuDivider} />
 
-                <Link
-                  aria-current={isPrimaryMenuPage ? "page" : undefined}
-                  className={
-                    isPrimaryMenuPage
-                      ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
-                      : styles.settingsItem
-                  }
-                  href={primaryMenuHref}
-                  onClick={() => {
-                    setMenuOpen(false);
-                  }}
-                  role="menuitem"
-                >
-                  <span className={styles.settingsItemLead}>
-                    <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
-                    <span className={styles.settingsItemCopy}>
-                      <strong>{primaryMenuLabel}</strong>
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className={styles.settingsItemArrow}
-                    size={16}
-                    strokeWidth={2}
-                  />
-                </Link>
-              </>
-            ) : null}
+            <Link
+              className={styles.accountMenuAction}
+              href="/settings"
+              onClick={() => {
+                setIsMenuOpen(false);
+              }}
+              role="menuitem"
+            >
+              <UserRound aria-hidden="true" size={18} strokeWidth={2} />
+              <span className={styles.accountMenuActionCopy}>
+                <strong>Profile & account</strong>
+                <small>Review your name, email, security method, and account type.</small>
+              </span>
+            </Link>
 
-            <div className={styles.settingsPanelDivider} />
+            <Link
+              className={styles.accountMenuAction}
+              href={workspaceHref}
+              onClick={() => {
+                setIsMenuOpen(false);
+              }}
+              role="menuitem"
+            >
+              <LayoutDashboard aria-hidden="true" size={18} strokeWidth={2} />
+              <span className={styles.accountMenuActionCopy}>
+                <strong>{shouldResumeOnboarding ? "Finish onboarding" : "Open workspace"}</strong>
+                <small>
+                  {shouldResumeOnboarding
+                    ? "Return to onboarding and complete your remaining setup steps."
+                    : `Return to the ${workspaceLabel.toLowerCase()} you selected for this account.`}
+                </small>
+              </span>
+            </Link>
+
+            <div className={styles.accountMenuHint}>
+              <ShieldCheck aria-hidden="true" size={16} strokeWidth={2} />
+              <span>Google manages the verified email and password for this account today.</span>
+            </div>
 
             <button
-              className={`${styles.settingsItem} ${styles.settingsItemDanger}`}
+              className={`${styles.accountMenuAction} ${styles.accountMenuDanger}`}
               onClick={() => {
-                setMenuOpen(false);
+                setIsMenuOpen(false);
                 void signOut({ callbackUrl: "/" });
               }}
               role="menuitem"
               type="button"
             >
-              <span className={styles.settingsItemLead}>
-                <LogOut aria-hidden="true" size={16} strokeWidth={2} />
-                <span className={styles.settingsItemCopy}>
-                  <strong>Sign out</strong>
-                </span>
+              <LogOut aria-hidden="true" size={18} strokeWidth={2} />
+              <span className={styles.accountMenuActionCopy}>
+                <strong>Sign out</strong>
+                <small>End this session and return to the public Career AI homepage.</small>
               </span>
             </button>
           </div>

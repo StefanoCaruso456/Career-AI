@@ -2,14 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AuthModalTrigger } from "@/components/auth-modal";
 
-vi.mock("@/components/use-google-auth-status", () => ({
-  useGoogleAuthStatus: () => ({
-    isLoading: false,
-    status: {
-      disabledMessage: "Google auth is disabled.",
-      enabled: true,
-    },
-  }),
+vi.mock("@/auth", () => ({
+  googleOAuthDisabledMessage: "Google auth is disabled.",
 }));
 
 vi.mock("@/components/google-sign-in-button", () => ({
@@ -33,6 +27,7 @@ describe("AuthModalTrigger", () => {
     render(
       <AuthModalTrigger
         defaultMode="signup"
+        googleOAuthEnabled
         label="Get started"
       />,
     );
@@ -57,20 +52,5 @@ describe("AuthModalTrigger", () => {
 
     expect(screen.getByRole("heading", { name: "Sign in to Career AI for Employers" })).toBeInTheDocument();
     expect(screen.getByTestId("google-button")).toHaveAttribute("data-callback-url", "/employer");
-  });
-
-  it("lets people toggle password visibility in the form", () => {
-    render(<AuthModalTrigger defaultMode="signin" label="Open auth" />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Open auth" }));
-
-    const passwordInput = screen.getByLabelText("Password");
-    expect(passwordInput).toHaveAttribute("type", "password");
-
-    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
-    expect(passwordInput).toHaveAttribute("type", "text");
-
-    fireEvent.click(screen.getByRole("button", { name: "Hide password" }));
-    expect(passwordInput).toHaveAttribute("type", "password");
   });
 });

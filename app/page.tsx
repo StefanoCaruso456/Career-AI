@@ -1,5 +1,5 @@
-import { JobSeekerHomeShell } from "@/components/job-seeker/job-seeker-home-shell";
+import { ChatHomeShell } from "@/components/chat-home-shell";
 
 export default function HomePage() {
-  return <JobSeekerHomeShell />;
+  return <ChatHomeShell persona="job_seeker" />;
 }
