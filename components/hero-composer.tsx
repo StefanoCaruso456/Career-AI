@@ -2258,6 +2258,20 @@ export function HeroComposer({
               )
             : null}
         </div>
+
+        {isLandingState ? (
+          <div
+            aria-hidden="true"
+            className={styles.landingScrollHintCluster}
+          >
+            <div className={styles.landingScrollHint} data-testid="landing-scroll-hint">
+              <ChevronDown aria-hidden="true" size={15} strokeWidth={2.2} />
+            </div>
+            <div className={styles.landingScrollHint} data-testid="landing-scroll-hint">
+              <ChevronDown aria-hidden="true" size={15} strokeWidth={2.2} />
+            </div>
+          </div>
+        ) : null}
       </section>
 
       {isMounted && sidebarDeleteDraft

@@ -532,6 +532,12 @@ describe("HeroComposer", () => {
     expect(screen.getAllByTestId("starter-rail-hint")).toHaveLength(2);
   });
 
+  it("renders decorative bottom scroll hints on the landing state", () => {
+    render(<HeroComposer />);
+
+    expect(screen.getAllByTestId("landing-scroll-hint")).toHaveLength(2);
+  });
+
   it("recenters the starter rail during direct scrolling so the loop never hard-stops", async () => {
     const workspace = createWorkspaceSnapshot([createProject("project_jobs", "Verified profile")]);
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
