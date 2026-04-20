@@ -112,26 +112,6 @@ export type TrustExplainerContent = {
   trustLine: string;
 };
 
-export type ScrollStoryContent = {
-  cta: {
-    href: string;
-    label: string;
-  };
-  eyebrow: string;
-  intro: string;
-  secondaryCta: {
-    href: string;
-    label: string;
-  };
-  steps: Array<{
-    body: string;
-    id: string;
-    label: string;
-    title: string;
-  }>;
-  title: string;
-};
-
 export type LandingContent = {
   footerColumns: LandingFooterColumn[];
   footerCtaLabel: string;
@@ -160,7 +140,6 @@ export type LandingContent = {
   solutionHeading: string;
   solutionSubheading: string;
   solutions: LandingSolution[];
-  scrollStory?: ScrollStoryContent;
   stories: LandingStoryCard[];
   storyCopy: string;
   storyEyebrow: string;
@@ -526,7 +505,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       ],
       typingLabel: "Thinking through your next move...",
     },
-    heroTitle: "Get hired faster\nwith trusted proof you can reuse everywhere.",
+    heroTitle: "Get hired faster\nA secure career identity platform",
     introPrimaryCta: "Explore the platform",
     introRailEyebrow: "How Career AI works",
     introRailItems: [
@@ -547,12 +526,12 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "Career AI helps candidates prove credibility faster and helps recruiters review what is actually verified, not just what is claimed.",
     introSecondaryCta: "See recruiter experiences",
     introTitleLines: [
-      { text: "Bring" },
-      { text: "your proof" },
-      { text: "together so" },
-      { highlight: true, text: "recruiters" },
-      { highlight: true, text: "can trust" },
-      { highlight: true, text: "it faster." },
+      { text: "Identity" },
+      { text: "infrastructure" },
+      { text: "to" },
+      { highlight: true, text: "grow" },
+      { highlight: true, text: "hiring" },
+      { highlight: true, text: "trust." },
     ],
     metrics: [
       {
@@ -581,55 +560,11 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       "Endorsements",
       {
         label: "Agent QR",
-        note: "coming soon…",
+        note: "coming soon..",
       },
       "Audit trail",
     ],
-    scrollStory: {
-      eyebrow: "Scroll story",
-      intro:
-        "This is the simplest version of the pitch: collect your career proof once, verify what matters, share the recruiter-safe view, then let the agent move faster with real context.",
-      steps: [
-        {
-          body:
-            "Offer letters, diplomas, certifications, references, and work history stop living in scattered tabs, inboxes, and screenshots.",
-          id: "collect",
-          label: "Collect",
-          title: "Start with the career proof you already have.",
-        },
-        {
-          body:
-            "Every claim stays attached to evidence, provenance, and status so the profile gets stronger without creating duplicate versions of the same story.",
-          id: "verify",
-          label: "Verify",
-          title: "Turn documents into evidence-backed trust.",
-        },
-        {
-          body:
-            "Career AI projects a clean trust profile that shows what is verified and only what you chose to share with employers.",
-          id: "share",
-          label: "Share",
-          title: "Give recruiters a readable view instead of raw document chaos.",
-        },
-        {
-          body:
-            "When the agent knows what is actually true, it can search, apply, and follow up with stronger signal and less guesswork.",
-          id: "move",
-          label: "Move",
-          title: "Use verified context to move through hiring faster.",
-        },
-      ],
-      title: "From scattered proof to a Career ID you can reuse anywhere.",
-      cta: {
-        href: "/agent-build",
-        label: "Build Career ID",
-      },
-      secondaryCta: {
-        href: "#solutions",
-        label: "See Trust Workflows",
-      },
-    },
-    sectionEyebrow: "How the trust loop works",
+    sectionEyebrow: "Trust infrastructure for hiring",
     solutionHeading: "Flexible trust workflows for every hiring model.",
     solutionSubheading:
       "Grow candidate confidence and recruiter clarity with modular identity, verification, and sharing surfaces.",
@@ -720,9 +655,9 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       },
     ],
     storyCopy:
-      "Launch-partner examples will replace these placeholders as they go live. For now, the scroll story above is the clearest look at how the trust loop works end to end.",
-    storyEyebrow: "Launch stories",
-    storyTitle: "Real partner examples will appear here as Career AI rolls out.",
+      "From recruiter ops teams to hiring managers and candidate experience leaders, the platform turns fragmented proof into a reusable trust layer.",
+    storyEyebrow: "Customer stories",
+    storyTitle: "Build a hiring trust foundation that enables faster, cleaner decisions.",
     trustExplainer: {
       ...sharedTrustExplainerContent,
       cta: {

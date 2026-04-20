@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-shell-content";
 import { ChatHomeHero } from "./chat-home-hero";
-import { ScrollStorySection } from "./scroll-story-section";
+import { HomepageChapterRail } from "./homepage-chapter-rail";
+import { ScrollReveal } from "./scroll-reveal";
 import { TrustExplainerSection } from "./trust-explainer-section";
 import styles from "./chat-home-shell.module.css";
 import type { Persona } from "@/lib/personas";
@@ -422,6 +423,34 @@ export function ChatHomeShell({
   embeddedInWorkspaceShell?: boolean;
   persona?: Persona;
 }) {
+  const chapters = [
+    {
+      id: "platform",
+      label: "Platform",
+      summary: content.introRailLead,
+    },
+    {
+      id: "stories",
+      label: "Stories",
+      summary: content.storyCopy,
+    },
+    {
+      id: "solutions",
+      label: "Solutions",
+      summary: content.solutionSubheading,
+    },
+    {
+      id: "metrics",
+      label: "Metrics",
+      summary: content.metricsTitle,
+    },
+    {
+      id: "trust",
+      label: "Trust",
+      summary: content.trustExplainer.trustLine,
+    },
+  ];
+
   return (
     <div className={styles.page}>
       <ChatHomeHero
@@ -431,172 +460,231 @@ export function ChatHomeShell({
         persona={persona}
       />
 
-      {content.scrollStory ? <ScrollStorySection content={content.scrollStory} /> : null}
+      <div className={styles.narrativeShell}>
+        <HomepageChapterRail chapters={chapters} />
 
-      <section className={styles.introSection} id="platform">
-        <div className={[styles.sectionShell, styles.introShell].join(" ")}>
-          <div aria-hidden="true" className={styles.introMotionField}>
-            <div className={styles.introOrbitalGlow} />
-            <div className={styles.introRibbonPrimary} />
-            <div className={styles.introRibbonSecondary} />
-            <div className={styles.introRibbonMesh} />
-            <div className={styles.introRibbonSpine} />
-          </div>
-
-          <div className={styles.introGrid}>
-            <div className={styles.introLead}>
-              <span className={styles.sectionEyebrow}>{content.sectionEyebrow}</span>
-              <IntroSectionTitle lines={content.introTitleLines} />
-              <div className={styles.ctaRow}>
-                <Link className={styles.primaryCta} href="#solutions">
-                  {content.introPrimaryCta}
-                  <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
-                </Link>
-                <Link className={styles.secondaryCta} href="#stories">
-                  {content.introSecondaryCta}
-                </Link>
-              </div>
+        <section className={styles.introSection} id="platform">
+          <div className={[styles.sectionShell, styles.introShell].join(" ")}>
+            <div aria-hidden="true" className={styles.introMotionField}>
+              <div className={styles.introOrbitalGlow} />
+              <div className={styles.introRibbonPrimary} />
+              <div className={styles.introRibbonSecondary} />
+              <div className={styles.introRibbonMesh} />
+              <div className={styles.introRibbonSpine} />
             </div>
 
-            <div className={styles.introRail}>
-              <span className={styles.introRailEyebrow}>{content.introRailEyebrow}</span>
-              <p className={styles.introRailLead}>{content.introRailLead}</p>
-              <ul className={styles.introRailList}>
-                {content.introRailItems.map((item) => (
-                  <li className={styles.introRailItem} key={item.label}>
-                    <strong>{item.label}</strong>
-                    <span>{item.copy}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className={styles.proofBand}>
-            {content.proofSurfaces.map((surface) => (
-              <span
-                className={styles.proofWordmark}
-                key={typeof surface === "string" ? surface : surface.label}
-              >
-                <span>{typeof surface === "string" ? surface : surface.label}</span>
-                {typeof surface === "string" || !surface.note ? null : (
-                  <span className={styles.proofWordmarkNote}>{surface.note}</span>
-                )}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.storySection} id="stories">
-        <div className={styles.sectionShell}>
-          <div className={styles.storyHeader}>
-            <div>
-              <span className={styles.sectionEyebrow}>{content.storyEyebrow}</span>
-              <h2 className={styles.storyTitle}>{content.storyTitle}</h2>
-            </div>
-
-            <p className={styles.storyCopy}>{content.storyCopy}</p>
-          </div>
-
-          <div className={styles.storyGrid}>
-            {content.stories.map((story, index) => (
-              <article className={styles.storyCard} key={`${story.company}-${story.theme}-${index}`}>
-                <StoryVisual theme={story.theme} />
-                <div className={styles.storyMeta}>
-                  <strong>{story.company}</strong>
-                  <h3>{story.title}</h3>
-                  <p>{story.copy}</p>
-                  {story.comingSoon ? (
-                    <span className={styles.inlineSoon}>{story.cta}</span>
-                  ) : (
-                    <Link className={styles.inlineLink} href="#footer">
-                      {story.cta}
+            <div className={styles.introGrid}>
+              <ScrollReveal className={styles.motionBlock} once y={36}>
+                <div className={styles.introLead}>
+                  <span className={styles.sectionEyebrow}>{content.sectionEyebrow}</span>
+                  <IntroSectionTitle lines={content.introTitleLines} />
+                  <div className={styles.ctaRow}>
+                    <Link className={styles.primaryCta} href="#solutions">
+                      {content.introPrimaryCta}
                       <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
                     </Link>
-                  )}
+                    <Link className={styles.secondaryCta} href="#stories">
+                      {content.introSecondaryCta}
+                    </Link>
+                  </div>
                 </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+              </ScrollReveal>
 
-      <section className={styles.solutionsSection} id="solutions">
-        <div className={styles.sectionShell}>
-          <div className={styles.solutionHeader}>
-            <h2 className={styles.solutionHeading}>
-              {content.solutionHeading}
-              <span>{content.solutionSubheading}</span>
-            </h2>
-          </div>
-
-          <div className={styles.solutionGrid}>
-            {content.solutions.map((solution) => (
-              <SolutionCard key={solution.title} {...solution} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.metricsSection} id="metrics">
-        <div className={styles.sectionShell}>
-          <div className={styles.metricsHeader}>
-            <span className={styles.metricsEyebrow}>{content.metricsEyebrow}</span>
-            <h2 className={styles.metricsTitle}>{content.metricsTitle}</h2>
-          </div>
-
-          <div className={styles.metricGrid}>
-            {content.metrics.map((metric) => (
-              <article className={styles.metricCard} key={metric.label}>
-                <p className={styles.metricValue}>{metric.value}</p>
-                <p className={styles.metricLabel}>{metric.label}</p>
-              </article>
-            ))}
-          </div>
-
-          <div className={styles.metricsBurst}>
-            <div className={styles.metricsGlow} />
-          </div>
-        </div>
-      </section>
-
-      <TrustExplainerSection content={content.trustExplainer} />
-
-      <footer className={styles.footer} id="footer">
-        <div className={styles.sectionShell}>
-          <div className={styles.footerHeader}>
-            <div>
-              <span className={styles.sectionEyebrow}>{content.footerEyebrow}</span>
-              <h2 className={styles.footerTitle}>{content.footerTitle}</h2>
+              <ScrollReveal className={styles.motionBlock} delay={0.08} once x={24} y={18}>
+                <div className={styles.introRail}>
+                  <span className={styles.introRailEyebrow}>{content.introRailEyebrow}</span>
+                  <p className={styles.introRailLead}>{content.introRailLead}</p>
+                  <ul className={styles.introRailList}>
+                    {content.introRailItems.map((item) => (
+                      <li className={styles.introRailItem} key={item.label}>
+                        <strong>{item.label}</strong>
+                        <span>{item.copy}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </ScrollReveal>
             </div>
-            <Link className={styles.primaryCta} href="#platform">
-              {content.footerCtaLabel}
-              <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
-            </Link>
-          </div>
 
-          <div className={styles.footerGrid}>
-            {content.footerColumns.map((column) => (
-              <div className={styles.footerColumn} key={column.title}>
-                <h3>{column.title}</h3>
-                <ul>
-                  {column.links.map((link) => (
-                    <li key={link}>
-                      <Link href="#platform">{link}</Link>
-                    </li>
-                  ))}
-                </ul>
+            <div className={styles.proofBand}>
+              {content.proofSurfaces.map((surface, index) => (
+                <ScrollReveal
+                  className={styles.proofWordmarkItem}
+                  delay={0.05 * index}
+                  key={typeof surface === "string" ? surface : surface.label}
+                  once
+                  y={18}
+                >
+                  <span className={styles.proofWordmark}>
+                    <span>{typeof surface === "string" ? surface : surface.label}</span>
+                    {typeof surface === "string" || !surface.note ? null : (
+                      <span className={styles.proofWordmarkNote}>{surface.note}</span>
+                    )}
+                  </span>
+                </ScrollReveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.storySection} id="stories">
+          <div className={styles.sectionShell}>
+            <div className={styles.storyHeader}>
+              <ScrollReveal className={styles.motionBlock} once y={28}>
+                <div>
+                  <span className={styles.sectionEyebrow}>{content.storyEyebrow}</span>
+                  <h2 className={styles.storyTitle}>{content.storyTitle}</h2>
+                </div>
+              </ScrollReveal>
+
+              <ScrollReveal className={styles.motionBlock} delay={0.08} once x={18} y={20}>
+                <p className={styles.storyCopy}>{content.storyCopy}</p>
+              </ScrollReveal>
+            </div>
+
+            <div className={styles.storyGrid}>
+              {content.stories.map((story, index) => (
+                <ScrollReveal
+                  className={styles.motionBlock}
+                  delay={0.05 * index}
+                  key={`${story.company}-${story.theme}-${index}`}
+                  once
+                  y={26}
+                >
+                  <article className={styles.storyCard}>
+                    <StoryVisual theme={story.theme} />
+                    <div className={styles.storyMeta}>
+                      <strong>{story.company}</strong>
+                      <h3>{story.title}</h3>
+                      <p>{story.copy}</p>
+                      {story.comingSoon ? (
+                        <span className={styles.inlineSoon}>{story.cta}</span>
+                      ) : (
+                        <Link className={styles.inlineLink} href="#footer">
+                          {story.cta}
+                          <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+                        </Link>
+                      )}
+                    </div>
+                  </article>
+                </ScrollReveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.solutionsSection} id="solutions">
+          <div className={styles.sectionShell}>
+            <ScrollReveal className={styles.motionBlock} once y={30}>
+              <div className={styles.solutionHeader}>
+                <h2 className={styles.solutionHeading}>
+                  {content.solutionHeading}
+                  <span>{content.solutionSubheading}</span>
+                </h2>
               </div>
-            ))}
-          </div>
+            </ScrollReveal>
 
-          <div className={styles.footerBottom}>
-            <span>Career AI</span>
-            <span>{content.footerTagline}</span>
+            <div className={styles.solutionGrid}>
+              {content.solutions.map((solution, index) => (
+                <ScrollReveal
+                  className={styles.motionBlock}
+                  delay={0.04 * index}
+                  key={solution.title}
+                  once
+                  y={30}
+                >
+                  <SolutionCard {...solution} />
+                </ScrollReveal>
+              ))}
+            </div>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        <section className={styles.metricsSection} id="metrics">
+          <div className={styles.sectionShell}>
+            <ScrollReveal className={styles.motionBlock} once y={28}>
+              <div className={styles.metricsHeader}>
+                <span className={styles.metricsEyebrow}>{content.metricsEyebrow}</span>
+                <h2 className={styles.metricsTitle}>{content.metricsTitle}</h2>
+              </div>
+            </ScrollReveal>
+
+            <div className={styles.metricGrid}>
+              {content.metrics.map((metric, index) => (
+                <article className={styles.metricCard} key={metric.label}>
+                  <ScrollReveal
+                    className={styles.motionBlock}
+                    delay={0.05 * index}
+                    once
+                    y={24}
+                  >
+                    <p className={styles.metricValue}>{metric.value}</p>
+                    <p className={styles.metricLabel}>{metric.label}</p>
+                  </ScrollReveal>
+                </article>
+              ))}
+            </div>
+
+            <div className={styles.metricsBurst}>
+              <div className={styles.metricsGlow} />
+            </div>
+          </div>
+        </section>
+
+        <ScrollReveal className={styles.motionBlock} once y={36}>
+          <TrustExplainerSection content={content.trustExplainer} />
+        </ScrollReveal>
+
+        <footer className={styles.footer} id="footer">
+          <div className={styles.sectionShell}>
+            <div className={styles.footerHeader}>
+              <ScrollReveal className={styles.motionBlock} once y={28}>
+                <div>
+                  <span className={styles.sectionEyebrow}>{content.footerEyebrow}</span>
+                  <h2 className={styles.footerTitle}>{content.footerTitle}</h2>
+                </div>
+              </ScrollReveal>
+
+              <ScrollReveal className={styles.motionBlock} delay={0.06} once x={18} y={18}>
+                <Link className={styles.primaryCta} href="#platform">
+                  {content.footerCtaLabel}
+                  <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+                </Link>
+              </ScrollReveal>
+            </div>
+
+            <div className={styles.footerGrid}>
+              {content.footerColumns.map((column, index) => (
+                <ScrollReveal
+                  className={styles.motionBlock}
+                  delay={0.04 * index}
+                  key={column.title}
+                  once
+                  y={24}
+                >
+                  <div className={styles.footerColumn}>
+                    <h3>{column.title}</h3>
+                    <ul>
+                      {column.links.map((link) => (
+                        <li key={link}>
+                          <Link href="#platform">{link}</Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </ScrollReveal>
+              ))}
+            </div>
+
+            <ScrollReveal className={styles.motionBlock} delay={0.08} once y={20}>
+              <div className={styles.footerBottom}>
+                <span>Career AI</span>
+                <span>{content.footerTagline}</span>
+              </div>
+            </ScrollReveal>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

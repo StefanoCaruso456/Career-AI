@@ -24,6 +24,14 @@
   color: var(--text-primary);
 }
 
+.narrativeShell {
+  position: relative;
+}
+
+.motionBlock {
+  min-width: 0;
+}
+
 .sectionShell {
   width: min(1180px, calc(100% - 2rem));
   margin: 0 auto;
@@ -2212,6 +2220,7 @@
 .footer {
   position: relative;
   padding: 4.75rem 0;
+  scroll-margin-top: calc(var(--site-header-clearance) + 1.35rem);
 }
 
 .introSection {
@@ -2230,6 +2239,16 @@
     var(--surface-strong);
   box-shadow:
     0 30px 80px rgba(18, 31, 53, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.84);
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.introShell:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 34px 94px rgba(18, 31, 53, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.84);
 }
 
@@ -2511,6 +2530,13 @@
   display: grid;
   gap: 0.3rem;
   padding-left: 1rem;
+  transition:
+    transform 220ms ease,
+    opacity 220ms ease;
+}
+
+.introRailItem:hover {
+  transform: translateX(4px);
 }
 
 .introRailItem::before {
@@ -2545,6 +2571,12 @@
   border-top: 1px solid rgba(24, 35, 58, 0.08);
 }
 
+.proofWordmarkItem {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
 .proofWordmark {
   display: inline-flex;
   align-items: baseline;
@@ -2556,6 +2588,14 @@
   font-weight: 700;
   letter-spacing: -0.04em;
   text-align: center;
+  transition:
+    transform 220ms ease,
+    color 220ms ease;
+}
+
+.proofWordmark:hover {
+  transform: translateY(-2px);
+  color: var(--accent);
 }
 
 .proofWordmarkNote {
@@ -2590,11 +2630,23 @@
   border: 1px solid var(--surface-line);
   background: var(--surface-strong);
   box-shadow: 0 28px 70px rgba(18, 31, 53, 0.08);
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+
+.storyCard:hover,
+.solutionCard:hover {
+  transform: translateY(-6px);
+  border-color: rgba(24, 35, 58, 0.12);
+  box-shadow: 0 34px 84px rgba(18, 31, 53, 0.12);
 }
 
 .storyVisual {
   position: relative;
   aspect-ratio: 0.9;
+  transition: transform 280ms ease;
 }
 
 .storyMark {
@@ -2606,6 +2658,18 @@
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
   opacity: 0.7;
+  transition:
+    transform 240ms ease,
+    opacity 240ms ease;
+}
+
+.storyCard:hover .storyVisual {
+  transform: scale(1.02);
+}
+
+.storyCard:hover .storyMark {
+  transform: scaleX(1.04);
+  opacity: 1;
 }
 
 .storyAura {
@@ -2783,6 +2847,14 @@
   border-radius: 0.8rem;
   background: rgba(99, 91, 255, 0.08);
   color: var(--accent);
+  transition:
+    transform 220ms ease,
+    background 220ms ease;
+}
+
+.solutionCard:hover .solutionIcon {
+  transform: translateY(-2px);
+  background: rgba(99, 91, 255, 0.14);
 }
 
 .solutionTitle {
@@ -2811,6 +2883,18 @@
   background:
     linear-gradient(180deg, transparent 0%, rgba(255, 182, 127, 0.12) 60%, rgba(138, 99, 255, 0.22) 100%);
   border-radius: 1.35rem;
+  transition:
+    transform 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.solutionCard:hover .visualShell,
+.solutionCard:hover .shareVisual,
+.solutionCard:hover .endorsementVisual,
+.solutionCard:hover .identityVisual,
+.solutionCard:hover .globalVisual,
+.solutionCard:hover .embedVisual {
+  transform: translateY(-2px);
 }
 
 .mobileProof {
@@ -2960,6 +3044,9 @@
   min-height: 18rem;
   border-radius: 1.35rem;
   overflow: hidden;
+  transition:
+    transform 260ms ease,
+    box-shadow 260ms ease;
 }
 
 .shareVisual {
@@ -3230,6 +3317,7 @@
     linear-gradient(180deg, #23296f 0%, #4c45c7 100%);
   color: #ffffff;
   overflow: hidden;
+  scroll-margin-top: calc(var(--site-header-clearance) + 1.35rem);
 }
 
 .metricsHeader {
@@ -3262,10 +3350,18 @@
   padding: 1.7rem 1.25rem 1.9rem;
   min-height: 11rem;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  transition:
+    transform 220ms ease,
+    background 220ms ease;
 }
 
 .metricCard:last-child {
   border-right: 0;
+}
+
+.metricCard:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .metricValue {
@@ -3299,6 +3395,7 @@
   border-radius: 50%;
   background:
     radial-gradient(circle at center, rgba(255, 255, 255, 0.92) 0%, rgba(211, 205, 255, 0.58) 18%, rgba(143, 124, 255, 0.2) 36%, transparent 70%);
+  animation: metricsGlowPulse 12s ease-in-out infinite alternate;
 }
 
 .metricsGlow::before {
@@ -3352,6 +3449,16 @@
 
 .footerColumn a {
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  transition:
+    transform 180ms ease,
+    color 180ms ease;
+}
+
+.footerColumn a:hover {
+  transform: translateX(3px);
+  color: var(--text-primary);
 }
 
 .footerBottom {
@@ -3375,6 +3482,18 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes metricsGlowPulse {
+  from {
+    transform: translateX(-50%) scale(0.97);
+    opacity: 0.92;
+  }
+
+  to {
+    transform: translateX(-50%) scale(1.03);
+    opacity: 1;
   }
 }
 
@@ -3930,15 +4049,55 @@
     animation: none;
   }
 
+  .introShell,
+  .introRailItem,
+  .proofWordmark,
+  .storyCard,
+  .storyVisual,
+  .storyMark,
+  .solutionCard,
+  .solutionIcon,
+  .visualShell,
+  .shareVisual,
+  .endorsementVisual,
+  .identityVisual,
+  .globalVisual,
+  .embedVisual,
+  .metricCard,
+  .metricsGlow,
+  .footerColumn a {
+    transition: none;
+  }
+
   .introOrbitalGlow,
   .introRibbonPrimary,
   .introRibbonSecondary,
   .introRibbonMesh,
   .introRibbonSpine,
   .sectionTitleLineHighlight,
+  .metricsGlow,
   .composerStatusActive::before,
   .iconGhostActive::after {
     animation: none;
+  }
+
+  .introShell:hover,
+  .introRailItem:hover,
+  .proofWordmark:hover,
+  .storyCard:hover,
+  .solutionCard:hover,
+  .storyCard:hover .storyVisual,
+  .storyCard:hover .storyMark,
+  .solutionCard:hover .solutionIcon,
+  .solutionCard:hover .visualShell,
+  .solutionCard:hover .shareVisual,
+  .solutionCard:hover .endorsementVisual,
+  .solutionCard:hover .identityVisual,
+  .solutionCard:hover .globalVisual,
+  .solutionCard:hover .embedVisual,
+  .metricCard:hover,
+  .footerColumn a:hover {
+    transform: none;
   }
 
   .navGhost:hover,
