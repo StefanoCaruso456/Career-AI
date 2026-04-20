@@ -23,7 +23,9 @@ import { readPreferredPersona } from "@/lib/persona-preference";
 import {
   defaultPersona,
   getPersonaFromRoute,
+  getSettingsRoute,
   personaConfigs,
+  resolveActivePersona,
   type Persona,
 } from "@/lib/personas";
 import styles from "./floating-site-header.module.css";
@@ -121,20 +123,25 @@ export function HeaderAuthControls({
 
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
+  const activePersona = resolveActivePersona({
+    preferredPersona,
+    roleType: session.user.roleType,
+    route: pathname,
+  });
   const shouldResumeOnboarding = hasIncompleteOnboarding(session.user.onboardingStatus);
   const workspaceHref = getAuthenticatedWorkspaceHref({
     onboardingStatus: session.user.onboardingStatus,
-    persona: preferredPersona,
+    persona: activePersona,
   });
   const workspaceLabel = shouldResumeOnboarding
-    ? `${personaConfigs[preferredPersona].shortLabel} setup`
-    : personaConfigs[preferredPersona].workspaceLabel;
-  const accountTypeLabel = personaConfigs[preferredPersona].shortLabel;
+    ? `${personaConfigs[activePersona].shortLabel} setup`
+    : personaConfigs[activePersona].workspaceLabel;
+  const accountTypeLabel = personaConfigs[activePersona].shortLabel;
   const accountTypeDescription = shouldResumeOnboarding
     ? session.user.currentStep
-      ? `Finish step ${session.user.currentStep} of 4 to unlock the full ${personaConfigs[preferredPersona].workspaceLabel.toLowerCase()}.`
-      : `Finish onboarding to unlock the full ${personaConfigs[preferredPersona].workspaceLabel.toLowerCase()}.`
-    : personaConfigs[preferredPersona].description;
+      ? `Finish step ${session.user.currentStep} of 4 to unlock the full ${personaConfigs[activePersona].workspaceLabel.toLowerCase()}.`
+      : `Finish onboarding to unlock the full ${personaConfigs[activePersona].workspaceLabel.toLowerCase()}.`
+    : personaConfigs[activePersona].description;
 
   return (
     <div className={styles.actions}>
@@ -200,7 +207,7 @@ export function HeaderAuthControls({
 
             <Link
               className={styles.accountMenuAction}
-              href="/settings"
+              href={getSettingsRoute(activePersona)}
               onClick={() => {
                 setIsMenuOpen(false);
               }}
