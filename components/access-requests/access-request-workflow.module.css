@@ -330,6 +330,20 @@
   gap: 0.75rem;
 }
 
+.pageHeroHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pageHeroCopy {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
 .pageHero h1 {
   margin: 0;
   color: #f7f9fc;
@@ -337,6 +351,51 @@
   font-size: clamp(2.1rem, 4vw, 3.35rem);
   line-height: 0.98;
   letter-spacing: -0.05em;
+}
+
+.metricPillRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.metricPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62rem;
+  min-height: 3rem;
+  padding: 0.66rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+    rgba(24, 27, 33, 0.72);
+  box-shadow:
+    0 18px 36px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.metricPillActive {
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.metricPillPending {
+  border-color: rgba(250, 204, 21, 0.18);
+}
+
+.metricPillValue {
+  color: #f8fafc;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.metricPillLabel {
+  color: rgba(224, 232, 246, 0.8);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .eyebrow {
@@ -422,6 +481,14 @@
 }
 
 @media (max-width: 720px) {
+  .pageHeroHeader {
+    align-items: flex-start;
+  }
+
+  .metricPillRow {
+    justify-content: flex-start;
+  }
+
   .sectionTabs {
     gap: 0.55rem;
   }

@@ -6,6 +6,10 @@ import { resolveSessionAuthenticatedActor } from "@/packages/audit-security/src"
 import { listCandidateAccessRequests } from "@/packages/access-request-domain/src";
 import styles from "@/components/access-requests/access-request-workflow.module.css";
 
+function formatCount(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
 function formatStatusLabel(value: string) {
   return value.replaceAll("_", " ");
 }
@@ -73,27 +77,51 @@ export default async function AccountAccessRequestsPage() {
       item.status !== "pending" &&
       !(item.status === "granted" && item.grantLifecycleStatusOptional === "active"),
   );
+  const activeGrantCount = activeGrants.length;
+  const pendingRequestCount = pending.length;
+  const activeGrantLabelText = activeGrantCount === 1 ? "active grant" : "active grants";
+  const pendingRequestLabelText =
+    pendingRequestCount === 1 ? "pending request" : "pending requests";
+  const activeGrantLabel = `${formatCount(activeGrantCount)} ${activeGrantLabelText}`;
+  const pendingRequestLabel = `${formatCount(pendingRequestCount)} ${pendingRequestLabelText}`;
 
   return (
     <main className={styles.page}>
       <div className={styles.pageShell}>
         <section className={styles.pageHero}>
-          <span className={styles.eyebrow}>Candidate inbox</span>
-          <h1>Career ID access requests</h1>
-          <p className={styles.lead}>
-            Review recruiter requests in one place. Email and optional SMS links open the same
-            secure approval page you see here in-app.
-          </p>
+          <div className={styles.pageHeroHeader}>
+            <div className={styles.pageHeroCopy}>
+              <span className={styles.eyebrow}>Candidate inbox</span>
+              <h1>Career ID access requests</h1>
+              <p className={styles.lead}>
+                Review recruiter requests in one place. Email and optional SMS links open the same
+                secure approval page you see here in-app.
+              </p>
+            </div>
+
+            <div aria-label="Access request overview" className={styles.metricPillRow}>
+              <div
+                aria-label={activeGrantLabel}
+                className={[styles.metricPill, styles.metricPillActive].join(" ")}
+              >
+                <strong className={styles.metricPillValue}>{formatCount(activeGrantCount)}</strong>
+                <span className={styles.metricPillLabel}>{activeGrantLabelText}</span>
+              </div>
+              <div
+                aria-label={pendingRequestLabel}
+                className={[styles.metricPill, styles.metricPillPending].join(" ")}
+              >
+                <strong className={styles.metricPillValue}>{formatCount(pendingRequestCount)}</strong>
+                <span className={styles.metricPillLabel}>{pendingRequestLabelText}</span>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <section className={[styles.card, styles.accountSection].join(" ")}>
-          <div className={styles.stack}>
-            <h2>Active grants</h2>
-            {activeGrants.length === 0 ? (
-              <p className={styles.emptyState}>
-                No recruiter currently has an active private Career ID grant.
-              </p>
-            ) : (
+        {activeGrantCount > 0 ? (
+          <section className={[styles.card, styles.accountSection].join(" ")}>
+            <div className={styles.stack}>
+              <h2>Active grants</h2>
               <ul className={styles.list}>
                 {activeGrants.map((item) => (
                   <li className={styles.listItem} key={item.id}>
@@ -119,18 +147,14 @@ export default async function AccountAccessRequestsPage() {
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        ) : null}
 
-        <section className={[styles.card, styles.accountSection].join(" ")}>
-          <div className={styles.stack}>
-            <h2>Pending requests</h2>
-            {pending.length === 0 ? (
-              <p className={styles.emptyState}>
-                No recruiter is waiting on a Career ID access decision right now.
-              </p>
-            ) : (
+        {pendingRequestCount > 0 ? (
+          <section className={[styles.card, styles.accountSection].join(" ")}>
+            <div className={styles.stack}>
+              <h2>Pending requests</h2>
               <ul className={styles.list}>
                 {pending.map((item) => (
                   <li className={styles.listItem} key={item.id}>
@@ -159,9 +183,9 @@ export default async function AccountAccessRequestsPage() {
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        ) : null}
 
         <section className={[styles.card, styles.accountSection].join(" ")}>
           <div className={styles.stack}>
