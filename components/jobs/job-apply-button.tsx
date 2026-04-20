@@ -29,6 +29,8 @@ export function JobApplyButton({
     applyUrl: job.canonicalApplyUrl,
     companyName: job.company,
   });
+  const resolveApplyUrl =
+    supportsAutonomousApply && onApply ? () => onApply(job) : undefined;
 
   return (
     <ProfileCompletionGuard
@@ -38,7 +40,7 @@ export function JobApplyButton({
       className={className}
       companyName={job.company}
       jobTitle={job.title}
-      resolveApplyUrl={onApply ? () => onApply(job) : undefined}
+      resolveApplyUrl={resolveApplyUrl}
       schemaFamily={schemaFamily}
       skipProfileGate={!supportsAutonomousApply}
     />

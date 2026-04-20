@@ -9,14 +9,41 @@ vi.mock("@/components/easy-apply-profile/profile-completion-guard", () => ({
     applyUrl,
     buttonLabel,
     className,
+    resolveApplyUrl,
   }: {
     applyUrl: string;
     buttonLabel: string;
     className?: string;
+    resolveApplyUrl?: (() => Promise<unknown> | unknown) | undefined;
   }) => (
-    <a className={className} href={applyUrl}>
+    <button
+      className={className}
+      onClick={async () => {
+        const nextApplyTarget = await resolveApplyUrl?.();
+
+        if (
+          nextApplyTarget &&
+          typeof nextApplyTarget === "object" &&
+          "action" in nextApplyTarget &&
+          nextApplyTarget.action === "open_external" &&
+          "applyUrl" in nextApplyTarget &&
+          typeof nextApplyTarget.applyUrl === "string"
+        ) {
+          window.open(nextApplyTarget.applyUrl, "_blank", "noopener,noreferrer");
+          return;
+        }
+
+        if (typeof nextApplyTarget === "string") {
+          window.open(nextApplyTarget, "_blank", "noopener,noreferrer");
+          return;
+        }
+
+        window.open(applyUrl, "_blank", "noopener,noreferrer");
+      }}
+      type="button"
+    >
       {buttonLabel}
-    </a>
+    </button>
   ),
 }));
 
@@ -81,6 +108,10 @@ function createJobDetailsResponse(index: number, salaryText: string | null) {
       headers: { "content-type": "application/json" },
     },
   );
+}
+
+function getFetchUrl(input: string | URL | Request) {
+  return typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
 }
 
 describe("JobsResults", () => {
@@ -270,6 +301,72 @@ describe("JobsResults", () => {
 
     expect(screen.getByText("Open posting")).toBeInTheDocument();
     expect(screen.queryByText("One-Click Apply")).not.toBeInTheDocument();
+  });
+
+  it("opens the posting directly from the jobs page when autonomous apply is disabled", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      return createJobDetailsResponse(1, "$120,000 - $150,000");
+    });
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<JobsResults autonomousApplyEnabled={false} jobs={[createJob(1)]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://jobs.example.com/1",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+
+    expect(
+      fetchMock.mock.calls.some(([input]) => getFetchUrl(input as string | URL | Request) === "/api/v1/jobs/apply-click"),
+    ).toBe(false);
+  });
+
+  it("opens the posting directly from the jobs page for unsupported targets", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      return createJobDetailsResponse(1, "$120,000 - $150,000");
+    });
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <JobsResults
+        jobs={[
+          {
+            ...createJob(1),
+            applyTarget: {
+              atsFamily: "lever",
+              confidence: 0.95,
+              matchedRule: "lever_url_signature",
+              routingMode: "open_external",
+              supportReason: "unsupported_ats_family",
+              supportStatus: "unsupported",
+            },
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://jobs.example.com/1",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+
+    expect(
+      fetchMock.mock.calls.some(([input]) => getFetchUrl(input as string | URL | Request) === "/api/v1/jobs/apply-click"),
+    ).toBe(false);
   });
 
   it("hydrates missing salary text into the visible listing cards", async () => {

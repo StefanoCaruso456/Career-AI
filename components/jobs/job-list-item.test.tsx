@@ -222,14 +222,14 @@ describe("JobListItem", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
 
     await waitFor(() => {
-      expect(onApply).toHaveBeenCalledTimes(1);
       expect(openSpy).toHaveBeenCalledWith(
-        "https://redirected.example.com/open/job_1",
+        "https://boards.greenhouse.io/example/jobs/123",
         "_blank",
         "noopener,noreferrer",
       );
     });
 
+    expect(onApply).not.toHaveBeenCalled();
     expect(screen.queryByText("Fill this out once")).not.toBeInTheDocument();
   });
 
@@ -244,14 +244,14 @@ describe("JobListItem", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
 
     await waitFor(() => {
-      expect(onApply).toHaveBeenCalledTimes(1);
       expect(openSpy).toHaveBeenCalledWith(
-        "https://redirected.example.com/open/job_1",
+        "https://boards.greenhouse.io/example/jobs/123",
         "_blank",
         "noopener,noreferrer",
       );
     });
 
+    expect(onApply).not.toHaveBeenCalled();
     expect(screen.queryByText("Fill this out once")).not.toBeInTheDocument();
   });
 });

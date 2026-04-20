@@ -11,6 +11,7 @@ import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
 import { mapJobsToListings } from "@/lib/jobs/map-jobs-to-listings";
 import { loadJobListings } from "@/lib/jobs/load-job-listings";
+import { getJobApplyActionLabel } from "@/lib/jobs/apply-target";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
   fetchJobDetails,
@@ -32,6 +33,7 @@ import { JobListItem } from "./job-list-item";
 import styles from "./jobs-side-panel.module.css";
 
 type JobsSidePanelProps = {
+  autonomousApplyEnabled?: boolean;
   emptyStateMessage?: string | null;
   errorMessage?: string | null;
   filterOptions?: JobRailFilterOptionsDto | null;
@@ -163,6 +165,7 @@ function getDefaultFindJobsFilters(
 }
 
 export function JobsSidePanel({
+  autonomousApplyEnabled = true,
   emptyStateMessage = null,
   errorMessage = null,
   filterOptions = null,
@@ -870,6 +873,7 @@ export function JobsSidePanel({
             <ul className={styles.jobsRailList}>
               {filteredJobs.map((job) => (
                 <JobListItem
+                  autonomousApplyEnabled={autonomousApplyEnabled}
                   isSelected={job.railKey === selectedJobKey && isDetailsOpen}
                   job={job}
                   key={job.railKey}
@@ -884,7 +888,14 @@ export function JobsSidePanel({
 
       {activePreview && activeDetails && activeJob ? (
         <JobDetailsModal
-          applyAction={<JobApplyButton job={activeJob} label="Apply now" onApply={onApply} />}
+          applyAction={
+            <JobApplyButton
+              autonomousApplyEnabled={autonomousApplyEnabled}
+              job={activeJob}
+              label={getJobApplyActionLabel(activeJob.applyTarget, autonomousApplyEnabled)}
+              onApply={onApply}
+            />
+          }
           details={activeDetails}
           isLoading={isDetailsLoading}
           isOpen={isDetailsOpen}

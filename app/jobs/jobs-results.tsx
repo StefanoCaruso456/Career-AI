@@ -1410,10 +1410,15 @@ export function JobsResults({
             const jobMeta = [displayLocation, job.department, job.commitment].filter(Boolean).join(" • ");
             const schemaFamily = resolveSchemaFamilyForJob(job);
             const applyLabel = getJobApplyActionLabel(job.applyTarget, autonomousApplyEnabled);
-            const skipProfileGate = !isAutonomousApplySupportedTarget(
+            const supportsAutonomousApply = isAutonomousApplySupportedTarget(
               job.applyTarget,
               autonomousApplyEnabled,
             );
+            const skipProfileGate = !supportsAutonomousApply;
+            const applyUrl = job.canonicalApplyUrl ?? job.applyUrl;
+            const resolveApplyUrl = supportsAutonomousApply
+              ? () => handleApplyJob(job)
+              : undefined;
 
             return (
               <article className={styles.jobCard} key={job.id}>
@@ -1434,25 +1439,25 @@ export function JobsResults({
                 </div>
                 <div className={styles.jobActions}>
                   <ProfileCompletionGuard
-                    applyUrl={job.applyUrl}
+                    applyUrl={applyUrl}
                     buttonLabel={applyLabel}
                     buttonVariant="jobs-card"
                     className={styles.jobLink}
                     companyName={job.companyName}
                     jobTitle={job.title}
-                    resolveApplyUrl={() => handleApplyJob(job)}
+                    resolveApplyUrl={resolveApplyUrl}
                     schemaFamily={schemaFamily}
                     skipProfileGate={skipProfileGate}
                   />
                   <JobDetailsTrigger
                     applyAction={
                       <ProfileCompletionGuard
-                        applyUrl={job.applyUrl}
+                        applyUrl={applyUrl}
                         buttonLabel={applyLabel}
                         buttonVariant="jobs-card"
                         companyName={job.companyName}
                         jobTitle={job.title}
-                        resolveApplyUrl={() => handleApplyJob(job)}
+                        resolveApplyUrl={resolveApplyUrl}
                         schemaFamily={schemaFamily}
                         skipProfileGate={skipProfileGate}
                       />
