@@ -65,8 +65,45 @@ describe("HeaderAuthControls", () => {
       "/employer/settings",
     );
     expect(screen.queryByRole("menuitem", { name: /hiring workspace/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /roles & permissions/i })).toHaveAttribute(
+      "href",
+      "/employer/roles",
+    );
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps employer workspace and RBAC shortcuts visible from employer settings", () => {
+    window.localStorage.setItem("career-ai.preferred-persona", "employer");
+    mockUsePathname.mockReturnValue("/employer/settings");
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          email: "alex@company.com",
+          name: "Alex Rivera",
+          onboardingStatus: "completed",
+          roleType: "recruiter",
+        },
+      },
+      status: "authenticated",
+    });
+
+    render(<HeaderAuthControls />);
+
+    fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
+
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/employer/settings",
+    );
+    expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
+      "href",
+      "/employer",
+    );
+    expect(screen.getByRole("menuitem", { name: /roles & permissions/i })).toHaveAttribute(
+      "href",
+      "/employer/roles",
+    );
   });
 
   it("keeps the trigger identity-focused while showing onboarding shortcut", () => {
