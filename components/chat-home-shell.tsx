@@ -548,7 +548,7 @@ export function ChatHomeShell({
 
         <section className={styles.solutionsSection} id="solutions">
           <div className={styles.sectionShell}>
-            <ScrollReveal className={styles.motionBlock} y={34}>
+            <ScrollReveal className={styles.motionBlock} amount={0.2} y={24}>
               <div className={styles.solutionHeader}>
                 <h2 className={styles.solutionHeading}>
                   {content.solutionHeading}
@@ -565,11 +565,13 @@ export function ChatHomeShell({
                     styles.solutionMotionBlock,
                     getSolutionSpanClass(solution.size),
                   ].join(" ")}
-                  delay={0.04 * index}
+                  amount={0.18}
+                  delay={0.03 * index}
                   key={solution.title}
-                  rotate={index % 2 === 0 ? -1.2 : 1.2}
-                  x={index % 2 === 0 ? -20 : 20}
-                  y={30}
+                  rotate={index % 2 === 0 ? -0.65 : 0.65}
+                  scale={0.992}
+                  x={index % 2 === 0 ? -12 : 12}
+                  y={20}
                 >
                   <SolutionCard {...solution} />
                 </ScrollReveal>
