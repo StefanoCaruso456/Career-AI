@@ -99,7 +99,7 @@ const profileFieldConfig = [
   rows?: number;
 }>;
 
-const sectionOrder = ["identity", "employment", "network"] as const;
+const sectionOrder = ["identity", "employment", "education", "network"] as const;
 
 const sectionMeta: Record<
   (typeof sectionOrder)[number],
@@ -115,6 +115,10 @@ const sectionMeta: Record<
   employment: {
     copy: "Role, chronology, and employer-backed evidence that strengthens the career timeline.",
     title: "Employment evidence",
+  },
+  education: {
+    copy: "Academic records and registrar-backed proof that strengthen formal education claims.",
+    title: "Education evidence",
   },
   network: {
     copy: "Relationship signals that show how trusted people describe overlap, trust, and outcomes.",
