@@ -20,6 +20,7 @@ import type {
   ApplyRunDto,
   ApplyRunStatus,
   ApplyRunTerminalStatus,
+  ApplyTraceLogLevel,
   ApplicationProfileSnapshotDto,
 } from "@/packages/contracts/src";
 import { closeApplyBrowserSession, launchApplyBrowserSession, type ApplyBrowserSession } from "./browser-session";
@@ -297,6 +298,50 @@ async function finalizeRun(args: {
     status: args.status,
     terminalState: args.terminalState,
     traceId: args.traceId,
+  });
+}
+
+async function emitNotificationOutcome(args: {
+  companyName: string;
+  correlationId?: string | null;
+  jobId: string;
+  jobTitle: string;
+  level: ApplyTraceLogLevel;
+  message: string;
+  metadataJson: Record<string, unknown>;
+  state: ApplyGraphState;
+}) {
+  const event = await createApplyRunEventRecord({
+    event: {
+      eventType: "apply_run.send_notification_node",
+      message: args.message,
+      metadataJson: args.metadataJson,
+      runId: args.state.runId,
+      traceId: args.state.traceId,
+      state: args.state.status,
+      stepName: "send_notification_node",
+    },
+  }).catch(() => null);
+
+  emitApplyTraceLog({
+    companyName: args.companyName,
+    correlationId: args.correlationId ?? null,
+    eventType: event?.eventType ?? "apply_run.send_notification_node",
+    jobId: args.jobId,
+    jobTitle: args.jobTitle,
+    kind: "step",
+    level: args.level,
+    message: args.message,
+    metadataJson: args.metadataJson,
+    name: "Send terminal notification",
+    parentSpanId: `${args.state.runId}:phase:notification`,
+    phase: "notification",
+    runId: args.state.runId,
+    spanId: event?.id ?? `${args.state.runId}:send_notification_node`,
+    status: event?.state ?? args.state.status,
+    stepName: event?.stepName ?? "send_notification_node",
+    timestamp: event?.timestamp,
+    traceId: event?.traceId ?? args.state.traceId,
   });
 }
 
@@ -790,12 +835,59 @@ function buildGraph(dependencies: RuntimeDependencies) {
       };
     })
     .addNode("send_notification_node", async (state: ApplyGraphState) => {
-      const run = await loadRun(state.runId);
-      const to = await dependencies.loadUserEmail(state.userId);
-      await sendApplyRunTerminalEmail({
-        run,
-        to,
-      });
+      const run = await loadRun(state.runId).catch(() => null);
+
+      try {
+        if (!run) {
+          throw new Error("Apply run could not be reloaded before sending a terminal notification.");
+        }
+
+        const to = await dependencies.loadUserEmail(state.userId);
+        const delivery = await sendApplyRunTerminalEmail({
+          run,
+          to,
+        });
+        const metadataJson: Record<string, unknown> = {
+          notificationProvider: delivery.provider,
+          notificationStatus: delivery.status,
+        };
+
+        if ("messageId" in delivery) {
+          metadataJson.messageId = delivery.messageId;
+        }
+
+        if ("reason" in delivery) {
+          metadataJson.notificationReason = delivery.reason;
+        }
+
+        await emitNotificationOutcome({
+          companyName: run.companyName,
+          correlationId: getCorrelationIdFromRun(run),
+          jobId: run.jobId,
+          jobTitle: run.jobTitle,
+          level: "info",
+          message:
+            delivery.status === "sent"
+              ? "Terminal notification sent."
+              : "Terminal notification skipped.",
+          metadataJson,
+          state,
+        });
+      } catch (error) {
+        await emitNotificationOutcome({
+          companyName: run?.companyName ?? state.companyName,
+          correlationId: run ? getCorrelationIdFromRun(run) : (state.traceMetadata.correlationId ?? null),
+          jobId: run?.jobId ?? state.jobId,
+          jobTitle: run?.jobTitle ?? state.jobTitle,
+          level: "error",
+          message: "Terminal notification failed.",
+          metadataJson: {
+            errorMessage: error instanceof Error ? error.message : String(error),
+            notificationStatus: "failed",
+          },
+          state,
+        });
+      }
 
       return state;
     })

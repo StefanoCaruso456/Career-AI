@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "./apply-run-messages";
 import { startJobApplyRun } from "./start-apply-run-client";
 
 describe("startJobApplyRun", () => {
@@ -66,6 +67,36 @@ describe("startJobApplyRun", () => {
     ).resolves.toEqual({
       action: "open_external",
       applyUrl: "https://jobs.example.com/apply/123",
+    });
+  });
+
+  it("uses the shared queued status message when the API omits one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            action: "queued",
+            applyRunId: "apply_run_456",
+          }),
+          {
+            status: 201,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      startJobApplyRun({
+        jobId: "job_456",
+      }),
+    ).resolves.toEqual({
+      action: "queued",
+      applyRunId: "apply_run_456",
+      message: AUTONOMOUS_APPLY_QUEUED_MESSAGE,
     });
   });
 

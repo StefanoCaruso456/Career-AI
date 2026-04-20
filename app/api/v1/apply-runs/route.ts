@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "@/lib/jobs/apply-run-messages";
 import {
   createAutonomousApplyRun,
   getAutonomousApplyAvailability,
@@ -273,7 +274,7 @@ export async function POST(request: NextRequest) {
           diagnosticReason: routingDecision.diagnosticReason,
           matchedRule: routingDecision.detection.matchedRule,
         },
-        message: "Your application was queued. We will email you when it finishes.",
+        message: AUTONOMOUS_APPLY_QUEUED_MESSAGE,
         ok: true,
       }),
       correlationId,

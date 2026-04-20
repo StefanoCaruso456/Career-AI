@@ -1,5 +1,7 @@
 "use client";
 
+import { AUTONOMOUS_APPLY_QUEUED_MESSAGE } from "./apply-run-messages";
+
 export type ApplyContinuationResult =
   | {
       action: "open_external";
@@ -73,8 +75,7 @@ export async function startJobApplyRun(args: {
     const queuedResult: ApplyContinuationResult = {
       action: "queued",
       applyRunId: payload.applyRunId,
-      message:
-        payload.message || "Your application was queued. We will email you when it finishes.",
+      message: payload.message || AUTONOMOUS_APPLY_QUEUED_MESSAGE,
     };
 
     if (payload.diagnostic) {
