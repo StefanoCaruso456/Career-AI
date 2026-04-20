@@ -326,6 +326,19 @@ function getRequestUrl(input: string | URL | Request) {
   return input.url;
 }
 
+function getMockRequestInit(call: readonly unknown[] | undefined): RequestInit | undefined {
+  const init = call?.[1];
+  if (!init || typeof init !== "object") {
+    return undefined;
+  }
+
+  return init as RequestInit;
+}
+
+function getMockJsonBody<T>(call: readonly unknown[] | undefined): T {
+  return JSON.parse(String(getMockRequestInit(call)?.body ?? "{}")) as T;
+}
+
 describe("HeroComposer", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -447,12 +460,12 @@ describe("HeroComposer", () => {
     const chatRequests = fetchMock.mock.calls.filter(
       ([input]) => getRequestUrl(input) === "/api/chat",
     );
-    const firstSendBody = JSON.parse(String(chatRequests[0]?.[1]?.body ?? "{}")) as {
+    const firstSendBody = getMockJsonBody<{
       projectId?: string;
-    };
-    const secondSendBody = JSON.parse(String(chatRequests[1]?.[1]?.body ?? "{}")) as {
+    }>(chatRequests[0]);
+    const secondSendBody = getMockJsonBody<{
       projectId?: string;
-    };
+    }>(chatRequests[1]);
 
     expect(firstSendBody.projectId).toBe("project_stale");
     expect(secondSendBody.projectId).toBe("project_fresh");
@@ -906,9 +919,9 @@ describe("HeroComposer", () => {
     const jobsSearchRequest = fetchMock.mock.calls.find(
       ([input]) => getRequestUrl(input) === "/api/v1/jobs/search",
     );
-    const jobsSearchBody = JSON.parse(String(jobsSearchRequest?.[1]?.body ?? "{}")) as {
+    const jobsSearchBody = getMockJsonBody<{
       limit?: number;
-    };
+    }>(jobsSearchRequest);
 
     expect(jobsSearchBody.limit).toBe(24);
     fireEvent.click(screen.getByRole("button", { name: "Close jobs panel" }));
@@ -1366,11 +1379,11 @@ describe("HeroComposer", () => {
 
     const chatRequest = fetchMock.mock.calls.find(
       ([input]) => getRequestUrl(input) === "/api/chat",
-    ) as [string | URL | Request, RequestInit?] | undefined;
-    const requestBody = JSON.parse(String(chatRequest?.[1]?.body ?? "{}")) as {
+    );
+    const requestBody = getMockJsonBody<{
       message?: string;
       starterActionId?: string;
-    };
+    }>(chatRequest);
 
     expect(requestBody.message).toBe("How can I get hired faster?");
     expect(requestBody.starterActionId).toBe("job_seeker_hired_faster");
@@ -1427,8 +1440,8 @@ describe("HeroComposer", () => {
 
     const chatRequest = fetchMock.mock.calls.find(
       ([input]) => getRequestUrl(input) === "/api/chat",
-    ) as [string | URL | Request, RequestInit?] | undefined;
-    const chatRequestInit = chatRequest?.[1];
+    );
+    const chatRequestInit = getMockRequestInit(chatRequest);
     const chatHeaders = chatRequestInit?.headers as Record<string, string> | undefined;
 
     expect(chatHeaders?.["x-request-id"]).toEqual(expect.any(String));
