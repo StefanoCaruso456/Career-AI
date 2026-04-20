@@ -65,7 +65,6 @@ export function ChatHomeHero({
         <HeroComposer
           content={heroComposer}
           onConversationStateChange={setHasActiveConversation}
-          persona={persona}
         />
       </div>
     </section>
