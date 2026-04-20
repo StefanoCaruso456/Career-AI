@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useState, useTransition } from "react";
+import { ArrowUpRight, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { TalentIdentityDetailsDto } from "@/packages/contracts/src";
@@ -10,6 +11,17 @@ export type ReadOnlyAccountRow = {
   label: string;
   value: string;
   isIdentifier?: boolean;
+};
+
+export type SignInSupportLink = {
+  href: string;
+  label: string;
+};
+
+export type SignInSupportNotice = {
+  title: string;
+  description: string;
+  links: SignInSupportLink[];
 };
 
 type EditableProfile = {
@@ -29,6 +41,7 @@ type ProfileAccountDetailsCardProps = {
   initialLastName: string;
   initialPhoneOptional: string | null;
   readOnlyRows: ReadOnlyAccountRow[];
+  signInSupport?: SignInSupportNotice;
 };
 
 type StatusMessage =
@@ -92,6 +105,7 @@ export function ProfileAccountDetailsCard({
   initialLastName,
   initialPhoneOptional,
   readOnlyRows,
+  signInSupport,
 }: ProfileAccountDetailsCardProps) {
   const router = useRouter();
   const { update } = useSession();
@@ -422,6 +436,32 @@ export function ProfileAccountDetailsCard({
           </div>
         ))}
       </dl>
+
+      {signInSupport ? (
+        <div className={styles.supportNote}>
+          <div className={styles.supportNoteIcon}>
+            <KeyRound aria-hidden="true" size={18} strokeWidth={1.9} />
+          </div>
+          <div className={styles.supportNoteBody}>
+            <strong>{signInSupport.title}</strong>
+            <p>{signInSupport.description}</p>
+            <div className={styles.supportActions}>
+              {signInSupport.links.map((link) => (
+                <a
+                  className={styles.supportLink}
+                  href={link.href}
+                  key={link.href}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {link.label}
+                  <ArrowUpRight aria-hidden="true" size={14} strokeWidth={2} />
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

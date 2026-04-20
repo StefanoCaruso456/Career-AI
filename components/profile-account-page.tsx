@@ -66,7 +66,10 @@ export function ProfileAccountPage({
   const email = context.user.email;
   const personaConfig = personaConfigs[preferredPersona];
   const accountTypeLabel = getAccountTypeLabel(context.onboarding.roleType, preferredPersona);
-  const providerLabel = formatProviderLabel(context.user.authProvider);
+  const isGoogleSignIn = context.user.authProvider === "google";
+  const providerLabel = isGoogleSignIn
+    ? "Google OAuth"
+    : formatProviderLabel(context.user.authProvider);
   const roleLabel = getRoleLabel(context.onboarding.roleType);
   const isOnboardingComplete = context.onboarding.status === "completed";
   const setupLabel = isOnboardingComplete
@@ -83,6 +86,7 @@ export function ProfileAccountPage({
     { label: "Setup", value: setupLabel },
     { label: "Workspace", value: personaConfig.workspaceLabel },
     { label: "Sign-in", value: providerLabel },
+    ...(isGoogleSignIn ? [{ label: "Password", value: "Managed in Google" }] : []),
     { label: "Last sign-in", value: formatTimestamp(context.user.lastLoginAt) },
     {
       label: "Career AI ID",
@@ -155,6 +159,25 @@ export function ProfileAccountPage({
             initialLastName={context.user.lastName}
             initialPhoneOptional={context.aggregate.talentIdentity.phone_optional}
             readOnlyRows={readOnlyAccountRows}
+            signInSupport={
+              isGoogleSignIn
+                ? {
+                    title: "No separate Career AI password yet",
+                    description:
+                      "Because you signed in with Google, password changes, recovery options, and 2-Step Verification still live in your Google account settings.",
+                    links: [
+                      {
+                        href: "https://myaccount.google.com/",
+                        label: "Manage Google account",
+                      },
+                      {
+                        href: "https://myaccount.google.com/security",
+                        label: "Open Google security",
+                      },
+                    ],
+                  }
+                : undefined
+            }
           />
         </section>
       </div>
