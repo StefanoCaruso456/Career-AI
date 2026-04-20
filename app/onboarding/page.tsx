@@ -175,8 +175,10 @@ export default async function OnboardingPage() {
                         type="radio"
                         value={option.value}
                       />
-                      <span className={styles.choiceLabel}>{option.label}</span>
-                      <span className={styles.choiceCopy}>{option.description}</span>
+                      <span className={styles.choiceContent}>
+                        <span className={styles.choiceLabel}>{option.label}</span>
+                        <span className={styles.choiceCopy}>{option.description}</span>
+                      </span>
                     </label>
                   ))}
                 </div>
