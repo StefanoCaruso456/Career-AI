@@ -68,4 +68,35 @@ describe("startJobApplyRun", () => {
       applyUrl: "https://jobs.example.com/apply/123",
     });
   });
+
+  it("surfaces truthful route error messages when autonomous apply cannot start", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            details: {
+              diagnostic_reason: "worker_mode_disabled",
+            },
+            error_code: "DEPENDENCY_FAILURE",
+            message: "One-Click Apply is unavailable because the apply worker is disabled.",
+          }),
+          {
+            status: 503,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+      ),
+    );
+
+    await expect(
+      startJobApplyRun({
+        jobId: "job_123",
+      }),
+    ).rejects.toThrow(
+      "One-Click Apply is unavailable because the apply worker is disabled.",
+    );
+  });
 });

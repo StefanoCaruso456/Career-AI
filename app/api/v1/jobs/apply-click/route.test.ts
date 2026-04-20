@@ -5,13 +5,14 @@ import { ApiError } from "@/packages/contracts/src";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   createAutonomousApplyRun: vi.fn(),
+  getAutonomousApplyAvailability: vi.fn(),
   getJobPostingDetails: vi.fn(),
-  isAutonomousApplyEnabled: vi.fn(),
   isDatabaseConfigured: vi.fn(),
   kickAutonomousApplyWorker: vi.fn(),
   recordJobApplyClickEvent: vi.fn(),
   resolveChatRouteContext: vi.fn(),
   resolveAutonomousApplyDecision: vi.fn(),
+  toAutonomousApplyUnavailableApiError: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -20,8 +21,9 @@ vi.mock("@/auth", () => ({
 
 vi.mock("@/packages/apply-domain/src", () => ({
   createAutonomousApplyRun: mocks.createAutonomousApplyRun,
-  isAutonomousApplyEnabled: mocks.isAutonomousApplyEnabled,
+  getAutonomousApplyAvailability: mocks.getAutonomousApplyAvailability,
   resolveAutonomousApplyDecision: mocks.resolveAutonomousApplyDecision,
+  toAutonomousApplyUnavailableApiError: mocks.toAutonomousApplyUnavailableApiError,
 }));
 
 vi.mock("@/packages/apply-runtime/src", () => ({
@@ -51,8 +53,14 @@ describe("POST /api/v1/jobs/apply-click", () => {
       canonicalApplyUrl: "https://example.myworkdayjobs.com/job/123",
       id: "job_123",
     });
+    mocks.getAutonomousApplyAvailability.mockReturnValue({
+      blobStorageDriver: "filesystem",
+      canQueueRuns: true,
+      diagnosticReason: "available",
+      featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+      workerMode: "inline",
+    });
     mocks.isDatabaseConfigured.mockReturnValue(true);
-    mocks.isAutonomousApplyEnabled.mockReturnValue(true);
     mocks.recordJobApplyClickEvent.mockResolvedValue("job_apply_123");
     mocks.resolveChatRouteContext.mockResolvedValue({
       ownerId: "owner_123",
@@ -83,6 +91,21 @@ describe("POST /api/v1/jobs/apply-click", () => {
         id: "apply_run_123",
       },
     });
+    mocks.toAutonomousApplyUnavailableApiError.mockImplementation(
+      ({ availability, correlationId }) =>
+        new ApiError({
+          correlationId,
+          details: {
+            diagnostic_reason: availability.diagnosticReason,
+          },
+          errorCode:
+            availability.diagnosticReason === "feature_flag_off"
+              ? "CONFLICT"
+              : "DEPENDENCY_FAILURE",
+          message: "One-Click Apply is unavailable.",
+          status: availability.diagnosticReason === "feature_flag_off" ? 409 : 503,
+        }),
+    );
   });
 
   it("queues Workday runs when autonomous apply is enabled", async () => {
@@ -182,6 +205,10 @@ describe("POST /api/v1/jobs/apply-click", () => {
       expect.objectContaining({
         applyTargetAtsFamily: "workday",
         applyTargetSupportStatus: "supported",
+        autonomousApplyBlobStorageDriver: "filesystem",
+        autonomousApplyCanQueueRuns: true,
+        autonomousApplySystemDiagnosticReason: "available",
+        autonomousApplyWorkerMode: "inline",
         jobFound: true,
         jobId: "job_123",
         routingAction: "queue_autonomous_apply",
@@ -193,11 +220,13 @@ describe("POST /api/v1/jobs/apply-click", () => {
     consoleInfoSpy.mockRestore();
   });
 
-  it("returns open_external with a feature-flag-off diagnostic marker", async () => {
-    mocks.resolveAutonomousApplyDecision.mockReturnValue({
-      action: "open_external",
-      detection: null,
+  it("fails closed for supported targets when the autonomous system is unavailable", async () => {
+    mocks.getAutonomousApplyAvailability.mockReturnValue({
+      blobStorageDriver: "filesystem",
+      canQueueRuns: false,
       diagnosticReason: "feature_flag_off",
+      featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+      workerMode: "inline",
     });
 
     const response = await POST(
@@ -213,14 +242,15 @@ describe("POST /api/v1/jobs/apply-click", () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(409);
     expect(payload).toMatchObject({
-      action: "open_external",
-      diagnostic: {
-        diagnosticReason: "feature_flag_off",
+      details: {
+        diagnostic_reason: "feature_flag_off",
       },
+      error_code: "CONFLICT",
     });
     expect(mocks.createAutonomousApplyRun).not.toHaveBeenCalled();
+    expect(mocks.toAutonomousApplyUnavailableApiError).toHaveBeenCalledTimes(1);
   });
 
   it("returns a diagnostic marker when queueing requires authentication", async () => {

@@ -1,18 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+import { ApiError } from "@/packages/contracts/src";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   createAutonomousApplyRun: vi.fn(),
+  getAutonomousApplyAvailability: vi.fn(),
   getAutonomousApplyStuckInProgressThresholdMinutes: vi.fn(),
   getAutonomousApplyStuckQueuedThresholdMinutes: vi.fn(),
   getJobPostingDetails: vi.fn(),
-  isAutonomousApplyEnabled: vi.fn(),
   isDatabaseConfigured: vi.fn(),
   kickAutonomousApplyWorker: vi.fn(),
   listApplyRunEventSummariesByRunIds: vi.fn(),
   listApplyRunsByUser: vi.fn(),
   resolveAutonomousApplyDecision: vi.fn(),
+  toAutonomousApplyUnavailableApiError: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -21,12 +23,13 @@ vi.mock("@/auth", () => ({
 
 vi.mock("@/packages/apply-domain/src", () => ({
   createAutonomousApplyRun: mocks.createAutonomousApplyRun,
+  getAutonomousApplyAvailability: mocks.getAutonomousApplyAvailability,
   getAutonomousApplyStuckInProgressThresholdMinutes:
     mocks.getAutonomousApplyStuckInProgressThresholdMinutes,
   getAutonomousApplyStuckQueuedThresholdMinutes:
     mocks.getAutonomousApplyStuckQueuedThresholdMinutes,
-  isAutonomousApplyEnabled: mocks.isAutonomousApplyEnabled,
   resolveAutonomousApplyDecision: mocks.resolveAutonomousApplyDecision,
+  toAutonomousApplyUnavailableApiError: mocks.toAutonomousApplyUnavailableApiError,
 }));
 
 vi.mock("@/packages/jobs-domain/src", () => ({
@@ -183,12 +186,30 @@ describe("POST /api/v1/apply-runs", () => {
         providerUserId: "provider_123",
       },
     });
-    mocks.isAutonomousApplyEnabled.mockReturnValue(true);
+    mocks.getAutonomousApplyAvailability.mockReturnValue({
+      blobStorageDriver: "filesystem",
+      canQueueRuns: true,
+      diagnosticReason: "available",
+      featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+      workerMode: "inline",
+    });
     mocks.getJobPostingDetails.mockResolvedValue({
       applyUrl: "https://example.com/jobs/123",
       canonicalApplyUrl: "https://example.com/jobs/123",
       id: "job_123",
     });
+    mocks.toAutonomousApplyUnavailableApiError.mockImplementation(
+      ({ availability, correlationId }) =>
+        new ApiError({
+          correlationId,
+          details: {
+            diagnostic_reason: availability.diagnosticReason,
+          },
+          errorCode: "DEPENDENCY_FAILURE",
+          message: "One-Click Apply is unavailable.",
+          status: 503,
+        }),
+    );
   });
 
   it("returns open_external for non-Workday targets and does not queue a run", async () => {
@@ -266,5 +287,46 @@ describe("POST /api/v1/apply-runs", () => {
       },
     });
     expect(mocks.kickAutonomousApplyWorker).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails closed for supported targets when the autonomous system is unavailable", async () => {
+    mocks.getAutonomousApplyAvailability.mockReturnValue({
+      blobStorageDriver: "filesystem",
+      canQueueRuns: false,
+      diagnosticReason: "worker_mode_disabled",
+      featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+      workerMode: "disabled",
+    });
+    mocks.resolveAutonomousApplyDecision.mockReturnValue({
+      action: "queue_autonomous_apply",
+      detection: {
+        atsFamily: "workday",
+        confidence: 0.99,
+        fallbackStrategy: null,
+        matchedRule: "workday_url_or_dom_signature",
+      },
+      diagnosticReason: "queued_supported_target",
+    });
+    const response = await POST(
+      new NextRequest("http://localhost/api/v1/apply-runs", {
+        body: JSON.stringify({
+          jobId: "job_123",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(payload).toMatchObject({
+      details: {
+        diagnostic_reason: "worker_mode_disabled",
+      },
+      error_code: "DEPENDENCY_FAILURE",
+    });
+    expect(mocks.createAutonomousApplyRun).not.toHaveBeenCalled();
   });
 });

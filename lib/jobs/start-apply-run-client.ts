@@ -49,6 +49,7 @@ export async function startJobApplyRun(args: {
           matchedRule?: string | null;
         };
         error?: string;
+        message?: string;
       }
     | {
         action?: "queued";
@@ -63,7 +64,9 @@ export async function startJobApplyRun(args: {
       };
 
   if (!response.ok) {
-    throw new Error(payload.error || "The application request could not be started.");
+    throw new Error(
+      payload.error || payload.message || "The application request could not be started.",
+    );
   }
 
   if (payload.action === "queued" && payload.applyRunId) {
