@@ -49,7 +49,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 0.98fr) minmax(320px, 0.84fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: clamp(1.4rem, 3.4vw, 2.8rem);
   align-items: center;
 }
@@ -97,63 +97,6 @@
   color: rgba(211, 220, 234, 0.82);
   font-size: 0.98rem;
   line-height: 1.78;
-}
-
-.visualColumn {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logoPanel {
-  display: grid;
-  justify-items: center;
-  gap: 0.56rem;
-  width: min(100%, 20rem);
-  padding: 0.75rem 0.9rem;
-  border-radius: 1.15rem;
-  border: 1px solid rgba(182, 216, 255, 0.88);
-  background:
-    radial-gradient(circle at 20% 8%, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0) 48%),
-    linear-gradient(160deg, rgba(247, 252, 255, 0.98) 0%, rgba(223, 239, 255, 0.97) 58%, rgba(203, 226, 255, 0.95) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 18px 30px rgba(9, 31, 68, 0.24);
-}
-
-.logoImage {
-  display: block;
-  width: clamp(10rem, 18vw, 13rem);
-  height: auto;
-  filter:
-    brightness(1.02)
-    contrast(1.24)
-    saturate(1.12)
-    drop-shadow(0 8px 14px rgba(35, 86, 176, 0.22));
-}
-
-.logoCaption {
-  margin: 0;
-  color: #1151bc;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: none;
-  text-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.55),
-    0 8px 14px rgba(17, 92, 207, 0.18);
-}
-
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .logoCaption {
-    background: linear-gradient(92deg, #1849b2 0%, #2762ff 38%, #1ea9ff 74%, #ff8b3d 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    text-shadow: none;
-  }
 }
 
 .cardsGrid {
@@ -288,10 +231,6 @@
   .trustLine {
     max-width: none;
   }
-
-  .visualColumn {
-    order: -1;
-  }
 }
 
 @media (max-width: 760px) {
@@ -307,18 +246,6 @@
   .headline {
     font-size: clamp(1.86rem, 8vw, 2.42rem);
     line-height: 1;
-  }
-
-  .logoPanel {
-    padding: 0.68rem;
-  }
-
-  .logoImage {
-    width: min(12rem, 72vw);
-  }
-
-  .logoCaption {
-    font-size: 0.66rem;
   }
 
   .cardsGrid {
