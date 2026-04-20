@@ -2846,16 +2846,22 @@
 .solutionGrid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: stretch;
   gap: 1rem;
+  grid-auto-flow: row dense;
 }
 
 .solutionMotionBlock {
   display: flex;
+  align-self: stretch;
+  height: 100%;
   min-width: 0;
+  width: 100%;
 }
 
 .solutionMotionBlock > .solutionCard {
   flex: 1 1 auto;
+  height: 100%;
   min-width: 0;
 }
 
@@ -2866,6 +2872,7 @@
   justify-content: space-between;
   gap: 1.4rem;
   padding: 1.2rem;
+  min-width: 0;
   min-height: 23rem;
 }
 
