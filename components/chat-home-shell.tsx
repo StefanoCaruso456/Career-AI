@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-shell-content";
 import { ChatHomeHero } from "./chat-home-hero";
-import { ScrollStorySection } from "./scroll-story-section";
 import { TrustExplainerSection } from "./trust-explainer-section";
 import styles from "./chat-home-shell.module.css";
 import type { Persona } from "@/lib/personas";
@@ -430,8 +429,6 @@ export function ChatHomeShell({
         heroTitle={content.heroTitle}
         persona={persona}
       />
-
-      {content.scrollStory ? <ScrollStorySection content={content.scrollStory} /> : null}
 
       <section className={styles.introSection} id="platform">
         <div className={[styles.sectionShell, styles.introShell].join(" ")}>
