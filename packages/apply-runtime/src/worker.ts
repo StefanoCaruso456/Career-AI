@@ -49,6 +49,10 @@ import { emitApplyTraceLog, emitApplyTraceLogFromEvent } from "@/packages/apply-
 const APPLY_GRAPH_VERSION = "2026-04-17";
 const applyBrowserSessions = new Map<string, ApplyBrowserSession>();
 
+declare global {
+  var __careerAiAutonomousApplyInlineWorkerLoopStarted: boolean | undefined;
+}
+
 const applyGraphStateSchema = new StateSchema({
   adapterId: z.string().nullable(),
   artifacts: z.array(z.any()).default([]),
@@ -159,6 +163,14 @@ const defaultDependencies: RuntimeDependencies = {
 };
 
 let workerLoopActive = false;
+
+function isInlineWorkerLoopStarted() {
+  return globalThis.__careerAiAutonomousApplyInlineWorkerLoopStarted === true;
+}
+
+function setInlineWorkerLoopStarted(value: boolean) {
+  globalThis.__careerAiAutonomousApplyInlineWorkerLoopStarted = value;
+}
 
 function sleep(ms: number) {
   return new Promise((resolve) => {
@@ -1313,7 +1325,13 @@ async function processAutonomousApplyWorkerBatch(args?: {
 export async function kickAutonomousApplyWorker(args?: {
   dependencies?: RuntimeDependencies;
 }) {
-  if (getAutonomousApplyWorkerMode() !== "inline" || workerLoopActive) {
+  if (getAutonomousApplyWorkerMode() !== "inline") {
+    return;
+  }
+
+  ensureAutonomousApplyInlineWorkerLoopStarted(args);
+
+  if (workerLoopActive) {
     return;
   }
 
@@ -1330,6 +1348,32 @@ export async function kickAutonomousApplyWorker(args?: {
       workerLoopActive = false;
     }
   });
+}
+
+export function ensureAutonomousApplyInlineWorkerLoopStarted(args?: {
+  dependencies?: RuntimeDependencies;
+  pollIntervalMs?: number;
+}) {
+  if (getAutonomousApplyWorkerMode() !== "inline" || isInlineWorkerLoopStarted()) {
+    return false;
+  }
+
+  setInlineWorkerLoopStarted(true);
+
+  queueMicrotask(() => {
+    void runAutonomousApplyWorkerLoop({
+      dependencies: args?.dependencies,
+      pollIntervalMs: args?.pollIntervalMs,
+    })
+      .catch((error) => {
+        console.error("Autonomous apply inline worker loop crashed.", error);
+      })
+      .finally(() => {
+        setInlineWorkerLoopStarted(false);
+      });
+  });
+
+  return true;
 }
 
 export async function runAutonomousApplyWorkerLoop(args?: {
