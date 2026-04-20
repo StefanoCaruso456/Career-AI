@@ -5,7 +5,7 @@ import {
   isAutonomousApplyEnabled,
   getAutonomousApplyStuckInProgressThresholdMinutes,
   getAutonomousApplyStuckQueuedThresholdMinutes,
-  resolveWorkdayOnlyAutonomousApplyDecision,
+  resolveAutonomousApplyDecision,
 } from "@/packages/apply-domain/src";
 import {
   applyContinuationResponseSchema,
@@ -217,8 +217,9 @@ export async function POST(request: NextRequest) {
     });
     const targetApplyUrl =
       input.canonicalApplyUrl ?? job?.canonicalApplyUrl ?? job?.applyUrl ?? null;
-    const routingDecision = resolveWorkdayOnlyAutonomousApplyDecision({
+    const routingDecision = resolveAutonomousApplyDecision({
       autonomousApplyEnabled: isAutonomousApplyEnabled(),
+      applyTarget: job?.applyTarget ?? null,
       targetApplyUrl,
     });
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applyAtsFamilySchema, applyTargetSupportStatusSchema } from "./apply";
 
 export const DEFAULT_LATEST_JOBS_PROMPT = "Find new jobs for me.";
 
@@ -30,6 +31,18 @@ export const jobValidationStatusSchema = z.enum([
   "invalid",
   "blocked_source",
 ]);
+export const jobApplyTargetRoutingModeSchema = z.enum([
+  "queue_autonomous_apply",
+  "open_external",
+]);
+export const jobApplyTargetSchema = z.object({
+  atsFamily: applyAtsFamilySchema.nullable().default(null),
+  confidence: z.number().min(0).max(1).nullable().default(null),
+  matchedRule: z.string().nullable().default(null),
+  routingMode: jobApplyTargetRoutingModeSchema,
+  supportReason: z.string().nullable().default(null),
+  supportStatus: applyTargetSupportStatusSchema,
+});
 export const jobWorkplaceTypeSchema = z.enum(["remote", "hybrid", "onsite", "unknown"]);
 export const jobApplicationPathTypeSchema = z.enum([
   "ats_hosted",
@@ -136,6 +149,7 @@ export const jobPostingSchema = z.object({
   trustScore: z.number().min(0).max(1).optional(),
   dedupeFingerprint: z.string().optional(),
   orchestrationReadiness: z.boolean().optional(),
+  applyTarget: jobApplyTargetSchema.optional(),
   applicationPathType: jobApplicationPathTypeSchema.optional(),
   redirectRequired: z.boolean().optional(),
   orchestrationMetadata: z.record(z.string(), z.unknown()).nullable().optional(),
@@ -505,6 +519,8 @@ export type JobSourceQuality = z.infer<typeof jobSourceQualitySchema>;
 export type JobSourceStatus = z.infer<typeof jobSourceStatusSchema>;
 export type JobSourceTrustTier = z.infer<typeof jobSourceTrustTierSchema>;
 export type JobValidationStatus = z.infer<typeof jobValidationStatusSchema>;
+export type JobApplyTargetRoutingMode = z.infer<typeof jobApplyTargetRoutingModeSchema>;
+export type JobApplyTargetDto = z.infer<typeof jobApplyTargetSchema>;
 export type JobWorkplaceType = z.infer<typeof jobWorkplaceTypeSchema>;
 export type JobApplicationPathType = z.infer<typeof jobApplicationPathTypeSchema>;
 export type JobSearchOrigin = z.infer<typeof jobSearchOriginSchema>;

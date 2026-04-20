@@ -2,6 +2,7 @@
 
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
+import { getJobApplyActionLabel } from "@/lib/jobs/apply-target";
 import { JobApplyButton } from "@/components/jobs/job-apply-button";
 import {
   formatRelativePostedAt,
@@ -45,6 +46,7 @@ export function JobListItem({
   const badges = getJobRailBadges(job);
   const salaryText = formatSalaryTextForRail(job.salaryText);
   const location = sanitizeJobLocationText(job.location);
+  const applyLabel = getJobApplyActionLabel(job.applyTarget);
   const supportingMeta = [location, employmentType, salaryText].filter(Boolean);
   const visibleMatchReason = job.matchReason?.trim()
     ? HIDDEN_MATCH_REASONS.has(job.matchReason.trim())
@@ -124,7 +126,7 @@ export function JobListItem({
           <JobApplyButton
             className={styles.jobApplyButton}
             job={job}
-            label="Apply"
+            label={applyLabel}
             onApply={onApply}
           />
           <button

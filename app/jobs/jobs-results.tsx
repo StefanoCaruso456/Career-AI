@@ -7,6 +7,10 @@ import { startJobApplyRun } from "@/lib/jobs/start-apply-run-client";
 import { fetchJobDetails } from "@/components/jobs/job-details-client";
 import { JobDetailsTrigger } from "@/components/jobs/job-details-trigger";
 import {
+  getJobApplyActionLabel,
+  isAutonomousApplySupportedTarget,
+} from "@/lib/jobs/apply-target";
+import {
   formatSalaryTextForRail,
   getJobRailLocationLabel,
   sanitizeJobLocationText,
@@ -763,6 +767,8 @@ export function JobsResults({
       canonicalApplyUrl: job.canonicalApplyUrl ?? job.applyUrl,
       jobId: job.id,
       metadata: {
+        applyTargetAtsFamily: job.applyTarget?.atsFamily ?? null,
+        applyTargetSupportStatus: job.applyTarget?.supportStatus ?? null,
         isOrchestrationReady: job.orchestrationReadiness ?? false,
         sourceLabel: job.sourceLabel,
         validationStatus: job.validationStatus ?? null,
@@ -1401,6 +1407,8 @@ export function JobsResults({
             const salaryText = formatSalaryTextForRail(job.salaryText);
             const jobMeta = [displayLocation, job.department, job.commitment].filter(Boolean).join(" • ");
             const schemaFamily = resolveSchemaFamilyForJob(job);
+            const applyLabel = getJobApplyActionLabel(job.applyTarget);
+            const skipProfileGate = !isAutonomousApplySupportedTarget(job.applyTarget);
 
             return (
               <article className={styles.jobCard} key={job.id}>
@@ -1422,24 +1430,26 @@ export function JobsResults({
                 <div className={styles.jobActions}>
                   <ProfileCompletionGuard
                     applyUrl={job.applyUrl}
-                    buttonLabel="Apply"
+                    buttonLabel={applyLabel}
                     buttonVariant="jobs-card"
                     className={styles.jobLink}
                     companyName={job.companyName}
                     jobTitle={job.title}
                     resolveApplyUrl={() => handleApplyJob(job)}
                     schemaFamily={schemaFamily}
+                    skipProfileGate={skipProfileGate}
                   />
                   <JobDetailsTrigger
                     applyAction={
                       <ProfileCompletionGuard
                         applyUrl={job.applyUrl}
-                        buttonLabel="Apply now"
+                        buttonLabel={applyLabel}
                         buttonVariant="jobs-card"
                         companyName={job.companyName}
                         jobTitle={job.title}
                         resolveApplyUrl={() => handleApplyJob(job)}
                         schemaFamily={schemaFamily}
+                        skipProfileGate={skipProfileGate}
                       />
                     }
                     buttonClassName={styles.jobDetailsButton}
