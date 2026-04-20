@@ -39,7 +39,7 @@ describe("HeaderAuthControls", () => {
 
   it("shows the account holder in the trigger and opens the workspace menu", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
-    mockUsePathname.mockReturnValue("/employer");
+    mockUsePathname.mockReturnValue("/employer/candidates");
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -54,7 +54,10 @@ describe("HeaderAuthControls", () => {
 
     render(<HeaderAuthControls />);
 
-    expect(screen.getByRole("link", { name: "Beta" })).toHaveAttribute("href", "/employer");
+    expect(screen.getByRole("link", { name: "Beta" })).toHaveAttribute(
+      "href",
+      "/employer/candidates",
+    );
     expect(screen.getByText("Alex Rivera")).toBeInTheDocument();
     expect(screen.getByText("Employer")).toBeInTheDocument();
 
@@ -65,15 +68,11 @@ describe("HeaderAuthControls", () => {
       "/employer/settings",
     );
     expect(screen.queryByRole("menuitem", { name: /hiring workspace/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /roles & permissions/i })).toHaveAttribute(
-      "href",
-      "/employer/roles",
-    );
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
   });
 
-  it("keeps employer workspace and RBAC shortcuts visible from employer settings", () => {
+  it("keeps employer workspace visible from employer settings", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
     mockUsePathname.mockReturnValue("/employer/settings");
     mockUseSession.mockReturnValue({
@@ -98,11 +97,7 @@ describe("HeaderAuthControls", () => {
     );
     expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
       "href",
-      "/employer",
-    );
-    expect(screen.getByRole("menuitem", { name: /roles & permissions/i })).toHaveAttribute(
-      "href",
-      "/employer/roles",
+      "/employer/candidates",
     );
   });
 

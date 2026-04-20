@@ -50,13 +50,19 @@ describe("AuthModalTrigger", () => {
     fireEvent.click(screen.getByRole("button", { name: "Employer" }));
 
     expect(screen.getByRole("heading", { name: "Create your employer workspace" })).toBeInTheDocument();
-    expect(screen.getByTestId("google-button")).toHaveAttribute("data-callback-url", "/employer");
+    expect(screen.getByTestId("google-button")).toHaveAttribute(
+      "data-callback-url",
+      "/employer/candidates",
+    );
     expect(screen.getByTestId("google-button")).toHaveAttribute("data-persona", "employer");
 
     fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
     expect(screen.getByRole("heading", { name: "Sign in to Career AI for Employers" })).toBeInTheDocument();
-    expect(screen.getByTestId("google-button")).toHaveAttribute("data-callback-url", "/employer");
+    expect(screen.getByTestId("google-button")).toHaveAttribute(
+      "data-callback-url",
+      "/employer/candidates",
+    );
   });
 
   it("lets people toggle password visibility in the form", () => {
