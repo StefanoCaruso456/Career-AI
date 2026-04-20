@@ -272,7 +272,7 @@ export const landingContentByPersona: Record<Persona, LandingContent> = {
       typingLabel: "Thinking through your hiring workflow...",
     },
     heroTitle:
-      "Career AI helps employers verify candidate credibility faster and hire with more confidence.",
+      "Employers verify candidate credibility faster and hire with more confidence.",
     introPrimaryCta: "Explore employer workflows",
     introRailEyebrow: "How employer mode works",
     introRailItems: [
