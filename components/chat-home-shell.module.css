@@ -358,6 +358,20 @@
   scroll-padding-inline: 0.35rem;
   touch-action: pan-x;
   -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 2.75rem,
+    #000 calc(100% - 2.75rem),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0,
+    #000 2.75rem,
+    #000 calc(100% - 2.75rem),
+    transparent 100%
+  );
 }
 
 .heroStarterRailCopy {
@@ -3578,6 +3592,7 @@
   .heroStarterRail {
     gap: 0.6rem;
     padding-bottom: 0.45rem;
+    -webkit-mask-image: none;
     mask-image: none;
   }
 
