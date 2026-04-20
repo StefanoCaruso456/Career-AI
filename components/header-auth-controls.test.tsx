@@ -60,16 +60,13 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
-    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /hiring workspace/i })).toHaveAttribute(
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
       "href",
-      "/employer",
+      "/employer/settings",
     );
+    expect(screen.queryByRole("menuitem", { name: /hiring workspace/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("Employer").length).toBeGreaterThan(0);
     expect(screen.queryByText(/finish setup to unlock/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/google currently manages/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/review name, email, password guidance/i)).not.toBeInTheDocument();
   });
 
   it("keeps the trigger identity-focused while showing onboarding shortcut", () => {
@@ -96,15 +93,17 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /alex rivera/i }));
 
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/employer/settings",
+    );
     expect(screen.getByRole("menuitem", { name: /finish onboarding/i })).toHaveAttribute(
       "href",
       "/onboarding",
     );
-    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
   });
 
-  it("removes duplicate workspace shortcuts while inside the candidate workspace", () => {
+  it("replaces the dead candidate workspace shortcut with profile access while inside the workspace", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
     mockUsePathname.mockReturnValue("/account");
     mockUseSession.mockReturnValue({
@@ -124,13 +123,15 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /casey candidate/i }));
 
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/account/settings",
+    );
     expect(screen.queryByRole("menuitem", { name: /career workspace/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /sign out/i })).toBeInTheDocument();
   });
 
-  it("keeps only candidate workspace shortcut available outside the workspace shell", () => {
+  it("shows both profile access and the candidate workspace shortcut outside the workspace shell", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "job_seeker");
     mockUsePathname.mockReturnValue("/jobs");
     mockUseSession.mockReturnValue({
@@ -150,11 +151,13 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /casey candidate/i }));
 
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
+      "href",
+      "/account/settings",
+    );
     expect(screen.getByRole("menuitem", { name: /career workspace/i })).toHaveAttribute(
       "href",
       "/account",
     );
-    expect(screen.queryByRole("menuitem", { name: /profile & account/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /access requests/i })).not.toBeInTheDocument();
   });
 });

@@ -17,6 +17,7 @@ import { readPreferredPersona } from "@/lib/persona-preference";
 import {
   defaultPersona,
   getPostAuthRoute,
+  getSettingsRoute,
   personaConfigs,
   resolveActivePersona,
   type Persona,
@@ -151,17 +152,18 @@ export function HeaderAuthControls() {
   const displayName = getDisplayName(session.user.name, session.user.email);
   const initials = getInitials(session.user.name, session.user.email);
   const workspaceHref = getPostAuthRoute(preferredPersona);
+  const settingsHref = getSettingsRoute(preferredPersona);
   const accountTypeLabel = getAccountTypeLabel(session.user.roleType, preferredPersona);
   const accountLabel = displayName;
   const accountMeta = accountTypeLabel;
-  const isCareerWorkspaceRoute = pathname === "/account" || pathname.startsWith("/account/");
-  const showWorkspaceShortcuts =
-    shouldResumeOnboarding || !(preferredPersona === "job_seeker" && isCareerWorkspaceRoute);
   const primaryMenuHref = shouldResumeOnboarding ? "/onboarding" : workspaceHref;
   const isPrimaryMenuPage =
     primaryMenuHref === "/onboarding"
       ? pathname === "/onboarding" || pathname.startsWith("/onboarding/")
       : pathname === primaryMenuHref || pathname.startsWith(`${primaryMenuHref}/`);
+  const isSettingsPage =
+    pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
+  const showWorkspaceShortcut = !isPrimaryMenuPage;
   const primaryMenuLabel = shouldResumeOnboarding
     ? "Finish onboarding"
     : personaConfigs[preferredPersona].workspaceLabel;
@@ -218,37 +220,62 @@ export function HeaderAuthControls() {
               <span className={styles.settingsPanelBadge}>{accountTypeLabel}</span>
             </div>
 
-            {showWorkspaceShortcuts ? (
-              <>
-                <div className={styles.settingsPanelDivider} />
+            <div className={styles.settingsPanelDivider} />
 
-                <Link
-                  aria-current={isPrimaryMenuPage ? "page" : undefined}
-                  className={
-                    isPrimaryMenuPage
-                      ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
-                      : styles.settingsItem
-                  }
-                  href={primaryMenuHref}
-                  onClick={() => {
-                    setMenuOpen(false);
-                  }}
-                  role="menuitem"
-                >
-                  <span className={styles.settingsItemLead}>
-                    <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
-                    <span className={styles.settingsItemCopy}>
-                      <strong>{primaryMenuLabel}</strong>
-                    </span>
+            <Link
+              aria-current={isSettingsPage ? "page" : undefined}
+              className={
+                isSettingsPage
+                  ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                  : styles.settingsItem
+              }
+              href={settingsHref}
+              onClick={() => {
+                setMenuOpen(false);
+              }}
+              role="menuitem"
+            >
+              <span className={styles.settingsItemLead}>
+                <Settings2 aria-hidden="true" size={16} strokeWidth={2} />
+                <span className={styles.settingsItemCopy}>
+                  <strong>Profile & account</strong>
+                </span>
+              </span>
+              <ChevronRight
+                aria-hidden="true"
+                className={styles.settingsItemArrow}
+                size={16}
+                strokeWidth={2}
+              />
+            </Link>
+
+            {showWorkspaceShortcut ? (
+              <Link
+                aria-current={isPrimaryMenuPage ? "page" : undefined}
+                className={
+                  isPrimaryMenuPage
+                    ? `${styles.settingsItem} ${styles.settingsItemCurrent}`
+                    : styles.settingsItem
+                }
+                href={primaryMenuHref}
+                onClick={() => {
+                  setMenuOpen(false);
+                }}
+                role="menuitem"
+              >
+                <span className={styles.settingsItemLead}>
+                  <LayoutDashboard aria-hidden="true" size={16} strokeWidth={2} />
+                  <span className={styles.settingsItemCopy}>
+                    <strong>{primaryMenuLabel}</strong>
                   </span>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className={styles.settingsItemArrow}
-                    size={16}
-                    strokeWidth={2}
-                  />
-                </Link>
-              </>
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className={styles.settingsItemArrow}
+                  size={16}
+                  strokeWidth={2}
+                />
+              </Link>
             ) : null}
 
             <div className={styles.settingsPanelDivider} />
