@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
-import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-shell-content";
-import { ChatHomeHero } from "./chat-home-hero";
-import { TrustExplainerSection } from "./trust-explainer-section";
+import { landingContentByPersona, type SolutionVariant, type StoryTheme } from "./chat-home-shell-content";
+import { HeroComposer } from "./hero-composer";
 import styles from "./chat-home-shell.module.css";
 import type { Persona } from "@/lib/personas";
 
@@ -45,184 +44,6 @@ function IntroSectionTitle({
         ))}
       </h2>
     </div>
-  );
-}
-
-function CareerAiAgentMark() {
-  return (
-    <g
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      transform="translate(2 2)"
-    >
-      <g strokeWidth="2.35">
-        <rect x="2" y="9" width="20" height="14" rx="6" />
-        <path d="M12 9V5.2" />
-        <path d="M7.8 23V27" />
-        <path d="M16.2 23V27" />
-        <path d="M5.2 23 2.2 28.2" />
-        <path d="M18.8 23 21.8 28.2" />
-        <path d="M7 30.2h10" />
-      </g>
-      <circle cx="8.4" cy="16" r="1.55" fill="currentColor" stroke="none" />
-      <circle cx="15.6" cy="16" r="1.55" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="3.2" r="1.55" fill="currentColor" stroke="none" />
-    </g>
-  );
-}
-
-function GlobalVerificationArt() {
-  return (
-    <svg
-      aria-hidden="true"
-      className={styles.globalVisualArt}
-      viewBox="0 0 480 240"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="globalSurface" x1="56" x2="424" y1="18" y2="222" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#162137" />
-          <stop offset="0.58" stopColor="#0e1523" />
-          <stop offset="1" stopColor="#0a1019" />
-        </linearGradient>
-        <radialGradient id="globalGlow" cx="0" cy="0" r="1" gradientTransform="translate(240 132) rotate(90) scale(94 170)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#79a8ff" stopOpacity="0.34" />
-          <stop offset="0.42" stopColor="#4d7aff" stopOpacity="0.18" />
-          <stop offset="1" stopColor="#0d1320" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id="pillGlow" cx="0" cy="0" r="1" gradientTransform="translate(86 52) rotate(90) scale(72 112)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#9ec1ff" stopOpacity="0.24" />
-          <stop offset="1" stopColor="#9ec1ff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="pillFill" x1="26" x2="146" y1="6" y2="106" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#fbfdff" stopOpacity="0.98" />
-          <stop offset="0.58" stopColor="#edf2f8" stopOpacity="0.96" />
-          <stop offset="1" stopColor="#dbe4f0" stopOpacity="0.95" />
-        </linearGradient>
-        <linearGradient id="pillStroke" x1="12" x2="164" y1="14" y2="90" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.98" />
-          <stop offset="1" stopColor="#a8bdd9" stopOpacity="0.9" />
-        </linearGradient>
-        <linearGradient id="bridgeStroke" x1="114" x2="366" y1="126" y2="126" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#76bcff" stopOpacity="0.92" />
-          <stop offset="0.5" stopColor="#c3e5ff" />
-          <stop offset="1" stopColor="#76bcff" stopOpacity="0.92" />
-        </linearGradient>
-        <radialGradient id="bubbleGlow" cx="0" cy="0" r="1" gradientTransform="translate(24 20) rotate(90) scale(28 38)" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#9dc7ff" stopOpacity="0.3" />
-          <stop offset="1" stopColor="#9dc7ff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id="bubbleFill" x1="216" x2="264" y1="94" y2="140" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#fbfdff" />
-          <stop offset="1" stopColor="#e2eaf5" />
-        </linearGradient>
-      </defs>
-
-      <rect x="0.5" y="0.5" width="479" height="239" rx="26" fill="url(#globalSurface)" />
-      <rect x="0.5" y="0.5" width="479" height="239" rx="26" stroke="#ffffff" strokeOpacity="0.08" />
-      <rect x="1" y="1" width="478" height="238" rx="25.5" fill="url(#globalGlow)" />
-
-      <g opacity="0.22">
-        {[
-          [118, 40],
-          [154, 54],
-          [201, 38],
-          [243, 48],
-          [290, 40],
-          [332, 58],
-          [96, 182],
-          [146, 198],
-          [201, 184],
-          [278, 196],
-          [330, 184],
-          [380, 198],
-        ].map(([cx, cy], index) => (
-          <circle key={`${cx}-${cy}-${index}`} cx={cx} cy={cy} fill="#d2e6ff" r="2.6" />
-        ))}
-      </g>
-
-      <path
-        d="M146 132C179 110 209 101 240 101C271 101 301 110 334 132"
-        fill="none"
-        opacity="0.94"
-        stroke="url(#bridgeStroke)"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-      <path
-        d="M154 144C186 164 213 173 240 173C267 173 294 164 326 144"
-        fill="none"
-        opacity="0.32"
-        stroke="url(#bridgeStroke)"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-
-      <g transform="translate(40 74)">
-        <ellipse cx="86" cy="60" rx="98" ry="70" fill="url(#pillGlow)" />
-        <rect x="0" y="10" width="172" height="100" rx="50" fill="url(#pillFill)" />
-        <rect x="0.8" y="10.8" width="170.4" height="98.4" rx="49.2" stroke="url(#pillStroke)" strokeWidth="1.6" />
-        <rect x="8" y="18" width="156" height="84" rx="42" fill="#ffffff" fillOpacity="0.18" />
-        <g color="#233249" transform="translate(73 34)">
-          <CareerAiAgentMark />
-        </g>
-        <text
-          x="86"
-          y="88"
-          fill="#233249"
-          fontSize="16"
-          fontWeight="700"
-          letterSpacing="0.04em"
-          textAnchor="middle"
-        >
-          Agent
-        </text>
-      </g>
-
-      <g transform="translate(268 74)">
-        <ellipse cx="86" cy="60" rx="98" ry="70" fill="url(#pillGlow)" />
-        <rect x="0" y="10" width="172" height="100" rx="50" fill="url(#pillFill)" />
-        <rect x="0.8" y="10.8" width="170.4" height="98.4" rx="49.2" stroke="url(#pillStroke)" strokeWidth="1.6" />
-        <rect x="8" y="18" width="156" height="84" rx="42" fill="#ffffff" fillOpacity="0.18" />
-        <g color="#233249" transform="translate(73 34)">
-          <CareerAiAgentMark />
-        </g>
-        <text
-          x="86"
-          y="88"
-          fill="#233249"
-          fontSize="16"
-          fontWeight="700"
-          letterSpacing="0.04em"
-          textAnchor="middle"
-        >
-          Agent
-        </text>
-      </g>
-
-      <g transform="translate(216 97)">
-        <ellipse cx="24" cy="20" rx="34" ry="24" fill="url(#bubbleGlow)" />
-        <path
-          d="M20 0C31.046 0 40 8.954 40 20C40 31.046 31.046 40 20 40H12L2.4 48L6.4 37C2.379 33.132 0 27.691 0 22V20C0 8.954 8.954 0 20 0Z"
-          fill="url(#bubbleFill)"
-          stroke="#91b3da"
-          strokeWidth="2.25"
-        />
-        <text
-          x="20"
-          y="24"
-          fill="#233249"
-          fontSize="16"
-          fontWeight="700"
-          letterSpacing="0.06em"
-          textAnchor="middle"
-        >
-          to
-        </text>
-      </g>
-    </svg>
   );
 }
 
@@ -343,7 +164,10 @@ function SolutionVisual({ variant }: { variant: SolutionVariant }) {
   if (variant === "globalVerification") {
     return (
       <div className={styles.globalVisual}>
-        <GlobalVerificationArt />
+        <div className={styles.globalLabel}>US • UK • BR • SG</div>
+        <div className={styles.globalArcMain} />
+        <div className={styles.globalArcAlt} />
+        <div className={styles.globalHalo} />
       </div>
     );
   }
@@ -380,7 +204,7 @@ function SolutionCard({
   size,
   title,
   variant,
-}: LandingContent["solutions"][number]) {
+}: (typeof landingContentByPersona)["job_seeker"]["solutions"][number]) {
   return (
     <article
       className={[
@@ -412,23 +236,20 @@ function SolutionCard({
   );
 }
 
-export function ChatHomeShell({
-  content,
-  embeddedInWorkspaceShell = false,
-  persona = "job_seeker",
-}: {
-  content: LandingContent;
-  embeddedInWorkspaceShell?: boolean;
-  persona?: Persona;
-}) {
+export function ChatHomeShell({ persona = "job_seeker" }: { persona?: Persona }) {
+  const content = landingContentByPersona[persona];
+
   return (
     <div className={styles.page}>
-      <ChatHomeHero
-        embeddedInWorkspaceShell={embeddedInWorkspaceShell}
-        heroComposer={content.heroComposer}
-        heroTitle={content.heroTitle}
-        persona={persona}
-      />
+      <section className={styles.heroSection}>
+        <div className={styles.heroInner}>
+          <h1 className={styles.heroTitle}>
+            <span className={styles.heroTitleLine}>{content.heroTitle}</span>
+          </h1>
+
+          <HeroComposer content={content.heroComposer} />
+        </div>
+      </section>
 
       <section className={styles.introSection} id="platform">
         <div className={[styles.sectionShell, styles.introShell].join(" ")}>
@@ -471,14 +292,8 @@ export function ChatHomeShell({
 
           <div className={styles.proofBand}>
             {content.proofSurfaces.map((surface) => (
-              <span
-                className={styles.proofWordmark}
-                key={typeof surface === "string" ? surface : surface.label}
-              >
-                <span>{typeof surface === "string" ? surface : surface.label}</span>
-                {typeof surface === "string" || !surface.note ? null : (
-                  <span className={styles.proofWordmarkNote}>{surface.note}</span>
-                )}
+              <span className={styles.proofWordmark} key={surface}>
+                {surface}
               </span>
             ))}
           </div>
@@ -497,21 +312,17 @@ export function ChatHomeShell({
           </div>
 
           <div className={styles.storyGrid}>
-            {content.stories.map((story, index) => (
-              <article className={styles.storyCard} key={`${story.company}-${story.theme}-${index}`}>
+            {content.stories.map((story) => (
+              <article className={styles.storyCard} key={story.company}>
                 <StoryVisual theme={story.theme} />
                 <div className={styles.storyMeta}>
                   <strong>{story.company}</strong>
                   <h3>{story.title}</h3>
                   <p>{story.copy}</p>
-                  {story.comingSoon ? (
-                    <span className={styles.inlineSoon}>{story.cta}</span>
-                  ) : (
-                    <Link className={styles.inlineLink} href="#footer">
-                      {story.cta}
-                      <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
-                    </Link>
-                  )}
+                  <Link className={styles.inlineLink} href="#footer">
+                    {story.cta}
+                    <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
+                  </Link>
                 </div>
               </article>
             ))}
@@ -557,8 +368,6 @@ export function ChatHomeShell({
           </div>
         </div>
       </section>
-
-      <TrustExplainerSection content={content.trustExplainer} />
 
       <footer className={styles.footer} id="footer">
         <div className={styles.sectionShell}>

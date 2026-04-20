@@ -1,8 +1,8 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
+import { hasIncompleteOnboarding } from "@/lib/authenticated-workspace";
 import {
   getAuthSecret,
   getGoogleAuthStatus,
@@ -10,11 +10,6 @@ import {
   getGoogleClientSecret,
   getPublicBaseUrl,
 } from "@/auth-config";
-import {
-  findCredentialUserByEmail,
-  recordCredentialSignIn,
-  verifyCredentialPassword,
-} from "@/lib/credential-user-store";
 
 type GoogleProfile = {
   email?: string;
@@ -22,15 +17,6 @@ type GoogleProfile = {
   name?: string;
   picture?: string;
   sub?: string;
-};
-
-type AuthUser = {
-  authProvider?: string | null;
-  email?: string | null;
-  id?: string | null;
-  image?: string | null;
-  name?: string | null;
-  providerUserId?: string | null;
 };
 
 const googleClientId = getGoogleClientId();
@@ -70,7 +56,7 @@ function getProviderUserId(
   },
 ) {
   if (provider !== "google") {
-    return args.accountProviderUserId ?? args.tokenProviderUserId ?? args.tokenSub ?? null;
+    return args.tokenProviderUserId ?? null;
   }
 
   return (
@@ -112,69 +98,16 @@ function toOnboardingStatus(value: unknown) {
   return null;
 }
 
-const authProviders: NextAuthOptions["providers"] = [
-  CredentialsProvider({
-    name: "Email and password",
-    credentials: {
-      email: {
-        label: "Email",
-        type: "email",
-      },
-      password: {
-        label: "Password",
-        type: "password",
-      },
-    },
-    async authorize(credentials) {
-      const email = credentials?.email?.toString().trim() ?? "";
-      const password = credentials?.password?.toString() ?? "";
-
-      if (!email || !password) {
-        return null;
-      }
-
-      const user = await findCredentialUserByEmail(email);
-
-      if (!user) {
-        return null;
-      }
-
-      const passwordMatches = verifyCredentialPassword(user, password);
-
-      if (!passwordMatches) {
-        return null;
-      }
-
-      await recordCredentialSignIn(user.id);
-
-      return {
-        authProvider: user.authProvider,
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        providerUserId: user.providerUserId,
-      };
-    },
-  }),
-];
-
-if (googleOAuthEnabled) {
-  authProviders.push(
-    GoogleProvider({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
-      authorization: {
-        params: {
-          prompt: "select_account",
-        },
-      },
-    }),
-  );
-}
-
 export const authOptions = {
   secret: authSecret || undefined,
-  providers: authProviders,
+  providers: googleOAuthEnabled
+    ? [
+        GoogleProvider({
+          clientId: googleClientId,
+          clientSecret: googleClientSecret,
+        }),
+      ]
+    : [],
   pages: {
     signIn: "/sign-in",
   },
@@ -197,7 +130,6 @@ export const authOptions = {
 
         await ensurePersistentCareerIdentityForSessionUser({
           user: {
-            authProvider: account.provider,
             email: normalizedEmail,
             emailVerified: true,
             image:
@@ -214,22 +146,7 @@ export const authOptions = {
 
       return true;
     },
-    async jwt({ token, account, profile, user, trigger, session }) {
-      const authUser = user as AuthUser | undefined;
-
-      if (trigger === "update" && session && typeof session === "object") {
-        const updatedName =
-          typeof session.name === "string"
-            ? session.name
-            : typeof (session as { user?: { name?: unknown } }).user?.name === "string"
-              ? (session as { user: { name: string } }).user.name
-              : null;
-
-        if (updatedName) {
-          token.name = updatedName;
-        }
-      }
-
+    async jwt({ token, account, profile, user }) {
       const googleProfile = getGoogleProfile(profile);
       const email =
         typeof token.email === "string"
@@ -245,7 +162,8 @@ export const authOptions = {
           !token.talentIdentityId ||
           !token.talentAgentId ||
           !token.soulRecordId ||
-          !token.onboardingStatus
+          !token.onboardingStatus ||
+          hasIncompleteOnboarding(token.onboardingStatus)
         );
 
       if (shouldHydratePersistentContext) {
@@ -253,47 +171,32 @@ export const authOptions = {
           const result = await ensurePersistentCareerIdentityForSessionUser({
             user: {
               appUserId:
-                typeof token.appUserId === "string"
-                  ? token.appUserId
-                  : account?.provider === "credentials" && typeof authUser?.id === "string"
-                    ? authUser.id
-                    : null,
+                typeof token.appUserId === "string" ? token.appUserId : null,
               authProvider:
-                typeof token.authProvider === "string"
-                  ? token.authProvider
-                  : account?.provider === "credentials"
-                    ? "credentials"
-                    : null,
+                typeof token.authProvider === "string" ? token.authProvider : null,
               email,
               emailVerified: googleProfile?.email_verified ?? true,
               image:
-                typeof authUser?.image === "string"
-                  ? authUser.image
+                typeof user?.image === "string"
+                  ? user.image
                   : typeof token.picture === "string"
                     ? token.picture
                     : googleProfile?.picture ?? null,
               name:
-                typeof authUser?.name === "string"
-                  ? authUser.name
+                typeof user?.name === "string"
+                  ? user.name
                   : typeof token.name === "string"
                     ? token.name
                     : googleProfile?.name ?? null,
-              providerUserId:
-                account?.provider === "google"
-                  ? getProviderUserId(account?.provider, {
-                      accountProviderUserId: account?.providerAccountId,
-                      profile: googleProfile,
-                      tokenProviderUserId:
-                        typeof token.providerUserId === "string"
-                          ? token.providerUserId
-                          : null,
-                      tokenSub: typeof token.sub === "string" ? token.sub : null,
-                    })
-                  : typeof token.providerUserId === "string"
+              providerUserId: getProviderUserId(account?.provider, {
+                accountProviderUserId: account?.providerAccountId,
+                profile: googleProfile,
+                tokenProviderUserId:
+                  typeof token.providerUserId === "string"
                     ? token.providerUserId
-                    : typeof authUser?.providerUserId === "string"
-                      ? authUser.providerUserId
-                      : null,
+                    : null,
+                tokenSub: typeof token.sub === "string" ? token.sub : null,
+              }),
             },
             correlationId:
               typeof token.sub === "string"

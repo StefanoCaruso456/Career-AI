@@ -48,9 +48,9 @@ function createSnapshot(): CareerBuilderSnapshotDto {
       completedEvidenceCount: 0,
       strongestTier: "self",
       nextUploads: [
+        { templateId: "idme-verification", title: "ID.me verification" },
         { templateId: "drivers-license", title: "Driver's license" },
-        { templateId: "offer-letters", title: "Offer letter" },
-        { templateId: "transcripts", title: "Transcripts" },
+        { templateId: "signature-backed-documents", title: "Signature-backed documents" },
       ],
     },
     phaseProgress: [
@@ -69,7 +69,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Relationship-backed",
         completed: 0,
         started: 0,
-        total: 1,
+        total: 3,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -89,7 +89,7 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Signature-backed",
         completed: 0,
         started: 0,
-        total: 1,
+        total: 4,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
@@ -99,164 +99,18 @@ function createSnapshot(): CareerBuilderSnapshotDto {
         label: "Institution-verified",
         completed: 0,
         started: 0,
-        total: 1,
+        total: 2,
         isComplete: false,
         isCurrent: false,
         summary: "Waiting on the earlier trust layers to complete first.",
       },
     ],
-    careerIdProfile: {
-      userId: "tal_123",
-      phases: [
-        {
-          key: "self_reported",
-          title: "Self-reported",
-          description: "Add your foundation profile details so the rest of your trust ladder has context.",
-          status: "not_started",
-          completedCount: 0,
-          totalCount: 5,
-          unlocked: true,
-          evidence: [],
-        },
-        {
-          key: "relationship_backed",
-          title: "Relationship-backed",
-          description: "Add endorsements from trusted people who can validate your outcomes.",
-          status: "locked",
-          completedCount: 0,
-          totalCount: 1,
-          unlocked: false,
-          evidence: [],
-        },
-        {
-          key: "document_backed",
-          title: "Document-backed",
-          description: "Verify a government ID or upload trusted documents to strengthen your Career ID.",
-          status: "not_started",
-          completedCount: 0,
-          totalCount: 8,
-          unlocked: true,
-          evidence: [],
-        },
-        {
-          key: "signature_backed",
-          title: "Signature-backed",
-          description: "Add employer-backed verification that carries stronger reviewer confidence.",
-          status: "locked",
-          completedCount: 0,
-          totalCount: 1,
-          unlocked: false,
-          evidence: [],
-        },
-        {
-          key: "institution_verified",
-          title: "Institution-verified",
-          description: "Anchor the profile to government-issued identity verification.",
-          status: "locked",
-          completedCount: 0,
-          totalCount: 1,
-          unlocked: false,
-          evidence: [],
-        },
-      ],
-      badges: [],
-    },
-    documentVerification: {
-      evidenceId: null,
-      verificationId: null,
-      status: "not_started",
-      unlocked: true,
-      estimatedTimeLabel: "About 2 minutes",
-      explanation:
-        "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
-      helperText: "Start here with a government ID and live selfie to anchor your Career ID.",
-      ctaLabel: "Verify your identity",
-      retryable: false,
-      artifactLabel: null,
-      recoveryHints: [
-        "Use good lighting.",
-        "Make sure your document is sharp and readable.",
-        "Keep your full face visible during the live selfie.",
-      ],
-      result: null,
-    },
-  };
-}
-
-function unlockDocumentVerification(snapshot: CareerBuilderSnapshotDto) {
-  snapshot.phaseProgress[0] = {
-    ...snapshot.phaseProgress[0],
-    completed: 5,
-    started: 5,
-    total: 5,
-    isComplete: true,
-    isCurrent: false,
-    summary: "Self-reported foundation complete. Your Career ID can now level up with stronger proof.",
-  };
-  snapshot.phaseProgress[1] = {
-    ...snapshot.phaseProgress[1],
-    completed: 1,
-    started: 1,
-    total: 1,
-    isComplete: true,
-    isCurrent: false,
-    summary: "Relationship-backed trust is now live inside your Career ID.",
-  };
-  snapshot.phaseProgress[2] = {
-    ...snapshot.phaseProgress[2],
-    isCurrent: true,
-    summary:
-      "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
-  };
-  snapshot.careerIdProfile.phases[0] = {
-    ...snapshot.careerIdProfile.phases[0],
-    status: "verified",
-    completedCount: 5,
-  };
-  snapshot.careerIdProfile.phases[1] = {
-    ...snapshot.careerIdProfile.phases[1],
-    status: "verified",
-    completedCount: 1,
-    unlocked: true,
-  };
-  snapshot.careerIdProfile.phases[2] = {
-    ...snapshot.careerIdProfile.phases[2],
-    status: "not_started",
-    unlocked: true,
-  };
-  snapshot.documentVerification = {
-    ...snapshot.documentVerification,
-    status: "not_started",
-    unlocked: true,
-    helperText:
-      "We verify your government ID and compare it with a live selfie to strengthen your Career ID.",
-    ctaLabel: "Verify your identity",
   };
 }
 
 describe("AgentBuilderWorkspace", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("renders the simplified hero without the summary cards", () => {
-    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
-
-    expect(screen.getByRole("heading", { level: 1, name: "Career ID Badges" })).toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        "Create the living credibility profile behind your verified career identity. Keep the progress rail in view, open the phase you want to strengthen, and save each trust signal directly into your Career ID.",
-      ),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("overall builder progress")).not.toBeInTheDocument();
-    expect(screen.queryByText("uploaded evidence signals")).not.toBeInTheDocument();
-    expect(screen.queryByText("strongest trust tier")).not.toBeInTheDocument();
-    expect(screen.queryByText("Career ID Credential")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Reset verification state" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Phase-based intake")).not.toBeInTheDocument();
-    expect(screen.queryByText("Saved to your Career ID")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Verify your identity first" })).toBeInTheDocument();
-    expect(screen.queryByText("Complete the earlier trust layers to unlock this phase.")).not.toBeInTheDocument();
   });
 
   it("keeps dense intake off the main page and opens the requested phase modal", async () => {
@@ -283,53 +137,27 @@ describe("AgentBuilderWorkspace", () => {
   it("uses pill navigation so a phase modal shows one evidence card at a time", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
-
-    const dialog = await screen.findByRole("dialog");
-
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).queryByText("Structured intake")).not.toBeInTheDocument();
-    expect(within(dialog).queryByText("Document-backed")).not.toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Previous" })).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Next" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Offer letter" })).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText(
-        "Which role, employer, and date does this offer validate?",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByPlaceholderText(
-        "What part of your work history should this employer verification confirm?",
-      ),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Employment verification" }));
-
-    expect(screen.getByRole("heading", { level: 3, name: "Employment verification" })).toBeInTheDocument();
-    expect(
-      screen.getByPlaceholderText(
-        "What part of your work history should this employer verification confirm?",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("shows education and transcript uploads inside the document-backed modal", async () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /document-backed/i }));
+    fireEvent.click(screen.getByRole("button", { name: /relationship-backed/i }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "Step 3: Education" }));
+    expect(screen.getByText("Structured intake")).toBeInTheDocument();
+    expect(screen.getAllByText("Referrals and endorsements").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { level: 3, name: "Referrals" })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        "What hiring signal or opportunity context does this referral provide?",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("What capability or outcome does this endorsement reinforce?"),
+    ).not.toBeInTheDocument();
 
-    expect(screen.getByRole("heading", { level: 3, name: "Education" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Step 2: Endorsements" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Step 4: Transcripts" }));
-
-    expect(screen.getByRole("heading", { level: 3, name: "Transcripts" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "Endorsements" })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("What capability or outcome does this endorsement reinforce?"),
+    ).toBeInTheDocument();
   });
 
   it("loads existing saved values into the phase modal", async () => {
@@ -365,7 +193,7 @@ describe("AgentBuilderWorkspace", () => {
     updated.phaseProgress[1] = {
       ...updated.phaseProgress[1],
       isCurrent: true,
-      summary: "Add at least one endorsement to unlock this phase.",
+      summary: "Add a referral, endorsement, or trusted letter to unlock this phase.",
     };
 
     const fetchMock = vi.fn().mockResolvedValue({
@@ -402,7 +230,7 @@ describe("AgentBuilderWorkspace", () => {
 
     expect(await screen.findByText("Saved to your Career ID.")).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getAllByText("5/5 ready").length).toBeGreaterThan(0);
+      expect(screen.getByText("29%")).toBeInTheDocument();
       expect(
         screen.getByText(
           "Self-reported foundation complete. Your Career ID can now level up with stronger proof.",
@@ -441,257 +269,28 @@ describe("AgentBuilderWorkspace", () => {
     });
   });
 
-  it("hides the duplicate institution-verified rail step and modal", async () => {
+  it("rejects non-image driver's license uploads before save", async () => {
     render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
 
-    expect(
-      screen.queryByRole("button", { name: /institution-verified/i }),
-    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /institution-verified/i }));
+    fireEvent.click(screen.getByRole("tab", { name: /driver's license/i }));
 
-    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
+    const frontInput = document.getElementById(
+      "upload-drivers-license-front",
+    ) as HTMLInputElement | null;
 
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { level: 2, name: /Institution-verified evidence/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /save institution-verified evidence/i }),
-    ).not.toBeInTheDocument();
-  });
+    expect(frontInput).not.toBeNull();
 
-  it("shows the government ID CTA once document-backed is unlocked", () => {
-    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
-
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Verify your identity first" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /verify your identity/i })).toBeInTheDocument();
-    expect(
-      screen.getAllByText(
-        "Start here with a government ID and live selfie to anchor your Career ID.",
-      ).length,
-    ).toBeGreaterThan(0);
-    expect(screen.queryByText("About 2 minutes")).not.toBeInTheDocument();
-    expect(screen.queryByText("Driver's license + live selfie")).not.toBeInTheDocument();
-  });
-
-  it("opens the guided verification modal from the document-backed CTA", async () => {
-    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
-
-    const dialog = await screen.findByRole("dialog");
-
-    expect(dialog).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText("Driver's license + live selfie")).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        /You'll capture the front and back of your ID plus the live selfie in Persona after you continue\./i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: "Continue to secure capture" }),
-    ).toBeInTheDocument();
-  });
-
-  it("keeps manual-review verification states pollable from the modal", async () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-    snapshot.documentVerification = {
-      ...snapshot.documentVerification,
-      status: "manual_review",
-      verificationId: "career_id_ver_123",
-      ctaLabel: "Check verification status",
-      helperText: "We're reviewing your verification. This can take a little longer.",
-    };
-
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /check verification status/i }));
-
-    const dialog = await screen.findByRole("dialog");
-
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByRole("button", { name: "Refresh status" })).toBeInTheDocument();
-  });
-
-  it("recovers to a fresh verification start when the verification id is no longer active", async () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-    snapshot.documentVerification = {
-      ...snapshot.documentVerification,
-      status: "manual_review",
-      verificationId: "career_id_ver_missing",
-      ctaLabel: "Check verification status",
-      helperText: "We're reviewing your verification. This can take a little longer.",
-    };
-
-    const refreshedSnapshot = createSnapshot();
-    unlockDocumentVerification(refreshedSnapshot);
-
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-
-      if (url.startsWith("/api/v1/career-id/verifications/")) {
-        return {
-          ok: false,
-          status: 404,
-          json: async () => ({
-            error_code: "NOT_FOUND",
-            message: "Career ID verification was not found.",
-          }),
-        };
-      }
-
-      if (url === "/api/v1/career-builder") {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => refreshedSnapshot,
-        };
-      }
-
-      throw new Error(`Unexpected fetch call for ${url}`);
-    });
-
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /check verification status/i }));
-
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Refresh status" }));
-
-    expect(
-      await within(dialog).findByText(
-        "This verification session is no longer active. Start a new verification.",
-      ),
-    ).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(
-        within(dialog).getByRole("button", { name: "Continue to secure capture" }),
-      ).toBeInTheDocument();
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("makes the Persona handoff explicit before starting secure verification", async () => {
-    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
-    fireEvent.click(screen.getByRole("button", { name: "Continue to secure capture" }));
-
-    const dialog = await screen.findByRole("dialog");
-
-    expect(
-      within(dialog).getByRole("heading", { level: 2, name: "Before you begin" }),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByText(
-        /After you agree, we'll send you to Persona for the secure capture flow\./i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: "Open secure verification" }),
-    ).toBeInTheDocument();
-  });
-
-  it("closes the government verification modal on Escape", async () => {
-    render(<AgentBuilderWorkspace initialSnapshot={createSnapshot()} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /verify your identity/i }));
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-
-    fireEvent.keyDown(document, { key: "Escape" });
-
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-  });
-
-  it("renders the verified artifact inside the document-backed rail state", () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-    snapshot.careerIdProfile.phases[2] = {
-      ...snapshot.careerIdProfile.phases[2],
-      status: "verified",
-      completedCount: 1,
-    };
-    snapshot.careerIdProfile.badges = [
-      {
-        id: "badge_gov_id",
-        label: "Government ID verified",
-        phase: "document_backed",
-        status: "verified",
+    fireEvent.change(frontInput!, {
+      target: {
+        files: [new File(["hello"], "license.txt", { type: "text/plain" })],
       },
-    ];
-    snapshot.documentVerification = {
-      ...snapshot.documentVerification,
-      status: "verified",
-      ctaLabel: null,
-      artifactLabel: "Government ID verified",
-      helperText: "Government ID verified and added to your Career ID.",
-      result: {
-        verificationId: "career_id_ver_123",
-        evidenceId: "career_id_evidence_123",
-        status: "verified",
-        checks: {
-          documentAuthenticity: "pass",
-          liveness: "pass",
-          faceMatch: "pass",
-        },
-        confidenceBand: "high",
-        provider: "persona",
-        providerReferenceId: "inq_123",
-        completedAt: "2026-04-10T12:00:00.000Z",
-        retryable: false,
-      },
-    };
+    });
 
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
+    fireEvent.click(screen.getByRole("button", { name: /save institution-verified evidence/i }));
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Government ID verified" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Career ID Credential")).toBeInTheDocument();
-    expect(screen.getAllByText("Government ID verified").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Verified by Persona").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: "Reset verification state" })).toBeInTheDocument();
-  });
-
-  it("allows reverify from an already verified government ID state", async () => {
-    const snapshot = createSnapshot();
-    unlockDocumentVerification(snapshot);
-    snapshot.careerIdProfile.phases[2] = {
-      ...snapshot.careerIdProfile.phases[2],
-      status: "verified",
-      completedCount: 1,
-    };
-    snapshot.documentVerification = {
-      ...snapshot.documentVerification,
-      status: "verified",
-      verificationId: "career_id_ver_123",
-      ctaLabel: "Reverify identity",
-      artifactLabel: "Government ID verified",
-      helperText: "Government ID verified and added to your Career ID.",
-    };
-
-    render(<AgentBuilderWorkspace initialSnapshot={snapshot} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /reverify identity/i }));
-
-    const dialog = await screen.findByRole("dialog");
-    expect(dialog).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("heading", { level: 2, name: "Strengthen your Career ID" }),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("button", { name: "Continue to secure capture" }),
+      await screen.findByText("Driver's license uploads must be image files."),
     ).toBeInTheDocument();
   });
 });

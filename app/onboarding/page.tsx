@@ -4,10 +4,8 @@ import {
   ensurePersistentCareerIdentityForSessionUser,
   getDisplayNameForContext,
 } from "@/auth-identity";
-import {
-  resolveAuthenticatedDestination,
-  resolveOnboardingStep,
-} from "@/packages/onboarding/src";
+import { getPostOnboardingDestination } from "@/lib/authenticated-workspace";
+import { resolveOnboardingStep } from "@/packages/onboarding/src";
 import {
   submitBasicProfile,
   submitCareerProfileBasics,
@@ -92,7 +90,7 @@ export default async function OnboardingPage() {
   });
 
   if (context.onboarding.status === "completed") {
-    redirect(resolveAuthenticatedDestination(context));
+    redirect(getPostOnboardingDestination(context.user.preferredPersona));
   }
 
   const currentStep = resolveOnboardingStep(context);
@@ -149,6 +147,15 @@ export default async function OnboardingPage() {
                 <label className={styles.field}>
                   <span>Last name</span>
                   <input defaultValue={context.user.lastName} name="lastName" required type="text" />
+                </label>
+                <label className={styles.field}>
+                  <span>Avatar URL</span>
+                  <input
+                    defaultValue={context.user.imageUrl ?? ""}
+                    name="imageUrl"
+                    placeholder="https://..."
+                    type="url"
+                  />
                 </label>
                 <button className={styles.primaryAction} type="submit">
                   Save and continue

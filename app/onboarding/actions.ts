@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { ensurePersistentCareerIdentityForSessionUser } from "@/auth-identity";
+import { getPostOnboardingDestination } from "@/lib/authenticated-workspace";
 import {
   finishOnboarding,
-  resolveAuthenticatedDestination,
   saveBasicProfile,
   saveCareerProfileBasics,
   saveRoleSelection,
@@ -49,6 +49,7 @@ export async function submitBasicProfile(formData: FormData) {
     input: {
       firstName: String(formData.get("firstName") ?? ""),
       lastName: String(formData.get("lastName") ?? ""),
+      imageUrl: String(formData.get("imageUrl") ?? ""),
     },
   });
 
@@ -91,11 +92,11 @@ export async function submitCareerProfileBasics(formData: FormData) {
 export async function submitOnboardingCompletion() {
   const context = await requireOnboardingContext();
 
-  const completed = await finishOnboarding({
+  const completedContext = await finishOnboarding({
     userId: context.user.id,
     correlationId: `onboarding_complete_${context.user.id}`,
   });
 
   revalidateAuthenticatedPaths();
-  redirect(resolveAuthenticatedDestination(completed));
+  redirect(getPostOnboardingDestination(completedContext.user.preferredPersona));
 }
