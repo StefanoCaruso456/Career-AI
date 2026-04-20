@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getPersistedJobsFeedSnapshot,
-  getDatabasePool,
   persistSourcedJobs,
-} from "@/packages/persistence/src";
+} from "./job-posting-repository";
+import { getDatabasePool } from "./client";
 import { installTestDatabase, resetTestDatabase } from "@/packages/persistence/src/test-helpers";
 
 describe("job posting repository", () => {
@@ -98,6 +98,68 @@ describe("job posting repository", () => {
     expect(snapshot.storage.mode).toBe("database");
     expect(snapshot.storage.persistedJobs).toBe(1);
     expect(snapshot.storage.lastSyncAt).toBe(syncedAt);
+  });
+
+  it("hydrates applyTarget from the persisted apply_targets row instead of recomputing it from orchestration readiness", async () => {
+    const syncedAt = "2026-04-10T21:00:00.000Z";
+
+    await persistSourcedJobs({
+      syncedAt,
+      sources: [
+        {
+          key: "greenhouse:acme",
+          label: "Acme",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 1,
+          endpointLabel: "boards-api.greenhouse.io/acme",
+          lastSyncedAt: syncedAt,
+          message: "Direct ATS jobs are flowing from Greenhouse.",
+        },
+      ],
+      jobs: [
+        {
+          id: "greenhouse:acme:manual-allow",
+          externalId: "manual-allow",
+          title: "Senior Product Designer",
+          companyName: "Acme",
+          location: "Remote",
+          department: "Design",
+          commitment: null,
+          sourceKey: "greenhouse:acme",
+          sourceLabel: "Acme",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl: "https://boards.greenhouse.io/acme/jobs/123",
+          canonicalApplyUrl: "https://boards.greenhouse.io/acme/jobs/123",
+          orchestrationReadiness: false,
+          applyTarget: {
+            atsFamily: "greenhouse",
+            confidence: 0.95,
+            matchedRule: "manual_validation_allowlist",
+            routingMode: "queue_autonomous_apply",
+            supportReason: "validated_greenhouse_target",
+            supportStatus: "supported",
+          },
+          postedAt: null,
+          updatedAt: syncedAt,
+          descriptionSnippet: "Lead visual design across the candidate experience.",
+        },
+      ],
+    });
+
+    const snapshot = await getPersistedJobsFeedSnapshot({ limit: 10 });
+
+    expect(snapshot.jobs).toHaveLength(1);
+    expect(snapshot.jobs[0]?.orchestrationReadiness).toBe(false);
+    expect(snapshot.jobs[0]?.applyTarget).toMatchObject({
+      atsFamily: "greenhouse",
+      matchedRule: "manual_validation_allowlist",
+      routingMode: "queue_autonomous_apply",
+      supportReason: "validated_greenhouse_target",
+      supportStatus: "supported",
+    });
   });
 
   it("keeps previously persisted jobs available when a later source sync degrades", async () => {

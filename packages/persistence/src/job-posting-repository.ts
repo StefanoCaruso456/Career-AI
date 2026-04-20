@@ -8,13 +8,17 @@ import type {
   JobValidationStatus,
   JobsFeedStorageDto,
 } from "@/packages/contracts/src";
-import { resolveJobApplyTarget } from "@/packages/apply-adapters/src";
 import {
   type DatabaseQueryable,
   getDatabasePool,
   queryOptional,
   withDatabaseTransaction,
 } from "./client";
+import {
+  type ApplyTargetProjectionRow,
+  mapApplyTargetProjectionRow,
+  upsertApplyTargetForJob,
+} from "./apply-target-repository";
 
 const MAX_PERSISTED_RESPONSE_LIMIT = 30_000;
 const DEFAULT_PERSISTED_QUERY_MULTIPLIER = 6;
@@ -32,7 +36,7 @@ type JobSourceRow = {
   last_synced_at: Date | string;
 };
 
-type JobPostingRow = {
+type JobPostingRow = ApplyTargetProjectionRow & {
   id: string;
   external_id: string;
   external_source_job_id: string | null;
@@ -164,13 +168,11 @@ function mapSourceRow(row: JobSourceRow): JobSourceSnapshotDto {
 function mapJobRow(row: JobPostingRow): JobPostingDto {
   const canonicalApplyUrl = row.canonical_apply_url ?? row.apply_url;
   const orchestrationReadiness = Boolean(row.orchestration_readiness);
+  const applyTarget = mapApplyTargetProjectionRow(row);
 
   return {
     applyUrl: row.apply_url,
-    applyTarget: resolveJobApplyTarget({
-      canonicalApplyUrl,
-      orchestrationReadiness,
-    }),
+    applyTarget,
     applicationPathType: row.application_path_type ?? "unknown",
     canonicalApplyUrl,
     canonicalJobUrl: row.canonical_job_url,
@@ -438,6 +440,10 @@ export async function persistSourcedJobs(args: {
 
       for (const job of sourceJobs) {
         await upsertJob({ queryable: client, job, syncedAt });
+        await upsertApplyTargetForJob({
+          job,
+          queryable: client,
+        });
       }
 
       if (source.status === "connected") {
@@ -493,51 +499,62 @@ export async function getPersistedJobsFeedSnapshot(args?: {
     pool.query<JobPostingRow>(
       `
         SELECT
-          id,
-          external_id,
-          external_source_job_id,
-          title,
-          normalized_title,
-          company_name,
-          normalized_company_name,
-          location,
-          workplace_type,
-          department,
-          commitment,
-          salary_text,
-          source_key,
-          source_label,
-          source_lane,
-          source_quality,
-          source_trust_tier,
-          apply_url,
-          canonical_apply_url,
-          canonical_job_url,
-          posted_at,
-          updated_at,
-          description_snippet,
-          raw_payload_json,
-          ingested_at,
-          last_validated_at,
-          validation_status,
-          trust_score,
-          dedupe_fingerprint,
-          orchestration_readiness,
-          application_path_type,
-          redirect_required,
-          orchestration_metadata_json
+          job_postings.id,
+          job_postings.external_id,
+          job_postings.external_source_job_id,
+          job_postings.title,
+          job_postings.normalized_title,
+          job_postings.company_name,
+          job_postings.normalized_company_name,
+          job_postings.location,
+          job_postings.workplace_type,
+          job_postings.department,
+          job_postings.commitment,
+          job_postings.salary_text,
+          job_postings.source_key,
+          job_postings.source_label,
+          job_postings.source_lane,
+          job_postings.source_quality,
+          job_postings.source_trust_tier,
+          job_postings.apply_url,
+          job_postings.canonical_apply_url,
+          job_postings.canonical_job_url,
+          job_postings.posted_at,
+          job_postings.updated_at,
+          job_postings.description_snippet,
+          job_postings.raw_payload_json,
+          job_postings.ingested_at,
+          job_postings.last_validated_at,
+          job_postings.validation_status,
+          job_postings.trust_score,
+          job_postings.dedupe_fingerprint,
+          job_postings.orchestration_readiness,
+          job_postings.application_path_type,
+          job_postings.redirect_required,
+          job_postings.orchestration_metadata_json,
+          apply_targets.ats_family AS apply_target_ats_family,
+          apply_targets.confidence AS apply_target_confidence,
+          apply_targets.matched_rule AS apply_target_matched_rule,
+          apply_targets.routing_mode AS apply_target_routing_mode,
+          apply_targets.support_reason AS apply_target_support_reason,
+          apply_targets.support_status AS apply_target_support_status
         FROM job_postings
-        WHERE is_active = true
-          AND ($2::timestamptz IS NULL OR COALESCE(updated_at, posted_at, persisted_at) >= $2)
+        LEFT JOIN apply_targets
+          ON apply_targets.job_posting_id = job_postings.id
+        WHERE job_postings.is_active = true
+          AND (
+            $2::timestamptz IS NULL
+            OR COALESCE(job_postings.updated_at, job_postings.posted_at, job_postings.persisted_at) >= $2
+          )
           AND (
             $3::boolean = false
-            OR normalized_company_name = ANY($4::text[])
+            OR job_postings.normalized_company_name = ANY($4::text[])
           )
         ORDER BY
-          COALESCE(trust_score, 0) DESC,
-          CASE source_quality WHEN 'high_signal' THEN 0 ELSE 1 END,
-          COALESCE(updated_at, posted_at, persisted_at) DESC,
-          title ASC
+          COALESCE(job_postings.trust_score, 0) DESC,
+          CASE job_postings.source_quality WHEN 'high_signal' THEN 0 ELSE 1 END,
+          COALESCE(job_postings.updated_at, job_postings.posted_at, job_postings.persisted_at) DESC,
+          job_postings.title ASC
         LIMIT $1
       `,
       [persistedQueryLimit, cutoffIso, shouldFilterByCompanies, companies],
@@ -570,41 +587,49 @@ export async function getPersistedJobPostingById(args: {
     getDatabasePool(),
     `
       SELECT
-        id,
-        external_id,
-        external_source_job_id,
-        title,
-        normalized_title,
-        company_name,
-        normalized_company_name,
-        location,
-        workplace_type,
-        department,
-        commitment,
-        salary_text,
-        source_key,
-        source_label,
-        source_lane,
-        source_quality,
-        source_trust_tier,
-        apply_url,
-        canonical_apply_url,
-        canonical_job_url,
-        posted_at,
-        updated_at,
-        description_snippet,
-        raw_payload_json,
-        ingested_at,
-        last_validated_at,
-        validation_status,
-        trust_score,
-        dedupe_fingerprint,
-        orchestration_readiness,
-        application_path_type,
-        redirect_required,
-        orchestration_metadata_json
+        job_postings.id,
+        job_postings.external_id,
+        job_postings.external_source_job_id,
+        job_postings.title,
+        job_postings.normalized_title,
+        job_postings.company_name,
+        job_postings.normalized_company_name,
+        job_postings.location,
+        job_postings.workplace_type,
+        job_postings.department,
+        job_postings.commitment,
+        job_postings.salary_text,
+        job_postings.source_key,
+        job_postings.source_label,
+        job_postings.source_lane,
+        job_postings.source_quality,
+        job_postings.source_trust_tier,
+        job_postings.apply_url,
+        job_postings.canonical_apply_url,
+        job_postings.canonical_job_url,
+        job_postings.posted_at,
+        job_postings.updated_at,
+        job_postings.description_snippet,
+        job_postings.raw_payload_json,
+        job_postings.ingested_at,
+        job_postings.last_validated_at,
+        job_postings.validation_status,
+        job_postings.trust_score,
+        job_postings.dedupe_fingerprint,
+        job_postings.orchestration_readiness,
+        job_postings.application_path_type,
+        job_postings.redirect_required,
+        job_postings.orchestration_metadata_json,
+        apply_targets.ats_family AS apply_target_ats_family,
+        apply_targets.confidence AS apply_target_confidence,
+        apply_targets.matched_rule AS apply_target_matched_rule,
+        apply_targets.routing_mode AS apply_target_routing_mode,
+        apply_targets.support_reason AS apply_target_support_reason,
+        apply_targets.support_status AS apply_target_support_status
       FROM job_postings
-      WHERE id = $1
+      LEFT JOIN apply_targets
+        ON apply_targets.job_posting_id = job_postings.id
+      WHERE job_postings.id = $1
     `,
     [args.jobId],
   );
