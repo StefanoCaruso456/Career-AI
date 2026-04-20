@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  getPersistedJobPostingById,
   getPersistedJobsFeedSnapshot,
   persistSourcedJobs,
 } from "./job-posting-repository";
@@ -159,6 +160,67 @@ describe("job posting repository", () => {
       routingMode: "queue_autonomous_apply",
       supportReason: "validated_greenhouse_target",
       supportStatus: "supported",
+    });
+  });
+
+  it("recomputes applyTarget when the persisted apply_targets row is missing at read time", async () => {
+    const syncedAt = "2026-04-10T22:00:00.000Z";
+
+    await persistSourcedJobs({
+      syncedAt,
+      sources: [
+        {
+          key: "workday:accenture",
+          label: "Accenture",
+          lane: "ats_direct",
+          quality: "high_signal",
+          status: "connected",
+          jobCount: 1,
+          endpointLabel: "accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
+          lastSyncedAt: syncedAt,
+          message: "Direct ATS jobs are flowing from Workday.",
+        },
+      ],
+      jobs: [
+        {
+          id: "workday:accenture:R00289837",
+          externalId: "R00289837",
+          title: "Fraud Investigations Sr. Analyst",
+          companyName: "Accenture",
+          location: "Buenos Aires",
+          department: null,
+          commitment: null,
+          sourceKey: "workday:accenture",
+          sourceLabel: "Accenture",
+          sourceLane: "ats_direct",
+          sourceQuality: "high_signal",
+          applyUrl:
+            "https://accenture.wd103.myworkdayjobs.com/en-US/AccentureCareers/job/Buenos-Aires/Fraud-Process-Automation-Sr-Analyst_R00289837",
+          canonicalApplyUrl:
+            "https://accenture.wd103.myworkdayjobs.com/en-US/AccentureCareers/job/Buenos-Aires/Fraud-Process-Automation-Sr-Analyst_R00289837",
+          orchestrationReadiness: true,
+          postedAt: syncedAt,
+          updatedAt: syncedAt,
+          descriptionSnippet: "Investigate and automate fraud operations workflows.",
+        },
+      ],
+    });
+
+    await getDatabasePool().query("DELETE FROM apply_targets WHERE job_posting_id = $1", [
+      "workday:accenture:R00289837",
+    ]);
+
+    await expect(
+      getPersistedJobPostingById({
+        jobId: "workday:accenture:R00289837",
+      }),
+    ).resolves.toMatchObject({
+      applyTarget: {
+        atsFamily: "workday",
+        routingMode: "queue_autonomous_apply",
+        supportStatus: "supported",
+      },
+      orchestrationReadiness: true,
     });
   });
 

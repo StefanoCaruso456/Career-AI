@@ -16,7 +16,7 @@ import {
 } from "./client";
 import {
   type ApplyTargetProjectionRow,
-  mapApplyTargetProjectionRow,
+  resolveApplyTargetProjection,
   upsertApplyTargetForJob,
 } from "./apply-target-repository";
 
@@ -168,7 +168,11 @@ function mapSourceRow(row: JobSourceRow): JobSourceSnapshotDto {
 function mapJobRow(row: JobPostingRow): JobPostingDto {
   const canonicalApplyUrl = row.canonical_apply_url ?? row.apply_url;
   const orchestrationReadiness = Boolean(row.orchestration_readiness);
-  const applyTarget = mapApplyTargetProjectionRow(row);
+  const applyTarget = resolveApplyTargetProjection({
+    canonicalApplyUrl,
+    orchestrationReadiness,
+    row,
+  });
 
   return {
     applyUrl: row.apply_url,

@@ -147,6 +147,52 @@ describe("POST /api/v1/jobs/apply-click", () => {
     expect(mocks.kickAutonomousApplyWorker).not.toHaveBeenCalled();
   });
 
+  it("logs structured routing context for click debugging", async () => {
+    const consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    mocks.getJobPostingDetails.mockResolvedValue({
+      applyTarget: {
+        atsFamily: "workday",
+        confidence: 0.98,
+        matchedRule: "workday_url_or_dom_signature",
+        routingMode: "queue_autonomous_apply",
+        supportReason: "supported_ats_family",
+        supportStatus: "supported",
+      },
+      applyUrl: "https://example.myworkdayjobs.com/job/123",
+      canonicalApplyUrl: "https://example.myworkdayjobs.com/job/123",
+      id: "job_123",
+    });
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/v1/jobs/apply-click", {
+        body: JSON.stringify({
+          jobId: "job_123",
+        }),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      "autonomous_apply_click_routing",
+      expect.objectContaining({
+        applyTargetAtsFamily: "workday",
+        applyTargetSupportStatus: "supported",
+        jobFound: true,
+        jobId: "job_123",
+        routingAction: "queue_autonomous_apply",
+        routingDiagnosticReason: "queued_supported_target",
+        targetApplyUrl: "https://example.myworkdayjobs.com/job/123",
+      }),
+    );
+
+    consoleInfoSpy.mockRestore();
+  });
+
   it("returns open_external with a feature-flag-off diagnostic marker", async () => {
     mocks.resolveAutonomousApplyDecision.mockReturnValue({
       action: "open_external",

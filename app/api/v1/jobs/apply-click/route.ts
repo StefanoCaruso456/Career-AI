@@ -32,6 +32,17 @@ export async function POST(request: NextRequest) {
       targetApplyUrl,
     });
 
+    console.info("autonomous_apply_click_routing", {
+      applyTargetAtsFamily: job?.applyTarget?.atsFamily ?? null,
+      applyTargetSupportStatus: job?.applyTarget?.supportStatus ?? null,
+      correlationId,
+      jobFound: Boolean(job),
+      jobId: payload.jobId,
+      routingAction: routingDecision.action,
+      routingDiagnosticReason: routingDecision.diagnosticReason,
+      targetApplyUrl,
+    });
+
     if (isDatabaseConfigured()) {
       await recordJobApplyClickEvent({
         canonicalApplyUrl:
