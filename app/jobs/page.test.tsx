@@ -2,6 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobPostingDto, JobsFeedResponseDto } from "@/packages/contracts/src";
 
+const applyDomainConfigMocks = vi.hoisted(() => ({
+  isAutonomousApplyEnabled: vi.fn(() => true),
+}));
+
 const jobsDomainMocks = vi.hoisted(() => ({
   getJobsEnvironmentGuide: vi.fn(() => []),
   getJobsFeedSnapshot: vi.fn(),
@@ -17,6 +21,7 @@ const jobsDomainMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/packages/jobs-domain/src", () => jobsDomainMocks);
+vi.mock("@/packages/apply-domain/src/config", () => applyDomainConfigMocks);
 
 vi.mock("@/components/easy-apply-profile/profile-completion-guard", () => ({
   ProfileCompletionGuard: ({
@@ -48,6 +53,14 @@ function createJob(): JobPostingDto {
     sourceLane: "ats_direct",
     sourceQuality: "high_signal",
     applyUrl: "https://careers.example.ai/jobs/1",
+    applyTarget: {
+      atsFamily: "greenhouse",
+      confidence: 0.95,
+      matchedRule: "greenhouse_url_signature",
+      routingMode: "queue_autonomous_apply",
+      supportReason: "supported_ats_family",
+      supportStatus: "supported",
+    },
     postedAt: "2026-04-10T12:00:00.000Z",
     updatedAt: "2026-04-10T12:30:00.000Z",
     descriptionSnippet: "Ship reliable AI-native hiring infrastructure.",
@@ -113,6 +126,7 @@ function createSnapshot(): JobsFeedResponseDto {
 
 describe("JobsPage", () => {
   beforeEach(() => {
+    applyDomainConfigMocks.isAutonomousApplyEnabled.mockReturnValue(true);
     jobsDomainMocks.getJobsEnvironmentGuide.mockReturnValue([]);
     jobsDomainMocks.getJobsFeedSnapshot.mockResolvedValue(createSnapshot());
   });
@@ -141,4 +155,15 @@ describe("JobsPage", () => {
     expect(screen.getByText("1,689 jobs available")).toBeInTheDocument();
     expect(screen.queryByText("Broken Feed")).not.toBeInTheDocument();
   }, 15_000);
+
+  it("passes the autonomous apply feature state into the jobs UI", async () => {
+    applyDomainConfigMocks.isAutonomousApplyEnabled.mockReturnValue(false);
+
+    const JobsPage = (await import("@/app/jobs/page")).default;
+
+    render(await JobsPage());
+
+    expect(screen.getByText("Open posting")).toBeInTheDocument();
+    expect(screen.queryByText("One-Click Apply")).not.toBeInTheDocument();
+  });
 });

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { isAutonomousApplyEnabled } from "@/packages/apply-domain/src/config";
 import {
   getJobsEnvironmentGuide,
   getJobsFeedSnapshot,
@@ -45,6 +46,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
 
 export default async function JobsPage() {
   const snapshot = await getJobsFeedSnapshot({ limit: INITIAL_REQUEST_LIMIT });
+  const autonomousApplyEnabled = isAutonomousApplyEnabled();
   const environmentGuide = getJobsEnvironmentGuide();
   const visibleSources = snapshot.sources.filter((source) => source.status === "connected");
   const companyOptions = Array.from(
@@ -57,6 +59,7 @@ export default async function JobsPage() {
         <section className={styles.jobsPanel}>
           {snapshot.jobs.length > 0 ? (
             <JobsResults
+              autonomousApplyEnabled={autonomousApplyEnabled}
               initialCount={INITIAL_ROLE_COUNT}
               initialCompanyOptions={companyOptions}
               initialRequestLimit={INITIAL_REQUEST_LIMIT}

@@ -243,6 +243,7 @@ describe("JobsResults", () => {
   it("uses truthful apply labels based on autonomous support status", () => {
     render(
       <JobsResults
+        autonomousApplyEnabled
         jobs={[
           createJob(1),
           {
@@ -262,6 +263,13 @@ describe("JobsResults", () => {
 
     expect(screen.getByText("One-Click Apply")).toBeInTheDocument();
     expect(screen.getByText("Open posting")).toBeInTheDocument();
+  });
+
+  it("shows Open posting for supported targets when autonomous apply is disabled", () => {
+    render(<JobsResults autonomousApplyEnabled={false} jobs={[createJob(1)]} />);
+
+    expect(screen.getByText("Open posting")).toBeInTheDocument();
+    expect(screen.queryByText("One-Click Apply")).not.toBeInTheDocument();
   });
 
   it("hydrates missing salary text into the visible listing cards", async () => {
