@@ -817,9 +817,7 @@
   padding: 1.15rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 1.45rem;
-  background:
-    radial-gradient(circle at top right, rgba(88, 178, 255, 0.14), transparent 42%),
-    linear-gradient(180deg, rgba(20, 31, 48, 0.94), rgba(15, 23, 35, 0.94));
+  background: transparent;
 }
 
 .recruiterMarketplace::before {
@@ -828,9 +826,8 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.45) 0.8px, transparent 1px);
-  background-size: 13px 13px;
-  opacity: 0.24;
+  background: none;
+  opacity: 0;
 }
 
 .recruiterMarketplace > * {
