@@ -466,6 +466,35 @@ describe("JobsSidePanel", () => {
     expect(locationSelect).toHaveTextContent("United States");
   });
 
+  it("does not auto-apply United States when the current returned roles are all outside the US", () => {
+    render(
+      <JobsSidePanel
+        filterOptions={{
+          companies: ["Accenture", "Cisco"],
+          locations: ["Buenos Aires, Argentina", "Austin, TX"],
+        }}
+        jobs={[
+          createJob("job_ar", {
+            company: "Accenture",
+            location: "Buenos Aires, Argentina",
+            railKey: "greenhouse:accenture:job_ar",
+            sourceKey: "greenhouse:accenture",
+            sourceLabel: "Accenture",
+            sourceType: "greenhouse",
+            sourceUrl: "https://boards.greenhouse.io/accenture/jobs/job_ar",
+            title: "Argentina Analyst",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Argentina Analyst")).toBeInTheDocument();
+    expect(screen.queryByText("No roles match the current filters.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
+    expect(screen.getByLabelText("Location")).toHaveValue("all");
+  });
+
   it("defaults Find jobs for me to United States and lets people broaden back out", () => {
     render(
       <JobsSidePanel

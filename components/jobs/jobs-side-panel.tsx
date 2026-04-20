@@ -124,36 +124,27 @@ function buildKeywordSearchPrompt(
   return promptSegments.join(" ");
 }
 
-function getFindJobsLocationOptions(
-  jobs: JobListing[],
-  filterOptions?: JobRailFilterOptionsDto | null,
-) {
+function getRenderedFindJobsLocationOptions(jobs: JobListing[]) {
   return new Set(
-    [...jobs.map((job) => job.location), ...(filterOptions?.locations ?? [])]
+    jobs
+      .map((job) => job.location)
       .map((location) => getJobRailLocationLabel(location))
       .filter((value): value is string => Boolean(value)),
   );
 }
 
-function getDefaultFindJobsLocation(
-  jobs: JobListing[],
-  filterOptions?: JobRailFilterOptionsDto | null,
-) {
-  return getFindJobsLocationOptions(jobs, filterOptions).has(DEFAULT_FIND_JOBS_LOCATION)
+function getDefaultFindJobsLocation(jobs: JobListing[]) {
+  return getRenderedFindJobsLocationOptions(jobs).has(DEFAULT_FIND_JOBS_LOCATION)
     ? DEFAULT_FIND_JOBS_LOCATION
     : "all";
 }
 
-function resolveFindJobsLocationPreference(
-  location: string | null,
-  jobs: JobListing[],
-  filterOptions?: JobRailFilterOptionsDto | null,
-) {
+function resolveFindJobsLocationPreference(location: string | null, jobs: JobListing[]) {
   if (location === "all") {
     return "all";
   }
 
-  const availableLocations = getFindJobsLocationOptions(jobs, filterOptions);
+  const availableLocations = getRenderedFindJobsLocationOptions(jobs);
 
   if (location && availableLocations.has(location)) {
     return location;
@@ -164,11 +155,10 @@ function resolveFindJobsLocationPreference(
 
 function getDefaultFindJobsFilters(
   jobs: JobListing[],
-  filterOptions?: JobRailFilterOptionsDto | null,
 ) {
   return {
     ...DEFAULT_JOB_RAIL_FILTERS,
-    location: getDefaultFindJobsLocation(jobs, filterOptions),
+    location: getDefaultFindJobsLocation(jobs),
   };
 }
 
@@ -181,7 +171,7 @@ export function JobsSidePanel({
   onApply,
   onClose,
 }: JobsSidePanelProps) {
-  const defaultFilters = getDefaultFindJobsFilters(jobs, filterOptions);
+  const defaultFilters = getDefaultFindJobsFilters(jobs);
   const [filters, setFilters] = useState(defaultFilters);
   const deferredKeyword = useDeferredValue(filters.keyword.trim().toLowerCase());
   const [activePreview, setActivePreview] = useState<JobDetailsPreview | null>(null);
@@ -278,7 +268,6 @@ export function JobsSidePanel({
       nextLocation = resolveFindJobsLocationPreference(
         window.localStorage.getItem(FIND_JOBS_LOCATION_STORAGE_KEY),
         jobs,
-        filterOptions,
       );
     } catch {
       nextLocation = defaultFilters.location;
@@ -294,7 +283,7 @@ export function JobsSidePanel({
             location: nextLocation,
           },
     );
-  }, [defaultFilters.location, filterOptions, jobs]);
+  }, [defaultFilters.location, jobs]);
 
   useEffect(() => {
     if (!hasHydratedLocationPreference.current) {
@@ -313,7 +302,7 @@ export function JobsSidePanel({
       return;
     }
 
-    const resolvedLocation = resolveFindJobsLocationPreference(filters.location, jobs, filterOptions);
+    const resolvedLocation = resolveFindJobsLocationPreference(filters.location, jobs);
 
     if (resolvedLocation === filters.location) {
       return;
@@ -327,7 +316,7 @@ export function JobsSidePanel({
             location: resolvedLocation,
           },
     );
-  }, [filterOptions, filters.location, jobs]);
+  }, [filters.location, jobs]);
 
   useEffect(() => {
     if (!isFiltersOpen) {
