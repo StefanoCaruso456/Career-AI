@@ -83,6 +83,23 @@ export function mapApplyTargetProjectionRow(
   };
 }
 
+export function resolveApplyTargetProjection(args: {
+  row: ApplyTargetProjectionRow;
+  canonicalApplyUrl: string | null | undefined;
+  orchestrationReadiness?: boolean | null;
+}): JobApplyTargetDto {
+  const hydratedTarget = mapApplyTargetProjectionRow(args.row);
+
+  if (hydratedTarget) {
+    return hydratedTarget;
+  }
+
+  return resolveJobApplyTarget({
+    canonicalApplyUrl: args.canonicalApplyUrl,
+    orchestrationReadiness: args.orchestrationReadiness,
+  });
+}
+
 export async function findApplyTargetByJobId(args: {
   jobId: string;
   queryable?: DatabaseQueryable;

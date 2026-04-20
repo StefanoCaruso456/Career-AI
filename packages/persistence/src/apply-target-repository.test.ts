@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   findApplyTargetByJobId,
+  resolveApplyTargetProjection,
   upsertApplyTargetForJob,
 } from "./apply-target-repository";
 import { persistSourcedJobs } from "./job-posting-repository";
@@ -104,6 +105,27 @@ describe("apply target repository", () => {
       matchedRule: "manual_validation_allowlist",
       routingMode: "queue_autonomous_apply",
       supportReason: "validated_greenhouse_target",
+      supportStatus: "supported",
+    });
+  });
+
+  it("falls back to recomputing the apply target when the persisted projection is missing", () => {
+    expect(
+      resolveApplyTargetProjection({
+        canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
+        orchestrationReadiness: true,
+        row: {
+          apply_target_ats_family: null,
+          apply_target_confidence: null,
+          apply_target_matched_rule: null,
+          apply_target_routing_mode: null,
+          apply_target_support_reason: null,
+          apply_target_support_status: null,
+        },
+      }),
+    ).toMatchObject({
+      atsFamily: "greenhouse",
+      routingMode: "queue_autonomous_apply",
       supportStatus: "supported",
     });
   });
