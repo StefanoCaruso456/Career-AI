@@ -44,6 +44,7 @@ import type {
   EvidenceFileSlot,
 } from "@/packages/contracts/src";
 import type { ClaimVerificationEntry } from "@/lib/api-gateway/types";
+import { CareerIdCredentialsGrid } from "./career-id-credentials-grid";
 import styles from "./agent-builder-workspace.module.css";
 
 const DOC_TYPE_LABEL: Record<string, string> = {
@@ -51,60 +52,6 @@ const DOC_TYPE_LABEL: Record<string, string> = {
   "employment-history-reports": "HR letter",
   "diplomas-degrees": "diploma",
   transcripts: "transcript",
-};
-
-/**
- * Per-template copy for the verified-credential cards on the Career ID
- * page. The record map must cover every templateId that `verifyClaim`
- * supports on the backend — any templateId not in this map won't render
- * a card even if it has a VERIFIED / PARTIAL verification_status.
- */
-const CREDENTIAL_TEMPLATE_COPY: Record<
-  string,
-  {
-    verifiedTitle: string;
-    partialTitle: string;
-    verifiedDescription: string;
-    partialDescription: string;
-    evidenceFallback: string;
-  }
-> = {
-  "offer-letters": {
-    verifiedTitle: "Offer letter verified",
-    partialTitle: "Offer letter on file",
-    verifiedDescription:
-      "Signed offer letter cross-checked against the claimed employer via DocuSign Certificate of Completion domain match.",
-    partialDescription:
-      "Sender domain couldn't be checked against the claimed employer.",
-    evidenceFallback: "Offer letter",
-  },
-  "employment-history-reports": {
-    verifiedTitle: "Employment verified",
-    partialTitle: "Employment evidence on file",
-    verifiedDescription:
-      "HR verification document cross-checked against the claimed employer.",
-    partialDescription:
-      "HR verification document accepted as evidence; trusted-source signal not present.",
-    evidenceFallback: "Employment verification",
-  },
-  "diplomas-degrees": {
-    verifiedTitle: "Education verified",
-    partialTitle: "Education evidence on file",
-    verifiedDescription:
-      "Degree certificate cross-checked against the claimed institution and degree.",
-    partialDescription:
-      "Education document accepted as evidence; trusted-source signal not present.",
-    evidenceFallback: "Education",
-  },
-  transcripts: {
-    verifiedTitle: "Transcript verified",
-    partialTitle: "Transcript on file",
-    verifiedDescription:
-      "Academic transcript cross-checked against the claimed institution.",
-    partialDescription:
-      "Transcript accepted as evidence; registrar-side verification not performed.",
-    evidenceFallback: "Transcript",
-  },
 };
 
 function formatSaveMessage(
@@ -1018,16 +965,10 @@ export function AgentBuilderWorkspace({
 
   // Evidence rows that earned a credential card on the Career ID page.
   // Mirrors Stefano's government-badge pattern — only VERIFIED and PARTIAL
-  // render. VERIFIED → "Issued" (blue). PARTIAL → "Evidence" (amber).
-  // Covers all four claim-backed templates (offer-letter,
-  // employment-verification, education, transcript) so every verified
-  // credential gets its own card.
-  const verifiedCredentials = snapshot.evidence.filter(
-    (record) =>
-      CREDENTIAL_TEMPLATE_COPY[record.templateId as keyof typeof CREDENTIAL_TEMPLATE_COPY] !==
-        undefined &&
-      (record.verificationStatus === "VERIFIED" || record.verificationStatus === "PARTIAL"),
-  );
+  // Credential badges (offer-letter / employment-verification / education /
+  // transcript) render via CareerIdCredentialsGrid — compact wallet-grid,
+  // tier-grouped. The component pulls filtered rows from snapshot.evidence
+  // itself, so no derivation is needed here.
   const documentHeroToneClassName =
     documentVerificationStatus === "verified"
       ? styles.documentHeroCardVerified
@@ -2297,56 +2238,7 @@ export function AgentBuilderWorkspace({
                 </section>
               ) : null}
 
-              {verifiedCredentials.map((record) => {
-                const copy = CREDENTIAL_TEMPLATE_COPY[record.templateId];
-                const isPartial = record.verificationStatus === "PARTIAL";
-                const title = isPartial ? copy.partialTitle : copy.verifiedTitle;
-                const description = isPartial
-                  ? copy.partialDescription
-                  : copy.verifiedDescription;
-                const statusLabel = isPartial ? "Evidence" : "Issued";
-                const evidenceDetail =
-                  [record.sourceOrIssuer, record.role].filter(Boolean).join(" • ") ||
-                  copy.evidenceFallback;
-                return (
-                  <section key={record.id} className={styles.identityBadgeCanvas}>
-                    <div
-                      className={`${styles.identityBadgeCard} ${
-                        isPartial
-                          ? styles.identityBadgeCardPartial
-                          : styles.identityBadgeCardVerified
-                      }`}
-                    >
-                      <div className={styles.identityBadgeHeader}>
-                        <span className={styles.identityBadgeProgram}>Career ID Credential</span>
-                        <span className={styles.identityBadgeStatus}>{statusLabel}</span>
-                      </div>
-
-                      <div className={styles.identityBadgeBody}>
-                        <span className={styles.identityBadgeIcon}>
-                          <ShieldCheck aria-hidden="true" size={22} strokeWidth={2.1} />
-                        </span>
-
-                        <div className={styles.identityBadgeCopy}>
-                          <strong>{title}</strong>
-                          <p>{description}</p>
-                        </div>
-                      </div>
-
-                      <dl className={styles.identityBadgeMeta}>
-                        <div>
-                          <dt>Issuer</dt>
-                          <dd>Career AI Trust</dd>
-                        </div>
-                        <div>
-                          <dt>Evidence</dt>
-                          <dd>{evidenceDetail}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </section>
-                );
-              })}
+              <CareerIdCredentialsGrid evidence={snapshot.evidence} />
             </div>
 
             <aside className={styles.progressRail}>
