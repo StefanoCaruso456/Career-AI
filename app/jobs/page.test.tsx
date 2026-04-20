@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { JobPostingDto, JobsFeedResponseDto } from "@/packages/contracts/src";
 
 const applyDomainConfigMocks = vi.hoisted(() => ({
-  isAutonomousApplyEnabled: vi.fn(() => true),
+  getAutonomousApplyAvailability: vi.fn(() => ({
+    blobStorageDriver: "filesystem",
+    canQueueRuns: true,
+    diagnosticReason: "available",
+    featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+    workerMode: "inline",
+  })),
 }));
 
 const jobsDomainMocks = vi.hoisted(() => ({
@@ -21,7 +27,7 @@ const jobsDomainMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/packages/jobs-domain/src", () => jobsDomainMocks);
-vi.mock("@/packages/apply-domain/src/config", () => applyDomainConfigMocks);
+vi.mock("@/packages/apply-domain/src", () => applyDomainConfigMocks);
 
 vi.mock("@/components/easy-apply-profile/profile-completion-guard", () => ({
   ProfileCompletionGuard: ({
@@ -126,7 +132,13 @@ function createSnapshot(): JobsFeedResponseDto {
 
 describe("JobsPage", () => {
   beforeEach(() => {
-    applyDomainConfigMocks.isAutonomousApplyEnabled.mockReturnValue(true);
+    applyDomainConfigMocks.getAutonomousApplyAvailability.mockReturnValue({
+      blobStorageDriver: "filesystem",
+      canQueueRuns: true,
+      diagnosticReason: "available",
+      featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+      workerMode: "inline",
+    });
     jobsDomainMocks.getJobsEnvironmentGuide.mockReturnValue([]);
     jobsDomainMocks.getJobsFeedSnapshot.mockResolvedValue(createSnapshot());
   });
@@ -157,7 +169,13 @@ describe("JobsPage", () => {
   }, 15_000);
 
   it("passes the autonomous apply feature state into the jobs UI", async () => {
-    applyDomainConfigMocks.isAutonomousApplyEnabled.mockReturnValue(false);
+    applyDomainConfigMocks.getAutonomousApplyAvailability.mockReturnValue({
+      blobStorageDriver: "filesystem",
+      canQueueRuns: false,
+      diagnosticReason: "feature_flag_off",
+      featureFlagName: "AUTONOMOUS_APPLY_ENABLED",
+      workerMode: "inline",
+    });
 
     const JobsPage = (await import("@/app/jobs/page")).default;
 

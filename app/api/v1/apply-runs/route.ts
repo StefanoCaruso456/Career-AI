@@ -2,10 +2,11 @@ import { type NextRequest } from "next/server";
 import { auth } from "@/auth";
 import {
   createAutonomousApplyRun,
-  isAutonomousApplyEnabled,
+  getAutonomousApplyAvailability,
   getAutonomousApplyStuckInProgressThresholdMinutes,
   getAutonomousApplyStuckQueuedThresholdMinutes,
   resolveAutonomousApplyDecision,
+  toAutonomousApplyUnavailableApiError,
 } from "@/packages/apply-domain/src";
 import {
   applyContinuationResponseSchema,
@@ -217,8 +218,9 @@ export async function POST(request: NextRequest) {
     });
     const targetApplyUrl =
       input.canonicalApplyUrl ?? job?.canonicalApplyUrl ?? job?.applyUrl ?? null;
+    const availability = getAutonomousApplyAvailability();
     const routingDecision = resolveAutonomousApplyDecision({
-      autonomousApplyEnabled: isAutonomousApplyEnabled(),
+      autonomousApplyEnabled: true,
       applyTarget: job?.applyTarget ?? null,
       targetApplyUrl,
     });
@@ -237,6 +239,13 @@ export async function POST(request: NextRequest) {
         }),
         correlationId,
       );
+    }
+
+    if (!availability.canQueueRuns) {
+      throw toAutonomousApplyUnavailableApiError({
+        availability,
+        correlationId,
+      });
     }
 
     const result = await createAutonomousApplyRun({
