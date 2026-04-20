@@ -49,34 +49,6 @@ function IntroSectionTitle({
   );
 }
 
-function SectionChapter({
-  index,
-  inverted = false,
-  summary,
-  title,
-}: {
-  index: string;
-  inverted?: boolean;
-  summary: string;
-  title: string;
-}) {
-  return (
-    <div
-      className={[
-        styles.sectionChapter,
-        inverted ? styles.sectionChapterInverted : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <span className={styles.sectionChapterIndex}>{index}</span>
-      <span className={styles.sectionChapterTitle}>{title}</span>
-      <span aria-hidden="true" className={styles.sectionChapterRule} />
-      <p className={styles.sectionChapterSummary}>{summary}</p>
-    </div>
-  );
-}
-
 function CareerAiAgentMark() {
   return (
     <g
@@ -406,22 +378,11 @@ function SolutionCard({
   copy,
   eyebrow,
   icon: Icon,
-  size,
   title,
   variant,
 }: LandingContent["solutions"][number]) {
   return (
-    <article
-      className={[
-        styles.solutionCard,
-        size === "wide" ? styles.solutionWide : "",
-        size === "tall" ? styles.solutionTall : "",
-        size === "small" ? styles.solutionSmall : "",
-        size === "wideBottom" ? styles.solutionWideBottom : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
+    <article className={styles.solutionCard}>
       <div className={styles.solutionCopy}>
         <span className={styles.solutionEyebrow}>{eyebrow}</span>
         <div className={styles.solutionIcon}>
@@ -439,6 +400,22 @@ function SolutionCard({
       </Link>
     </article>
   );
+}
+
+function getSolutionSpanClass(size: LandingContent["solutions"][number]["size"]) {
+  if (size === "wide") {
+    return styles.solutionWide;
+  }
+
+  if (size === "tall") {
+    return styles.solutionTall;
+  }
+
+  if (size === "small") {
+    return styles.solutionSmall;
+  }
+
+  return styles.solutionWideBottom;
 }
 
 export function ChatHomeShell({
@@ -469,14 +446,6 @@ export function ChatHomeShell({
               <div className={styles.introRibbonMesh} />
               <div className={styles.introRibbonSpine} />
             </div>
-
-            <ScrollReveal className={styles.motionBlock} y={24}>
-              <SectionChapter
-                index="01"
-                summary="Collect the proof you already have, then organize it into one durable trust layer."
-                title="Platform"
-              />
-            </ScrollReveal>
 
             <div className={styles.introGrid}>
               <ScrollReveal className={styles.motionBlock} y={42}>
@@ -533,14 +502,6 @@ export function ChatHomeShell({
 
         <section className={styles.storySection} id="stories">
           <div className={styles.sectionShell}>
-            <ScrollReveal className={styles.motionBlock} y={24}>
-              <SectionChapter
-                index="02"
-                summary="Move from the trust model into concrete hiring outcomes and recruiter-ready surfaces."
-                title="Stories"
-              />
-            </ScrollReveal>
-
             <div className={styles.storyHeader}>
               <ScrollReveal className={styles.motionBlock} y={32}>
                 <div>
@@ -587,14 +548,6 @@ export function ChatHomeShell({
 
         <section className={styles.solutionsSection} id="solutions">
           <div className={styles.sectionShell}>
-            <ScrollReveal className={styles.motionBlock} y={24}>
-              <SectionChapter
-                index="03"
-                summary="Walk the product surface in sequence so each capability feels connected to the next."
-                title="Solutions"
-              />
-            </ScrollReveal>
-
             <ScrollReveal className={styles.motionBlock} y={34}>
               <div className={styles.solutionHeader}>
                 <h2 className={styles.solutionHeading}>
@@ -607,7 +560,11 @@ export function ChatHomeShell({
             <div className={styles.solutionGrid}>
               {content.solutions.map((solution, index) => (
                 <ScrollReveal
-                  className={styles.motionBlock}
+                  className={[
+                    styles.motionBlock,
+                    styles.solutionMotionBlock,
+                    getSolutionSpanClass(solution.size),
+                  ].join(" ")}
                   delay={0.04 * index}
                   key={solution.title}
                   rotate={index % 2 === 0 ? -1.2 : 1.2}
@@ -623,15 +580,6 @@ export function ChatHomeShell({
 
         <section className={styles.metricsSection} id="metrics">
           <div className={styles.sectionShell}>
-            <ScrollReveal className={styles.motionBlock} y={24}>
-              <SectionChapter
-                index="04"
-                inverted
-                summary="Bring the signal layer into focus with a section that expands and brightens as you scroll."
-                title="Metrics"
-              />
-            </ScrollReveal>
-
             <ScrollReveal className={styles.motionBlock} y={30}>
               <div className={styles.metricsHeader}>
                 <span className={styles.metricsEyebrow}>{content.metricsEyebrow}</span>
