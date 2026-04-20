@@ -24,7 +24,7 @@ describe("HeaderAuthControls", () => {
     vi.clearAllMocks();
   });
 
-  it("opens a settings menu with the current workspace and persona-aware profile link", () => {
+  it("opens a settings menu with the current workspace and shared profile link", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
     mockUsePathname.mockReturnValue("/employer");
     mockUseSession.mockReturnValue({
@@ -41,15 +41,12 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /settings/i }));
 
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
-      "href",
-      "/employer/settings",
-    );
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
     expect(screen.getByRole("menuitem", { name: /open workspace/i })).toHaveAttribute("href", "/employer");
     expect(screen.getByText("Employer")).toBeInTheDocument();
   });
 
-  it("sends candidates to account settings when the route is ambiguous", () => {
+  it("keeps the shared settings route when the pathname is already /settings", () => {
     window.localStorage.setItem("career-ai.preferred-persona", "employer");
     mockUsePathname.mockReturnValue("/settings");
     mockUseSession.mockReturnValue({
@@ -67,10 +64,7 @@ describe("HeaderAuthControls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /settings/i }));
 
-    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute(
-      "href",
-      "/account/settings",
-    );
+    expect(screen.getByRole("menuitem", { name: /profile & account/i })).toHaveAttribute("href", "/settings");
   });
 
   it("routes incomplete employer onboarding back to the onboarding flow", () => {
