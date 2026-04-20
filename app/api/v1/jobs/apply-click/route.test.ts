@@ -200,9 +200,18 @@ describe("POST /api/v1/jobs/apply-click", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(consoleInfoSpy).toHaveBeenCalledWith(
-      "autonomous_apply_click_routing",
-      expect.objectContaining({
+    expect(consoleInfoSpy).toHaveBeenCalled();
+
+    const routingLog = consoleInfoSpy.mock.calls
+      .map((call) => JSON.parse(String(call[0])))
+      .find((entry) => entry.span?.eventType === "apply_click.routing_decision");
+
+    expect(routingLog).toMatchObject({
+      companyName: null,
+      correlationId: expect.any(String),
+      jobId: "job_123",
+      message: "Autonomous apply click routing evaluated.",
+      metadataJson: expect.objectContaining({
         applyTargetAtsFamily: "workday",
         applyTargetSupportStatus: "supported",
         autonomousApplyBlobStorageDriver: "filesystem",
@@ -210,12 +219,19 @@ describe("POST /api/v1/jobs/apply-click", () => {
         autonomousApplySystemDiagnosticReason: "available",
         autonomousApplyWorkerMode: "inline",
         jobFound: true,
-        jobId: "job_123",
         routingAction: "queue_autonomous_apply",
         routingDiagnosticReason: "queued_supported_target",
         targetApplyUrl: "https://example.myworkdayjobs.com/job/123",
       }),
-    );
+      schema: "career_ai.apply_trace_log.v1",
+      span: expect.objectContaining({
+        eventType: "apply_click.routing_decision",
+        kind: "step",
+        name: "Evaluate apply click routing",
+        phase: "routing",
+        status: "queue_autonomous_apply",
+      }),
+    });
 
     consoleInfoSpy.mockRestore();
   });

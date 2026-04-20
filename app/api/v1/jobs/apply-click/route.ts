@@ -6,6 +6,7 @@ import {
   resolveAutonomousApplyDecision,
   toAutonomousApplyUnavailableApiError,
 } from "@/packages/apply-domain/src";
+import { emitApplyTraceLog } from "@/packages/apply-domain/src/trace";
 import { kickAutonomousApplyWorker } from "@/packages/apply-runtime/src";
 import { errorResponse, getCorrelationId, successResponse } from "@/packages/audit-security/src";
 import { applyContinuationResponseSchema, createApplyRunInputSchema, ApiError } from "@/packages/contracts/src";
@@ -44,19 +45,30 @@ export async function POST(request: NextRequest) {
         ? availability.diagnosticReason
         : routingDecision.diagnosticReason;
 
-    console.info("autonomous_apply_click_routing", {
-      applyTargetAtsFamily: job?.applyTarget?.atsFamily ?? null,
-      applyTargetSupportStatus: job?.applyTarget?.supportStatus ?? null,
-      autonomousApplyBlobStorageDriver: availability.blobStorageDriver,
-      autonomousApplyCanQueueRuns: availability.canQueueRuns,
-      autonomousApplySystemDiagnosticReason: availability.diagnosticReason,
-      autonomousApplyWorkerMode: availability.workerMode,
+    emitApplyTraceLog({
+      companyName: job?.companyName ?? null,
       correlationId,
-      jobFound: Boolean(job),
+      eventType: "apply_click.routing_decision",
       jobId: payload.jobId,
-      routingAction,
-      routingDiagnosticReason,
-      targetApplyUrl,
+      jobTitle: job?.title ?? null,
+      kind: "step",
+      message: "Autonomous apply click routing evaluated.",
+      metadataJson: {
+        applyTargetAtsFamily: job?.applyTarget?.atsFamily ?? null,
+        applyTargetSupportStatus: job?.applyTarget?.supportStatus ?? null,
+        autonomousApplyBlobStorageDriver: availability.blobStorageDriver,
+        autonomousApplyCanQueueRuns: availability.canQueueRuns,
+        autonomousApplySystemDiagnosticReason: availability.diagnosticReason,
+        autonomousApplyWorkerMode: availability.workerMode,
+        jobFound: Boolean(job),
+        routingAction,
+        routingDiagnosticReason,
+        targetApplyUrl,
+      },
+      name: "Evaluate apply click routing",
+      phase: "routing",
+      spanId: `apply_click:${payload.jobId}:${correlationId}`,
+      status: routingAction,
     });
 
     if (isDatabaseConfigured()) {
@@ -112,6 +124,26 @@ export async function POST(request: NextRequest) {
           name: session.user.name,
           providerUserId: session.user.providerUserId,
         },
+      });
+
+      emitApplyTraceLog({
+        companyName: result.run.companyName ?? job?.companyName ?? null,
+        correlationId,
+        eventType: "apply_click.queued",
+        jobId: payload.jobId,
+        jobTitle: result.run.jobTitle ?? job?.title ?? null,
+        kind: "run",
+        message: "Autonomous apply run queued from apply click route.",
+        metadataJson: {
+          deduped: result.deduped,
+          workerMode: availability.workerMode,
+        },
+        name: "Queue autonomous apply run",
+        phase: "queue",
+        runId: result.run.id,
+        spanId: result.run.id,
+        status: "queued",
+        traceId: result.run.traceId ?? null,
       });
 
       void kickAutonomousApplyWorker();

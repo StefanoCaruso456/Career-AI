@@ -104,6 +104,19 @@ describe("GET /api/v1/apply-runs/[runId]", () => {
       traceId: "apply_trace_123",
     });
     expect(payload.events).toHaveLength(1);
+    expect(payload.traceTree).toMatchObject({
+      root: {
+        id: "apply_run_123",
+        kind: "run",
+        status: "submitting",
+        traceId: "apply_trace_123",
+      },
+      version: "career_ai.apply_trace_tree.v1",
+    });
+    expect(payload.traceTree.root.children[0]).toMatchObject({
+      kind: "phase",
+      phase: "submission",
+    });
   });
 
   it("returns auth_missing diagnostics when unauthenticated", async () => {

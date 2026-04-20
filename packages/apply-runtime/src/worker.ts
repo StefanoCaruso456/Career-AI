@@ -43,6 +43,7 @@ import {
   isAutonomousApplyArtifactCleanupEnabled,
   getAutonomousApplyWorkerBatchSize,
 } from "@/packages/apply-domain/src";
+import { emitApplyTraceLog, emitApplyTraceLogFromEvent } from "@/packages/apply-domain/src/trace";
 
 const APPLY_GRAPH_VERSION = "2026-04-17";
 const applyBrowserSessions = new Map<string, ApplyBrowserSession>();
@@ -216,6 +217,12 @@ function toTraceMetadata(state: ApplyGraphState): ApplyTraceMetadata {
   };
 }
 
+function getCorrelationIdFromRun(run: Pick<ApplyRunDto, "metadataJson">) {
+  const correlationId = run.metadataJson?.correlationId;
+
+  return typeof correlationId === "string" && correlationId.length > 0 ? correlationId : null;
+}
+
 async function persistStateTransition(args: {
   state: ApplyGraphState;
   nextStatus: ApplyRunStatus;
@@ -253,7 +260,7 @@ async function persistStateTransition(args: {
     terminalState,
     traceId: args.state.traceId,
   });
-  await createApplyRunEventRecord({
+  const event = await createApplyRunEventRecord({
     event: {
       eventType: `apply_run.${args.stepName}`,
       message: args.message,
@@ -263,6 +270,14 @@ async function persistStateTransition(args: {
       state: args.nextStatus,
       stepName: args.stepName,
     },
+  });
+  emitApplyTraceLogFromEvent({
+    companyName: args.state.companyName,
+    correlationId: args.state.traceMetadata.correlationId ?? null,
+    event,
+    jobId: args.state.jobId,
+    jobTitle: args.state.jobTitle,
+    runId: args.state.runId,
   });
 }
 
@@ -955,6 +970,7 @@ async function runSingleApplyRun(args: {
     terminalState: args.run.terminalState,
     traceMetadata: {
       companyName: args.run.companyName,
+      correlationId: getCorrelationIdFromRun(args.run) ?? "",
       jobId: args.run.jobId,
       jobTitle: args.run.jobTitle,
       profileSnapshotId: snapshot.id,
@@ -966,6 +982,28 @@ async function runSingleApplyRun(args: {
   };
   const graph = buildGraph(dependencies);
   const runnableConfig = buildApplyRunnableConfig(toTraceMetadata(initialState));
+  const workerClaimEvent = await createApplyRunEventRecord({
+    event: {
+      eventType: "apply_run.worker_claimed",
+      message: "Worker claimed queued apply run.",
+      metadataJson: {
+        workerMode: getAutonomousApplyWorkerMode(),
+      },
+      runId: args.run.id,
+      traceId: initialState.traceId,
+      state: args.run.status,
+      stepName: "worker_claimed",
+    },
+  });
+
+  emitApplyTraceLogFromEvent({
+    companyName: args.run.companyName,
+    correlationId: getCorrelationIdFromRun(args.run),
+    event: workerClaimEvent,
+    jobId: args.run.jobId,
+    jobTitle: args.run.jobTitle,
+    runId: args.run.id,
+  });
 
   try {
     await invokeWithRunTimeout({
@@ -1031,7 +1069,7 @@ async function runSingleApplyRun(args: {
     const effectiveTraceId = latestRun.traceId ?? initialState.traceId;
 
     if (latestRun.terminalState) {
-      await createApplyRunEventRecord({
+      const runtimeErrorAfterTerminalEvent = await createApplyRunEventRecord({
         event: {
           eventType: "apply_run.runtime_error_after_terminal",
           message: classification.message,
@@ -1045,6 +1083,31 @@ async function runSingleApplyRun(args: {
           stepName: "runtime_error_after_terminal",
         },
       }).catch(() => undefined);
+
+      if (runtimeErrorAfterTerminalEvent) {
+        emitApplyTraceLog({
+          companyName: args.run.companyName,
+          correlationId: getCorrelationIdFromRun(args.run),
+          eventType: runtimeErrorAfterTerminalEvent.eventType,
+          jobId: args.run.jobId,
+          jobTitle: args.run.jobTitle,
+          kind: "step",
+          level: "error",
+          message:
+            runtimeErrorAfterTerminalEvent.message ??
+            "Runtime error occurred after a terminal apply state.",
+          metadataJson: runtimeErrorAfterTerminalEvent.metadataJson ?? {},
+          name: "Handle post-terminal runtime error",
+          parentSpanId: `${args.run.id}:phase:failure_handling`,
+          phase: "failure_handling",
+          runId: args.run.id,
+          spanId: runtimeErrorAfterTerminalEvent.id,
+          status: runtimeErrorAfterTerminalEvent.state,
+          stepName: runtimeErrorAfterTerminalEvent.stepName,
+          timestamp: runtimeErrorAfterTerminalEvent.timestamp,
+          traceId: runtimeErrorAfterTerminalEvent.traceId ?? effectiveTraceId,
+        });
+      }
 
       await closeApplyBrowserSession(session).catch(() => undefined);
       applyBrowserSessions.delete(args.run.id);
@@ -1063,7 +1126,7 @@ async function runSingleApplyRun(args: {
         retry_decision: retryDecision,
       },
     });
-    await createApplyRunEventRecord({
+    const runtimeErrorEvent = await createApplyRunEventRecord({
       event: {
         eventType: "apply_run.runtime_error",
         message: classification.message,
@@ -1076,6 +1139,26 @@ async function runSingleApplyRun(args: {
         state: shouldNeedsAttention(classification.failureCode) ? "needs_attention" : "failed",
         stepName: "runtime_error",
       },
+    });
+    emitApplyTraceLog({
+      companyName: args.run.companyName,
+      correlationId: getCorrelationIdFromRun(args.run),
+      eventType: runtimeErrorEvent.eventType,
+      jobId: args.run.jobId,
+      jobTitle: args.run.jobTitle,
+      kind: "step",
+      level: "error",
+      message: runtimeErrorEvent.message ?? classification.message,
+      metadataJson: runtimeErrorEvent.metadataJson ?? {},
+      name: "Handle runtime error",
+      parentSpanId: `${args.run.id}:phase:failure_handling`,
+      phase: "failure_handling",
+      runId: args.run.id,
+      spanId: runtimeErrorEvent.id,
+      status: runtimeErrorEvent.state,
+      stepName: runtimeErrorEvent.stepName,
+      timestamp: runtimeErrorEvent.timestamp,
+      traceId: runtimeErrorEvent.traceId ?? effectiveTraceId,
     });
 
     const to = await dependencies.loadUserEmail(args.run.userId).catch(() => null);

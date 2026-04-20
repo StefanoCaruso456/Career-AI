@@ -100,6 +100,34 @@ export const applyRunAlertableStates = [
   "stuck_in_progress",
 ] as const;
 
+export const applyTraceNodeKinds = [
+  "run",
+  "phase",
+  "step",
+] as const;
+
+export const applyTracePhases = [
+  "routing",
+  "queue",
+  "preflight",
+  "target_resolution",
+  "browser_launch",
+  "form_mapping",
+  "form_interaction",
+  "submission",
+  "artifacts",
+  "completion",
+  "notification",
+  "cleanup",
+  "failure_handling",
+  "other",
+] as const;
+
+export const applyTraceLogLevels = [
+  "info",
+  "error",
+] as const;
+
 export const applyRunStatusSchema = z.enum(applyRunStatuses);
 export const applyRunTerminalStatusSchema = z.enum(applyRunTerminalStatuses);
 export const applyFailureCodeSchema = z.enum(applyFailureCodes);
@@ -108,6 +136,9 @@ export const applyArtifactTypeSchema = z.enum(applyArtifactTypes);
 export const autonomousApplyDiagnosticReasonSchema = z.enum(autonomousApplyDiagnosticReasons);
 export const applyRunAlertableStateSchema = z.enum(applyRunAlertableStates);
 export const applyTargetSupportStatusSchema = z.enum(applyTargetSupportStatuses);
+export const applyTraceNodeKindSchema = z.enum(applyTraceNodeKinds);
+export const applyTracePhaseSchema = z.enum(applyTracePhases);
+export const applyTraceLogLevelSchema = z.enum(applyTraceLogLevels);
 
 const snapshotStringMapSchema = z.record(z.string(), z.unknown()).default({});
 const snapshotArraySchema = z.array(z.record(z.string(), z.unknown())).default([]);
@@ -199,6 +230,73 @@ export const applyRunArtifactSchema = z.object({
   createdAt: z.string().datetime(),
 });
 
+export type ApplyTraceNode = {
+  id: string;
+  parentId: string | null;
+  kind: z.infer<typeof applyTraceNodeKindSchema>;
+  phase: z.infer<typeof applyTracePhaseSchema>;
+  name: string;
+  status: z.infer<typeof applyRunStatusSchema>;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number | null;
+  traceId: string | null;
+  stepName: string | null;
+  eventType: string | null;
+  message: string | null;
+  metadataJson: Record<string, unknown>;
+  children: ApplyTraceNode[];
+};
+
+export const applyTraceNodeSchema: z.ZodType<ApplyTraceNode> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    parentId: z.string().nullable().default(null),
+    kind: applyTraceNodeKindSchema,
+    phase: applyTracePhaseSchema,
+    name: z.string(),
+    status: applyRunStatusSchema,
+    startedAt: z.string().datetime(),
+    endedAt: z.string().datetime().nullable().default(null),
+    durationMs: z.number().int().nonnegative().nullable().default(null),
+    traceId: z.string().nullable().default(null),
+    stepName: z.string().nullable().default(null),
+    eventType: z.string().nullable().default(null),
+    message: z.string().nullable().default(null),
+    metadataJson: z.record(z.string(), z.unknown()).default({}),
+    children: z.array(applyTraceNodeSchema).default([]),
+  }),
+);
+
+export const applyRunTraceTreeSchema = z.object({
+  root: applyTraceNodeSchema,
+  version: z.literal("career_ai.apply_trace_tree.v1"),
+});
+
+export const applyTraceLogSchema = z.object({
+  schema: z.literal("career_ai.apply_trace_log.v1"),
+  level: applyTraceLogLevelSchema,
+  timestamp: z.string().datetime(),
+  correlationId: z.string().nullable().default(null),
+  runId: z.string().nullable().default(null),
+  traceId: z.string().nullable().default(null),
+  jobId: z.string().nullable().default(null),
+  companyName: z.string().nullable().default(null),
+  jobTitle: z.string().nullable().default(null),
+  message: z.string(),
+  metadataJson: z.record(z.string(), z.unknown()).default({}),
+  span: z.object({
+    id: z.string(),
+    parentId: z.string().nullable().default(null),
+    kind: applyTraceNodeKindSchema,
+    phase: applyTracePhaseSchema,
+    name: z.string(),
+    status: z.string().nullable().default(null),
+    stepName: z.string().nullable().default(null),
+    eventType: z.string().nullable().default(null),
+  }),
+});
+
 export const atsDetectionResultSchema = z.object({
   atsFamily: applyAtsFamilySchema,
   confidence: z.number().min(0).max(1),
@@ -274,6 +372,7 @@ export const applyRunDetailResponseSchema = z.object({
   generatedAt: z.string().datetime(),
   run: applyRunStatusItemSchema,
   events: z.array(applyRunEventSchema),
+  traceTree: applyRunTraceTreeSchema,
 });
 
 export type ApplyRunStatus = z.infer<typeof applyRunStatusSchema>;
@@ -289,6 +388,11 @@ export type ApplicationProfileSnapshotDto = z.infer<typeof applicationProfileSna
 export type ApplyRunDto = z.infer<typeof applyRunSchema>;
 export type ApplyRunEventDto = z.infer<typeof applyRunEventSchema>;
 export type ApplyRunArtifactDto = z.infer<typeof applyRunArtifactSchema>;
+export type ApplyTraceNodeKind = z.infer<typeof applyTraceNodeKindSchema>;
+export type ApplyTracePhase = z.infer<typeof applyTracePhaseSchema>;
+export type ApplyTraceLogLevel = z.infer<typeof applyTraceLogLevelSchema>;
+export type ApplyRunTraceTree = z.infer<typeof applyRunTraceTreeSchema>;
+export type ApplyTraceLogRecord = z.infer<typeof applyTraceLogSchema>;
 export type AtsDetectionResultDto = z.infer<typeof atsDetectionResultSchema>;
 export type CreateApplyRunInput = z.infer<typeof createApplyRunInputSchema>;
 export type CreateApplyRunResponse = z.infer<typeof createApplyRunResponseSchema>;
