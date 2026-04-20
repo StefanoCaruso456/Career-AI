@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import {
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   Check,
   ChevronDown,
@@ -1944,6 +1946,40 @@ export function HeroComposer({
     <>
       {isLandingState ? (
         <div className={styles.heroStarterRailShell}>
+          {content.starterActions.length > 1 ? (
+            <>
+              <div
+                aria-hidden="true"
+                className={[styles.heroStarterRailFade, styles.heroStarterRailFadeLeft]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
+              <div
+                aria-hidden="true"
+                className={[styles.heroStarterRailHint, styles.heroStarterRailHintLeft]
+                  .filter(Boolean)
+                  .join(" ")}
+                data-testid="starter-rail-hint"
+              >
+                <ArrowLeft aria-hidden="true" size={16} strokeWidth={2.1} />
+              </div>
+              <div
+                aria-hidden="true"
+                className={[styles.heroStarterRailFade, styles.heroStarterRailFadeRight]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
+              <div
+                aria-hidden="true"
+                className={[styles.heroStarterRailHint, styles.heroStarterRailHintRight]
+                  .filter(Boolean)
+                  .join(" ")}
+                data-testid="starter-rail-hint"
+              >
+                <ArrowRight aria-hidden="true" size={16} strokeWidth={2.1} />
+              </div>
+            </>
+          ) : null}
           <div
             aria-label="Starter prompts"
             className={styles.heroStarterRail}
