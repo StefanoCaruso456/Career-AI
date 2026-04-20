@@ -198,6 +198,7 @@ function createJobsPanelResponse(
 
 describe("JobsSidePanel", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     mockUseApplicationProfiles.mockReturnValue({
       error: null,
       isAuthenticated: true,
@@ -219,6 +220,7 @@ describe("JobsSidePanel", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    window.localStorage.clear();
     mockGetMissingRequiredFieldKeys.mockReset();
     mockUseApplicationProfiles.mockReset();
   });
@@ -265,7 +267,7 @@ describe("JobsSidePanel", () => {
     expect(screen.getByText("Backend Engineer")).toBeInTheDocument();
     expect(screen.getByText("ML Engineer")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
 
     expect(screen.getByLabelText("Filter jobs by keyword")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Filter jobs by keyword"), {
@@ -388,7 +390,7 @@ describe("JobsSidePanel", () => {
     railBody.scrollTop = 240;
     railBody.scrollTo = scrollTo;
 
-    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
     expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
@@ -417,7 +419,7 @@ describe("JobsSidePanel", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
 
     expect(screen.getByRole("dialog", { name: "Jobs rail filters" })).toBeInTheDocument();
 
@@ -451,7 +453,7 @@ describe("JobsSidePanel", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /filters/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
 
     const companySelect = screen.getByLabelText("Company");
     const locationSelect = screen.getByLabelText("Location");
@@ -462,6 +464,112 @@ describe("JobsSidePanel", () => {
     expect(locationSelect).toHaveTextContent("Argentina");
     expect(locationSelect).toHaveTextContent("United Kingdom");
     expect(locationSelect).toHaveTextContent("United States");
+  });
+
+  it("defaults Find jobs for me to United States and lets people broaden back out", () => {
+    render(
+      <JobsSidePanel
+        filterOptions={{
+          companies: ["Accenture", "Cisco"],
+          locations: ["Austin, TX", "Buenos Aires, Argentina"],
+        }}
+        jobs={[
+          createJob("job_us", {
+            company: "Cisco",
+            location: "Austin, TX",
+            railKey: "workday:cisco:job_us",
+            sourceKey: "workday:cisco",
+            sourceLabel: "Cisco",
+            sourceType: "workday",
+            sourceUrl: "https://workday.example.com/cisco/job_us",
+            title: "Platform Engineer",
+          }),
+          createJob("job_ar", {
+            company: "Accenture",
+            location: "Buenos Aires, Argentina",
+            railKey: "greenhouse:accenture:job_ar",
+            sourceKey: "greenhouse:accenture",
+            sourceLabel: "Accenture",
+            sourceType: "greenhouse",
+            sourceUrl: "https://boards.greenhouse.io/accenture/jobs/job_ar",
+            title: "Argentina Analyst",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Platform Engineer")).toBeInTheDocument();
+    expect(screen.queryByText("Argentina Analyst")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
+
+    const locationSelect = screen.getByLabelText("Location");
+
+    expect(locationSelect).toHaveValue("United States");
+
+    fireEvent.change(locationSelect, {
+      target: { value: "all" },
+    });
+
+    expect(screen.getByText("Argentina Analyst")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Accenture" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset filters" }));
+
+    expect(screen.getByLabelText("Location")).toHaveValue("United States");
+    expect(screen.queryByText("Argentina Analyst")).not.toBeInTheDocument();
+  });
+
+  it("remembers when someone removes the default United States location filter", () => {
+    const props = {
+      filterOptions: {
+        companies: ["Accenture", "Cisco"],
+        locations: ["Austin, TX", "Buenos Aires, Argentina"],
+      },
+      jobs: [
+        createJob("job_us", {
+          company: "Cisco",
+          location: "Austin, TX",
+          railKey: "workday:cisco:job_us",
+          sourceKey: "workday:cisco",
+          sourceLabel: "Cisco",
+          sourceType: "workday",
+          sourceUrl: "https://workday.example.com/cisco/job_us",
+          title: "Platform Engineer",
+        }),
+        createJob("job_ar", {
+          company: "Accenture",
+          location: "Buenos Aires, Argentina",
+          railKey: "greenhouse:accenture:job_ar",
+          sourceKey: "greenhouse:accenture",
+          sourceLabel: "Accenture",
+          sourceType: "greenhouse",
+          sourceUrl: "https://boards.greenhouse.io/accenture/jobs/job_ar",
+          title: "Argentina Analyst",
+        }),
+      ],
+    };
+
+    const { unmount } = render(<JobsSidePanel {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "all" },
+    });
+
+    expect(screen.getByText("Argentina Analyst")).toBeInTheDocument();
+
+    unmount();
+
+    render(<JobsSidePanel {...props} />);
+
+    expect(screen.getByText("Argentina Analyst")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Filters/i }));
+    expect(screen.getByLabelText("Location")).toHaveValue("all");
   });
 
   it("hydrates a missing salary pill from the job details endpoint for visible roles", async () => {
