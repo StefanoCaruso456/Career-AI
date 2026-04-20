@@ -1,15 +1,16 @@
-import { promises as fs, type Dirent } from "node:fs";
-import { join } from "node:path";
 import type { Page } from "playwright";
-import { getBlobStorageRoot, putBlobObject } from "@/packages/artifact-domain/src";
-import type { ApplyArtifactType, ApplyRunArtifactDto } from "@/packages/contracts/src";
 import {
-  getAutonomousApplyArtifactRetentionHours,
-} from "@/packages/apply-domain/src";
+  deleteBlobObject,
+  listBlobObjects,
+  putBlobObject,
+  readBlobObject,
+} from "@/packages/artifact-domain/src";
+import type { ApplyArtifactType, ApplyRunArtifactDto } from "@/packages/contracts/src";
+import { getAutonomousApplyArtifactRetentionHours } from "@/packages/apply-domain/src";
 import { createApplyRunArtifactRecord } from "@/packages/persistence/src";
 
 function buildArtifactKey(runId: string, fileName: string) {
-  return `${runId}/${fileName}`;
+  return `apply-runs/${runId}/${fileName}`;
 }
 
 export async function persistApplyRunScreenshot(args: {
@@ -98,43 +99,67 @@ export async function persistDocumentReferenceArtifact(args: {
 
 export type PersistedApplyArtifact = ApplyRunArtifactDto;
 
+export async function readApplyRunArtifactContent(args: {
+  storageKey: string;
+}) {
+  return readBlobObject({
+    key: args.storageKey,
+  });
+}
+
 export async function cleanupExpiredApplyRunArtifacts(args?: {
   now?: Date;
 }) {
-  const rootDirectory = getBlobStorageRoot();
   const now = args?.now ?? new Date();
   const retentionMs = getAutonomousApplyArtifactRetentionHours() * 60 * 60 * 1000;
   const cutoffMs = now.getTime() - retentionMs;
   let removedRunDirectories = 0;
+  const runArtifacts = new Map<
+    string,
+    {
+      hasFreshArtifact: boolean;
+      storageKeys: string[];
+    }
+  >();
+  const objects = await listBlobObjects({
+    prefix: "apply-runs",
+  }).catch(() => []);
 
-  let entries: Dirent[] = [];
+  for (const object of objects) {
+    const segments = object.key.split("/");
 
-  try {
-    entries = (await fs.readdir(rootDirectory, {
-      withFileTypes: true,
-    })) as unknown as Dirent[];
-  } catch {
-    return {
-      removedRunDirectories,
+    if (segments[0] !== "apply-runs" || segments.length < 3) {
+      continue;
+    }
+
+    const runPrefix = segments.slice(0, 2).join("/");
+    const existingEntry = runArtifacts.get(runPrefix) ?? {
+      hasFreshArtifact: false,
+      storageKeys: [],
     };
+    const lastModifiedMs = object.lastModified ? Date.parse(object.lastModified) : Number.NaN;
+
+    existingEntry.storageKeys.push(object.key);
+
+    if (!Number.isFinite(lastModifiedMs) || lastModifiedMs >= cutoffMs) {
+      existingEntry.hasFreshArtifact = true;
+    }
+
+    runArtifacts.set(runPrefix, existingEntry);
   }
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) {
+  for (const [, entry] of runArtifacts) {
+    if (entry.hasFreshArtifact || entry.storageKeys.length === 0) {
       continue;
     }
 
-    const absolutePath = join(rootDirectory, String(entry.name));
-    const stats = await fs.stat(absolutePath).catch(() => null);
-
-    if (!stats || stats.mtimeMs >= cutoffMs) {
-      continue;
-    }
-
-    await fs.rm(absolutePath, {
-      force: true,
-      recursive: true,
-    }).catch(() => undefined);
+    await Promise.all(
+      entry.storageKeys.map((storageKey) =>
+        deleteBlobObject({
+          key: storageKey,
+        }).catch(() => undefined),
+      ),
+    );
     removedRunDirectories += 1;
   }
 

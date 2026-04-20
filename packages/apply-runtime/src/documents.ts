@@ -34,7 +34,7 @@ export async function stageApplyRunUploadFile(args: {
     await fs.access(absolutePath);
     return absolutePath;
   } catch {
-    const buffer = readArtifactContent({
+    const buffer = await readArtifactContent({
       artifactId: args.artifactId,
       correlationId: `apply-run-upload:${args.runId}:${args.artifactId}`,
     });
