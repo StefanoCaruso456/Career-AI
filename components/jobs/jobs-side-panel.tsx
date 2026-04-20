@@ -21,6 +21,7 @@ import {
   DEFAULT_JOB_RAIL_FILTERS,
   EMPLOYMENT_FILTER_LABELS,
   filterAndSortJobsForRail,
+  getJobRailLocationLabel,
   getJobRailOptions,
   POSTED_DATE_LABELS,
   WORKPLACE_FILTER_LABELS,
@@ -41,6 +42,9 @@ type JobsSidePanelProps = {
     | undefined;
   onClose?: () => void;
 };
+
+const DEFAULT_FIND_JOBS_LOCATION = "United States";
+const FIND_JOBS_LOCATION_STORAGE_KEY = "career-ai.jobs.side-panel.location";
 
 function getActiveFilterCount(filters: typeof DEFAULT_JOB_RAIL_FILTERS) {
   return [
@@ -120,6 +124,54 @@ function buildKeywordSearchPrompt(
   return promptSegments.join(" ");
 }
 
+function getFindJobsLocationOptions(
+  jobs: JobListing[],
+  filterOptions?: JobRailFilterOptionsDto | null,
+) {
+  return new Set(
+    [...jobs.map((job) => job.location), ...(filterOptions?.locations ?? [])]
+      .map((location) => getJobRailLocationLabel(location))
+      .filter((value): value is string => Boolean(value)),
+  );
+}
+
+function getDefaultFindJobsLocation(
+  jobs: JobListing[],
+  filterOptions?: JobRailFilterOptionsDto | null,
+) {
+  return getFindJobsLocationOptions(jobs, filterOptions).has(DEFAULT_FIND_JOBS_LOCATION)
+    ? DEFAULT_FIND_JOBS_LOCATION
+    : "all";
+}
+
+function resolveFindJobsLocationPreference(
+  location: string | null,
+  jobs: JobListing[],
+  filterOptions?: JobRailFilterOptionsDto | null,
+) {
+  if (location === "all") {
+    return "all";
+  }
+
+  const availableLocations = getFindJobsLocationOptions(jobs, filterOptions);
+
+  if (location && availableLocations.has(location)) {
+    return location;
+  }
+
+  return availableLocations.has(DEFAULT_FIND_JOBS_LOCATION) ? DEFAULT_FIND_JOBS_LOCATION : "all";
+}
+
+function getDefaultFindJobsFilters(
+  jobs: JobListing[],
+  filterOptions?: JobRailFilterOptionsDto | null,
+) {
+  return {
+    ...DEFAULT_JOB_RAIL_FILTERS,
+    location: getDefaultFindJobsLocation(jobs, filterOptions),
+  };
+}
+
 export function JobsSidePanel({
   emptyStateMessage = null,
   errorMessage = null,
@@ -129,7 +181,8 @@ export function JobsSidePanel({
   onApply,
   onClose,
 }: JobsSidePanelProps) {
-  const [filters, setFilters] = useState(DEFAULT_JOB_RAIL_FILTERS);
+  const defaultFilters = getDefaultFindJobsFilters(jobs, filterOptions);
+  const [filters, setFilters] = useState(defaultFilters);
   const deferredKeyword = useDeferredValue(filters.keyword.trim().toLowerCase());
   const [activePreview, setActivePreview] = useState<JobDetailsPreview | null>(null);
   const [activeDetails, setActiveDetails] = useState<JobDetailsDto | null>(null);
@@ -154,6 +207,7 @@ export function JobsSidePanel({
   const railScrollTop = useRef(0);
   const filtersScrollTop = useRef(0);
   const filtersChangedWhileOpen = useRef(false);
+  const hasHydratedLocationPreference = useRef(false);
   const companyScopeRequestSequence = useRef(0);
   const keywordSearchRequestSequence = useRef(0);
   const salaryHydrationInFlight = useRef(new Set<string>());
@@ -212,6 +266,68 @@ export function JobsSidePanel({
       activeController.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (hasHydratedLocationPreference.current) {
+      return;
+    }
+
+    let nextLocation = defaultFilters.location;
+
+    try {
+      nextLocation = resolveFindJobsLocationPreference(
+        window.localStorage.getItem(FIND_JOBS_LOCATION_STORAGE_KEY),
+        jobs,
+        filterOptions,
+      );
+    } catch {
+      nextLocation = defaultFilters.location;
+    } finally {
+      hasHydratedLocationPreference.current = true;
+    }
+
+    setFilters((current) =>
+      current.location === nextLocation
+        ? current
+        : {
+            ...current,
+            location: nextLocation,
+          },
+    );
+  }, [defaultFilters.location, filterOptions, jobs]);
+
+  useEffect(() => {
+    if (!hasHydratedLocationPreference.current) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(FIND_JOBS_LOCATION_STORAGE_KEY, filters.location);
+    } catch {
+      // Ignore storage access failures so filtering still works in restricted contexts.
+    }
+  }, [filters.location]);
+
+  useEffect(() => {
+    if (!hasHydratedLocationPreference.current) {
+      return;
+    }
+
+    const resolvedLocation = resolveFindJobsLocationPreference(filters.location, jobs, filterOptions);
+
+    if (resolvedLocation === filters.location) {
+      return;
+    }
+
+    setFilters((current) =>
+      current.location === resolvedLocation
+        ? current
+        : {
+            ...current,
+            location: resolvedLocation,
+          },
+    );
+  }, [filterOptions, filters.location, jobs]);
 
   useEffect(() => {
     if (!isFiltersOpen) {
@@ -578,7 +694,7 @@ export function JobsSidePanel({
               <button
                 className={styles.jobsRailReset}
                 onClick={() => {
-                  updateFilters(DEFAULT_JOB_RAIL_FILTERS);
+                  updateFilters(defaultFilters);
                 }}
                 type="button"
               >
@@ -752,7 +868,7 @@ export function JobsSidePanel({
               <button
                 className={styles.jobsRailResetInline}
                 onClick={() => {
-                  updateFilters(DEFAULT_JOB_RAIL_FILTERS);
+                  updateFilters(defaultFilters);
                 }}
                 type="button"
               >
