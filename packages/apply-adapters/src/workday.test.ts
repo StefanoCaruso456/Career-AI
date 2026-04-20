@@ -42,6 +42,10 @@ import { workdayApplyAdapter } from "./workday";
 function createContext(args?: {
   bodyText?: string;
   buttonLabels?: string[];
+  buttonDescriptors?: Array<{
+    attributes?: Record<string, string>;
+    label?: string;
+  }>;
   captchaCount?: number;
   fileInputCount?: number;
   passwordCount?: number;
@@ -49,10 +53,19 @@ function createContext(args?: {
   url?: string;
   waitForLoadStateError?: Error;
 }): ApplyAdapterContext {
-  const buttons = (args?.buttonLabels ?? []).map((label) => ({
+  const buttonDescriptors: Array<{
+    attributes?: Record<string, string>;
+    label?: string;
+  }> =
+    args?.buttonDescriptors ??
+    (args?.buttonLabels ?? []).map((label) => ({
+      label,
+    }));
+  const buttons = buttonDescriptors.map((descriptor) => ({
     click: vi.fn(async () => undefined),
-    innerText: vi.fn(async () => label),
-    textContent: vi.fn(async () => label),
+    getAttribute: vi.fn(async (name: string) => descriptor.attributes?.[name] ?? null),
+    innerText: vi.fn(async () => descriptor.label ?? ""),
+    textContent: vi.fn(async () => descriptor.label ?? ""),
   }));
   const fileInput = {
     setInputFiles: vi.fn(async () => {
@@ -65,7 +78,7 @@ function createContext(args?: {
     content: vi.fn(async () => "<html></html>"),
     goto: vi.fn(async () => undefined),
     locator: vi.fn((selector: string) => {
-      if (selector === "button, [role='button'], input[type='submit']") {
+      if (selector === "button, [role='button'], input[type='submit'], input[type='button']") {
         return {
           count: vi.fn(async () => buttons.length),
           nth: vi.fn((index: number) => buttons[index]),
@@ -264,6 +277,51 @@ describe("workdayApplyAdapter hardening", () => {
     expect(failure).toBeTruthy();
     const classification = await workdayApplyAdapter.classifyFailure(context, failure);
     expect(classification.failureCode).toBe("TIMEOUT");
+  });
+
+  it("submits successfully when Workday exposes the action through an input value", async () => {
+    const context = createContext({
+      bodyText: "Review and submit",
+      buttonDescriptors: [
+        {
+          attributes: {
+            value: "Submit Application",
+          },
+        },
+      ],
+    });
+
+    await expect(workdayApplyAdapter.submit(context)).resolves.toBeUndefined();
+  });
+
+  it("includes detected actions when submit remains unavailable", async () => {
+    const context = createContext({
+      bodyText: "Review and submit",
+      buttonDescriptors: [
+        {
+          label: "Save and Continue",
+        },
+        {
+          attributes: {
+            "data-automation-id": "bottom-navigation-next-button",
+          },
+        },
+      ],
+    });
+
+    let failure: unknown = null;
+
+    try {
+      await workdayApplyAdapter.submit(context);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeTruthy();
+    expect((failure as Error).message).toContain("Detected actions: save and continue, bottom-navigation-next-button.");
+
+    const classification = await workdayApplyAdapter.classifyFailure(context, failure);
+    expect(classification.failureCode).toBe("SUBMIT_BLOCKED");
   });
 
   it("returns SUBMISSION_NOT_CONFIRMED when submit confirmation stays ambiguous", async () => {
