@@ -36,6 +36,9 @@ type PlainTextBlock =
       type: "paragraph";
     };
 
+const maxParagraphCharacters = 320;
+const targetParagraphCharacters = 220;
+
 function getFocusableElements(container: HTMLElement) {
   return Array.from(
     container.querySelectorAll<HTMLElement>(
@@ -119,6 +122,77 @@ function buildPlainTextParagraphs(value: string | null) {
     return [] satisfies PlainTextBlock[];
   }
 
+  function splitLongParagraph(text: string) {
+    const normalized = normalizeWhitespace(
+      text.replace(/\s+-\s+(?=[A-ZÀ-Ý])/g, ". "),
+    );
+
+    if (!normalized) {
+      return [] as string[];
+    }
+
+    const sentences =
+      normalized.match(/[^.!?]+(?:[.!?]+["')\]]*)?|[^.!?]+$/g)?.map((sentence) =>
+        normalizeWhitespace(sentence),
+      ) ?? [];
+    const filteredSentences = sentences.filter((sentence): sentence is string => Boolean(sentence));
+
+    if (filteredSentences.length > 1) {
+      const groupedParagraphs: string[] = [];
+      let currentParagraph = "";
+
+      filteredSentences.forEach((sentence) => {
+        const nextParagraph = currentParagraph
+          ? `${currentParagraph} ${sentence}`.trim()
+          : sentence;
+
+        if (
+          currentParagraph &&
+          nextParagraph.length > maxParagraphCharacters
+        ) {
+          groupedParagraphs.push(currentParagraph);
+          currentParagraph = sentence;
+          return;
+        }
+
+        currentParagraph = nextParagraph;
+      });
+
+      if (currentParagraph) {
+        groupedParagraphs.push(currentParagraph);
+      }
+
+      return groupedParagraphs;
+    }
+
+    if (normalized.length <= maxParagraphCharacters) {
+      return [normalized];
+    }
+
+    const chunks: string[] = [];
+    let remaining = normalized;
+
+    while (remaining.length > maxParagraphCharacters) {
+      const preferredBreak = remaining.lastIndexOf(". ", maxParagraphCharacters);
+      const softBreak =
+        preferredBreak >= targetParagraphCharacters
+          ? preferredBreak + 1
+          : remaining.lastIndexOf(" ", maxParagraphCharacters);
+
+      const breakIndex =
+        softBreak >= targetParagraphCharacters ? softBreak : maxParagraphCharacters;
+
+      chunks.push(remaining.slice(0, breakIndex).trim());
+      remaining = remaining.slice(breakIndex).trim();
+    }
+
+    if (remaining.length > 0) {
+      chunks.push(remaining);
+    }
+
+    return chunks;
+  }
+
   const normalized = value
     .replace(/\u00a0/g, " ")
     .replace(/\r\n?/g, "\n")
@@ -166,9 +240,15 @@ function buildPlainTextParagraphs(value: string | null) {
       return;
     }
 
-    blocks.push({
-      text: lines.map((line) => normalizeWhitespace(line) ?? line).join(" "),
-      type: "paragraph",
+    const splitParagraphs = splitLongParagraph(
+      lines.map((line) => normalizeWhitespace(line) ?? line).join(" "),
+    );
+
+    splitParagraphs.forEach((paragraph) => {
+      blocks.push({
+        text: paragraph,
+        type: "paragraph",
+      });
     });
   });
 
@@ -506,7 +586,7 @@ export function JobDetailsModal({
                   />
                 </section>
               ) : plainTextBlocks.length > 0 ? (
-                <section className={styles.section}>
+                <section className={`${styles.section} ${styles.descriptionSection}`}>
                   <h3>Description</h3>
                   <div className={styles.plainText}>
                     {plainTextBlocks.map((block, index) =>
@@ -517,7 +597,9 @@ export function JobDetailsModal({
                           ))}
                         </ul>
                       ) : (
-                        <p key={`paragraph-${index}`}>{block.text}</p>
+                        <p className={styles.plainTextParagraph} key={`paragraph-${index}`}>
+                          {block.text}
+                        </p>
                       ),
                     )}
                   </div>
