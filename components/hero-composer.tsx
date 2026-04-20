@@ -923,9 +923,10 @@ export function HeroComposer({
     }
 
     const reducedMotionMediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const narrowViewportMediaQuery = window.matchMedia("(max-width: 760px)");
 
-    const syncReducedMotionPreference = () => {
-      if (reducedMotionMediaQuery.matches) {
+    const syncAutoScrollAvailability = () => {
+      if (reducedMotionMediaQuery.matches || narrowViewportMediaQuery.matches) {
         cancelStarterRailAutoScrollAnimation();
         return;
       }
@@ -937,11 +938,13 @@ export function HeroComposer({
     };
 
     syncStarterRailAutoScrollPauseState();
-    syncReducedMotionPreference();
-    reducedMotionMediaQuery.addEventListener("change", syncReducedMotionPreference);
+    syncAutoScrollAvailability();
+    reducedMotionMediaQuery.addEventListener("change", syncAutoScrollAvailability);
+    narrowViewportMediaQuery.addEventListener("change", syncAutoScrollAvailability);
 
     return () => {
-      reducedMotionMediaQuery.removeEventListener("change", syncReducedMotionPreference);
+      reducedMotionMediaQuery.removeEventListener("change", syncAutoScrollAvailability);
+      narrowViewportMediaQuery.removeEventListener("change", syncAutoScrollAvailability);
       cancelStarterRailAutoScrollAnimation();
     };
   }, [isLandingState, starterActions.length]);
