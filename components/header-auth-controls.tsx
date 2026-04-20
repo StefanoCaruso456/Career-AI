@@ -23,7 +23,6 @@ import { readPreferredPersona } from "@/lib/persona-preference";
 import {
   defaultPersona,
   getPersonaFromRoute,
-  getSettingsRoute,
   personaConfigs,
   resolveActivePersona,
   type Persona,
@@ -207,7 +206,7 @@ export function HeaderAuthControls({
 
             <Link
               className={styles.accountMenuAction}
-              href={getSettingsRoute(activePersona)}
+              href="/settings"
               onClick={() => {
                 setIsMenuOpen(false);
               }}
