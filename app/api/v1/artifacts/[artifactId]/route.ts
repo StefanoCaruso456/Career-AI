@@ -67,7 +67,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       );
     }
 
-    deleteArtifact({
+    await deleteArtifact({
       actorId: actor.actorId,
       actorType: actor.actorType,
       artifactId,

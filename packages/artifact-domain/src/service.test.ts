@@ -183,7 +183,7 @@ describe("artifact service", () => {
       artifactId: result.artifact.artifact_id,
       correlationId: "corr-audit-3",
     });
-    deleteArtifact({
+    await deleteArtifact({
       actorId: talent.talentIdentity.id,
       actorType: "talent_user",
       artifactId: result.artifact.artifact_id,
@@ -237,14 +237,14 @@ describe("artifact service", () => {
       correlationId: "corr-lock-3",
     });
 
-    expect(() =>
+    await expect(
       deleteArtifact({
         actorId: talent.talentIdentity.id,
         actorType: "talent_user",
         artifactId: result.artifact.artifact_id,
         correlationId: "corr-lock-4",
       }),
-    ).toThrowError("Artifacts attached to claims cannot be deleted.");
+    ).rejects.toThrowError("Artifacts attached to claims cannot be deleted.");
 
     expect(listAuditEvents()).toEqual(
       expect.arrayContaining([

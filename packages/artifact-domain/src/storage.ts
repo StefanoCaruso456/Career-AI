@@ -10,6 +10,12 @@ import {
 import { dirname, join } from "node:path";
 import { z } from "zod";
 import { artifactMetadataSchema, type ArtifactMetadata } from "@/packages/contracts/src";
+import {
+  deleteBlobObject,
+  getBlobStorageDriverName,
+  putBlobObject,
+  readBlobObject,
+} from "./blob-storage";
 
 const artifactDatabaseSchemaVersion = 1;
 const artifactDatabaseSchema = z.object({
@@ -97,6 +103,16 @@ function getArtifactFilesRoot(baseDir = process.cwd()) {
 
 function getArtifactFilePath(artifactId: string, baseDir = process.cwd()) {
   return join(getArtifactFilesRoot(baseDir), artifactId);
+}
+
+export function getArtifactContentStorageKey(artifactId: string) {
+  return `artifacts/${artifactId}/content`;
+}
+
+export function getArtifactStorageUri(args: {
+  artifactId: string;
+}) {
+  return `artifact://${getBlobStorageDriverName()}/${getArtifactContentStorageKey(args.artifactId)}`;
 }
 
 function ensureArtifactStorageLayout(baseDir = process.cwd()) {
@@ -241,7 +257,35 @@ function getArtifactPersistenceAdapter(): ArtifactPersistenceAdapter {
 }
 
 export function getArtifactStorageDriverName() {
-  return getArtifactPersistenceAdapter().driver;
+  return getBlobStorageDriverName();
+}
+
+export async function persistArtifactContentObject(args: {
+  artifactId: string;
+  buffer: Buffer;
+  contentType: string;
+}) {
+  return putBlobObject({
+    body: args.buffer,
+    contentType: args.contentType,
+    key: getArtifactContentStorageKey(args.artifactId),
+  });
+}
+
+export async function readPersistedArtifactContentObject(args: {
+  artifactId: string;
+}) {
+  return readBlobObject({
+    key: getArtifactContentStorageKey(args.artifactId),
+  });
+}
+
+export async function deletePersistedArtifactContentObject(args: {
+  artifactId: string;
+}) {
+  await deleteBlobObject({
+    key: getArtifactContentStorageKey(args.artifactId),
+  });
 }
 
 export function persistArtifactRecord(args: {

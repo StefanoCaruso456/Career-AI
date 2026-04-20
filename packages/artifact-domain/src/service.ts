@@ -9,14 +9,18 @@ import { logAuditEvent } from "@/packages/audit-security/src";
 import { getArtifactStore } from "./store";
 import {
   clearPersistedArtifactStorage,
+  deletePersistedArtifactContentObject,
   deletePersistedArtifactRecord,
   findPersistedArtifactMetadata,
   getArtifactStorageDriverName,
+  getArtifactStorageUri,
   getPersistedArtifactByteLength,
   listPersistedClaimIdsForArtifact,
+  persistArtifactContentObject,
   persistArtifactRecord,
   persistClaimArtifactIds,
   readPersistedArtifactContent,
+  readPersistedArtifactContentObject,
   readPersistedClaimArtifactIds,
 } from "./storage";
 
@@ -36,6 +40,14 @@ function deriveArtifactType(mimeType: string, fileName: string) {
 async function toBuffer(file: File) {
   if (typeof file.arrayBuffer === "function") {
     return Buffer.from(await file.arrayBuffer());
+  }
+
+  if (typeof file.stream === "function") {
+    return Buffer.from(await new Response(file.stream()).arrayBuffer());
+  }
+
+  if (typeof file.text === "function") {
+    return Buffer.from(await file.text(), "utf8");
   }
 
   return Buffer.from(await new Response(file).arrayBuffer());
@@ -60,7 +72,9 @@ export async function uploadArtifact(args: {
     artifact_type: deriveArtifactType(args.file.type, args.file.name),
     mime_type: args.file.type || "application/octet-stream",
     original_filename: args.file.name,
-    storage_uri: `artifact://local/${artifactId}/${encodeURIComponent(args.file.name)}`,
+    storage_uri: getArtifactStorageUri({
+      artifactId,
+    }),
     sha256_checksum: checksum,
     uploaded_by_actor_type: args.actorType,
     uploaded_by_actor_id: args.actorId,
@@ -76,6 +90,11 @@ export async function uploadArtifact(args: {
   store.contentsById.set(artifactId, buffer);
 
   if (isDurableArtifactStorageEnabled()) {
+    await persistArtifactContentObject({
+      artifactId,
+      buffer,
+      contentType: artifact.mime_type,
+    });
     persistArtifactRecord({
       artifact,
       buffer,
@@ -249,7 +268,7 @@ export function getArtifactContentByteLength(args: {
   return getPersistedArtifactByteLength(args);
 }
 
-export function readArtifactContent(args: {
+export async function readArtifactContent(args: {
   artifactId: string;
   correlationId: string;
 }) {
@@ -259,12 +278,12 @@ export function readArtifactContent(args: {
     return cachedContent;
   }
 
-  const artifact = getArtifactMetadata({
-    artifactId: args.artifactId,
-    correlationId: args.correlationId,
-  });
-
   if (!isDurableArtifactStorageEnabled()) {
+    const artifact = getArtifactMetadata({
+      artifactId: args.artifactId,
+      correlationId: args.correlationId,
+    });
+
     throw new ApiError({
       correlationId: args.correlationId,
       details: {
@@ -282,6 +301,15 @@ export function readArtifactContent(args: {
   });
 
   if (!persistedContent) {
+    const sharedContent = await readPersistedArtifactContentObject({
+      artifactId: args.artifactId,
+    });
+
+    if (sharedContent) {
+      getArtifactStore().contentsById.set(args.artifactId, sharedContent);
+      return sharedContent;
+    }
+
     throw new ApiError({
       correlationId: args.correlationId,
       details: {
@@ -298,7 +326,7 @@ export function readArtifactContent(args: {
   return persistedContent;
 }
 
-export function deleteArtifact(args: {
+export async function deleteArtifact(args: {
   actorId: string;
   actorType: ActorType;
   artifactId: string;
@@ -364,6 +392,9 @@ export function deleteArtifact(args: {
 
   if (isDurableArtifactStorageEnabled()) {
     deletePersistedArtifactRecord({
+      artifactId: args.artifactId,
+    });
+    await deletePersistedArtifactContentObject({
       artifactId: args.artifactId,
     });
   }
