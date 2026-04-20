@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { LandingContent, SolutionVariant, StoryTheme } from "./chat-home-shell-content";
 import { ChatHomeHero } from "./chat-home-hero";
-import { HomepageChapterRail } from "./homepage-chapter-rail";
 import { ScrollReveal } from "./scroll-reveal";
 import { TrustExplainerSection } from "./trust-explainer-section";
 import styles from "./chat-home-shell.module.css";
@@ -46,6 +45,34 @@ function IntroSectionTitle({
           </span>
         ))}
       </h2>
+    </div>
+  );
+}
+
+function SectionChapter({
+  index,
+  inverted = false,
+  summary,
+  title,
+}: {
+  index: string;
+  inverted?: boolean;
+  summary: string;
+  title: string;
+}) {
+  return (
+    <div
+      className={[
+        styles.sectionChapter,
+        inverted ? styles.sectionChapterInverted : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span className={styles.sectionChapterIndex}>{index}</span>
+      <span className={styles.sectionChapterTitle}>{title}</span>
+      <span aria-hidden="true" className={styles.sectionChapterRule} />
+      <p className={styles.sectionChapterSummary}>{summary}</p>
     </div>
   );
 }
@@ -423,34 +450,6 @@ export function ChatHomeShell({
   embeddedInWorkspaceShell?: boolean;
   persona?: Persona;
 }) {
-  const chapters = [
-    {
-      id: "platform",
-      label: "Platform",
-      summary: content.introRailLead,
-    },
-    {
-      id: "stories",
-      label: "Stories",
-      summary: content.storyCopy,
-    },
-    {
-      id: "solutions",
-      label: "Solutions",
-      summary: content.solutionSubheading,
-    },
-    {
-      id: "metrics",
-      label: "Metrics",
-      summary: content.metricsTitle,
-    },
-    {
-      id: "trust",
-      label: "Trust",
-      summary: content.trustExplainer.trustLine,
-    },
-  ];
-
   return (
     <div className={styles.page}>
       <ChatHomeHero
@@ -461,8 +460,6 @@ export function ChatHomeShell({
       />
 
       <div className={styles.narrativeShell}>
-        <HomepageChapterRail chapters={chapters} />
-
         <section className={styles.introSection} id="platform">
           <div className={[styles.sectionShell, styles.introShell].join(" ")}>
             <div aria-hidden="true" className={styles.introMotionField}>
@@ -473,8 +470,16 @@ export function ChatHomeShell({
               <div className={styles.introRibbonSpine} />
             </div>
 
+            <ScrollReveal className={styles.motionBlock} y={24}>
+              <SectionChapter
+                index="01"
+                summary="Collect the proof you already have, then organize it into one durable trust layer."
+                title="Platform"
+              />
+            </ScrollReveal>
+
             <div className={styles.introGrid}>
-              <ScrollReveal className={styles.motionBlock} once y={36}>
+              <ScrollReveal className={styles.motionBlock} y={42}>
                 <div className={styles.introLead}>
                   <span className={styles.sectionEyebrow}>{content.sectionEyebrow}</span>
                   <IntroSectionTitle lines={content.introTitleLines} />
@@ -490,7 +495,7 @@ export function ChatHomeShell({
                 </div>
               </ScrollReveal>
 
-              <ScrollReveal className={styles.motionBlock} delay={0.08} once x={24} y={18}>
+              <ScrollReveal className={styles.motionBlock} delay={0.08} x={32} y={22}>
                 <div className={styles.introRail}>
                   <span className={styles.introRailEyebrow}>{content.introRailEyebrow}</span>
                   <p className={styles.introRailLead}>{content.introRailLead}</p>
@@ -512,7 +517,6 @@ export function ChatHomeShell({
                   className={styles.proofWordmarkItem}
                   delay={0.05 * index}
                   key={typeof surface === "string" ? surface : surface.label}
-                  once
                   y={18}
                 >
                   <span className={styles.proofWordmark}>
@@ -529,15 +533,23 @@ export function ChatHomeShell({
 
         <section className={styles.storySection} id="stories">
           <div className={styles.sectionShell}>
+            <ScrollReveal className={styles.motionBlock} y={24}>
+              <SectionChapter
+                index="02"
+                summary="Move from the trust model into concrete hiring outcomes and recruiter-ready surfaces."
+                title="Stories"
+              />
+            </ScrollReveal>
+
             <div className={styles.storyHeader}>
-              <ScrollReveal className={styles.motionBlock} once y={28}>
+              <ScrollReveal className={styles.motionBlock} y={32}>
                 <div>
                   <span className={styles.sectionEyebrow}>{content.storyEyebrow}</span>
                   <h2 className={styles.storyTitle}>{content.storyTitle}</h2>
                 </div>
               </ScrollReveal>
 
-              <ScrollReveal className={styles.motionBlock} delay={0.08} once x={18} y={20}>
+              <ScrollReveal className={styles.motionBlock} delay={0.08} x={20} y={22}>
                 <p className={styles.storyCopy}>{content.storyCopy}</p>
               </ScrollReveal>
             </div>
@@ -548,7 +560,7 @@ export function ChatHomeShell({
                   className={styles.motionBlock}
                   delay={0.05 * index}
                   key={`${story.company}-${story.theme}-${index}`}
-                  once
+                  rotate={index % 2 === 0 ? -1.6 : 1.6}
                   y={26}
                 >
                   <article className={styles.storyCard}>
@@ -575,7 +587,15 @@ export function ChatHomeShell({
 
         <section className={styles.solutionsSection} id="solutions">
           <div className={styles.sectionShell}>
-            <ScrollReveal className={styles.motionBlock} once y={30}>
+            <ScrollReveal className={styles.motionBlock} y={24}>
+              <SectionChapter
+                index="03"
+                summary="Walk the product surface in sequence so each capability feels connected to the next."
+                title="Solutions"
+              />
+            </ScrollReveal>
+
+            <ScrollReveal className={styles.motionBlock} y={34}>
               <div className={styles.solutionHeader}>
                 <h2 className={styles.solutionHeading}>
                   {content.solutionHeading}
@@ -590,7 +610,8 @@ export function ChatHomeShell({
                   className={styles.motionBlock}
                   delay={0.04 * index}
                   key={solution.title}
-                  once
+                  rotate={index % 2 === 0 ? -1.2 : 1.2}
+                  x={index % 2 === 0 ? -20 : 20}
                   y={30}
                 >
                   <SolutionCard {...solution} />
@@ -602,7 +623,16 @@ export function ChatHomeShell({
 
         <section className={styles.metricsSection} id="metrics">
           <div className={styles.sectionShell}>
-            <ScrollReveal className={styles.motionBlock} once y={28}>
+            <ScrollReveal className={styles.motionBlock} y={24}>
+              <SectionChapter
+                index="04"
+                inverted
+                summary="Bring the signal layer into focus with a section that expands and brightens as you scroll."
+                title="Metrics"
+              />
+            </ScrollReveal>
+
+            <ScrollReveal className={styles.motionBlock} y={30}>
               <div className={styles.metricsHeader}>
                 <span className={styles.metricsEyebrow}>{content.metricsEyebrow}</span>
                 <h2 className={styles.metricsTitle}>{content.metricsTitle}</h2>
@@ -615,7 +645,6 @@ export function ChatHomeShell({
                   <ScrollReveal
                     className={styles.motionBlock}
                     delay={0.05 * index}
-                    once
                     y={24}
                   >
                     <p className={styles.metricValue}>{metric.value}</p>
@@ -625,27 +654,29 @@ export function ChatHomeShell({
               ))}
             </div>
 
-            <div className={styles.metricsBurst}>
-              <div className={styles.metricsGlow} />
-            </div>
+            <ScrollReveal className={styles.motionBlock} delay={0.08} y={84}>
+              <div className={styles.metricsBurst}>
+                <div className={styles.metricsGlow} />
+              </div>
+            </ScrollReveal>
           </div>
         </section>
 
-        <ScrollReveal className={styles.motionBlock} once y={36}>
+        <ScrollReveal className={styles.motionBlock} y={40}>
           <TrustExplainerSection content={content.trustExplainer} />
         </ScrollReveal>
 
         <footer className={styles.footer} id="footer">
           <div className={styles.sectionShell}>
             <div className={styles.footerHeader}>
-              <ScrollReveal className={styles.motionBlock} once y={28}>
+              <ScrollReveal className={styles.motionBlock} y={28}>
                 <div>
                   <span className={styles.sectionEyebrow}>{content.footerEyebrow}</span>
                   <h2 className={styles.footerTitle}>{content.footerTitle}</h2>
                 </div>
               </ScrollReveal>
 
-              <ScrollReveal className={styles.motionBlock} delay={0.06} once x={18} y={18}>
+              <ScrollReveal className={styles.motionBlock} delay={0.06} x={18} y={18}>
                 <Link className={styles.primaryCta} href="#platform">
                   {content.footerCtaLabel}
                   <ArrowRight aria-hidden="true" size={16} strokeWidth={2} />
@@ -659,7 +690,6 @@ export function ChatHomeShell({
                   className={styles.motionBlock}
                   delay={0.04 * index}
                   key={column.title}
-                  once
                   y={24}
                 >
                   <div className={styles.footerColumn}>
@@ -676,7 +706,7 @@ export function ChatHomeShell({
               ))}
             </div>
 
-            <ScrollReveal className={styles.motionBlock} delay={0.08} once y={20}>
+            <ScrollReveal className={styles.motionBlock} delay={0.08} y={20}>
               <div className={styles.footerBottom}>
                 <span>Career AI</span>
                 <span>{content.footerTagline}</span>
