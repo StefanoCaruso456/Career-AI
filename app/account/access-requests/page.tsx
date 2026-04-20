@@ -89,16 +89,9 @@ export default async function AccountAccessRequestsPage() {
     <main className={styles.page}>
       <div className={styles.pageShell}>
         <section className={styles.pageHero}>
-          <div className={styles.pageHeroHeader}>
-            <div className={styles.pageHeroCopy}>
-              <span className={styles.eyebrow}>Candidate inbox</span>
-              <h1>Career ID access requests</h1>
-              <p className={styles.lead}>
-                Review recruiter requests in one place. Email and optional SMS links open the same
-                secure approval page you see here in-app.
-              </p>
-            </div>
-
+          <span className={styles.eyebrow}>Candidate inbox</span>
+          <div className={styles.pageHeroTitleRow}>
+            <h1>Career ID access requests</h1>
             <div aria-label="Access request overview" className={styles.metricPillRow}>
               <div
                 aria-label={activeGrantLabel}
@@ -116,6 +109,10 @@ export default async function AccountAccessRequestsPage() {
               </div>
             </div>
           </div>
+          <p className={styles.lead}>
+            Review recruiter requests in one place. Email and optional SMS links open the same
+            secure approval page you see here in-app.
+          </p>
         </section>
 
         {activeGrantCount > 0 ? (
