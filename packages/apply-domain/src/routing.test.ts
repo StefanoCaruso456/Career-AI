@@ -73,4 +73,21 @@ describe("resolveAutonomousApplyDecision", () => {
       diagnosticReason: "feature_flag_off",
     });
   });
+
+  it("fails closed when a persisted apply target is missing", () => {
+    const decision = resolveAutonomousApplyDecision({
+      autonomousApplyEnabled: true,
+      applyTarget: null,
+      targetApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
+    });
+
+    expect(decision).toMatchObject({
+      action: "open_external",
+      diagnosticReason: "unsupported_target_for_autonomous_mode",
+      detection: {
+        atsFamily: "unsupported_target",
+        matchedRule: "missing_apply_target",
+      },
+    });
+  });
 });

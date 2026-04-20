@@ -1,6 +1,7 @@
 export * from "./access-control-repository";
 export * from "./access-request-product-repository";
 export * from "./agent-protocol-repository";
+export * from "./apply-target-repository";
 export * from "./apply-run-repository";
 export * from "./audit-log-repository";
 export * from "./claim-verification-repository";

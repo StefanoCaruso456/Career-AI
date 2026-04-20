@@ -1,4 +1,3 @@
-import { resolveJobApplyTarget } from "@/packages/apply-adapters/src/resolver";
 import type { AtsDetectionResultDto } from "@/packages/contracts/src/apply";
 import type { JobApplyTargetDto } from "@/packages/contracts/src/jobs";
 
@@ -49,19 +48,16 @@ export function resolveAutonomousApplyDecision(args: {
     };
   }
 
-  const target = args.applyTarget ?? resolveJobApplyTarget({
-    canonicalApplyUrl: normalizedUrl,
-    orchestrationReadiness: true,
-  });
+  const target = args.applyTarget ?? null;
   const detection: AtsDetectionResultDto = {
-    atsFamily: target.atsFamily ?? "unsupported_target",
-    confidence: target.confidence ?? 0,
+    atsFamily: target?.atsFamily ?? "unsupported_target",
+    confidence: target?.confidence ?? 0,
     fallbackStrategy:
-      target.supportStatus === "supported" ? null : "unsupported_target",
-    matchedRule: target.matchedRule ?? "job_apply_target",
+      target?.supportStatus === "supported" ? null : "unsupported_target",
+    matchedRule: target?.matchedRule ?? "missing_apply_target",
   };
 
-  if (target.supportStatus !== "supported") {
+  if (!target || target.supportStatus !== "supported") {
     return {
       action: "open_external",
       detection,
