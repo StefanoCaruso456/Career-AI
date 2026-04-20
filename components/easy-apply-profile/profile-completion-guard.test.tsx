@@ -197,6 +197,10 @@ describe("ProfileCompletionGuard", () => {
     await waitFor(() => {
       expect(screen.getByText("Your application was queued in the background.")).toBeInTheDocument();
     });
+    expect(screen.getByRole("link", { name: "View application status" })).toHaveAttribute(
+      "href",
+      "/account/apply-runs/apply_run_123",
+    );
     expect(openSpy).not.toHaveBeenCalled();
   });
 
@@ -224,6 +228,10 @@ describe("ProfileCompletionGuard", () => {
     await waitFor(() => {
       expect(screen.getByText(AUTONOMOUS_APPLY_QUEUED_MESSAGE)).toBeInTheDocument();
     });
+    expect(screen.getByRole("link", { name: "View application status" })).toHaveAttribute(
+      "href",
+      "/account/apply-runs/apply_run_456",
+    );
     expect(openSpy).not.toHaveBeenCalled();
   });
 

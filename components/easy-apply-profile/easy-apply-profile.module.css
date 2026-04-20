@@ -595,6 +595,7 @@
 .closeButton:focus-visible,
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
+.statusLinkButton:focus-visible,
 .applyButton:focus-visible,
 .fileAction:focus-visible,
 .removeButton:focus-visible,
@@ -690,6 +691,10 @@
   text-wrap: pretty;
 }
 
+.applyActionStackJobsCard .statusLinkButton {
+  width: 100%;
+}
+
 .field[data-invalid="true"] .input,
 .field[data-invalid="true"] .textarea,
 .field[data-invalid="true"] .select,
@@ -758,6 +763,7 @@
 .removeButton,
 .fileAction,
 .secondaryButton,
+.statusLinkButton,
 .primaryButton,
 .applyButton {
   display: inline-flex;
@@ -774,7 +780,8 @@
 .addButton,
 .removeButton,
 .fileAction,
-.secondaryButton {
+.secondaryButton,
+.statusLinkButton {
   padding: 0.72rem 0.96rem;
   background: rgba(255, 255, 255, 0.04);
   color: #f7fbff;
@@ -794,6 +801,10 @@
 
 .applyButton {
   width: 100%;
+}
+
+.statusLinkButton {
+  text-decoration: none;
 }
 
 .applyButtonJobsCard {
@@ -1096,6 +1107,7 @@
   }
 
   .secondaryButton,
+  .statusLinkButton,
   .primaryButton,
   .applyButton,
   .fileAction {
