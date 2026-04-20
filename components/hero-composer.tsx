@@ -49,6 +49,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { HeroComposerContent } from "./chat-home-shell-content";
+import type { Persona } from "@/lib/personas";
 import styles from "./chat-home-shell.module.css";
 
 type TranscriptEntry = ChatMessage;
@@ -145,6 +146,7 @@ type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 type HeroComposerProps = {
   content?: HeroComposerContent;
   onConversationStateChange?: (active: boolean) => void;
+  persona?: Persona;
 };
 
 type VoiceEnabledWindow = Window &
