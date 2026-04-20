@@ -757,6 +757,76 @@ export async function findPersistentRecruiterCandidateProjectionByLookup(args: {
   return row ? mapProjectionRow(row) : null;
 }
 
+export async function searchPersistentRecruiterCandidateProjectionsByName(args: {
+  limit?: number;
+  name: string;
+}) {
+  const normalizedName = args.name.replace(/\s+/g, " ").trim().toLowerCase();
+
+  if (!normalizedName) {
+    return [];
+  }
+
+  const normalizedDisplayName =
+    `TRIM(LOWER(REGEXP_REPLACE(display_name, '[[:space:]]+', ' ', 'g')))`;
+  const nameTokens = normalizedName.split(" ").filter(Boolean);
+  const values: unknown[] = [normalizedName, `%${normalizedName}%`];
+  const tokenClauses = nameTokens.map((token) => {
+    values.push(`%${token}%`);
+    return `${normalizedDisplayName} LIKE $${values.length}`;
+  });
+
+  values.push(args.limit ?? 6);
+
+  const result = await getDatabasePool().query<ProjectionRow>(
+    `
+      SELECT
+        career_identity_id,
+        talent_agent_id,
+        role_type,
+        recruiter_visibility,
+        is_searchable,
+        display_name,
+        headline,
+        target_role,
+        location,
+        profile_summary,
+        current_employer,
+        prior_employers_json,
+        search_text,
+        search_keywords_json,
+        display_skills_json,
+        experience_highlights_json,
+        evidence_count,
+        verified_experience_count,
+        credibility_score,
+        verification_signal,
+        share_profile_id,
+        public_share_token,
+        updated_at
+      FROM recruiter_candidate_projections
+      WHERE is_searchable = true
+        AND (
+          ${normalizedDisplayName} = $1
+          OR ${normalizedDisplayName} LIKE $2
+          ${tokenClauses.length > 0 ? `OR (${tokenClauses.join(" AND ")})` : ""}
+        )
+      ORDER BY
+        CASE
+          WHEN ${normalizedDisplayName} = $1 THEN 0
+          WHEN ${normalizedDisplayName} LIKE $2 THEN 1
+          ELSE 2
+        END,
+        updated_at DESC,
+        display_name ASC
+      LIMIT $${values.length}
+    `,
+    values,
+  );
+
+  return result.rows.map((row) => mapProjectionRow(row));
+}
+
 export async function findPersistentSharedRecruiterCandidateProjectionByLookup(args: {
   lookup: string;
 }) {

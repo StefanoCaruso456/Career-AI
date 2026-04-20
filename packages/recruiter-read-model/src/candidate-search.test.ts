@@ -272,8 +272,14 @@ describe("searchEmployerCandidates", () => {
     const byCandidateId = await searchEmployerCandidates({
       prompt: visibleCandidate.context.aggregate.talentIdentity.id,
     });
+    const byName = await searchEmployerCandidates({
+      prompt: "jamie stone",
+    });
     const privateLookup = await searchEmployerCandidates({
       prompt: privateCandidate.context.aggregate.talentIdentity.talent_agent_id,
+    });
+    const privateNameLookup = await searchEmployerCandidates({
+      prompt: "morgan hale",
     });
 
     expect(byCareerId.totalMatches).toBe(1);
@@ -283,7 +289,11 @@ describe("searchEmployerCandidates", () => {
     expect(byCandidateId.candidates[0]?.candidateId).toBe(
       visibleCandidate.context.aggregate.talentIdentity.id,
     );
+    expect(byName.totalMatches).toBe(1);
+    expect(byName.candidates[0]?.fullName).toBe("Jamie Stone");
+    expect(byName.candidates[0]?.ranking.label).toBe("Exact match");
     expect(privateLookup.candidates).toHaveLength(0);
+    expect(privateNameLookup.candidates).toHaveLength(0);
   });
 
   it("keeps recruiter search DB-backed after runtime-only stores are reset", async () => {

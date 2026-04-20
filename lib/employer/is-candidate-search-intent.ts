@@ -1,3 +1,5 @@
+import { isLikelyEmployerCandidateNameLookup } from "@/packages/contracts/src";
+
 const recruiterQuestionStarts = /^(how|what|why|can|could|should|would|is|are|do|does|did)\b/i;
 const sourcingVerbs = /\b(find|source|search|match|shortlist|screen|surface|pull|rank)\b/i;
 const sourcingTargets = /\b(candidate|candidates|talent|people|profiles)\b/i;
@@ -44,6 +46,10 @@ export function isEmployerCandidateSearchIntent(prompt: string) {
     !/[?!]/.test(normalizedPrompt) &&
     titleKeywords.test(normalizedPrompt)
   ) {
+    return true;
+  }
+
+  if (isLikelyEmployerCandidateNameLookup(normalizedPrompt)) {
     return true;
   }
 
