@@ -1,9 +1,9 @@
 [build]
 builder = "RAILPACK"
-buildCommand = "npm run build"
+buildCommand = "npm run build:railway"
 
 [deploy]
-startCommand = "npm run db:migrate && npm run start"
+startCommand = "npm run db:migrate && npm run start:railway"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
