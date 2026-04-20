@@ -107,4 +107,47 @@ describe("ProfileAccountDetailsCard", () => {
     expect(await screen.findByText("Profile updated.")).toBeInTheDocument();
     expect(screen.getByText("Alex Morgan")).toBeInTheDocument();
   });
+
+  it("renders Google password guidance when sign-in support is provided", () => {
+    render(
+      <ProfileAccountDetailsCard
+        initialCountryCode="US"
+        initialDisplayName="Alex Rivera"
+        initialEmail="alex@example.com"
+        initialFirstName="Alex"
+        initialLastName="Rivera"
+        initialPhoneOptional={null}
+        readOnlyRows={[
+          { label: "Sign-in", value: "Google OAuth" },
+          { label: "Password", value: "Managed in Google" },
+        ]}
+        signInSupport={{
+          title: "No separate Career AI password yet",
+          description:
+            "Because you signed in with Google, password changes and recovery still live in Google.",
+          links: [
+            {
+              href: "https://myaccount.google.com/",
+              label: "Manage Google account",
+            },
+            {
+              href: "https://myaccount.google.com/security",
+              label: "Open Google security",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Managed in Google")).toBeInTheDocument();
+    expect(screen.getByText("No separate Career AI password yet")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /manage google account/i })).toHaveAttribute(
+      "href",
+      "https://myaccount.google.com/",
+    );
+    expect(screen.getByRole("link", { name: /open google security/i })).toHaveAttribute(
+      "href",
+      "https://myaccount.google.com/security",
+    );
+  });
 });

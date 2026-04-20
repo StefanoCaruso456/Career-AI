@@ -365,6 +365,60 @@
   letter-spacing: -0.02em;
 }
 
+.supportNote {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+    rgba(17, 21, 28, 0.76);
+}
+
+.supportNoteIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 999px;
+  background: rgba(141, 127, 255, 0.12);
+  color: #f2f5ff;
+}
+
+.supportNoteBody {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.supportNoteBody strong {
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
+}
+
+.supportNoteBody p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.supportActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.supportLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #eef5ff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .secondaryButton,
 .ghostButton,
 .primaryLink {
@@ -474,6 +528,10 @@
   .detailRow {
     grid-template-columns: 1fr;
     gap: 0.28rem;
+  }
+
+  .supportNote {
+    grid-template-columns: 1fr;
   }
 }
 
