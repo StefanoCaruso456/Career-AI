@@ -34,6 +34,14 @@ function createJob(index: number): JobPostingDto {
     sourceLane: "ats_direct",
     sourceQuality: "high_signal",
     applyUrl: `https://jobs.example.com/${index}`,
+    applyTarget: {
+      atsFamily: "greenhouse",
+      confidence: 0.95,
+      matchedRule: "greenhouse_url_signature",
+      routingMode: "queue_autonomous_apply",
+      supportReason: "supported_ats_family",
+      supportStatus: "supported",
+    },
     postedAt: "2026-04-09T12:00:00.000Z",
     updatedAt: "2026-04-10T12:00:00.000Z",
     salaryText: "$120,000 - $150,000",
@@ -230,6 +238,30 @@ describe("JobsResults", () => {
 
     expect(screen.getByText("$120,000 - $150,000 a year")).toBeInTheDocument();
     expect(screen.queryByText("ATCI-5373735-S1970646")).not.toBeInTheDocument();
+  });
+
+  it("uses truthful apply labels based on autonomous support status", () => {
+    render(
+      <JobsResults
+        jobs={[
+          createJob(1),
+          {
+            ...createJob(2),
+            applyTarget: {
+              atsFamily: "lever",
+              confidence: 0.95,
+              matchedRule: "lever_url_signature",
+              routingMode: "open_external",
+              supportReason: "unsupported_ats_family",
+              supportStatus: "unsupported",
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("One-Click Apply")).toBeInTheDocument();
+    expect(screen.getByText("Open posting")).toBeInTheDocument();
   });
 
   it("hydrates missing salary text into the visible listing cards", async () => {

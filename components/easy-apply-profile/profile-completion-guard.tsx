@@ -24,6 +24,7 @@ type ProfileCompletionGuardProps = {
     | undefined;
   schemaFamily: SchemaFamily;
   applyUrl: string;
+  skipProfileGate?: boolean;
 };
 
 function openExternalApply(applyUrl: string) {
@@ -40,6 +41,7 @@ export function ProfileCompletionGuard({
   jobTitle,
   resolveApplyUrl,
   schemaFamily,
+  skipProfileGate = false,
 }: ProfileCompletionGuardProps) {
   const {
     error,
@@ -139,6 +141,11 @@ export function ProfileCompletionGuard({
   }
 
   function handleApplyClick() {
+    if (skipProfileGate) {
+      void continueToApply();
+      return;
+    }
+
     if (!isAuthenticated) {
       redirectToSignIn();
       return;

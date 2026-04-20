@@ -12,8 +12,9 @@ const mocks = vi.hoisted(() => ({
   findApplyRunById: vi.fn(),
   findProfileSnapshotById: vi.fn(),
   findPersistentContextByUserId: vi.fn(),
+  getAutonomousApplyWorkerMode: vi.fn(() => "inline"),
+  getAutonomousApplyWorkerPollIntervalMs: vi.fn(() => 10),
   isAutonomousApplyArtifactCleanupEnabled: vi.fn(() => false),
-  isAutonomousApplyInlineWorkerEnabled: vi.fn(() => true),
   getAutonomousApplyInlineWorkerConcurrency: vi.fn(() => 1),
   getAutonomousApplyRunTimeoutMs: vi.fn(() => 60_000),
   getAutonomousApplyWorkerBatchSize: vi.fn(() => 1),
@@ -45,9 +46,10 @@ vi.mock("@/packages/persistence/src", () => ({
 vi.mock("@/packages/apply-domain/src", () => ({
   getAutonomousApplyInlineWorkerConcurrency: mocks.getAutonomousApplyInlineWorkerConcurrency,
   getAutonomousApplyRunTimeoutMs: mocks.getAutonomousApplyRunTimeoutMs,
+  getAutonomousApplyWorkerMode: mocks.getAutonomousApplyWorkerMode,
+  getAutonomousApplyWorkerPollIntervalMs: mocks.getAutonomousApplyWorkerPollIntervalMs,
   getAutonomousApplyWorkerBatchSize: mocks.getAutonomousApplyWorkerBatchSize,
   isAutonomousApplyArtifactCleanupEnabled: mocks.isAutonomousApplyArtifactCleanupEnabled,
-  isAutonomousApplyInlineWorkerEnabled: mocks.isAutonomousApplyInlineWorkerEnabled,
 }));
 
 vi.mock("./browser-session", () => ({

@@ -3,6 +3,7 @@
 import { ProfileCompletionGuard } from "@/components/easy-apply-profile/profile-completion-guard";
 import type { ApplyContinuationResult } from "@/lib/jobs/start-apply-run-client";
 import { resolveSchemaFamily } from "@/lib/application-profiles/resolver";
+import { isAutonomousApplySupportedTarget } from "@/lib/jobs/apply-target";
 import type { JobListing } from "@/lib/jobs/map-jobs-to-listings";
 
 type JobApplyButtonProps = {
@@ -18,6 +19,7 @@ export function JobApplyButton({
   label,
   onApply,
 }: JobApplyButtonProps) {
+  const supportsAutonomousApply = isAutonomousApplySupportedTarget(job.applyTarget);
   const schemaFamily = resolveSchemaFamily({
     applyUrl: job.canonicalApplyUrl,
     companyName: job.company,
@@ -33,6 +35,7 @@ export function JobApplyButton({
       jobTitle={job.title}
       resolveApplyUrl={onApply ? () => onApply(job) : undefined}
       schemaFamily={schemaFamily}
+      skipProfileGate={!supportsAutonomousApply}
     />
   );
 }

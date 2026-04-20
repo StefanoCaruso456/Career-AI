@@ -8,6 +8,7 @@ import type {
   JobValidationStatus,
   JobsFeedStorageDto,
 } from "@/packages/contracts/src";
+import { resolveJobApplyTarget } from "@/packages/apply-adapters/src";
 import {
   type DatabaseQueryable,
   getDatabasePool,
@@ -161,10 +162,17 @@ function mapSourceRow(row: JobSourceRow): JobSourceSnapshotDto {
 }
 
 function mapJobRow(row: JobPostingRow): JobPostingDto {
+  const canonicalApplyUrl = row.canonical_apply_url ?? row.apply_url;
+  const orchestrationReadiness = Boolean(row.orchestration_readiness);
+
   return {
     applyUrl: row.apply_url,
+    applyTarget: resolveJobApplyTarget({
+      canonicalApplyUrl,
+      orchestrationReadiness,
+    }),
     applicationPathType: row.application_path_type ?? "unknown",
-    canonicalApplyUrl: row.canonical_apply_url ?? row.apply_url,
+    canonicalApplyUrl,
     canonicalJobUrl: row.canonical_job_url,
     commitment: row.commitment,
     companyName: row.company_name,
@@ -180,7 +188,7 @@ function mapJobRow(row: JobPostingRow): JobPostingDto {
     normalizedCompanyName: row.normalized_company_name ?? row.company_name.trim().toLowerCase(),
     normalizedTitle: row.normalized_title ?? row.title.trim().toLowerCase(),
     orchestrationMetadata: row.orchestration_metadata_json ?? null,
-    orchestrationReadiness: Boolean(row.orchestration_readiness),
+    orchestrationReadiness,
     postedAt: formatIsoString(row.posted_at),
     rawPayload: row.raw_payload_json ?? null,
     redirectRequired: Boolean(row.redirect_required),

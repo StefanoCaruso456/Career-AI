@@ -28,7 +28,7 @@ function escapeAttributeValue(value: string) {
   return value.replaceAll("\\", "\\\\").replaceAll("\"", "\\\"");
 }
 
-class WorkdayApplyError extends Error {
+class GreenhouseApplyError extends Error {
   readonly failureCode: ApplyFailureCode;
   readonly metadata: Record<string, unknown>;
 
@@ -38,18 +38,18 @@ class WorkdayApplyError extends Error {
     metadata?: Record<string, unknown>;
   }) {
     super(args.message);
-    this.name = "WorkdayApplyError";
+    this.name = "GreenhouseApplyError";
     this.failureCode = args.failureCode;
     this.metadata = args.metadata ?? {};
   }
 }
 
-function createWorkdayError(args: {
+function createGreenhouseError(args: {
   failureCode: ApplyFailureCode;
   message: string;
   metadata?: Record<string, unknown>;
 }) {
-  return new WorkdayApplyError(args);
+  return new GreenhouseApplyError(args);
 }
 
 async function waitForWithTimeout<T>(args: {
@@ -63,9 +63,9 @@ async function waitForWithTimeout<T>(args: {
     const message = error instanceof Error ? error.message : String(error);
 
     if (message.toLowerCase().includes("timeout")) {
-      throw createWorkdayError({
+      throw createGreenhouseError({
         failureCode: "TIMEOUT",
-        message: `Workday operation timed out while ${args.operationName}.`,
+        message: `Greenhouse operation timed out while ${args.operationName}.`,
         metadata: {
           operationName: args.operationName,
         },
@@ -76,9 +76,12 @@ async function waitForWithTimeout<T>(args: {
   }
 }
 
-async function detectBlockingSignals(context: ApplyAdapterContext, args: {
-  stage: string;
-}) {
+async function detectBlockingSignals(
+  context: ApplyAdapterContext,
+  args: {
+    stage: string;
+  },
+) {
   const bodyText = normalizeText(await context.page.textContent("body").catch(() => ""));
   const currentUrl = normalizeText(context.page.url());
   const hasCaptchaWidget =
@@ -94,7 +97,7 @@ async function detectBlockingSignals(context: ApplyAdapterContext, args: {
     currentUrl.includes("captcha");
 
   if (hasCaptchaWidget || hasCaptchaText) {
-    throw createWorkdayError({
+    throw createGreenhouseError({
       failureCode: "CAPTCHA_ENCOUNTERED",
       message: `CAPTCHA encountered during ${args.stage}.`,
       metadata: {
@@ -111,10 +114,10 @@ async function detectBlockingSignals(context: ApplyAdapterContext, args: {
     bodyText.includes("sign in") ||
     bodyText.includes("log in") ||
     bodyText.includes("login to continue") ||
-    currentUrl.includes("login");
+    currentUrl.includes("/users/sign_in");
 
   if (passwordFieldCount > 0 || hasLoginText) {
-    throw createWorkdayError({
+    throw createGreenhouseError({
       failureCode: "LOGIN_REQUIRED",
       message: `Login is required before continuing autonomous apply (${args.stage}).`,
       metadata: {
@@ -125,7 +128,7 @@ async function detectBlockingSignals(context: ApplyAdapterContext, args: {
 }
 
 function buildFieldKeyLookup() {
-  const fieldConfig = getSchemaFamilyConfig("workday").fields;
+  const fieldConfig = getSchemaFamilyConfig("greenhouse").fields;
   const entries = new Map<string, string>();
 
   for (const field of fieldConfig) {
@@ -133,13 +136,65 @@ function buildFieldKeyLookup() {
     entries.set(normalizeText(field.label), field.key);
   }
 
+  entries.set("resume", "resume_cv_file");
+  entries.set("resume/cv", "resume_cv_file");
+  entries.set("resume cv", "resume_cv_file");
+  entries.set("linkedin profile", "linkedin_url");
+  entries.set("linkedin", "linkedin_url");
+  entries.set("portfolio", "portfolio_url");
+  entries.set("website", "website_url");
+  entries.set("github", "github_url");
+
   return entries;
 }
 
-const workdayFieldKeyLookup = buildFieldKeyLookup();
+const greenhouseFieldKeyLookup = buildFieldKeyLookup();
+
+function pickProfileValue(
+  sourceProfile: Record<string, unknown>,
+  label: string | null,
+  name: string | null,
+) {
+  const candidates = [label, name]
+    .map((value) => normalizeText(value))
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    const sourceKey = greenhouseFieldKeyLookup.get(candidate);
+
+    if (!sourceKey) {
+      continue;
+    }
+
+    const value = sourceProfile[sourceKey];
+
+    if (value === undefined || value === null || value === "" || (Array.isArray(value) && !value.length)) {
+      continue;
+    }
+
+    return {
+      sourceKey,
+      value,
+    };
+  }
+
+  return null;
+}
+
+function isResumeField(field: Pick<VisibleFormField, "label" | "name">) {
+  const haystack = `${normalizeText(field.label)} ${normalizeText(field.name)}`;
+  return haystack.includes("resume");
+}
+
+function isCoverLetterField(field: Pick<VisibleFormField, "label" | "name">) {
+  const haystack = `${normalizeText(field.label)} ${normalizeText(field.name)}`;
+  return haystack.includes("cover letter");
+}
 
 async function extractVisibleFields(context: ApplyAdapterContext): Promise<VisibleFormField[]> {
-  const handles = await context.page.locator("input, textarea, select").elementHandles();
+  const handles = await context.page
+    .locator("form input:not([type='hidden']), form textarea, form select")
+    .elementHandles();
   const fields: VisibleFormField[] = [];
 
   for (const handle of handles) {
@@ -156,38 +211,43 @@ async function extractVisibleFields(context: ApplyAdapterContext): Promise<Visib
       const type = (htmlElement.getAttribute("type") || htmlElement.tagName).toLowerCase();
       const ariaLabel = htmlElement.getAttribute("aria-label");
       const placeholder = htmlElement.getAttribute("placeholder");
-      const automationId = htmlElement.getAttribute("data-automation-id");
+      const dataQa = htmlElement.getAttribute("data-qa");
+      const value = htmlElement.getAttribute("value");
       const required =
         htmlElement.required ||
         htmlElement.getAttribute("aria-required") === "true" ||
-        htmlElement.getAttribute("data-required") === "true";
+        htmlElement.getAttribute("required") !== null;
       const label =
         ariaLabel ||
         (id ? document.querySelector(`label[for="${id}"]`)?.textContent : null) ||
         htmlElement.closest("label")?.textContent ||
+        htmlElement.closest(".field")?.querySelector("label")?.textContent ||
         placeholder ||
-        automationId ||
+        dataQa ||
         name;
 
       return {
-        automationId,
+        dataQa,
         id,
         label,
         name,
         required,
         tagName: htmlElement.tagName.toLowerCase(),
         type,
+        value,
       };
     });
 
     const selector =
-      descriptor.automationId
-        ? `[data-automation-id="${escapeAttributeValue(descriptor.automationId)}"]`
-        : descriptor.id
-          ? `#${escapeAttributeValue(descriptor.id)}`
+      descriptor.id
+        ? `#${escapeAttributeValue(descriptor.id)}`
+        : descriptor.name && descriptor.type === "radio" && descriptor.value
+          ? `input[name="${escapeAttributeValue(descriptor.name)}"][value="${escapeAttributeValue(descriptor.value)}"]`
           : descriptor.name
             ? `${descriptor.tagName}[name="${escapeAttributeValue(descriptor.name)}"]`
-            : null;
+            : descriptor.dataQa
+              ? `[data-qa="${escapeAttributeValue(descriptor.dataQa)}"]`
+              : null;
 
     if (!selector) {
       continue;
@@ -218,38 +278,16 @@ async function extractVisibleFields(context: ApplyAdapterContext): Promise<Visib
   return fields;
 }
 
-function pickProfileValue(sourceProfile: Record<string, unknown>, label: string | null, name: string | null) {
-  const candidates = [label, name]
-    .map((value) => normalizeText(value))
-    .filter(Boolean);
-
-  for (const candidate of candidates) {
-    const sourceKey = workdayFieldKeyLookup.get(candidate);
-
-    if (!sourceKey) {
-      continue;
-    }
-
-    const value = sourceProfile[sourceKey];
-
-    if (value === undefined || value === null || value === "" || (Array.isArray(value) && !value.length)) {
-      continue;
-    }
-
-    return {
-      sourceKey,
-      value,
-    };
-  }
-
-  return null;
-}
-
-async function fillMappedField(context: ApplyAdapterContext, entry: FieldMappingPlan["entries"][number]) {
+async function fillMappedField(
+  context: ApplyAdapterContext,
+  entry: FieldMappingPlan["entries"][number],
+) {
   const locator = context.page.locator(entry.selector).first();
 
   if (entry.fieldType === "checkbox") {
-    const shouldCheck = entry.value === true || String(entry.value).toLowerCase() === "true";
+    const shouldCheck =
+      entry.value === true ||
+      ["true", "yes"].includes(String(entry.value).trim().toLowerCase());
 
     await traceApplyTool({
       config: context.runnableConfig,
@@ -268,8 +306,8 @@ async function fillMappedField(context: ApplyAdapterContext, entry: FieldMapping
           });
         }
       },
-      name: "fill_checkbox_field",
-      tags: ["ats:workday"],
+      name: "fill_greenhouse_checkbox_field",
+      tags: ["ats:greenhouse"],
     });
     return;
   }
@@ -290,8 +328,8 @@ async function fillMappedField(context: ApplyAdapterContext, entry: FieldMapping
           await locator.selectOption(value);
         });
       },
-      name: "fill_select_field",
-      tags: ["ats:workday"],
+      name: "fill_greenhouse_select_field",
+      tags: ["ats:greenhouse"],
     });
     return;
   }
@@ -307,8 +345,8 @@ async function fillMappedField(context: ApplyAdapterContext, entry: FieldMapping
     invoke: async () => {
       await locator.fill(value);
     },
-    name: "fill_text_field",
-    tags: ["ats:workday"],
+    name: "fill_greenhouse_text_field",
+    tags: ["ats:greenhouse"],
   });
 }
 
@@ -321,10 +359,10 @@ async function clickButtonByPatterns(
   const count = await buttons.count();
 
   for (let index = 0; index < count; index += 1) {
-    const locator = buttons.nth(index);
+    const candidate = buttons.nth(index);
     const label = normalizeText(
-      (await locator.innerText().catch(() => "")) ||
-        (await locator.textContent().catch(() => "")),
+      (await candidate.textContent().catch(() => "")) ||
+        (await candidate.innerText().catch(() => "")),
     );
 
     if (!patterns.some((pattern) => pattern.test(label))) {
@@ -337,17 +375,12 @@ async function clickButtonByPatterns(
         label,
       },
       invoke: async () => {
-        await waitForWithTimeout({
-          invoke: async () =>
-            locator.click({
-              force: true,
-            }),
-          operationName: `${toolName} click`,
-          timeoutMs: getAutonomousApplyStepTimeoutMs(),
+        await candidate.click({
+          force: true,
         });
       },
       name: toolName,
-      tags: ["ats:workday"],
+      tags: ["ats:greenhouse"],
     });
 
     return true;
@@ -356,82 +389,34 @@ async function clickButtonByPatterns(
   return false;
 }
 
-export const workdayApplyAdapter: ApplyAdapter = {
+export const greenhouseApplyAdapter: ApplyAdapter = {
   advanceSteps: async (context) => {
     await detectBlockingSignals(context, {
-      stage: "step navigation",
+      stage: "advance steps",
     });
-
-    for (let step = 0; step < 8; step += 1) {
-      const advanced = await clickButtonByPatterns(
-        context,
-        [/next/i, /continue/i, /review/i],
-        "click_continue",
-      );
-
-      if (!advanced) {
-        return;
-      }
-
-      await waitForWithTimeout({
-        invoke: async () =>
-          context.page.waitForLoadState("networkidle", {
-            timeout: getAutonomousApplyStepTimeoutMs(),
-          }),
-        operationName: "waiting for step navigation",
-        timeoutMs: getAutonomousApplyStepTimeoutMs(),
-      });
-      await detectBlockingSignals(context, {
-        stage: `step navigation ${step + 1}`,
-      });
-
-      const fields = await extractVisibleFields(context);
-      const plan = await workdayApplyAdapter.createMappingPlan(context, fields);
-      await workdayApplyAdapter.fillFields(context, plan);
-      await workdayApplyAdapter.uploadDocuments(context);
-    }
   },
   analyzeForm: async (context) => {
     await detectBlockingSignals(context, {
-      stage: "form analysis",
+      stage: "analyze form",
     });
 
-    return traceApplyTool({
-      config: context.runnableConfig,
-      input: {
-        runId: context.run.id,
-      },
-      invoke: async () => extractVisibleFields(context),
-      name: "analyze_form_fields",
-      tags: ["ats:workday"],
-    });
+    return extractVisibleFields(context);
   },
-  canHandle: (target) => target.atsFamily === "workday",
+  canHandle: (target) => target.atsFamily === "greenhouse",
   classifyFailure: async (_context, error) => {
-    if (error instanceof WorkdayApplyError) {
+    if (error instanceof GreenhouseApplyError) {
       return {
         failureCode: error.failureCode,
         message: error.message,
       };
     }
 
-    const message = error instanceof Error ? error.message : "Unknown autonomous apply error.";
+    const message = error instanceof Error ? error.message : "Unknown Greenhouse apply failure.";
     const normalized = normalizeText(message);
 
-    if (normalized.includes("workday-compatible profile")) {
+    if (normalized.includes("login")) {
       return {
-        failureCode: "PROFILE_INCOMPLETE",
-        message,
-      };
-    }
-
-    if (
-      normalized.includes("network") ||
-      normalized.includes("net::") ||
-      normalized.includes("connection")
-    ) {
-      return {
-        failureCode: "NETWORK_FAILURE",
+        failureCode: "LOGIN_REQUIRED",
         message,
       };
     }
@@ -443,21 +428,7 @@ export const workdayApplyAdapter: ApplyAdapter = {
       };
     }
 
-    if (normalized.includes("login") || normalized.includes("sign in") || normalized.includes("password")) {
-      return {
-        failureCode: "LOGIN_REQUIRED",
-        message,
-      };
-    }
-
-    if (normalized.includes("timeout")) {
-      return {
-        failureCode: "TIMEOUT",
-        message,
-      };
-    }
-
-    if (normalized.includes("resume") || normalized.includes("document")) {
+    if (normalized.includes("resume") && normalized.includes("missing")) {
       return {
         failureCode: "REQUIRED_DOCUMENT_MISSING",
         message,
@@ -478,14 +449,14 @@ export const workdayApplyAdapter: ApplyAdapter = {
       };
     }
 
-    if (normalized.includes("submit action was not available") || normalized.includes("submit blocked")) {
+    if (normalized.includes("submit")) {
       return {
         failureCode: "SUBMIT_BLOCKED",
         message,
       };
     }
 
-    if (normalized.includes("submission could not be confirmed")) {
+    if (normalized.includes("confirm")) {
       return {
         failureCode: "SUBMISSION_NOT_CONFIRMED",
         message,
@@ -510,7 +481,7 @@ export const workdayApplyAdapter: ApplyAdapter = {
       runId: context.run.id,
     });
 
-    return [artifact];
+    return [artifact] satisfies PersistedApplyArtifact[];
   },
   confirmSubmission: async (context) => {
     const deadlineMs = Date.now() + getAutonomousApplyConfirmationTimeoutMs();
@@ -524,15 +495,16 @@ export const workdayApplyAdapter: ApplyAdapter = {
       const currentUrl = normalizeText(context.page.url());
 
       if (
-        pageText.includes("thank you for applying") ||
+        pageText.includes("thank you") ||
         pageText.includes("application submitted") ||
         pageText.includes("application received") ||
-        currentUrl.includes("submission") ||
-        currentUrl.includes("thank-you")
+        pageText.includes("your application has been submitted") ||
+        currentUrl.includes("thank_you") ||
+        currentUrl.includes("confirmation")
       ) {
         return {
           confirmed: true,
-          message: "Workday confirmation markers detected.",
+          message: "Greenhouse confirmation markers detected.",
         };
       }
 
@@ -542,7 +514,7 @@ export const workdayApplyAdapter: ApplyAdapter = {
     return {
       confirmed: false,
       failureCode: "SUBMISSION_NOT_CONFIRMED",
-      message: "Workday submission could not be confirmed before timeout.",
+      message: "Greenhouse submission could not be confirmed before timeout.",
     };
   },
   createMappingPlan: async (context, fields) => {
@@ -551,7 +523,14 @@ export const workdayApplyAdapter: ApplyAdapter = {
     const unmappedRequiredFields: VisibleFormField[] = [];
 
     for (const field of fields) {
-      if (field.fieldType === "file") {
+      if (field.fieldType === "file" || field.fieldType === "radio") {
+        if (
+          field.required &&
+          !isResumeField(field) &&
+          !isCoverLetterField(field)
+        ) {
+          unmappedRequiredFields.push(field);
+        }
         continue;
       }
 
@@ -583,17 +562,17 @@ export const workdayApplyAdapter: ApplyAdapter = {
         entries,
         unmappedRequiredFields,
       }),
-      name: "map_canonical_fields",
-      tags: ["ats:workday"],
+      name: "map_greenhouse_canonical_fields",
+      tags: ["ats:greenhouse"],
     });
   },
-  family: "workday",
+  family: "greenhouse",
   fillFields: async (context, plan) => {
     if (plan.unmappedRequiredFields.length > 0) {
       const unmappedLabels = plan.unmappedRequiredFields
         .map((field) => field.label || field.name || field.selector)
         .slice(0, 5);
-      throw createWorkdayError({
+      throw createGreenhouseError({
         failureCode: "REQUIRED_FIELD_UNMAPPED",
         message: `Required fields were visible but could not be mapped safely: ${unmappedLabels.join(", ")}.`,
         metadata: {
@@ -606,7 +585,7 @@ export const workdayApplyAdapter: ApplyAdapter = {
       await fillMappedField(context, entry);
     }
   },
-  id: "workday_primary",
+  id: "greenhouse_primary",
   openTarget: async (context) => {
     await traceApplyTool({
       config: context.runnableConfig,
@@ -620,12 +599,12 @@ export const workdayApplyAdapter: ApplyAdapter = {
               timeout: getAutonomousApplyNavigationTimeoutMs(),
               waitUntil: "domcontentloaded",
             }),
-          operationName: "opening Workday target URL",
+          operationName: "opening Greenhouse target URL",
           timeoutMs: getAutonomousApplyNavigationTimeoutMs(),
         });
       },
-      name: "open_application_url",
-      tags: ["ats:workday"],
+      name: "open_greenhouse_application_url",
+      tags: ["ats:greenhouse"],
     });
     await detectBlockingSignals(context, {
       stage: "open target",
@@ -639,17 +618,17 @@ export const workdayApplyAdapter: ApplyAdapter = {
     });
   },
   preflight: async (context) => {
-    if (context.snapshot.schemaFamily !== "workday") {
-      throw createWorkdayError({
+    if (context.snapshot.schemaFamily !== "greenhouse") {
+      throw createGreenhouseError({
         failureCode: "PROFILE_INCOMPLETE",
-        message: "The selected profile snapshot is not a Workday-compatible profile.",
+        message: "The selected profile snapshot is not a Greenhouse-compatible profile.",
       });
     }
 
     if (!context.snapshot.documents.resume) {
-      throw createWorkdayError({
+      throw createGreenhouseError({
         failureCode: "REQUIRED_DOCUMENT_MISSING",
-        message: "A resume is required before starting autonomous Workday apply.",
+        message: "A resume is required before starting autonomous Greenhouse apply.",
       });
     }
   },
@@ -666,14 +645,14 @@ export const workdayApplyAdapter: ApplyAdapter = {
     });
     const clicked = await clickButtonByPatterns(
       context,
-      [/submit/i, /send application/i, /apply now/i],
-      "click_submit",
+      [/submit/i, /submit application/i, /apply/i],
+      "click_greenhouse_submit",
     );
 
     if (!clicked) {
-      throw createWorkdayError({
+      throw createGreenhouseError({
         failureCode: "SUBMIT_BLOCKED",
-        message: "Workday submit action was not available.",
+        message: "Greenhouse submit action was not available.",
       });
     }
 
@@ -687,19 +666,23 @@ export const workdayApplyAdapter: ApplyAdapter = {
     });
   },
   uploadDocuments: async (context) => {
+    await detectBlockingSignals(context, {
+      stage: "upload documents",
+    });
+
     const resume = context.snapshot.documents.resume;
 
     if (!resume) {
-      throw createWorkdayError({
+      throw createGreenhouseError({
         failureCode: "REQUIRED_DOCUMENT_MISSING",
         message: "A resume is required for autonomous apply.",
       });
     }
 
-    const fileInputs = context.page.locator("input[type='file']");
-    const count = await fileInputs.count();
+    const fields = await extractVisibleFields(context);
+    const fileFields = fields.filter((field) => field.fieldType === "file");
 
-    if (count === 0) {
+    if (fileFields.length === 0) {
       return;
     }
 
@@ -708,31 +691,55 @@ export const workdayApplyAdapter: ApplyAdapter = {
       fileName: resume.fileName,
       runId: context.run.id,
     }).catch(() => {
-      throw createWorkdayError({
+      throw createGreenhouseError({
         failureCode: "FILE_UPLOAD_FAILED",
-        message: "Workday resume staging failed before upload.",
+        message: "Greenhouse resume staging failed before upload.",
       });
     });
 
-    await traceApplyTool({
-      config: context.runnableConfig,
-      input: {
-        fileName: resume.fileName,
-      },
-      invoke: async () => {
-        await waitForWithTimeout({
-          invoke: async () => fileInputs.first().setInputFiles(absolutePath),
-          operationName: "uploading resume",
-          timeoutMs: getAutonomousApplyStepTimeoutMs(),
+    for (const field of fileFields) {
+      if (isCoverLetterField(field)) {
+        if (field.required) {
+          throw createGreenhouseError({
+            failureCode: "REQUIRED_DOCUMENT_MISSING",
+            message: "A required cover letter is not yet supported for autonomous Greenhouse apply.",
+          });
+        }
+        continue;
+      }
+
+      if (!isResumeField(field)) {
+        if (field.required) {
+          throw createGreenhouseError({
+            failureCode: "REQUIRED_DOCUMENT_MISSING",
+            message: "A required Greenhouse document upload could not be satisfied safely.",
+          });
+        }
+        continue;
+      }
+
+      await traceApplyTool({
+        config: context.runnableConfig,
+        input: {
+          fileName: resume.fileName,
+          selector: field.selector,
+        },
+        invoke: async () => {
+          await waitForWithTimeout({
+            invoke: async () =>
+              context.page.locator(field.selector).first().setInputFiles(absolutePath),
+            operationName: "uploading Greenhouse resume",
+            timeoutMs: getAutonomousApplyStepTimeoutMs(),
+          });
+        },
+        name: "upload_greenhouse_resume",
+        tags: ["ats:greenhouse"],
+      }).catch((error) => {
+        throw createGreenhouseError({
+          failureCode: "FILE_UPLOAD_FAILED",
+          message: error instanceof Error ? error.message : "Greenhouse document upload failed.",
         });
-      },
-      name: "upload_document",
-      tags: ["ats:workday"],
-    }).catch((error) => {
-      throw createWorkdayError({
-        failureCode: "FILE_UPLOAD_FAILED",
-        message: error instanceof Error ? error.message : "Workday document upload failed.",
       });
-    });
+    }
   },
 };

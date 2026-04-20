@@ -1,4 +1,13 @@
-import { AtsDetectionResultDto } from "@/packages/contracts/src";
+import type {
+  ApplyAtsFamily,
+  AtsDetectionResultDto,
+} from "@/packages/contracts/src/apply";
+import type { JobApplyTargetDto } from "@/packages/contracts/src/jobs";
+
+const supportedAutonomousApplyFamilies = new Set<ApplyAtsFamily>([
+  "greenhouse",
+  "workday",
+]);
 
 function normalizeText(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
@@ -61,5 +70,68 @@ export function detectApplyTarget(args: {
     confidence: 0.15,
     fallbackStrategy: null,
     matchedRule: "no_known_signature",
+  };
+}
+
+export function isAutonomousApplySupportedAtsFamily(
+  atsFamily: ApplyAtsFamily | null | undefined,
+) {
+  return Boolean(atsFamily && supportedAutonomousApplyFamilies.has(atsFamily));
+}
+
+export function resolveJobApplyTarget(args: {
+  canonicalApplyUrl: string | null | undefined;
+  orchestrationReadiness?: boolean | null;
+}): JobApplyTargetDto {
+  const normalizedUrl = args.canonicalApplyUrl?.trim() || "";
+
+  if (!normalizedUrl) {
+    return {
+      atsFamily: null,
+      confidence: null,
+      matchedRule: "missing_apply_url",
+      routingMode: "open_external",
+      supportReason: "missing_apply_url",
+      supportStatus: "unsupported",
+    };
+  }
+
+  const detection = detectApplyTarget({
+    jobPostingUrl: normalizedUrl,
+  });
+  const supportedFamily = isAutonomousApplySupportedAtsFamily(detection.atsFamily);
+  const supported = Boolean(args.orchestrationReadiness) && supportedFamily;
+
+  if (supported) {
+    return {
+      atsFamily: detection.atsFamily,
+      confidence: detection.confidence,
+      matchedRule: detection.matchedRule,
+      routingMode: "queue_autonomous_apply",
+      supportReason: "supported_ats_family",
+      supportStatus: "supported",
+    };
+  }
+
+  if (detection.atsFamily === "unsupported_target") {
+    return {
+      atsFamily: detection.atsFamily,
+      confidence: detection.confidence,
+      matchedRule: detection.matchedRule,
+      routingMode: "open_external",
+      supportReason: "ats_detection_inconclusive",
+      supportStatus: "unknown",
+    };
+  }
+
+  return {
+    atsFamily: detection.atsFamily,
+    confidence: detection.confidence,
+    matchedRule: detection.matchedRule,
+    routingMode: "open_external",
+    supportReason: Boolean(args.orchestrationReadiness)
+      ? "unsupported_ats_family"
+      : "job_not_ready_for_autonomous_apply",
+    supportStatus: "unsupported",
   };
 }
