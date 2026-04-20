@@ -52,13 +52,15 @@
   border-radius: 1.6rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at top right, rgba(141, 127, 255, 0.08), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(146, 182, 255, 0.06), transparent 24%),
-    linear-gradient(180deg, rgba(55, 55, 55, 0.96), rgba(45, 45, 45, 0.98)),
-    rgba(43, 43, 43, 0.94);
+    radial-gradient(circle at top right, rgba(141, 127, 255, 0.06), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(146, 182, 255, 0.04), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    rgba(11, 13, 18, 0.12);
   box-shadow:
     0 28px 64px rgba(4, 8, 18, 0.3),
     inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  backdrop-filter: blur(12px) saturate(120%);
 }
 
 .copyBlock {
