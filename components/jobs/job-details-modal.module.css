@@ -328,7 +328,16 @@
 
 .plainText {
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
+}
+
+.descriptionSection {
+  gap: 0.9rem;
+}
+
+.plainTextParagraph {
+  max-width: 68ch;
+  text-wrap: pretty;
 }
 
 .metadataGrid {
@@ -369,6 +378,7 @@
   gap: 0.6rem;
   margin: 0;
   padding-left: 1.2rem;
+  max-width: 66ch;
 }
 
 .loadingState {
