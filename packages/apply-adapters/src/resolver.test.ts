@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { detectApplyTarget } from "./resolver";
+import {
+  detectApplyTarget,
+  isAutonomousApplySupportedAtsFamily,
+  resolveJobApplyTarget,
+} from "./resolver";
 
 describe("detectApplyTarget", () => {
   it("detects Workday targets from the job posting URL", () => {
@@ -34,5 +38,37 @@ describe("detectApplyTarget", () => {
       atsFamily: "unsupported_target",
       matchedRule: "no_known_signature",
     });
+  });
+
+  it("derives a supported autonomous apply target for queueable Greenhouse jobs", () => {
+    expect(
+      resolveJobApplyTarget({
+        canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
+        orchestrationReadiness: true,
+      }),
+    ).toMatchObject({
+      atsFamily: "greenhouse",
+      routingMode: "queue_autonomous_apply",
+      supportStatus: "supported",
+    });
+  });
+
+  it("keeps unsupported families on the external-open path even when detection succeeds", () => {
+    expect(
+      resolveJobApplyTarget({
+        canonicalApplyUrl: "https://jobs.lever.co/example/123",
+        orchestrationReadiness: true,
+      }),
+    ).toMatchObject({
+      atsFamily: "lever",
+      routingMode: "open_external",
+      supportStatus: "unsupported",
+    });
+  });
+
+  it("recognizes the ATS families the runtime can currently automate", () => {
+    expect(isAutonomousApplySupportedAtsFamily("workday")).toBe(true);
+    expect(isAutonomousApplySupportedAtsFamily("greenhouse")).toBe(true);
+    expect(isAutonomousApplySupportedAtsFamily("lever")).toBe(false);
   });
 });

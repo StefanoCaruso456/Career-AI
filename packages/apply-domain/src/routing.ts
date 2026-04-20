@@ -1,10 +1,11 @@
-import { detectApplyTarget } from "@/packages/apply-adapters/src";
-import type { AtsDetectionResultDto } from "@/packages/contracts/src";
+import { resolveJobApplyTarget } from "@/packages/apply-adapters/src/resolver";
+import type { AtsDetectionResultDto } from "@/packages/contracts/src/apply";
+import type { JobApplyTargetDto } from "@/packages/contracts/src/jobs";
 
 export type AutonomousApplyDiagnosticReason =
   | "feature_flag_off"
   | "unsupported_target_for_autonomous_mode"
-  | "queued_workday"
+  | "queued_supported_target"
   | "auth_missing"
   | "profile_incomplete";
 
@@ -16,12 +17,13 @@ export type AutonomousApplyRoutingDecision =
     }
   | {
       action: "queue_autonomous_apply";
-      diagnosticReason: "queued_workday";
+      diagnosticReason: "queued_supported_target";
       detection: AtsDetectionResultDto;
     };
 
-export function resolveWorkdayOnlyAutonomousApplyDecision(args: {
+export function resolveAutonomousApplyDecision(args: {
   autonomousApplyEnabled: boolean;
+  applyTarget?: JobApplyTargetDto | null;
   targetApplyUrl: string | null | undefined;
 }): AutonomousApplyRoutingDecision {
   if (!args.autonomousApplyEnabled) {
@@ -47,11 +49,19 @@ export function resolveWorkdayOnlyAutonomousApplyDecision(args: {
     };
   }
 
-  const detection = detectApplyTarget({
-    jobPostingUrl: normalizedUrl,
+  const target = args.applyTarget ?? resolveJobApplyTarget({
+    canonicalApplyUrl: normalizedUrl,
+    orchestrationReadiness: true,
   });
+  const detection: AtsDetectionResultDto = {
+    atsFamily: target.atsFamily ?? "unsupported_target",
+    confidence: target.confidence ?? 0,
+    fallbackStrategy:
+      target.supportStatus === "supported" ? null : "unsupported_target",
+    matchedRule: target.matchedRule ?? "job_apply_target",
+  };
 
-  if (detection.atsFamily !== "workday") {
+  if (target.supportStatus !== "supported") {
     return {
       action: "open_external",
       detection,
@@ -62,6 +72,6 @@ export function resolveWorkdayOnlyAutonomousApplyDecision(args: {
   return {
     action: "queue_autonomous_apply",
     detection,
-    diagnosticReason: "queued_workday",
+    diagnosticReason: "queued_supported_target",
   };
 }

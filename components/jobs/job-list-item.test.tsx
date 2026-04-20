@@ -22,6 +22,14 @@ vi.mock("@/lib/application-profiles/validation", async (importOriginal) => {
 function createJob(overrides?: Partial<Parameters<typeof JobListItem>[0]["job"]>) {
   return {
     applyUrl: "https://boards.greenhouse.io/example/jobs/123",
+    applyTarget: {
+      atsFamily: "greenhouse" as const,
+      confidence: 0.95,
+      matchedRule: "greenhouse_url_signature",
+      routingMode: "queue_autonomous_apply" as const,
+      supportReason: "supported_ats_family",
+      supportStatus: "supported" as const,
+    },
     canonicalApplyUrl: "https://boards.greenhouse.io/example/jobs/123",
     company: "Example",
     employmentType: "Full-time",
@@ -95,7 +103,7 @@ describe("JobListItem", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "One-Click Apply" }));
 
     expect(onApply).not.toHaveBeenCalled();
     expect(openSpy).not.toHaveBeenCalled();
@@ -112,7 +120,7 @@ describe("JobListItem", () => {
 
     render(<JobListItem job={createJob()} onApply={onApply} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "One-Click Apply" }));
 
     await waitFor(() => {
       expect(onApply).toHaveBeenCalledTimes(1);
@@ -187,5 +195,41 @@ describe("JobListItem", () => {
 
     expect(screen.queryByText("Type unknown")).not.toBeInTheDocument();
     expect(screen.getByText("New York, NY")).toBeInTheDocument();
+  });
+
+  it("uses an Open posting label and skips the profile gate for unsupported targets", async () => {
+    const onApply = vi.fn(async () => "https://redirected.example.com/open/job_1");
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    mockGetMissingRequiredFieldKeys.mockReturnValue(["email"]);
+
+    render(
+      <JobListItem
+        job={createJob({
+          applyTarget: {
+            atsFamily: "lever",
+            confidence: 0.95,
+            matchedRule: "lever_url_signature",
+            routingMode: "open_external",
+            supportReason: "unsupported_ats_family",
+            supportStatus: "unsupported",
+          },
+        })}
+        onApply={onApply}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open posting" }));
+
+    await waitFor(() => {
+      expect(onApply).toHaveBeenCalledTimes(1);
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://redirected.example.com/open/job_1",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+
+    expect(screen.queryByText("Fill this out once")).not.toBeInTheDocument();
   });
 });

@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   kickAutonomousApplyWorker: vi.fn(),
   recordJobApplyClickEvent: vi.fn(),
   resolveChatRouteContext: vi.fn(),
-  resolveWorkdayOnlyAutonomousApplyDecision: vi.fn(),
+  resolveAutonomousApplyDecision: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -21,7 +21,7 @@ vi.mock("@/auth", () => ({
 vi.mock("@/packages/apply-domain/src", () => ({
   createAutonomousApplyRun: mocks.createAutonomousApplyRun,
   isAutonomousApplyEnabled: mocks.isAutonomousApplyEnabled,
-  resolveWorkdayOnlyAutonomousApplyDecision: mocks.resolveWorkdayOnlyAutonomousApplyDecision,
+  resolveAutonomousApplyDecision: mocks.resolveAutonomousApplyDecision,
 }));
 
 vi.mock("@/packages/apply-runtime/src", () => ({
@@ -67,7 +67,7 @@ describe("POST /api/v1/jobs/apply-click", () => {
         providerUserId: "provider_123",
       },
     });
-    mocks.resolveWorkdayOnlyAutonomousApplyDecision.mockReturnValue({
+    mocks.resolveAutonomousApplyDecision.mockReturnValue({
       action: "queue_autonomous_apply",
       detection: {
         atsFamily: "workday",
@@ -75,7 +75,7 @@ describe("POST /api/v1/jobs/apply-click", () => {
         fallbackStrategy: null,
         matchedRule: "workday_url_or_dom_signature",
       },
-      diagnosticReason: "queued_workday",
+      diagnosticReason: "queued_supported_target",
     });
     mocks.createAutonomousApplyRun.mockResolvedValue({
       deduped: false,
@@ -104,7 +104,7 @@ describe("POST /api/v1/jobs/apply-click", () => {
       action: "queued",
       applyRunId: "apply_run_123",
       diagnostic: {
-        diagnosticReason: "queued_workday",
+        diagnosticReason: "queued_supported_target",
       },
     });
     expect(mocks.createAutonomousApplyRun).toHaveBeenCalledTimes(1);
@@ -112,7 +112,7 @@ describe("POST /api/v1/jobs/apply-click", () => {
   });
 
   it("returns open_external for unsupported non-Workday targets without queueing", async () => {
-    mocks.resolveWorkdayOnlyAutonomousApplyDecision.mockReturnValue({
+    mocks.resolveAutonomousApplyDecision.mockReturnValue({
       action: "open_external",
       detection: {
         atsFamily: "greenhouse",
@@ -148,7 +148,7 @@ describe("POST /api/v1/jobs/apply-click", () => {
   });
 
   it("returns open_external with a feature-flag-off diagnostic marker", async () => {
-    mocks.resolveWorkdayOnlyAutonomousApplyDecision.mockReturnValue({
+    mocks.resolveAutonomousApplyDecision.mockReturnValue({
       action: "open_external",
       detection: null,
       diagnosticReason: "feature_flag_off",

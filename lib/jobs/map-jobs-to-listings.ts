@@ -38,6 +38,7 @@ function inferSourceType(job: Pick<JobPostingDto, "canonicalJobUrl" | "applyUrl"
 
 export type JobListing = {
   applyUrl: string;
+  applyTarget?: JobPostingDto["applyTarget"];
   canonicalApplyUrl: string;
   company: string;
   employmentType: string | null;
@@ -63,6 +64,7 @@ export type JobListing = {
 export function mapJobsToListings(jobs: JobPostingDto[]) {
   return jobs.map((job) => ({
     applyUrl: job.applyUrl,
+    applyTarget: job.applyTarget,
     canonicalApplyUrl: job.canonicalApplyUrl ?? job.applyUrl,
     company: job.companyName,
     employmentType: job.commitment ?? null,
@@ -97,6 +99,7 @@ export function mapJobsPanelToListings(panel: JobsPanelResponseDto) {
 
     return {
       applyUrl: card.applyUrl,
+      applyTarget: job?.applyTarget,
       canonicalApplyUrl: job?.canonicalApplyUrl ?? job?.applyUrl ?? card.applyUrl,
       company: card.company,
       employmentType: job?.commitment ?? null,

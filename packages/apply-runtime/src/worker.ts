@@ -8,7 +8,11 @@ import {
   findProfileSnapshotById,
   updateApplyRunRecord,
 } from "@/packages/persistence/src";
-import { detectApplyTarget, workdayApplyAdapter } from "@/packages/apply-adapters/src";
+import {
+  detectApplyTarget,
+  greenhouseApplyAdapter,
+  workdayApplyAdapter,
+} from "@/packages/apply-adapters/src";
 import type { ApplyAdapter } from "@/packages/apply-adapters/src";
 import type {
   ApplyFailureCode,
@@ -32,10 +36,11 @@ import {
 } from "./langsmith";
 import { sendApplyRunTerminalEmail } from "./notifications";
 import {
+  getAutonomousApplyWorkerMode,
+  getAutonomousApplyWorkerPollIntervalMs,
   getAutonomousApplyInlineWorkerConcurrency,
   getAutonomousApplyRunTimeoutMs,
   isAutonomousApplyArtifactCleanupEnabled,
-  isAutonomousApplyInlineWorkerEnabled,
   getAutonomousApplyWorkerBatchSize,
 } from "@/packages/apply-domain/src";
 
@@ -140,7 +145,7 @@ type RuntimeDependencies = {
 };
 
 const defaultDependencies: RuntimeDependencies = {
-  adapterRegistry: [workdayApplyAdapter],
+  adapterRegistry: [workdayApplyAdapter, greenhouseApplyAdapter],
   loadUserEmail: async (userId: string) => {
     const context = await findPersistentContextByUserId({
       correlationId: `apply-run-email:${userId}`,
@@ -153,6 +158,12 @@ const defaultDependencies: RuntimeDependencies = {
 
 let workerLoopActive = false;
 
+function sleep(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function getAdapterById(args: {
   adapterId: string | null;
   dependencies: RuntimeDependencies;
@@ -162,6 +173,16 @@ function getAdapterById(args: {
   }
 
   return args.dependencies.adapterRegistry.find((candidate) => candidate.id === args.adapterId) ?? null;
+}
+
+function getFallbackAdapter(args: {
+  atsFamily: ApplyAtsFamily | null;
+  dependencies: RuntimeDependencies;
+}) {
+  return (
+    args.dependencies.adapterRegistry.find((candidate) => candidate.family === args.atsFamily) ??
+    workdayApplyAdapter
+  );
 }
 
 function getBrowserSession(runId: string) {
@@ -981,7 +1002,11 @@ async function runSingleApplyRun(args: {
       getAdapterById({
         adapterId: latestRun.adapterId,
         dependencies,
-      }) ?? workdayApplyAdapter;
+      }) ??
+      getFallbackAdapter({
+        atsFamily: latestRun.atsFamily,
+        dependencies,
+      });
     const classification = await adapter.classifyFailure(
       {
         page: session?.page ?? ({} as never),
@@ -1106,12 +1131,14 @@ async function processAutonomousApplyWorkerBatch(args?: {
       break;
     }
   }
+
+  return processedCount;
 }
 
 export async function kickAutonomousApplyWorker(args?: {
   dependencies?: RuntimeDependencies;
 }) {
-  if (!isAutonomousApplyInlineWorkerEnabled() || workerLoopActive) {
+  if (getAutonomousApplyWorkerMode() !== "inline" || workerLoopActive) {
     return;
   }
 
@@ -1128,4 +1155,26 @@ export async function kickAutonomousApplyWorker(args?: {
       workerLoopActive = false;
     }
   });
+}
+
+export async function runAutonomousApplyWorkerLoop(args?: {
+  dependencies?: RuntimeDependencies;
+  pollIntervalMs?: number;
+  signal?: AbortSignal;
+}) {
+  const pollIntervalMs = args?.pollIntervalMs ?? getAutonomousApplyWorkerPollIntervalMs();
+
+  while (!args?.signal?.aborted) {
+    if (isAutonomousApplyArtifactCleanupEnabled()) {
+      await cleanupExpiredApplyRunArtifacts().catch(() => undefined);
+    }
+
+    const processedCount = await processAutonomousApplyWorkerBatch({
+      dependencies: args?.dependencies,
+    });
+
+    if (processedCount === 0) {
+      await sleep(pollIntervalMs);
+    }
+  }
 }
