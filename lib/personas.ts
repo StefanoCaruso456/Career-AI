@@ -19,7 +19,7 @@ export const personaConfigs: Record<Persona, PersonaConfig> = {
     description: "Employer and business hiring workspace",
     landingRoute: "/employer",
     label: "Employer / Business",
-    postAuthRoute: "/employer/candidates",
+    postAuthRoute: "/employer",
     signInEyebrow: "Employer access",
     shortLabel: "Employer",
     workspaceLabel: "Hiring workspace",
