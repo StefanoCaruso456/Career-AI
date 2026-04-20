@@ -9,6 +9,10 @@
   margin: 0 auto;
 }
 
+.motionBlock {
+  min-width: 0;
+}
+
 .panel {
   position: relative;
   overflow: hidden;
