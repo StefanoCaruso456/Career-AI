@@ -1,21 +1,15 @@
 import { promises as fs, type Dirent } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { Page } from "playwright";
+import { getBlobStorageRoot, putBlobObject } from "@/packages/artifact-domain/src";
 import type { ApplyArtifactType, ApplyRunArtifactDto } from "@/packages/contracts/src";
 import {
-  getAutonomousApplyArtifactsDirectory,
   getAutonomousApplyArtifactRetentionHours,
 } from "@/packages/apply-domain/src";
 import { createApplyRunArtifactRecord } from "@/packages/persistence/src";
 
-async function ensureParentDirectory(path: string) {
-  await fs.mkdir(dirname(path), {
-    recursive: true,
-  });
-}
-
-function buildArtifactPath(runId: string, fileName: string) {
-  return join(getAutonomousApplyArtifactsDirectory(), runId, fileName);
+function buildArtifactKey(runId: string, fileName: string) {
+  return `${runId}/${fileName}`;
 }
 
 export async function persistApplyRunScreenshot(args: {
@@ -31,12 +25,14 @@ export async function persistApplyRunScreenshot(args: {
   runId: string;
 }) {
   const fileName = `${Date.now()}-${args.label.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`;
-  const absolutePath = buildArtifactPath(args.runId, fileName);
-
-  await ensureParentDirectory(absolutePath);
-  await args.page.screenshot({
+  const storageKey = buildArtifactKey(args.runId, fileName);
+  const screenshot = await args.page.screenshot({
     fullPage: true,
-    path: absolutePath,
+  });
+  const storedObject = await putBlobObject({
+    body: Buffer.from(screenshot),
+    contentType: "image/png",
+    key: storageKey,
   });
 
   return createApplyRunArtifactRecord({
@@ -44,11 +40,12 @@ export async function persistApplyRunScreenshot(args: {
       artifactType: args.artifactType,
       contentType: "image/png",
       metadataJson: {
-        absolutePath,
         label: args.label,
+        sizeBytes: storedObject.sizeBytes,
+        storageDriver: storedObject.driver,
       },
       runId: args.runId,
-      storageKey: absolutePath,
+      storageKey,
     },
   });
 }
@@ -61,21 +58,24 @@ export async function persistApplyRunTextArtifact(args: {
   metadataJson?: Record<string, unknown>;
   runId: string;
 }) {
-  const absolutePath = buildArtifactPath(args.runId, args.fileName);
-
-  await ensureParentDirectory(absolutePath);
-  await fs.writeFile(absolutePath, args.content, "utf8");
+  const storageKey = buildArtifactKey(args.runId, args.fileName);
+  const storedObject = await putBlobObject({
+    body: Buffer.from(args.content, "utf8"),
+    contentType: args.contentType,
+    key: storageKey,
+  });
 
   return createApplyRunArtifactRecord({
     artifact: {
       artifactType: args.artifactType,
       contentType: args.contentType,
       metadataJson: {
-        absolutePath,
+        sizeBytes: storedObject.sizeBytes,
+        storageDriver: storedObject.driver,
         ...(args.metadataJson ?? {}),
       },
       runId: args.runId,
-      storageKey: absolutePath,
+      storageKey,
     },
   });
 }
@@ -101,7 +101,7 @@ export type PersistedApplyArtifact = ApplyRunArtifactDto;
 export async function cleanupExpiredApplyRunArtifacts(args?: {
   now?: Date;
 }) {
-  const rootDirectory = getAutonomousApplyArtifactsDirectory();
+  const rootDirectory = getBlobStorageRoot();
   const now = args?.now ?? new Date();
   const retentionMs = getAutonomousApplyArtifactRetentionHours() * 60 * 60 * 1000;
   const cutoffMs = now.getTime() - retentionMs;

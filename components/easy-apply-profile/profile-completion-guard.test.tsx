@@ -198,4 +198,48 @@ describe("ProfileCompletionGuard", () => {
     });
     expect(openSpy).not.toHaveBeenCalled();
   });
+
+  it("bypasses auth and profile gating when the caller explicitly skips the profile gate", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+    mockUseApplicationProfiles.mockReturnValue({
+      error: null,
+      isAuthenticated: false,
+      isLoading: false,
+      isSaving: false,
+      persisted: false,
+      profiles: {
+        greenhouse_profile: {},
+        stripe_profile: {},
+        workday_profile: {},
+      },
+      saveProfile: mockSaveProfile,
+      uploadResume: vi.fn(),
+      userKey: null,
+    });
+    mockGetMissingRequiredFieldKeys.mockReturnValue(["email"]);
+
+    render(
+      <ProfileCompletionGuard
+        applyUrl="https://boards.greenhouse.io/example/jobs/123"
+        companyName="Example"
+        jobTitle="Product Designer"
+        resolveApplyUrl={async () => "https://boards.greenhouse.io/example/jobs/123"}
+        schemaFamily="greenhouse"
+        skipProfileGate
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /apply/i }));
+
+    await waitFor(() => {
+      expect(openSpy).toHaveBeenCalledWith(
+        "https://boards.greenhouse.io/example/jobs/123",
+        "_blank",
+        "noopener,noreferrer",
+      );
+    });
+
+    expect(screen.queryByText("Fill this out once")).not.toBeInTheDocument();
+  });
 });

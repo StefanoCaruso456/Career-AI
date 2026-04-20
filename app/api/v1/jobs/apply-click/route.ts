@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import {
   createAutonomousApplyRun,
   isAutonomousApplyEnabled,
-  resolveWorkdayOnlyAutonomousApplyDecision,
+  resolveAutonomousApplyDecision,
 } from "@/packages/apply-domain/src";
 import { kickAutonomousApplyWorker } from "@/packages/apply-runtime/src";
 import { errorResponse, getCorrelationId, successResponse } from "@/packages/audit-security/src";
@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
     });
     const targetApplyUrl =
       payload.canonicalApplyUrl ?? job?.canonicalApplyUrl ?? job?.applyUrl ?? null;
-    const routingDecision = resolveWorkdayOnlyAutonomousApplyDecision({
+    const routingDecision = resolveAutonomousApplyDecision({
       autonomousApplyEnabled: isAutonomousApplyEnabled(),
+      applyTarget: job?.applyTarget ?? null,
       targetApplyUrl,
     });
 

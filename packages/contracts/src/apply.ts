@@ -84,8 +84,15 @@ export const autonomousApplyDiagnosticReasons = [
   "feature_flag_off",
   "unsupported_target_for_autonomous_mode",
   "queued_workday",
+  "queued_supported_target",
   "auth_missing",
   "profile_incomplete",
+] as const;
+
+export const applyTargetSupportStatuses = [
+  "supported",
+  "unsupported",
+  "unknown",
 ] as const;
 
 export const applyRunAlertableStates = [
@@ -100,6 +107,7 @@ export const applyAtsFamilySchema = z.enum(applyAtsFamilies);
 export const applyArtifactTypeSchema = z.enum(applyArtifactTypes);
 export const autonomousApplyDiagnosticReasonSchema = z.enum(autonomousApplyDiagnosticReasons);
 export const applyRunAlertableStateSchema = z.enum(applyRunAlertableStates);
+export const applyTargetSupportStatusSchema = z.enum(applyTargetSupportStatuses);
 
 const snapshotStringMapSchema = z.record(z.string(), z.unknown()).default({});
 const snapshotArraySchema = z.array(z.record(z.string(), z.unknown())).default([]);

@@ -12,6 +12,7 @@ const DEFAULT_RUN_TIMEOUT_MS = 180_000;
 const DEFAULT_ARTIFACT_RETENTION_HOURS = 72;
 const DEFAULT_STUCK_QUEUED_THRESHOLD_MINUTES = 20;
 const DEFAULT_STUCK_IN_PROGRESS_THRESHOLD_MINUTES = 45;
+const DEFAULT_WORKER_POLL_INTERVAL_MS = 5_000;
 
 function isTruthyEnv(value: string | undefined) {
   const normalized = value?.trim().toLowerCase();
@@ -33,6 +34,24 @@ export function isAutonomousApplyInlineWorkerEnabled() {
   return isTruthyEnv(configuredValue);
 }
 
+export function getAutonomousApplyWorkerMode() {
+  const configuredValue = process.env.AUTONOMOUS_APPLY_WORKER_MODE?.trim().toLowerCase();
+
+  if (configuredValue === "external") {
+    return "external" as const;
+  }
+
+  if (configuredValue === "disabled") {
+    return "disabled" as const;
+  }
+
+  if (configuredValue === "inline") {
+    return "inline" as const;
+  }
+
+  return isAutonomousApplyInlineWorkerEnabled() ? ("inline" as const) : ("external" as const);
+}
+
 export function getAutonomousApplyArtifactsDirectory() {
   return (
     process.env.AUTONOMOUS_APPLY_ARTIFACTS_DIR?.trim() ||
@@ -51,6 +70,13 @@ export function getAutonomousApplyWorkerBatchSize() {
   }
 
   return Math.min(rawValue, 10);
+}
+
+export function getAutonomousApplyWorkerPollIntervalMs() {
+  return readPositiveIntegerEnv(
+    process.env.AUTONOMOUS_APPLY_WORKER_POLL_INTERVAL_MS,
+    DEFAULT_WORKER_POLL_INTERVAL_MS,
+  );
 }
 
 function readPositiveIntegerEnv(value: string | undefined, fallback: number) {

@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
   kickAutonomousApplyWorker: vi.fn(),
   listApplyRunEventSummariesByRunIds: vi.fn(),
   listApplyRunsByUser: vi.fn(),
-  resolveWorkdayOnlyAutonomousApplyDecision: vi.fn(),
+  resolveAutonomousApplyDecision: vi.fn(),
 }));
 
 vi.mock("@/auth", () => ({
@@ -26,7 +26,7 @@ vi.mock("@/packages/apply-domain/src", () => ({
   getAutonomousApplyStuckQueuedThresholdMinutes:
     mocks.getAutonomousApplyStuckQueuedThresholdMinutes,
   isAutonomousApplyEnabled: mocks.isAutonomousApplyEnabled,
-  resolveWorkdayOnlyAutonomousApplyDecision: mocks.resolveWorkdayOnlyAutonomousApplyDecision,
+  resolveAutonomousApplyDecision: mocks.resolveAutonomousApplyDecision,
 }));
 
 vi.mock("@/packages/jobs-domain/src", () => ({
@@ -192,7 +192,7 @@ describe("POST /api/v1/apply-runs", () => {
   });
 
   it("returns open_external for non-Workday targets and does not queue a run", async () => {
-    mocks.resolveWorkdayOnlyAutonomousApplyDecision.mockReturnValue({
+    mocks.resolveAutonomousApplyDecision.mockReturnValue({
       action: "open_external",
       detection: {
         atsFamily: "greenhouse",
@@ -227,7 +227,7 @@ describe("POST /api/v1/apply-runs", () => {
   });
 
   it("queues Workday runs and starts the inline worker", async () => {
-    mocks.resolveWorkdayOnlyAutonomousApplyDecision.mockReturnValue({
+    mocks.resolveAutonomousApplyDecision.mockReturnValue({
       action: "queue_autonomous_apply",
       detection: {
         atsFamily: "workday",
@@ -235,7 +235,7 @@ describe("POST /api/v1/apply-runs", () => {
         fallbackStrategy: null,
         matchedRule: "workday_url_or_dom_signature",
       },
-      diagnosticReason: "queued_workday",
+      diagnosticReason: "queued_supported_target",
     });
     mocks.createAutonomousApplyRun.mockResolvedValue({
       deduped: false,
@@ -262,7 +262,7 @@ describe("POST /api/v1/apply-runs", () => {
       action: "queued",
       applyRunId: "apply_run_queued",
       diagnostic: {
-        diagnosticReason: "queued_workday",
+        diagnosticReason: "queued_supported_target",
       },
     });
     expect(mocks.kickAutonomousApplyWorker).toHaveBeenCalledTimes(1);

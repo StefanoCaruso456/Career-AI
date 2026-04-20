@@ -7,6 +7,7 @@ import type {
   JobValidationStatus,
   JobWorkplaceType,
 } from "@/packages/contracts/src";
+import { resolveJobApplyTarget } from "@/packages/apply-adapters/src";
 
 const STALE_JOB_THRESHOLD_DAYS = 45;
 const EXPIRED_JOB_THRESHOLD_DAYS = 90;
@@ -305,9 +306,14 @@ export function createEnrichedJobPosting(args: {
     updatedAt: args.updatedAt,
     workplaceType,
   });
+  const applyTarget = resolveJobApplyTarget({
+    canonicalApplyUrl,
+    orchestrationReadiness: validation.orchestrationReadiness,
+  });
 
   return {
     applyUrl: canonicalApplyUrl,
+    applyTarget,
     applicationPathType: validation.applicationPathType,
     canonicalApplyUrl,
     canonicalJobUrl: validation.canonicalJobUrl,
