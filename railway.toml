@@ -1,9 +1,8 @@
 [build]
-builder = "RAILPACK"
-buildCommand = "npm run build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.web"
 
 [deploy]
-startCommand = "npm run db:migrate && npm run start"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
