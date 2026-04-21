@@ -1,94 +1,70 @@
-# Autonomous Apply System (Current Workday-Only Reality)
+# Autonomous Apply System
 
-This document describes the production implementation as it exists today.
+Autonomous apply is a real subsystem in this repo. It is not limited to Workday anymore.
 
 ## Scope
 
-- autonomous apply is feature-flagged (`AUTONOMOUS_APPLY_ENABLED`)
-- autonomous submission is implemented end to end for Workday targets only
-- Greenhouse, Lever, and generic hosted forms are detected but not automated in this phase
-- non-Workday targets are gated to `open_external` before run creation
-- worker execution is inline/in-process with bounded concurrency
+- Feature flag: `AUTONOMOUS_APPLY_ENABLED`
+- Supported ATS families for queueable runs: `workday` and `greenhouse`
+- Unsupported families such as `lever`, `generic_hosted_form`, and unknown targets return `open_external`
+- Run creation requires Postgres-backed persistence
 
-## Routing And Gating
+Supported-target detection lives in `packages/apply-adapters/src/resolver.ts`.
 
-`/api/v1/jobs/apply-click` and `/api/v1/apply-runs` use explicit Workday-only routing:
+## Entry Points
 
-1. resolve target ATS family
-2. if feature flag off -> return `open_external` (`feature_flag_off`)
-3. if target is non-Workday -> return `open_external` (`unsupported_target_for_autonomous_mode`)
-4. if Workday + enabled -> queue autonomous apply run
+- `POST /api/v1/jobs/apply-click`
+- `POST /api/v1/apply-runs`
+- `GET /api/v1/apply-runs`
+- `GET /api/v1/apply-runs/[runId]`
 
-Diagnostic markers are emitted for:
-
-- `feature_flag_off`
-- `unsupported_target_for_autonomous_mode`
-- `auth_missing`
-- `profile_incomplete`
-- `queued_workday`
+The jobs page and account UI consume those routes for queueing and status visibility.
 
 ## Runtime Flow
 
 ```mermaid
 flowchart TD
-    A["Apply Click"] --> B["Workday-only gating"]
-    B -->|Workday + enabled| C["create apply_run (queued) + trace_id"]
-    B -->|non-Workday or flag off| X["open_external fallback"]
-    C --> D["inline worker claim queued run"]
-    D --> E["LangGraph deterministic nodes"]
-    E --> F["Workday adapter preflight"]
-    F --> G["open target + fill + upload + submit + confirm"]
-    G --> H["terminal status + events + artifacts + email"]
+  Click["Apply click or POST /api/v1/apply-runs"] --> Decide["resolveAutonomousApplyDecision"]
+  Decide -->|supported target| Queue["create apply_runs row + apply_run_events"]
+  Decide -->|unsupported target| External["return open_external"]
+  Queue --> Worker["worker loop claims queued run"]
+  Worker --> Graph["LangGraph apply runtime"]
+  Graph --> Adapter["Workday or Greenhouse adapter"]
+  Adapter --> Final["terminal status + events + artifacts + notifications"]
 ```
 
-## Workday Hardening Behaviors
+## Worker Modes
 
-- explicit login-required detection (`LOGIN_REQUIRED`)
-- explicit CAPTCHA detection (`CAPTCHA_ENCOUNTERED`)
-- deterministic required-field-unmapped handling (`REQUIRED_FIELD_UNMAPPED`)
-- deterministic document and upload failures (`REQUIRED_DOCUMENT_MISSING`, `FILE_UPLOAD_FAILED`)
-- explicit submit-blocked handling (`SUBMIT_BLOCKED`)
-- timeout classification across navigation/steps/submit/confirmation (`TIMEOUT`)
-- ambiguous post-submit confirmation is persisted as `submission_unconfirmed` with `SUBMISSION_NOT_CONFIRMED`
-- cleanup/error handling does not overwrite terminal truth
+- Default worker mode is effectively inline.
+- `scripts/run-autonomous-apply-worker.ts` can run the same polling loop out of the request path.
+- `AUTONOMOUS_APPLY_WORKER_MODE` accepts `inline`, `external`, or `disabled`.
+- External mode is only treated as queue-ready when shared S3 blob storage is configured. Without that, availability returns `external_worker_requires_shared_blob_storage`.
 
-## Status And Visibility
+## Persistence And Artifacts
 
-Authenticated status visibility is available through:
+Durable tables:
 
-- `GET /api/v1/apply-runs` (list + timeline summary + alertable state markers)
-- `GET /api/v1/apply-runs/:runId` (detail + full events timeline)
-- UI pages:
-  - `/account/apply-runs`
-  - `/account/apply-runs/:runId`
+- `apply_runs`
+- `apply_run_events`
+- profile snapshot records used by autonomous apply
 
-Alertable state markers:
+Artifacts are stored under `apply-runs/<runId>/...` through the autonomous-apply artifact helpers. Storage depends on the configured artifact/blob driver.
 
-- `stuck_queued`
-- `stuck_in_progress`
+## Adapters And Outcomes
 
-## Trace Correlation
+- The runtime currently registers `workdayApplyAdapter` and `greenhouseApplyAdapter`.
+- Expected terminal states include `submitted`, `failed`, `needs_attention`, and `submission_unconfirmed`.
+- Login and CAPTCHA issues are surfaced as attention-needed failures instead of silent retries.
 
-Every newly queued Workday run gets a `trace_id` generated at or before run creation.
+## Observability
 
-Correlation path:
+- Each run gets a `trace_id`.
+- `apply_runs.trace_id` and `apply_run_events.trace_id` carry that correlation.
+- LangSmith tracing is used by the autonomous-apply runtime when configured.
+- Status APIs derive `stuck_queued` and `stuck_in_progress` markers from environment-configured thresholds.
 
-1. API request/correlation metadata on `apply_runs.metadata_json`
-2. `apply_runs.trace_id`
-3. `apply_run_events.trace_id`
-4. LangSmith metadata and tags (`trace:<trace_id>`, `run:<run_id>`)
+## Current Limits
 
-## Worker Architecture Notes
-
-- current mode: inline worker, in-process
-- bounded with `AUTONOMOUS_APPLY_INLINE_WORKER_CONCURRENCY` (max 4)
-- batch cap via `AUTONOMOUS_APPLY_WORKER_BATCH_SIZE`
-- retry behavior is intentionally conservative in inline mode to avoid duplicate submissions
-- artifact retention cleanup hook is available and controlled via env
-
-## Deferred (Not In This Phase)
-
-- autonomous submission for Greenhouse
-- autonomous submission for Lever
-- autonomous submission for generic hosted forms
-- dedicated out-of-process worker architecture
+- There is no scheduler in this repo. The worker loop only runs when the app process or explicit worker script is running.
+- Unsupported ATS targets always fall back to `open_external`.
+- External worker mode is configuration-aware, but this repo does not contain a separate deployment target beyond the worker-loop script.
