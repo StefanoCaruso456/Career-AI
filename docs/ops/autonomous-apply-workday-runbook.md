@@ -1,18 +1,17 @@
-# Autonomous Apply Workday Ops Runbook
+# Autonomous Apply Ops Runbook
 
-This runbook is for limited production rollout of Workday-only autonomous apply.
+This runbook describes the autonomous-apply runtime that exists in the repo today.
 
-## Rollout Scope
+## Supported Targets
 
-- autonomous apply is enabled only for Workday targets
-- non-Workday targets must fall back to `open_external` and must not queue runs
-- worker runs inline/in-process with bounded concurrency
+- queueable ATS families: Workday and Greenhouse
+- unsupported ATS families: `open_external`
+- default execution mode: inline or worker-loop execution against the same app code
 
 ## Required Environment
 
-Minimum required:
-
 - `AUTONOMOUS_APPLY_ENABLED`
+- `AUTONOMOUS_APPLY_WORKER_MODE`
 - `AUTONOMOUS_APPLY_INLINE_WORKER_ENABLED`
 - `AUTONOMOUS_APPLY_INLINE_WORKER_CONCURRENCY`
 - `AUTONOMOUS_APPLY_WORKER_BATCH_SIZE`
@@ -28,26 +27,23 @@ Minimum required:
 - `AUTONOMOUS_APPLY_STUCK_IN_PROGRESS_MINUTES`
 - `DATABASE_URL`
 
-Tracing (recommended):
-
-- `LANGSMITH_API_KEY`
-- `AUTONOMOUS_APPLY_LANGSMITH_PROJECT`
+External worker mode also requires shared S3-backed artifact storage.
 
 ## Pre-Launch Checklist
 
-1. Apply DB migrations (`npm run db:migrate`).
-2. Confirm Workday-only gating in API responses:
-   - Workday target -> `action=queued`
-   - non-Workday target -> `action=open_external`
-3. Verify authenticated visibility endpoints:
+1. Run `npm run db:migrate`.
+2. Confirm supported-target routing:
+   - Workday or Greenhouse target -> `action=queued`
+   - unsupported target -> `action=open_external`
+3. Verify authenticated status routes:
    - `GET /api/v1/apply-runs`
    - `GET /api/v1/apply-runs/:runId`
-4. Confirm inline worker concurrency is explicitly set (start with `1`).
-5. Confirm terminal email notifications are enabled in the environment.
+4. Start with low concurrency.
+5. If using the separate worker loop, run `npm run worker:apply` or `npm run dev:apply-worker`.
 
 ## Runtime Verification
 
-## 1) Verify run creation and trace id
+### Run record
 
 ```sql
 SELECT id, status, terminal_state, trace_id, created_at, started_at, completed_at
@@ -57,10 +53,10 @@ WHERE id = '<apply_run_id>';
 
 Expected:
 
-- `trace_id` is non-null for newly queued Workday runs
-- initial status transitions out of `queued` after worker claim
+- `trace_id` is populated
+- queued runs move out of `queued` when the worker loop claims them
 
-## 2) Verify event timeline correlation
+### Event timeline
 
 ```sql
 SELECT run_id, trace_id, state, step_name, event_type, timestamp
@@ -71,24 +67,17 @@ ORDER BY timestamp ASC;
 
 Expected:
 
-- all events for the run carry the same `trace_id`
-- timeline includes preflight and runtime step events
+- every event keeps the same `trace_id`
+- timeline includes preflight and runtime transitions
 
-## 3) Verify LangSmith correlation
+### LangSmith correlation
 
-Search LangSmith traces by either:
+Search by either:
 
 - metadata `runId=<apply_run_id>`
 - tag `trace:<trace_id>`
 
-Expected:
-
-- trace metadata contains run/job/user fields
-- tags include both `run:<apply_run_id>` and `trace:<trace_id>`
-
 ## Stuck-Run Monitoring
-
-Use API/UI alertable markers (`stuck_queued`, `stuck_in_progress`) and/or DB checks:
 
 ```sql
 SELECT id, status, created_at, started_at, terminal_state
@@ -102,19 +91,17 @@ WHERE terminal_state IS NULL
 ORDER BY created_at ASC;
 ```
 
-Tune thresholds to match `AUTONOMOUS_APPLY_STUCK_QUEUED_MINUTES` and `AUTONOMOUS_APPLY_STUCK_IN_PROGRESS_MINUTES`.
+Tune the query to the environment values for `AUTONOMOUS_APPLY_STUCK_QUEUED_MINUTES` and `AUTONOMOUS_APPLY_STUCK_IN_PROGRESS_MINUTES`.
 
-## Inline Worker Limitations
+## Operational Notes
 
-- worker execution shares app process resources
-- no dedicated worker queue isolation in this phase
-- retries are intentionally conservative to reduce duplicate submission risk
-- roll out with low concurrency and increase only after stable observation
+- Inline mode shares resources with the main app process.
+- The worker-loop script runs the same runtime outside the request path; it is not a different codebase.
+- `AUTONOMOUS_APPLY_WORKER_MODE=external` is configuration-valid, but queue readiness fails without shared S3 storage.
 
 ## Rollback
 
 1. Set `AUTONOMOUS_APPLY_ENABLED=false`.
-2. Keep endpoints online; all apply clicks return `open_external`.
-3. Optionally set `AUTONOMOUS_APPLY_INLINE_WORKER_ENABLED=false` to stop processing new queued runs.
-4. Monitor existing in-progress runs until they reach terminal states.
-5. Re-enable only after root-cause fix and staged revalidation.
+2. Existing clicks fall back to `open_external`.
+3. If needed, stop the worker loop or set worker mode to `disabled`.
+4. Let in-flight runs settle before re-enabling.
