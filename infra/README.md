@@ -1,13 +1,10 @@
-# infra/ — Shared infrastructure primitives
+# Infrastructure
 
-Cross-cutting infrastructure used by multiple services. Kept private.
+`infra/` is mostly placeholder scaffolding in the current repo state.
 
-## Contents
+- `infra/db/`: placeholder
+- `infra/events/`: placeholder
+- `infra/kms/`: placeholder
+- `infra/railway/README.md`: notes about the checked-in Railway config files
 
-- [`kms/`](./kms) — Key management wrappers (AWS KMS or CloudHSM). Used by `issuer-service` (issuer signing keys), `wallet-service` (per-user encryption keys wrapped by passkey), and `identity-service` (DID key material).
-- [`events/`](./events) — Internal event bus contracts. Strongly-typed events shared across services. Career-AI subscribes to a subset via webhook delivery.
-- [`db/`](./db) — Shared persistence primitives (connection pools, migration runner conventions, base repositories). Services own their own schemas; this package holds only shared utilities.
-
-## Status
-
-Phase T0 — skeletons only. Implementations follow as services come online.
+There is no implemented shared infrastructure package under `infra/` today.

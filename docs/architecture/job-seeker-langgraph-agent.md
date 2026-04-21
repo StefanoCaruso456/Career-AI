@@ -1,219 +1,74 @@
 # Job Seeker LangGraph Agent
 
-## Architecture summary
+The job-seeker agent is a real LangGraph runtime used by `/api/chat` for job-seeker search flows. It does not power the internal or external agent endpoints.
 
-The Job Seeker chat path now uses a dedicated LangGraph runtime instead of the previous prompt-plus-heuristic shortcut. The runtime is responsible for:
+## Entry Point
 
-- observing the latest user request and recent conversation state
-- classifying intent explicitly
-- selecting an approved tool through a typed planning step
-- executing the tool through a narrow allowlist
-- evaluating result quality before responding
-- broadening once or twice when results are weak or empty
-- returning a grounded chat message plus a structured jobs rail payload
+- Route: `app/api/chat/route.ts`
+- Service: `packages/job-seeker-agent/src/service.ts`
+- Runtime: `packages/job-seeker-agent/src/runtime.ts`
 
-The implementation lives in `packages/job-seeker-agent/src` and is wired into `app/api/chat/route.ts` for the job seeker persona.
+`/api/chat` chooses the job-seeker agent when the active persona is job seeker and the message should go through the jobs-focused path. If that path is not selected, chat falls back to the homepage assistant or recruiter search behavior.
 
-## Graph nodes
+## Graph
 
-### `observe_context`
+The graph is bounded and synchronous:
 
-- normalizes the latest user query
-- finds the most recent prior jobs request in the conversation
-- initializes trace data
+1. `observe_context`
+2. `classify_intent`
+3. `plan_next_action`
+4. `execute_tool`
+5. `evaluate_tool_result`
+6. `fallback_or_clarify`
+7. `respond`
 
-### `classify_intent`
+`maxLoops` is `2`, so the agent can broaden or retry only a small number of times before it must respond.
 
-- uses deterministic heuristics first
-- falls back to a structured model classification when needed
-- emits one of:
-  - `job_search`
-  - `job_refinement`
-  - `profile_or_career_id`
-  - `application_help`
-  - `general_chat`
-  - `unsupported`
+## Query Routing
 
-### `plan_next_action`
+Before tool execution, the runtime classifies what kind of evidence it needs. The routing layer can choose between:
 
-- enforces tool use for `job_search` and `job_refinement`
-- loads Career ID context first when the user asks for profile-aligned jobs
-- normalizes the search request into structured filters
-- prepares typed tool arguments
+- internal platform job data
+- user-specific profile data
+- current external information
+- action workflow execution
+- static knowledge
 
-### `execute_tool`
+That distinction matters because the agent has both internal jobs tools and a live web-search tool.
 
-- calls one approved tool:
-  - `searchJobs`
-  - `getJobById`
-  - `findSimilarJobs`
-  - `getUserCareerProfile`
-- stores the raw and normalized tool result
+## Tools
 
-### `evaluate_tool_result`
+The current tool registry is:
 
-- scores the latest search result as `strong`, `acceptable`, `weak`, or `empty`
-- considers result count, top relevance score, title alignment, location alignment, and skill overlap
+- `browseLatestJobs`
+- `findSimilarJobs`
+- `getJobById`
+- `getUserCareerProfile`
+- `searchJobs`
+- `search_web`
 
-### `fallback_or_clarify`
+`search_web` is a real OpenAI Responses API tool call that uses `web_search_preview`. It is intended for current public-market information rather than the internal jobs catalog.
 
-- broadens safely when possible
-- asks a short targeted clarification when broadening would drift too far
-- never loops indefinitely
+## Models And Outputs
 
-### `respond`
+- Structured planning and response steps use `@langchain/openai` and `ChatOpenAI`.
+- The default web-search model comes from `JOB_SEEKER_AGENT_WEB_SEARCH_MODEL`.
+- The final response can return a `JobsPanelResponseDto` with grounded jobs cards and diagnostics.
+- The runtime also builds a `debugTrace` array for inspection.
 
-- produces the final grounded assistant text
-- returns a structured `jobsPanel` payload for the jobs rail when search results exist
-- keeps non-search requests off the jobs rail
+## Failure And Fallback Behavior
 
-## State schema
+- If a grounded external-search step fails when fresh public information is required, the route returns a grounded failure message instead of pretending the search succeeded.
+- If a jobs lookup fails on the agent path, `/api/chat` can fall back to deterministic jobs-panel search behavior.
+- If neither of those conditions applies, the route falls back to the homepage assistant.
 
-The LangGraph state tracks:
+## Observability
 
-- `messages`
-- `userQuery`
-- `normalizedQuery`
-- `intent`
-- `intentConfidence`
-- `extractedFilters`
-- `selectedTool`
-- `toolArgs`
-- `toolResult`
-- `normalizedToolResult`
-- `lastSearchResult`
-- `resultQuality`
-- `loopCount`
-- `maxLoops`
-- `shouldTerminate`
-- `terminationReason`
-- `responsePayload`
-- `debugTrace`
-- `profileContext`
-- `priorJobSearchQuery`
-- `conversationId`
-- `ownerId`
+- Top-level tracing span: `workflow.job_seeker_agent.run`
+- The graph keeps explicit state for intent, selected tool, tool args, tool output, result quality, termination reason, and response payload.
 
-This keeps execution inspectable and debuggable across the full job-search loop.
+## Current Limits
 
-## Routing and edge logic
-
-- `START -> observe_context -> classify_intent -> plan_next_action`
-- `plan_next_action -> execute_tool` when a tool is selected
-- `plan_next_action -> respond` when no tool is needed
-- `execute_tool -> plan_next_action` after `getUserCareerProfile`
-- `execute_tool -> evaluate_tool_result` after search-style tools
-- `execute_tool -> respond` on unrecoverable tool failure
-- `evaluate_tool_result -> respond` for `strong`, `acceptable`, or max-loop termination
-- `evaluate_tool_result -> fallback_or_clarify` for `weak` or `empty`
-- `fallback_or_clarify -> execute_tool` after safe broadening
-- `fallback_or_clarify -> respond` when clarification is required
-
-## Loop strategy
-
-- `maxLoops = 2`
-- initial search attempt is followed by up to two bounded refinements
-- broadening is deterministic:
-  - relax conflicting location + remote constraints
-  - relax seniority
-  - trim skill constraints
-  - clear explicit company filters
-  - broaden narrow role families when safe
-
-If no safe broadening remains, the agent asks a short clarification instead of drifting.
-
-## Tool selection strategy
-
-### `searchJobs`
-
-- default tool for `job_search`
-- default tool for `job_refinement`
-- consumes structured filters instead of raw prompt text only
-
-### `getUserCareerProfile`
-
-- called first for profile-aligned prompts such as:
-  - `find jobs aligned with my background`
-  - `find jobs for me`
-
-### `getJobById`
-
-- available for job-detail lookups
-
-### `findSimilarJobs`
-
-- available for “more like this job” flows
-
-## Prompt wiring
-
-The runtime system prompt from the implementation brief is stored in:
-
-- `packages/job-seeker-agent/src/prompts.ts`
-
-That prompt is reused for:
-
-- intent classification
-- planning / tool selection
-- grounded response composition
-- non-search general responses
-
-## UI output contract
-
-The jobs rail now receives richer grounded data through `JobsPanelResponseDto`:
-
-- `assistantMessage`
-- `agent`
-  - intent
-  - confidence
-  - selected tool
-  - result quality
-  - loop count
-  - termination reason
-- `debugTrace`
-- `query`
-- `jobs`
-- `rail.cards`
-  - `jobId`
-  - `title`
-  - `company`
-  - `location`
-  - `workplaceType`
-  - `salaryText`
-  - `applyUrl`
-  - `summary`
-  - `matchReason`
-  - `relevanceScore`
-
-The job seeker rail now renders the match reason and job metadata instead of only title and company.
-
-## Observability and logging
-
-Each run accumulates a `debugTrace` array with:
-
-- `step`
-- `summary`
-- `timestamp`
-- structured `data`
-
-The trace captures:
-
-- normalized user query
-- intent decision
-- selected tool
-- tool result counts
-- result quality
-- loop count
-- termination reason
-
-This trace is returned in the jobs panel payload for inspection and future logging sinks.
-
-## Current limitations
-
-- `findSimilarJobs` and `getJobById` are implemented as foundations, but the highest-confidence path remains `searchJobs`
-- clarification handling is intentionally narrow and deterministic, not freeform
-- broadening heuristics are safe but still conservative
-- the underlying retrieval tool still uses the current jobs-domain matching logic; deeper retrieval/ranking improvements should happen inside `searchJobs` next
-
-## Recommended next step
-
-Implement the dedicated `searchJobs` retrieval layer over the full live jobs inventory so the LangGraph runtime can call a stronger ranking engine without changing the orchestration contract. The current graph, tool interfaces, UI payload, and debug trace are already shaped for that plug-in upgrade.
+- The runtime is request-scoped. There is no background worker, queue, or autonomous continuation.
+- `maxLoops=2` keeps broadening conservative.
+- The agent only handles the job-seeker chat path; recruiter search and verifier flows live elsewhere.

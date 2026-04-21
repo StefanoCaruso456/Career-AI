@@ -1,31 +1,23 @@
 # Documentation Index
 
-## Product
+This index only includes docs that were reconciled against the current repository state.
 
-- [Agent Identity Platform PRD](./product/agent-identity-platform-prd.md)
+## System
 
-## Planning
+- [Current-state system architecture](./architecture/current-state-agent-platform.md)
+- [Truth audit summary](./architecture/truth-audit-summary.md)
 
-- [Agent Delivery Roadmap](./planning/agent-delivery-roadmap.md)
+## Agent And Search Runtime
 
-## Architecture
+- [Job seeker LangGraph agent](./architecture/job-seeker-langgraph-agent.md)
+- [Job search retrieval](./architecture/job-search-retrieval.md)
+- [A2A and internal agent boundary](./full-a2a-protocol.md)
 
-- [Autonomous Apply System](./architecture/autonomous-apply-system.md)
-- [Current-State Agent Platform](./architecture/current-state-agent-platform.md)
-- [Development Spec for Isolated Dev Agents](./architecture/talent-agent-id-development-spec.md)
-- [Memory Architecture](./memory-architecture.md)
-- [Memory Taxonomy](./memory-taxonomy.md)
-- [Memory Write Policy](./memory-write-policy.md)
-- [Memory Retrieval Policy](./memory-retrieval-policy.md)
-- [Memory Test Plan](./memory-test-plan.md)
+## Chat And Apply
 
-## Ops
+- [Chat persistence and checkpoints](./architecture/chat-persistence-memory-checkpoints.md)
+- [Chat attachments](./chat-attachments.md)
+- [Autonomous apply system](./architecture/autonomous-apply-system.md)
+- [Autonomous apply ops runbook](./ops/autonomous-apply-workday-runbook.md)
 
-- [Autonomous Apply Workday Ops Runbook](./ops/autonomous-apply-workday-runbook.md)
-
-## Recommended next docs
-
-- Domain model and event taxonomy
-- API and permissions specification
-- Verification operations playbook
-- Recruiter and candidate UX flows
+Legacy planning, PRD, memory-taxonomy, and pre-merge ledger docs were removed because they did not describe the current codebase.

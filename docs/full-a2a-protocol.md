@@ -1,26 +1,69 @@
-# Full A2A Protocol
+# A2A And Internal Agent Boundary
 
-## Employer to Recruiter flow
+The repo exposes both internal agent endpoints and external A2A-compatible endpoints. They share the same underlying agent definitions and tool allowlists, but their auth and protocol envelopes differ.
 
-The employer candidate-search route now emits a protocol-grade A2A envelope and dispatches through the recruiter A2A handler used by `/api/a2a/agents/recruiter`. The outbound gateway sender is `careerai.gateway.employer_search`, the receiver is `careerai.agent.recruiter`, and the same `messageId`, `requestId`, `traceId`, and run lineage are written to tracing spans and durable protocol tables.
+## Internal Agent Endpoints
 
-## Durable protocol records
+- `POST /api/internal/agents/candidate`
+- `POST /api/internal/agents/recruiter`
+- `POST /api/internal/agents/verifier`
 
-The runtime now persists:
+Internal endpoints:
+
+- require `internal_service_bearer` auth
+- reserve per-route quota
+- build an `AgentContext` and `RunContext`
+- call `generateHomepageAssistantReplyDetailed(..., { runtimeMode: "bounded_loop" })`
+- filter the shared tool registry to the route’s allowed tools
+
+## External A2A Endpoints
+
+- `GET /api/a2a/agents`
+- `GET /api/a2a/agents/[agentType]/card`
+- `POST /api/a2a/agents/candidate`
+- `POST /api/a2a/agents/recruiter`
+- `POST /api/a2a/agents/verifier`
+
+External endpoints:
+
+- are disabled unless `EXTERNAL_A2A_ENABLED=true`
+- require bearer tokens described by `EXTERNAL_AGENT_AUTH_TOKENS`
+- validate sender identity against the requested target agent
+- emit A2A protocol lifecycle events
+
+## Shared Registry
+
+The internal registry in `lib/internal-agents/registry.ts` is the source of truth. The external registry is derived from it in `lib/a2a/registry.ts`.
+
+Defined agent types:
+
+- candidate
+- recruiter
+- verifier
+
+Allowed tool sets:
+
+- candidate: `search_jobs`, `get_career_id_summary`, `get_claim_details`, `get_verification_record`, `list_provenance_records`
+- recruiter: candidate tools plus `search_candidates`
+- verifier: `get_claim_details`, `get_verification_record`, `list_provenance_records`, `get_career_id_summary`
+
+## Protocol Persistence
+
+When `DATABASE_URL` is configured, A2A protocol state is persisted to:
 
 - `agent_messages`
 - `agent_runs`
 - `agent_handoffs`
 - `agent_task_events`
 
-These records store sender and receiver identities, request and message IDs, trace correlation, run lineage, lifecycle status, handoff metadata, and span names.
+Those writes are performed by `lib/a2a/protocol-runtime.ts` through `packages/persistence/src/agent-protocol-repository.ts`.
 
-## Lifecycle and tracing
+When the database is not configured, the routes still execute, but protocol persistence is skipped.
 
-The recruiter A2A flow emits and persists:
+## Lifecycle Events
 
-- `a2a.message.created`
-- `a2a.message.sent`
+The external A2A routes emit protocol events such as:
+
 - `a2a.message.received`
 - `a2a.task.accepted`
 - `a2a.task.running`
@@ -28,21 +71,23 @@ The recruiter A2A flow emits and persists:
 - `a2a.task.failed`
 - `a2a.response.sent`
 
-Each span and persisted record carries the protocol identifiers needed to reconstruct the flow:
+The recruiter product-search route also emits A2A-style handoff and protocol events when it delegates to the recruiter boundary in-process.
 
-- `messageId`
-- `requestId`
-- `runId`
-- `parentRunId`
-- `traceId`
-- `senderAgentId`
-- `receiverAgentId`
+## Recruiter Special Case
 
-## Inspection endpoints
+The recruiter agent supports two operations:
 
-Admin inspection routes are available at:
+- `respond`: bounded-loop homepage-assistant execution with recruiter-safe tools
+- `candidate_search`: direct `searchEmployerCandidates` execution
 
-- `GET /api/v1/admin/a2a/messages/:messageId`
-- `GET /api/v1/admin/a2a/runs/:runId`
-- `GET /api/v1/admin/a2a/handoffs?parentRunId=:runId`
-- `GET /api/v1/admin/a2a/requests/:requestId/events`
+That means not every A2A request is an LLM/tool loop.
+
+## W3C Presentation Context
+
+Verifier routes can accept W3C presentation envelope metadata and summarize it through `defaultW3CPresentationAdapter`. The summary is advisory context for the verifier agent, not proof that external verification has already happened.
+
+## Current Limits
+
+- There is no general asynchronous broker or cross-agent workflow engine.
+- The product search handoff invokes the recruiter A2A handler in-process; it does not make a network hop to itself.
+- Internal and external agent routes are request/response endpoints, not durable autonomous workers.
