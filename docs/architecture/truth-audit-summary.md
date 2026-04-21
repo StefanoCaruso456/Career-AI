@@ -12,6 +12,7 @@ This audit reconciled repository docs against the code as of the current branch 
 - Corrected autonomous-apply docs from Workday-only language to the current code path, which supports Workday and Greenhouse adapters and multiple worker modes.
 - Corrected A2A docs to match the real protocol persistence tables, auth model, and recruiter special-case dispatch.
 - Replaced stale service and infrastructure README content that described unimplemented services or placeholder shared infrastructure as if they were active deployables.
+- Deleted stale planning, PRD, memory-taxonomy, pre-merge ledger, and draft-spec docs that described systems or repo boundaries not present in the current codebase.
 
 ## Partial, Scaffolded, Or Nonfunctional Areas
 

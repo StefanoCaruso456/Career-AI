@@ -20,4 +20,4 @@ This index only includes docs that were reconciled against the current repositor
 - [Autonomous apply system](./architecture/autonomous-apply-system.md)
 - [Autonomous apply ops runbook](./ops/autonomous-apply-workday-runbook.md)
 
-Historical planning, ledger, memory-taxonomy, and PRD-style docs remain in the repository for reference, but they are not the current source of truth for the implemented codebase.
+Legacy planning, PRD, memory-taxonomy, and pre-merge ledger docs were removed because they did not describe the current codebase.
